@@ -1,12 +1,12 @@
 {
-  "cases": 405,
-  "cases_at_court_next_conference": 47,
+  "cases": 409,
+  "cases_at_court_next_conference": 24,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
-  "court_next_conference": "2026-11-13",
+  "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 368,
+      "cases": 372,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1213,
+  "current_reads": 1225,
   "declared_no_view": 28,
   "frozen_process": {
     "digests": [
@@ -346,7 +346,7 @@
     ]
   },
   "median_adjacent_gap": 0.0017,
-  "median_score_range": 0.2,
+  "median_score_range": 0.19,
   "missing_reads": 9,
   "predictors": [
     "claude-baseline",
@@ -1926,221 +1926,6 @@
       "status": "pending"
     },
     {
-      "asking_declined": "short_form",
-      "asking_party": null,
-      "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al.",
-      "caption_event_id": "evt-order-relist-disposition",
-      "case_id": "scotus/9026000239",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Validity of a presidential proclamation suspending asylum access at the southern border, plus recurring 1252(f)(1) and class-certification remedial questions; nationwide policy stakes.",
-          "big_case_score": 0.88,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        },
-        {
-          "big_case_rationale": "The petition concerns nationwide access to asylum, presidential power over border entry and removal, and the availability of classwide judicial relief against federal immigration policy.",
-          "big_case_score": 0.94,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        },
-        {
-          "big_case_rationale": "High-profile separation-of-powers and immigration challenge to Presidential Proclamation 10,888's southern-border asylum suspension, alongside post-CASA Rule 23(b)(2) class certification and 8 U.S.C. 1252(f)(1) remedial limits.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261109T171058Z"
-        }
-      ],
-      "docket_id": 9026000239,
-      "docket_number": "26-239",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-239.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-relist-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Validity of a presidential proclamation suspending asylum access at the southern border, plus recurring 1252(f)(1) and class-certification remedial questions; nationwide policy stakes.",
-              "big_case_score": 0.88,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.9,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "The petition concerns nationwide access to asylum, presidential power over border entry and removal, and the availability of classwide judicial relief against federal immigration policy.",
-              "big_case_score": 0.94,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.9,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "High-profile separation-of-powers and immigration challenge to Presidential Proclamation 10,888's southern-border asylum suspension, alongside post-CASA Rule 23(b)(2) class certification and 8 U.S.C. 1252(f)(1) remedial limits.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The legality of Proclamation 10,888's suspension of entry and asylum access at the southern border \u2014 the administration's flagship immigration policy \u2014 plus 1252(f)(1) classwide-relief and Rule 23 questions; a blockbuster whatever the Court does.",
-              "big_case_score": 0.97,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
-              "confidence": 0.85,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.92,
-              "run_id": "20260824T231410Z"
-            },
-            {
-              "big_case_rationale": "The case tests presidential control of the southern border, access to asylum, and nationwide class relief affecting a central federal policy.",
-              "big_case_score": 0.98,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
-              "confidence": 0.82,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.92,
-              "run_id": "20260824T231410Z"
-            },
-            {
-              "big_case_rationale": "Major challenge to a presidential proclamation suspending immigration and asylum access.",
-              "big_case_score": 1.0,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.98,
-              "run_id": "20260825T052918Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Lawfulness of a presidential proclamation suspending entry and cutting off asylum access at the southern border, with universal classwide relief: a cornerstone immigration policy and a major 1182(f)/asylum-statute question.",
-              "big_case_score": 0.92,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
-              "confidence": 0.75,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.86,
-              "run_id": "20261013T143156Z"
-            },
-            {
-              "big_case_rationale": "Nationwide access to asylum, the limits of presidential immigration authority, and classwide remedies make this exceptionally consequential independent of the likelihood of review.",
-              "big_case_score": 0.94,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.86,
-              "run_id": "20261013T143156Z"
-            },
-            {
-              "big_case_rationale": "Challenges a major Presidential Proclamation on asylum, involves classwide relief, and is petitioned by the Solicitor General.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20261013T143156Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.9067,
-      "moment": "evt-order-relist-disposition",
-      "moment_opened_at": "2026-11-09",
-      "n": 3,
-      "other_party": null,
-      "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.94,
-      "score_min": 0.88,
-      "score_range": 0.06,
-      "short_caption": null,
-      "status": "pending"
-    },
-    {
       "asking_declined": null,
       "asking_party": "Apple",
       "caption": "Apple Inc. v. Epic Games, Inc.",
@@ -2267,6 +2052,263 @@
       "score_range": 0.0,
       "short_caption": "Apple v. Epic Games",
       "status": "pending"
+    },
+    {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/9026000239",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Decides whether a President may shut off asylum at the southern border by proclamation under 8 U.S.C. 1182(f), plus the reach of the INA's bar on classwide injunctions; a flagship immigration and executive-power case.",
+          "big_case_score": 0.9,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261113T214525Z"
+        },
+        {
+          "big_case_rationale": "The case tests nationwide asylum restrictions and the boundary between presidential border authority and Congress's mandatory immigration protections.",
+          "big_case_score": 0.94,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261113T214525Z"
+        },
+        {
+          "big_case_rationale": "High-stakes test of whether a Section 1182(f) Presidential proclamation can foreclose statutory asylum across the southern border for entrants on U.S. soil and whether Section 1252(f)(1) bars classwide injunctions against it.",
+          "big_case_score": 0.86,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261113T214525Z"
+        }
+      ],
+      "docket_id": 9026000239,
+      "docket_number": "26-239",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-239.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Decides whether a President may shut off asylum at the southern border by proclamation under 8 U.S.C. 1182(f), plus the reach of the INA's bar on classwide injunctions; a flagship immigration and executive-power case.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-order-judgment/predictions/claude-baseline/20261113T214525Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-judgment/predictions/claude-baseline/20261113T214525Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.83,
+              "run_id": "20261113T214525Z"
+            },
+            {
+              "big_case_rationale": "The case tests nationwide asylum restrictions and the boundary between presidential border authority and Congress's mandatory immigration protections.",
+              "big_case_score": 0.94,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-order-judgment/predictions/codex-baseline/20261113T214525Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-judgment/predictions/codex-baseline/20261113T214525Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.76,
+              "run_id": "20261113T214525Z"
+            },
+            {
+              "big_case_rationale": "High-stakes test of whether a Section 1182(f) Presidential proclamation can foreclose statutory asylum across the southern border for entrants on U.S. soil and whether Section 1252(f)(1) bars classwide injunctions against it.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-order-judgment/predictions/gemini-baseline/20261113T214525Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-judgment/predictions/gemini-baseline/20261113T214525Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.84,
+              "run_id": "20261113T214525Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Validity of a presidential proclamation suspending asylum access at the southern border, plus recurring 1252(f)(1) and class-certification remedial questions; nationwide policy stakes.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.9,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "The petition concerns nationwide access to asylum, presidential power over border entry and removal, and the availability of classwide judicial relief against federal immigration policy.",
+              "big_case_score": 0.94,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.9,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "High-profile separation-of-powers and immigration challenge to Presidential Proclamation 10,888's southern-border asylum suspension, alongside post-CASA Rule 23(b)(2) class certification and 8 U.S.C. 1252(f)(1) remedial limits.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261109T171058Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The legality of Proclamation 10,888's suspension of entry and asylum access at the southern border \u2014 the administration's flagship immigration policy \u2014 plus 1252(f)(1) classwide-relief and Rule 23 questions; a blockbuster whatever the Court does.",
+              "big_case_score": 0.97,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260824T231410Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.92,
+              "run_id": "20260824T231410Z"
+            },
+            {
+              "big_case_rationale": "The case tests presidential control of the southern border, access to asylum, and nationwide class relief affecting a central federal policy.",
+              "big_case_score": 0.98,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260824T231410Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.92,
+              "run_id": "20260824T231410Z"
+            },
+            {
+              "big_case_rationale": "Major challenge to a presidential proclamation suspending immigration and asylum access.",
+              "big_case_score": 1.0,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260825T052918Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.98,
+              "run_id": "20260825T052918Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Lawfulness of a presidential proclamation suspending entry and cutting off asylum access at the southern border, with universal classwide relief: a cornerstone immigration policy and a major 1182(f)/asylum-statute question.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/claude-baseline/20261013T143156Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20261013T143156Z"
+            },
+            {
+              "big_case_rationale": "Nationwide access to asylum, the limits of presidential immigration authority, and classwide remedies make this exceptionally consequential independent of the likelihood of review.",
+              "big_case_score": 0.94,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/codex-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261013T143156Z"
+            },
+            {
+              "big_case_rationale": "Challenges a major Presidential Proclamation on asylum, involves classwide relief, and is petitioned by the Solicitor General.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000239/events/evt-petition-disposition/predictions/gemini-baseline/20261013T143156Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20261013T143156Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.9,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-11-13",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.94,
+      "score_min": 0.86,
+      "score_range": 0.08,
+      "short_caption": null,
+      "status": "partly_resolved"
     },
     {
       "asking_declined": null,
@@ -3983,16 +4025,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.8,
       "score_range": 0.1,
@@ -4453,16 +4487,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.78,
       "score_range": 0.12,
@@ -4807,16 +4833,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.78,
       "score_range": 0.16,
@@ -5219,16 +5237,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
       "score_range": 0.15,
@@ -5921,16 +5931,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.88,
       "score_min": 0.7,
       "score_range": 0.18,
@@ -7240,16 +7242,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.72,
       "score_range": 0.14,
@@ -7828,16 +7822,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.84,
       "score_min": 0.72,
       "score_range": 0.12,
@@ -8940,16 +8926,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.7,
       "score_range": 0.12,
@@ -9738,16 +9716,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.6,
       "score_range": 0.26,
@@ -11970,16 +11940,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.6,
       "score_range": 0.22,
@@ -12526,16 +12488,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.6,
       "score_range": 0.18,
@@ -13039,18 +12993,11 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-13",
-          "kind": "conference"
-        },
-        {
           "date": "2026-11-30",
           "kind": "response_due"
         }
       ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.6,
       "score_range": 0.18,
@@ -13844,8 +13791,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.73,
       "score_min": 0.6,
       "score_range": 0.13,
@@ -14298,16 +14253,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.76,
       "score_min": 0.62,
       "score_range": 0.14,
@@ -14542,16 +14489,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.62,
       "score_range": 0.16,
@@ -15856,16 +15795,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.55,
       "score_range": 0.17,
@@ -16986,16 +16917,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.45,
       "score_range": 0.33,
@@ -17516,16 +17439,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -19829,16 +19744,8 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.5,
       "score_range": 0.2,
@@ -20123,16 +20030,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.55,
       "score_range": 0.13,
@@ -20930,6 +20829,179 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Alaska Policy Forum",
+      "caption": "Alaska Policy Forum v. Alaska Public Offices Commission, et al.",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000088",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First Amendment donor-disclosure and issue-advocacy line for nonprofits speaking on ballot-measure topics; heavy cert-stage amicus interest, but a state-law, somewhat fact-bound vehicle.",
+          "big_case_score": 0.5,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        },
+        {
+          "big_case_rationale": "Potentially important nationwide limits on donor disclosure and compelled identification in nonprofit issue advocacy, beyond the underlying Alaska ballot-measure dispute.",
+          "big_case_score": 0.68,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        },
+        {
+          "big_case_rationale": "A merits decision clarifying the constitutional line between 501(c)(3) issue speech and regulable ballot-measure advocacy, or requiring donor earmarking and striking down on-communication donor disclaimers under AFPF v. Bonta, would reshape state and local campaign-finance regimes nationwide, though superseded 2020 Alaska statutory provisions could narrow any ruling.",
+          "big_case_score": 0.62,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        }
+      ],
+      "docket_id": 9026000088,
+      "docket_number": "26-88",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-88.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "First Amendment donor-disclosure and issue-advocacy line for nonprofits speaking on ballot-measure topics; heavy cert-stage amicus interest, but a state-law, somewhat fact-bound vehicle.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000088/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000088/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.16,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "Potentially important nationwide limits on donor disclosure and compelled identification in nonprofit issue advocacy, beyond the underlying Alaska ballot-measure dispute.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/9026000088/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000088/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "A merits decision clarifying the constitutional line between 501(c)(3) issue speech and regulable ballot-measure advocacy, or requiring donor earmarking and striking down on-communication donor disclaimers under AFPF v. Bonta, would reshape state and local campaign-finance regimes nationwide, though superseded 2020 Alaska statutory provisions could narrow any ruling.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000088/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000088/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.11,
+              "run_id": "20261114T011216Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Alaska Policy Forum v. Alaska Public Offices Commission, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "First Amendment donor-disclosure and issue-speech line for nonprofits around ballot measures; 16 cert-stage amicus briefs signal wide interest among advocacy groups, though the dispute itself is a small state enforcement matter.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000088/events/evt-petition-disposition/predictions/claude-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000088/events/evt-petition-disposition/predictions/claude-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.11,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "Potential nationwide consequences for nonprofit issue advocacy, donor privacy, and campaign-finance disclaimers, though the dispute arises from a particular state's ballot-measure rules.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000088/events/evt-petition-disposition/predictions/codex-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000088/events/evt-petition-disposition/predictions/codex-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.26,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, a ruling redefining the First Amendment boundary between issue speech and campaign advocacy or subjecting on-communication donor disclaimers and low-threshold ballot-measure disclosures to stricter tailoring after AFPF v. Bonta would reshape state campaign-finance regulation and nonprofit advocacy nationwide.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/9026000088/events/evt-petition-disposition/predictions/gemini-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000088/events/evt-petition-disposition/predictions/gemini-baseline/20261114T033825Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.11,
+              "run_id": "20261114T033825Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Alaska Policy Forum v. Alaska Public Offices Commission, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-08-31",
+      "n": 3,
+      "other_party": "Alaska Public Offices Commission",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Alaska Policy Forum's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Alaska Policy Forum's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-11-30",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.68,
+      "score_min": 0.5,
+      "score_range": 0.18,
+      "short_caption": "Alaska Policy Forum v. Alaska Public Offices Commission",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Mohan",
       "caption": "Brij Mohan, et al. v. Jordan Watkins",
       "caption_event_id": "evt-petition-disposition",
@@ -21381,18 +21453,11 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-13",
-          "kind": "conference"
-        },
-        {
           "date": "2026-12-07",
           "kind": "response_due"
         }
       ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.5,
       "score_range": 0.14,
@@ -21627,12 +21692,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-30",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.25,
@@ -21739,16 +21799,8 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.55,
       "score_range": 0.09,
@@ -22108,282 +22160,6 @@
       "score_range": 0.3,
       "short_caption": "Garcia v. Hobbs",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Robinhood Markets",
-      "caption": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al.",
-      "caption_event_id": "evt-order-relist-disposition",
-      "case_id": "scotus/73280982",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Recurring Securities Act Section 11 omissions question with heavy IPO-litigation stakes and SEC/Chamber/SIFMA interest, but technical and unlikely to draw broad public attention.",
-          "big_case_score": 0.45,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261109T212928Z"
-        },
-        {
-          "big_case_rationale": "Nationally significant rules for IPO disclosures and securities litigation, but a technical statutory dispute rather than a broad constitutional or economy-wide regulatory challenge.",
-          "big_case_score": 0.62,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261109T212928Z"
-        },
-        {
-          "big_case_rationale": "Significant federal securities-law case on intra-quarter disclosure duties in IPO registration statements under Section 11(a) and Item 303, featuring SEC/SG participation and broad capital-markets impact.",
-          "big_case_score": 0.65,
-          "event_id": "evt-order-relist-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261109T212928Z"
-        }
-      ],
-      "docket_id": 73280982,
-      "docket_number": "25-944",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-944.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-sg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Section 11 misleading-omissions standard for interim financial data affects every IPO and the SEC periodic-reporting regime; important to securities bar and issuers, but technical and low public salience.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/claude-baseline/20261026T092709Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/claude-baseline/20261026T092709Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted-in-part",
-              "predictor_id": "claude-baseline",
-              "probability": 0.8,
-              "run_id": "20261026T092709Z"
-            },
-            {
-              "big_case_rationale": "A consequential nationwide securities-disclosure and IPO-liability question affecting issuers and investors, but a technical statutory dispute rather than a broad constitutional or public-policy watershed.",
-              "big_case_score": 0.64,
-              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/codex-baseline/20261026T092709Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/codex-baseline/20261026T092709Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted-in-part",
-              "predictor_id": "codex-baseline",
-              "probability": 0.84,
-              "run_id": "20261026T092709Z"
-            },
-            {
-              "big_case_rationale": "Significant securities-law question under Section 11(a) of the Securities Act of 1933 governing IPO disclosure obligations for interim financial data, backed by the Solicitor General, SEC, and major industry amici.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261026T092709Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261026T092709Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.78,
-              "run_id": "20261026T092709Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-cvsg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A Section 11 / Item 303 ruling on whether IPO issuers must disclose intra-quarter financial data would reshape offering-disclosure practice and the pleading of Securities Act class actions in the circuit that hears most of them; large for securities law and issuers, modest for the general public.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "confidence": 0.45,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.52,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "The questions could materially affect nationwide IPO disclosure duties and securities-litigation exposure for issuers and underwriters, but concern technical disclosure standards rather than a broad constitutional or governmental power.",
-              "big_case_score": 0.64,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.44,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "High-profile securities litigation involving Robinhood and major amicus support regarding the SEC's periodic reporting regime.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.55,
-              "run_id": "20260918T174135Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-relist-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Recurring Securities Act Section 11 omissions question with heavy IPO-litigation stakes and SEC/Chamber/SIFMA interest, but technical and unlikely to draw broad public attention.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted-in-part",
-              "predictor_id": "claude-baseline",
-              "probability": 0.84,
-              "run_id": "20261109T212928Z"
-            },
-            {
-              "big_case_rationale": "Nationally significant rules for IPO disclosures and securities litigation, but a technical statutory dispute rather than a broad constitutional or economy-wide regulatory challenge.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted-in-part",
-              "predictor_id": "codex-baseline",
-              "probability": 0.79,
-              "run_id": "20261109T212928Z"
-            },
-            {
-              "big_case_rationale": "Significant federal securities-law case on intra-quarter disclosure duties in IPO registration statements under Section 11(a) and Item 303, featuring SEC/SG participation and broad capital-markets impact.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T212928Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T212928Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.62,
-              "run_id": "20261109T212928Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Section 11 strict-liability scope for interim financial data touches every IPO and periodic filing; SEC, Chamber/SIFMA engaged, but the question is technical securities doctrine rather than a headline constitutional issue.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted-in-part",
-              "predictor_id": "claude-baseline",
-              "probability": 0.72,
-              "run_id": "20261026T092709Z"
-            },
-            {
-              "big_case_rationale": "The scope of Section 11 omission liability affects IPO disclosures and securities litigation nationwide; this is consequential commercial law rather than a broad constitutional controversy.",
-              "big_case_score": 0.64,
-              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted-in-part",
-              "predictor_id": "codex-baseline",
-              "probability": 0.82,
-              "run_id": "20261026T092709Z"
-            },
-            {
-              "big_case_rationale": "Major Securities Act Section 11(a) case on IPO disclosure of intra-quarter financial data following Macquarie, affecting public offerings across capital markets without raising constitutional questions.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
-              "confidence": 0.78,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.78,
-              "run_id": "20261026T092709Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5733,
-      "moment": "evt-order-relist-disposition",
-      "moment_opened_at": "2026-11-09",
-      "n": 3,
-      "other_party": "Sodha",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Robinhood Markets' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Robinhood Markets' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.65,
-      "score_min": 0.45,
-      "score_range": 0.2,
-      "short_caption": "Robinhood Markets v. Sodha",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -25217,16 +24993,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.35,
       "score_range": 0.35,
@@ -27676,16 +27444,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.35,
       "score_range": 0.29,
@@ -28406,16 +28166,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.63,
       "score_min": 0.42,
       "score_range": 0.21,
@@ -29342,16 +29094,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.45,
       "score_range": 0.12,
@@ -29586,16 +29330,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.3,
       "score_range": 0.32,
@@ -29942,6 +29678,329 @@
       "score_range": 0.23,
       "short_caption": "Aldridge v. Regions Bank",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Robinhood Markets",
+      "caption": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al.",
+      "caption_event_id": "evt-order-judgment",
+      "case_id": "scotus/73280982",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Significant for IPO issuers, underwriters and the securities bar (strict-liability Section 11 disclosure duty for interim results), but a technical statutory question with little general-public salience.",
+          "big_case_score": 0.4,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        },
+        {
+          "big_case_rationale": "An important nationwide rule for IPO disclosures and private securities suits, but a confined statutory question rather than a wholesale change to the disclosure regime.",
+          "big_case_score": 0.58,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        },
+        {
+          "big_case_rationale": "Resolves a direct circuit split over public-offering disclosure liability for intra-quarter financial metrics under Section 11(a) in a high-profile fintech IPO, though narrowed to a single statutory question.",
+          "big_case_score": 0.45,
+          "event_id": "evt-order-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        }
+      ],
+      "docket_id": 73280982,
+      "docket_number": "25-944",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-944.html",
+      "events": [
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-brief-sg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Section 11 misleading-omissions standard for interim financial data affects every IPO and the SEC periodic-reporting regime; important to securities bar and issuers, but technical and low public salience.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/claude-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/claude-baseline/20261026T092709Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "A consequential nationwide securities-disclosure and IPO-liability question affecting issuers and investors, but a technical statutory dispute rather than a broad constitutional or public-policy watershed.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/codex-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/codex-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "Significant securities-law question under Section 11(a) of the Securities Act of 1933 governing IPO disclosure obligations for interim financial data, backed by the Solicitor General, SEC, and major industry amici.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261026T092709Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A Section 11 / Item 303 ruling on whether IPO issuers must disclose intra-quarter financial data would reshape offering-disclosure practice and the pleading of Securities Act class actions in the circuit that hears most of them; large for securities law and issuers, modest for the general public.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "confidence": 0.45,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.52,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "The questions could materially affect nationwide IPO disclosure duties and securities-litigation exposure for issuers and underwriters, but concern technical disclosure standards rather than a broad constitutional or governmental power.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.44,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "High-profile securities litigation involving Robinhood and major amicus support regarding the SEC's periodic reporting regime.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.55,
+              "run_id": "20260918T174135Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Significant for IPO issuers, underwriters and the securities bar (strict-liability Section 11 disclosure duty for interim results), but a technical statutory question with little general-public salience.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-judgment/predictions/claude-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-judgment/predictions/claude-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.84,
+              "run_id": "20261114T033825Z"
+            },
+            {
+              "big_case_rationale": "An important nationwide rule for IPO disclosures and private securities suits, but a confined statutory question rather than a wholesale change to the disclosure regime.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-judgment/predictions/codex-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-judgment/predictions/codex-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261114T033825Z"
+            },
+            {
+              "big_case_rationale": "Resolves a direct circuit split over public-offering disclosure liability for intra-quarter financial metrics under Section 11(a) in a high-profile fintech IPO, though narrowed to a single statutory question.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-judgment/predictions/gemini-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-judgment/predictions/gemini-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.84,
+              "run_id": "20261114T033825Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Recurring Securities Act Section 11 omissions question with heavy IPO-litigation stakes and SEC/Chamber/SIFMA interest, but technical and unlikely to draw broad public attention.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "claude-baseline",
+              "probability": 0.84,
+              "run_id": "20261109T212928Z"
+            },
+            {
+              "big_case_rationale": "Nationally significant rules for IPO disclosures and securities litigation, but a technical statutory dispute rather than a broad constitutional or economy-wide regulatory challenge.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "codex-baseline",
+              "probability": 0.79,
+              "run_id": "20261109T212928Z"
+            },
+            {
+              "big_case_rationale": "Significant federal securities-law case on intra-quarter disclosure duties in IPO registration statements under Section 11(a) and Item 303, featuring SEC/SG participation and broad capital-markets impact.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T212928Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T212928Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.62,
+              "run_id": "20261109T212928Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        },
+        {
+          "actual_disposition": "granted",
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Section 11 strict-liability scope for interim financial data touches every IPO and periodic filing; SEC, Chamber/SIFMA engaged, but the question is technical securities doctrine rather than a headline constitutional issue.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "The scope of Section 11 omission liability affects IPO disclosures and securities litigation nationwide; this is consequential commercial law rather than a broad constitutional controversy.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "Major Securities Act Section 11(a) case on IPO disclosure of intra-quarter financial data following Macquarie, affecting public offerings across capital markets without raising constitutional questions.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261026T092709Z"
+            }
+          ],
+          "resolved_at": "2026-11-13",
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4767,
+      "moment": "evt-order-judgment",
+      "moment_opened_at": "2026-11-13",
+      "n": 3,
+      "other_party": "Sodha",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Robinhood Markets wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Sodha wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.58,
+      "score_min": 0.4,
+      "score_range": 0.18,
+      "short_caption": "Robinhood Markets v. Sodha",
+      "status": "partly_resolved"
     },
     {
       "asking_declined": null,
@@ -31776,16 +31835,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.35,
       "score_range": 0.2,
@@ -31952,16 +32003,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.3,
       "score_range": 0.34,
@@ -32128,16 +32171,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.61,
       "score_min": 0.35,
       "score_range": 0.26,
@@ -32924,16 +32959,8 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.35,
       "score_range": 0.22,
@@ -35408,16 +35435,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.3,
       "score_range": 0.28,
@@ -36313,16 +36332,8 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.3,
       "score_range": 0.25,
@@ -37131,16 +37142,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.25,
       "score_range": 0.31,
@@ -37719,16 +37722,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.3,
       "score_range": 0.18,
@@ -40965,16 +40960,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.3,
       "score_range": 0.12,
@@ -42973,7 +42960,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-18",
+          "date": "2026-12-04",
           "kind": "response_due"
         }
       ],
@@ -43884,16 +43871,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.36,
       "score_min": 0.22,
       "score_range": 0.14,
@@ -44346,16 +44325,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.15,
       "score_range": 0.2,
@@ -44522,16 +44493,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.2,
       "score_range": 0.2,
@@ -44698,16 +44661,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.15,
       "score_range": 0.25,
@@ -44992,16 +44947,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.12,
       "score_range": 0.3,
@@ -46912,16 +46859,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.39,
       "score_min": 0.12,
       "score_range": 0.27,
@@ -47331,6 +47270,129 @@
       "score_range": 0.3,
       "short_caption": "Guam v. Ybanez",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Linda Kay Robison",
+      "caption": "Linda Kay Robison v. Douglas A. Collins, Secretary, Department of Veterans Affairs",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000631",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Recurring but narrow veterans-benefits question (survivor standing to bring a CUE claim); matters to surviving spouses, little wider reach, no split possible.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        },
+        {
+          "big_case_rationale": "The ability of veterans' survivors to recover unpaid benefits has meaningful national consequences, but the question concerns a specialized statutory remedy rather than a broad constitutional or institutional controversy.",
+          "big_case_score": 0.33,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        },
+        {
+          "big_case_rationale": "Specialized Title 38 statutory question with meaningful fiscal and procedural consequences for VA survivor benefits if decided, but narrow doctrinal scope and low general public salience.",
+          "big_case_score": 0.18,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        }
+      ],
+      "docket_id": 9026000631,
+      "docket_number": "26-631",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-631.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Recurring but narrow veterans-benefits question (survivor standing to bring a CUE claim); matters to surviving spouses, little wider reach, no split possible.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000631/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000631/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.007,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "The ability of veterans' survivors to recover unpaid benefits has meaningful national consequences, but the question concerns a specialized statutory remedy rather than a broad constitutional or institutional controversy.",
+              "big_case_score": 0.33,
+              "cell_path": "data/cases/scotus/9026000631/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000631/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.018,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "Specialized Title 38 statutory question with meaningful fiscal and procedural consequences for VA survivor benefits if decided, but narrow doctrinal scope and low general public salience.",
+              "big_case_score": 0.18,
+              "cell_path": "data/cases/scotus/9026000631/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000631/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261114T011216Z",
+              "confidence": 0.92,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261114T011216Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Linda Kay Robison v. Douglas A. Collins, Secretary, Department of Veterans Affairs"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.21,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-13",
+      "n": 3,
+      "other_party": "Collins",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Linda Kay Robison's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Linda Kay Robison's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-14",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.33,
+      "score_min": 0.12,
+      "score_range": 0.21,
+      "short_caption": "Linda Kay Robison v. Collins",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -48726,124 +48788,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Becker",
-      "caption": "Craig R. Becker v. United States",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000529",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Fact-bound evidentiary ruling in a single court-martial murder conviction; no broad doctrinal stakes beyond the parties.",
-          "big_case_score": 0.08,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261021T191329Z"
-        },
-        {
-          "big_case_rationale": "A grave individual criminal case raising the right to present a defense, but the question is a fact-specific application of settled evidentiary principles rather than an identified national rule conflict.",
-          "big_case_score": 0.32,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261021T191329Z"
-        },
-        {
-          "big_case_rationale": "If decided, the case would clarify the application of Chambers/Holmes right-to-present-a-complete-defense principles to Military Rule of Evidence 403 exclusions of state-of-mind hearsay in courts-martial, a narrow evidentiary question of modest national salience beyond the military justice system.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261021T191329Z"
-        }
-      ],
-      "docket_id": 9026000529,
-      "docket_number": "26-529",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-529.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Fact-bound evidentiary ruling in a single court-martial murder conviction; no broad doctrinal stakes beyond the parties.",
-              "big_case_score": 0.08,
-              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T191329Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T191329Z",
-              "confidence": 0.9,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.02,
-              "run_id": "20261021T191329Z"
-            },
-            {
-              "big_case_rationale": "A grave individual criminal case raising the right to present a defense, but the question is a fact-specific application of settled evidentiary principles rather than an identified national rule conflict.",
-              "big_case_score": 0.32,
-              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T191329Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T191329Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.02,
-              "run_id": "20261021T191329Z"
-            },
-            {
-              "big_case_rationale": "If decided, the case would clarify the application of Chambers/Holmes right-to-present-a-complete-defense principles to Military Rule of Evidence 403 exclusions of state-of-mind hearsay in courts-martial, a narrow evidentiary question of modest national salience beyond the military justice system.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T191329Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T191329Z",
-              "confidence": 0.95,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.01,
-              "run_id": "20261021T191329Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Craig R. Becker v. United States"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.1833,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-10-21",
-      "n": 3,
-      "other_party": "United States",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Becker's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Becker's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.32,
-      "score_min": 0.08,
-      "score_range": 0.24,
-      "short_caption": "Becker v. United States",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Ricky Darnell Patterson",
       "caption": "Ricky Darnell Patterson v. Michigan",
       "caption_event_id": "evt-petition-disposition",
@@ -49424,16 +49368,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.1,
       "score_range": 0.18,
@@ -50837,6 +50773,182 @@
       "score_range": 0.25,
       "short_caption": "Merritt v. Texas Farm Bureau",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Becker",
+      "caption": "Craig R. Becker v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000529",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound evidentiary challenge to one court-martial murder conviction; no split, no amici, no broader rule at stake.",
+          "big_case_score": 0.07,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        },
+        {
+          "big_case_rationale": "A life-without-parole murder conviction and the constitutional right to present a defense carry substantial individual stakes, but the petition concerns a fact-specific military evidentiary ruling rather than a demonstrated nationwide rule conflict.",
+          "big_case_score": 0.24,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        },
+        {
+          "big_case_rationale": "Factbound court-martial M.R.E. 403 dispute over excluding two ambiguous text messages in an individual murder trial, with modest doctrinal interest only because it invokes post-FY2024 NDAA certiorari jurisdiction under 28 U.S.C. 1259(3) over an unreviewed CAAF denial.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261114T011216Z"
+        }
+      ],
+      "docket_id": 9026000529,
+      "docket_number": "26-529",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-529.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound evidentiary ruling in a single court-martial murder conviction; no broad doctrinal stakes beyond the parties.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T191329Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T191329Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261021T191329Z"
+            },
+            {
+              "big_case_rationale": "A grave individual criminal case raising the right to present a defense, but the question is a fact-specific application of settled evidentiary principles rather than an identified national rule conflict.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T191329Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T191329Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.02,
+              "run_id": "20261021T191329Z"
+            },
+            {
+              "big_case_rationale": "If decided, the case would clarify the application of Chambers/Holmes right-to-present-a-complete-defense principles to Military Rule of Evidence 403 exclusions of state-of-mind hearsay in courts-martial, a narrow evidentiary question of modest national salience beyond the military justice system.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T191329Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T191329Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261021T191329Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Craig R. Becker v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound evidentiary challenge to one court-martial murder conviction; no split, no amici, no broader rule at stake.",
+              "big_case_score": 0.07,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-disposition/predictions/claude-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-disposition/predictions/claude-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.005,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "A life-without-parole murder conviction and the constitutional right to present a defense carry substantial individual stakes, but the petition concerns a fact-specific military evidentiary ruling rather than a demonstrated nationwide rule conflict.",
+              "big_case_score": 0.24,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-disposition/predictions/codex-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-disposition/predictions/codex-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.012,
+              "run_id": "20261114T011216Z"
+            },
+            {
+              "big_case_rationale": "Factbound court-martial M.R.E. 403 dispute over excluding two ambiguous text messages in an individual murder trial, with modest doctrinal interest only because it invokes post-FY2024 NDAA certiorari jurisdiction under 28 U.S.C. 1259(3) over an unreviewed CAAF denial.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-disposition/predictions/gemini-baseline/20261114T011216Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-disposition/predictions/gemini-baseline/20261114T011216Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261114T011216Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Craig R. Becker v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1433,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-21",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Becker's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Becker's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.24,
+      "score_min": 0.07,
+      "score_range": 0.17,
+      "short_caption": "Becker v. United States",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -54352,16 +54464,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.19,
       "score_min": 0.03,
       "score_range": 0.16,
@@ -54764,16 +54868,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.02,
       "score_range": 0.18,
@@ -55183,6 +55279,124 @@
       "score_range": 0.2,
       "short_caption": "Schmidt v. City of Omro",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Nancy Roncati Dowden",
+      "caption": "Nancy Roncati Dowden v. Deutsche Bank National Trust Company, as Trustee",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000680",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se stay application in a single-property Connecticut foreclosure dispute; no stakes beyond the parties.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        },
+        {
+          "big_case_rationale": "Potentially severe consequences for one homeowner and important disability-access interests, but a fact-specific, unpublished foreclosure dispute without a demonstrated conflict of authority.",
+          "big_case_score": 0.15,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        },
+        {
+          "big_case_rationale": "Single-property pro se residential foreclosure stay dispute turning on case-specific state continuance and finality rulings, with negligible broader impact unless the Court unexpectedly reached ADA Title II / \u00a7 1257 finality doctrine.",
+          "big_case_score": 0.05,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        }
+      ],
+      "docket_id": 9526000680,
+      "docket_number": "26A680",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a680.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se stay application in a single-property Connecticut foreclosure dispute; no stakes beyond the parties.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000680/events/evt-motion-disposition/predictions/claude-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000680/events/evt-motion-disposition/predictions/claude-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261114T033825Z"
+            },
+            {
+              "big_case_rationale": "Potentially severe consequences for one homeowner and important disability-access interests, but a fact-specific, unpublished foreclosure dispute without a demonstrated conflict of authority.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9526000680/events/evt-motion-disposition/predictions/codex-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000680/events/evt-motion-disposition/predictions/codex-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261114T033825Z"
+            },
+            {
+              "big_case_rationale": "Single-property pro se residential foreclosure stay dispute turning on case-specific state continuance and finality rulings, with negligible broader impact unless the Court unexpectedly reached ADA Title II / \u00a7 1257 finality doctrine.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9526000680/events/evt-motion-disposition/predictions/gemini-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000680/events/evt-motion-disposition/predictions/gemini-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261114T033825Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Nancy Roncati Dowden v. Deutsche Bank National Trust Company, as Trustee"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.0767,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-11",
+      "n": 3,
+      "other_party": "Deutsche Bank National Trust",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Nancy Roncati Dowden gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nancy Roncati Dowden does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.15,
+      "score_min": 0.03,
+      "score_range": 0.12,
+      "short_caption": "Nancy Roncati Dowden v. Deutsche Bank National Trust",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -56464,16 +56678,8 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-13",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
+      "schedule": [],
+      "scheduled": null,
       "score_max": 0.12,
       "score_min": 0.03,
       "score_range": 0.09,
@@ -56837,6 +57043,124 @@
       "score_min": 0.02,
       "score_range": 0.1,
       "short_caption": "Gnanam v. Nathaniel Chibuzor Keita",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Schultz",
+      "caption": "Paul Schultz v. BOFK, N.A.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000684",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se debtor's bid to halt a single residential foreclosure and a district-court bankruptcy appeal; no question of general importance.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        },
+        {
+          "big_case_rationale": "Serious consequences for one homeowner, but an individualized bankruptcy and recusal dispute without a demonstrated nationwide conflict.",
+          "big_case_score": 0.08,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        },
+        {
+          "big_case_rationale": "Pro se bankruptcy recusal and residential foreclosure stay request pending circuit rehearing; personal stakes for one debtor, no broader legal or public salience.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261114T033825Z"
+        }
+      ],
+      "docket_id": 9526000684,
+      "docket_number": "26A684",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a684.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se debtor's bid to halt a single residential foreclosure and a district-court bankruptcy appeal; no question of general importance.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000684/events/evt-motion-disposition/predictions/claude-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000684/events/evt-motion-disposition/predictions/claude-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261114T033825Z"
+            },
+            {
+              "big_case_rationale": "Serious consequences for one homeowner, but an individualized bankruptcy and recusal dispute without a demonstrated nationwide conflict.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9526000684/events/evt-motion-disposition/predictions/codex-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000684/events/evt-motion-disposition/predictions/codex-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.02,
+              "run_id": "20261114T033825Z"
+            },
+            {
+              "big_case_rationale": "Pro se bankruptcy recusal and residential foreclosure stay request pending circuit rehearing; personal stakes for one debtor, no broader legal or public salience.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000684/events/evt-motion-disposition/predictions/gemini-baseline/20261114T033825Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000684/events/evt-motion-disposition/predictions/gemini-baseline/20261114T033825Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261114T033825Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Paul Schultz v. BOFK, N.A."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.0467,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-10",
+      "n": 3,
+      "other_party": "BOFK",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Schultz gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Schultz does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.08,
+      "score_min": 0.03,
+      "score_range": 0.05,
+      "short_caption": "Schultz v. BOFK",
       "status": "pending"
     },
     {
@@ -59184,5 +59508,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.5",
-  "scored_reads": 1176
+  "scored_reads": 1188
 }
