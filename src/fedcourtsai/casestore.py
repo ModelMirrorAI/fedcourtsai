@@ -757,7 +757,7 @@ def write_snapshot(
     snapshot_date: date,
     payload: Mapping[str, Any],
 ) -> ObjectRef:
-    """Write one dated point-in-time snapshot object (immutable per day)."""
+    """Write one dated point-in-time snapshot object (one key per case and day)."""
     body = _canonical_json(dict(payload))
     key = snapshot_key(case_id, snapshot_date)
     transport.put(key, body)

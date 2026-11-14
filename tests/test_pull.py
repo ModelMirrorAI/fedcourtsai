@@ -959,6 +959,19 @@ def test_a_refresh_leaves_the_days_live_snapshot_in_place(tmp_path: Path) -> Non
     assert row.last_pulled == date.today()
 
 
+def test_a_quiet_docket_behind_a_live_snapshot_reports_no_change(tmp_path: Path) -> None:
+    # Change is judged against the last refresh, not the live payload stored
+    # since, so a docket CourtListener serves unchanged is not reported changed.
+    base_day = date.today() - timedelta(days=3)
+    _store(tmp_path, base_day, {**DOCKET, "docket_entries": STORED})
+    _store(tmp_path, date.today(), {"ProceedingsandOrder": []})
+    quiet = IncrementalFakeClient(DOCKET, STORED)
+    result = _incremental_pull(quiet, tmp_path, every_days=_every_not_owed(base_day))
+    assert result.changed is False
+    moved = IncrementalFakeClient(DOCKET, [], changed=[{"id": 5, "description": "Reply"}])
+    assert _incremental_pull(moved, tmp_path, every_days=_every_not_owed(base_day)).changed is True
+
+
 def test_a_second_refresh_on_a_day_replaces_its_own_snapshot(tmp_path: Path) -> None:
     _store(tmp_path, date.today(), {**DOCKET, "docket_entries": STORED})
     refresh = IncrementalFakeClient(DOCKET, [], changed=[{"id": 5, "description": "Reply"}])

@@ -178,6 +178,26 @@ def _merge_base(
     return None
 
 
+def _last_refresh(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    prior: tuple[date, dict[str, Any]] | None,
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest stored snapshot that is a refresh's own read, with its date.
+
+    The live channel's supremecourt.gov payload shares the key space and never
+    equals a CourtListener read, so change detection compares against the
+    newest snapshot behind any live-shaped ones, within
+    :data:`MERGE_BASE_LOOKBACK`. ``None`` past that, which reads as a change.
+    """
+    found = prior
+    for _ in range(MERGE_BASE_LOOKBACK):
+        if found is None or "ProceedingsandOrder" not in found[1]:
+            return found
+        found = corpus.snapshot_at(conn, case_id, before=found[0])
+    return None
+
+
 def _holds_todays_live_snapshot(prior: tuple[date, dict[str, Any]] | None, today: date) -> bool:
     """Whether the day's stored snapshot is the Court's own docket.
 
@@ -239,7 +259,10 @@ def pull_case(
     max_entry_pages: int = DEFAULT_MAX_ENTRY_PAGES,
     incremental: IncrementalEntries | None = None,
 ) -> PullResult:
-    """Refresh one docket: store its snapshot and row, detect outcomes, re-extract events.
+    """Refresh one docket: store its row and snapshot, detect outcomes, re-extract events.
+
+    The snapshot is stored unless the day already holds the Court's own docket
+    (:func:`_holds_todays_live_snapshot`).
 
     With ``incremental`` set, a docket the corpus already holds is read as the
     entries changed since its stored snapshot, merged into it
@@ -252,7 +275,8 @@ def pull_case(
     docket = client.get_docket(docket_id)
     with corpus.connect(corpus_db_path) as conn:
         prior = corpus.latest_snapshot(conn, case_id)
-        base = _merge_base(conn, case_id, docket_id, prior) if incremental is not None else None
+        last_read = _last_refresh(conn, case_id, prior)
+        base = _merge_base(conn, case_id, docket_id, last_read) if incremental is not None else None
     # A docket longer than the cap raises before anything is written, so it is
     # never stored as a truncated record that would diff as a real change.
     entries, entry_read = _read_entries(
@@ -266,10 +290,11 @@ def pull_case(
     fresh = {**docket, "docket_entries": entries}
 
     # Change detection and snapshot storage both live in the corpus now: compare
-    # the fresh full docket against the latest snapshot the corpus holds, then
+    # the fresh full docket against the last refresh the corpus holds, then
     # store today's, unless the day already holds the Court's own docket. A
-    # docket with no prior snapshot is an onboard (`changed`).
-    changed = prior is None or prior[1] != fresh
+    # docket with no stored refresh to compare against is `changed`, as an
+    # onboard is.
+    changed = last_read is None or last_read[1] != fresh
     if not _holds_todays_live_snapshot(prior, today):
         with corpus.connect(corpus_db_path) as conn:
             corpus.upsert_snapshot(conn, case_id, today, fresh)
