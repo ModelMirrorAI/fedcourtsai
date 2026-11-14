@@ -165,7 +165,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      (`fedcourts coverage-verdict`): the missed-forecast
 #                      monitor over 35 days, the grants and application
 #                      rulings selection left without a forecast, and the
-#                      federal-label cross-check on the pending docket. Also a
+#                      federal-label cross-check on the pending docket, which
+#                      also reads the Solicitor General's posted cert petitions
+#                      (one unauthenticated GET to www.justice.gov). Also a
 #                      daily cron's job. It reads the corpus (a full pull, the
 #                      read-only role) and the committed predictions and
 #                      outcomes, and leaves the verdict as a run artifact; a
@@ -4464,6 +4466,14 @@ jobs:
     # ids, event ids, docket numbers, bands, reasons and dates: no caption and
     # no stored document text.
     #
+    # One request leaves the estate: `--sg-list` reads the first page of the
+    # Office of the Solicitor General's own cert petitions on www.justice.gov
+    # (docs/data-sources.md, *The Solicitor General's posted briefs*), with no
+    # token and nothing of the corpus in the request. Only docket numbers and
+    # filing dates are kept from the page, and the fetcher refuses a redirect
+    # off the Office's section. A listing that cannot be read is an alarm the
+    # verdict carries, not a failed job, so the other checks still report.
+    #
     # An alarm is not a failed job: the command's exit 3 says the checks ran
     # and found something, which the alarm issue carries. Any other non-zero
     # exit (a missing corpus) fails the job, uploads nothing, and so leaves
@@ -4519,7 +4529,7 @@ jobs:
           out="$RUNNER_TEMP/coverage-verdict"
           mkdir -p "$out"
           status=0
-          uv run fedcourts coverage-verdict --json-out "$out/verdict.json" \
+          uv run fedcourts coverage-verdict --sg-list --json-out "$out/verdict.json" \
             --markdown-out "$out/verdict.md" > /dev/null 2> "$out/summary.txt" || status=$?
           cat "$out/summary.txt"
           # Exit 3 is an alarm the checks found, carried by the verdict;

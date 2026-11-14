@@ -588,8 +588,10 @@ queues behind the production run of the same mode. The modes:
   forecast-coverage check as one verdict. Its first job runs `fedcourts
   coverage-verdict`: the missed-forecast monitor over 35 days, the grants and
   application rulings of the last 14 days that had no forecast, and the
-  federal-label cross-check on pending petitions (*The missed-forecast
-  guards*, below, says what each alarms on). The job's summary carries the
+  federal-label cross-check on pending petitions, read with `--sg-list`
+  against the Solicitor General's posted cert petitions, together with the
+  cells the predict attempt cap has given up on while their event is open
+  (*The missed-forecast guards*, below, says what each alarms on). The job's summary carries the
   verdict. That job holds the read-only role and no issue write and leaves the
   verdict and its issue body as a one-day artifact; the command's exit 3 (an
   alarm) is not a failed job, and any other failure uploads nothing. A second
@@ -3070,12 +3072,26 @@ rather than after it. Over the pending paid docket it lists every petition
 outside the `federal` band that a reading looser than the caption rule places
 federal, so a mislabeled federal petitioner is seen while its conference is
 still ahead. It reads pending rows only and selects nothing; a confirmed miss
-is evidence for the next registered caption version.
+is evidence for the next registered caption version. With `--sg-list` it also
+reads an outside list that shares nothing with the caption grammar: the
+Office of the Solicitor General's own cert petitions, as posted on its briefs
+listing ([data-sources.md](data-sources.md)). A pending petition on that
+listing outside the `federal` band is an alarm whatever its selection, and so
+is a listing that could not be read, since a check that stopped reading its
+source would otherwise pass for a quiet one. A docket's listing alarm stands
+until the petition resolves or a registered caption version bands it
+`federal`, and the verdict files it under `sg_petition_list`.
 
 `fedcourts coverage-verdict` folds the three into one answer: the
 missed-forecast monitor read over 35 days, and the two censuses, as a single
 `ok` with the alarms named by check, a flat block of counts to keep as a
-series, and a rendered issue body. The round's own `::warning::` lines expire
+series, and a rendered issue body. It adds one alarm of its own,
+`attempt_capped`: a cell of an enabled predictor that has reached
+`predict.max_attempts_per_cell` recorded failures with no committed
+prediction, on an event with no `outcome.json` that the corpus still holds
+unresolved and in predict scope. The sweep no longer re-queues
+such a cell, so its forecast is owed and can still be made, and the monitor
+would report it only once the event had resolved. The round's own `::warning::` lines expire
 with the run log; the verdict is the form the same findings take when they
 are to outlive it. `run-analytics`' `coverage-verdict` mode runs it daily and
 latches its alarms onto the one `forecast-coverage` issue; `unforecast-outcomes`
