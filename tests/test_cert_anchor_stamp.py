@@ -28,8 +28,8 @@ from fedcourtsai.cli import app
 from fedcourtsai.config import get_settings
 from fedcourtsai.leaderboard import _anchor_reproduces
 from fedcourtsai.paths import CasePaths, EventPaths
+from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.base_rates import freeze_cert_anchor, statpack_digest
-from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import (
     AmicusLineCell,
     AmicusLineFit,
@@ -97,7 +97,7 @@ def _term(term: int, alt_rate: float, alt_n: int) -> StatPackTerm:
     return StatPackTerm(
         term=term,
         base_rates=BaseRateBucket(),
-        salience_version=SALIENCE_VERSION,
+        salience_version=salience_module.SALIENCE_VERSION,
         segments=[_segment("baseline", 0.9, 500)],
         alt_segments=[
             StatPackTermVersionSegments(
@@ -381,7 +381,7 @@ def test_a_prediction_with_no_frozen_band_keeps_the_evaluators_terminal_record(
     stamped = _stamped(event_paths)
     assert stamped["segment_base_rate"] == pytest.approx(0.071)
     assert stamped["base_rate_basis"] == "terminal"
-    assert stamped["base_rate_salience_version"] == SALIENCE_VERSION
+    assert stamped["base_rate_salience_version"] == salience_module.SALIENCE_VERSION
     assert stamped["base_rate_statpack_digest"] is None
 
 
@@ -935,7 +935,7 @@ def _terminal_term(term: int, rate: float, n: int) -> StatPackTerm:
     return StatPackTerm(
         term=term,
         base_rates=BaseRateBucket(),
-        salience_version=SALIENCE_VERSION,
+        salience_version=salience_module.SALIENCE_VERSION,
         segments=[_segment("baseline", 0.9, 500)],
         alt_segments=[
             StatPackTermVersionSegments(
@@ -1038,7 +1038,7 @@ def test_before_proc_v17_a_bandless_cert_record_stays_the_evaluators(
     stamped = _stamped(event_paths)
     assert stamped["segment_base_rate"] == pytest.approx(0.0995)
     assert stamped["base_rate_basis"] == "terminal"
-    assert stamped["base_rate_salience_version"] == SALIENCE_VERSION
+    assert stamped["base_rate_salience_version"] == salience_module.SALIENCE_VERSION
     assert stamped["base_rate_statpack_digest"] is None
 
 

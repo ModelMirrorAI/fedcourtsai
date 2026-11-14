@@ -11,14 +11,18 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import alarm_issue, corpus
+from fedcourtsai import alarm_issue, cli, corpus
 from fedcourtsai.cli import app
+from fedcourtsai.config import load_predict_config
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import coverage_verdict as cv
 from fedcourtsai.pipeline.coverage_verdict import (
     CoverageVerdict,
+    attempt_capped_cells,
     coverage_verdict,
     render_markdown,
 )
+from fedcourtsai.pipeline.federal_label import SG_LISTING_SUBJECT, SgPetitionListing
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import Disposition, EventKind, Stage
 from tests.conftest import seed_prediction
@@ -351,3 +355,154 @@ def test_the_alarm_command_refuses_what_it_cannot_read(tmp_path: Path) -> None:
     args = ["coverage-verdict-alarm", "--verdict", str(bad), "--report", str(bad)]
     assert CliRunner().invoke(app, [*args, "--repo", "o/r"]).exit_code == 2
     assert CliRunner().invoke(app, [*args, "--repo", "not a repo"]).exit_code == 2
+
+
+def _fail(data: Path, docket: int, predictor_id: str, runs: int) -> None:
+    event = CasePaths(data, "scotus", docket).event(EVENT)
+    for n in range(runs):
+        attempt = event.prediction_attempt(predictor_id, f"2026110{n + 1}T141200Z")
+        attempt.parent.mkdir(parents=True, exist_ok=True)
+        attempt.write_text("{}\n")
+
+
+def _open_event(conn: sqlite3.Connection, docket: int, *, resolved: bool = False) -> None:
+    case_id = f"scotus/{docket}"
+    corpus.upsert_rows(
+        conn,
+        [
+            corpus.CorpusRow(
+                case_id=case_id,
+                court="scotus",
+                docket_number=f"26-10{docket}",
+                case_name="Acme Corp. v. Roe",
+                date_filed=date(2026, 9, 1),
+            )
+        ],
+    )
+    corpus.upsert_events(
+        conn,
+        [
+            corpus.CorpusEvent(
+                event_id=EVENT,
+                case_id=case_id,
+                court="scotus",
+                kind=EventKind.petition,
+                stage=Stage.cert,
+                resolved=resolved,
+                opened_at=date(2026, 9, 1),
+            )
+        ],
+    )
+
+
+def test_a_cell_at_the_attempt_cap_alarms_while_its_event_is_open(tmp_path: Path) -> None:
+    db, data = corpus.corpus_db_path(tmp_path / "corpus"), tmp_path / "data"
+    first, second = (p.id for p in enabled_predictors(PREDICTORS)[:2])
+    with corpus.connect(db) as conn:
+        for docket in (1, 2, 3, 4, 5, 7):
+            _open_event(conn, docket)
+        _open_event(conn, 6, resolved=True)
+        conn.execute("UPDATE cases SET predict_excluded = 1 WHERE case_id = 'scotus/7'")
+        conn.commit()
+    _fail(data, 1, first, 3)  # capped, open, unforecast: the alarm
+    _fail(data, 1, second, 3)  # and a second engine capped on the same event
+    _fail(data, 2, first, 2)  # under the cap: still re-queued
+    _fail(data, 3, first, 3)  # capped, but a later prediction landed
+    seed_prediction(data, "scotus", 3, EVENT, predictor_id=first)
+    _fail(data, 4, first, 3)  # capped, but decided: the monitor's to report
+    CasePaths(data, "scotus", 4).event(EVENT).outcome.write_text("{}\n")
+    _fail(data, 5, "retired-predictor", 3)  # not enabled: owed nothing
+    _fail(data, 6, first, 3)  # decided in the corpus, the outcome record lagging
+    _fail(data, 7, first, 3)  # latched out of predict scope
+    _fail(data, 8, first, 3)  # no corpus row at all
+
+    with corpus.connect_readonly(db) as conn:
+        cells = attempt_capped_cells(conn, data, [first, second], max_attempts=3)
+        off = attempt_capped_cells(conn, data, [first, second], max_attempts=0)
+        verdict = coverage_verdict(conn, data, PREDICTORS, today=TODAY, max_attempts=3)
+
+    assert sorted((c.case_id, c.predictor_id, c.failures) for c in cells) == sorted(
+        [("scotus/1", first, 3), ("scotus/1", second, 3)]
+    )
+    assert off == []
+    # One alarm a cell, named apart, so a second engine capping later is new to the issue.
+    assert sorted((a.check, a.subject) for a in verdict.alarms) == sorted(
+        ("attempt_capped", f"scotus/1 {EVENT} {pid}") for pid in (first, second)
+    )
+    assert verdict.counts["attempt_capped_open_cells"] == 2
+    assert "reached the predict attempt cap" in render_markdown(verdict)
+
+
+def test_the_verdict_carries_the_offices_listing_when_handed_one(tmp_path: Path) -> None:
+    db, data = corpus.corpus_db_path(tmp_path / "corpus"), tmp_path / "data"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/1",
+                    court="scotus",
+                    docket_number="26-101",
+                    case_name="Acme Warden v. Roe",
+                    date_filed=date(2026, 9, 1),
+                )
+            ],
+        )
+
+    def verdict(listing: SgPetitionListing | None) -> CoverageVerdict:
+        with corpus.connect_readonly(db) as conn:
+            return coverage_verdict(conn, data, PREDICTORS, today=TODAY, sg_listing=listing)
+
+    unasked = verdict(None)
+    assert unasked.ok and unasked.counts["sg_listed_petitions"] is None
+    assert "Solicitor General's listing" not in render_markdown(unasked)
+
+    listed = verdict(SgPetitionListing(frozenset({"26-101", "25-9"}), oldest_filed=TODAY))
+    assert [(a.check, a.subject) for a in listed.alarms] == [("sg_petition_list", "26-101")]
+    assert (
+        listed.counts["sg_listed_petitions"],
+        listed.counts["sg_listed_pending"],
+        listed.counts["sg_listed_not_federal"],
+    ) == (2, 1, 1)
+    assert "1 are pending here, 1 outside the federal band" in render_markdown(listed)
+
+    unread = verdict(SgPetitionListing(frozenset(), error="the listing was not found"))
+    assert [(a.check, a.subject) for a in unread.alarms] == [
+        ("sg_petition_list", SG_LISTING_SUBJECT)
+    ]
+    assert unread.counts["sg_listed_petitions"] is None
+    assert "was not read: the listing was not found" in render_markdown(unread)
+
+
+def test_the_cli_hands_the_verdict_the_listing_and_the_configured_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, data = tmp_path / "corpus", tmp_path / "data"
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "local")
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(PREDICTORS.parent))
+    with corpus.connect(corpus.corpus_db_path(root)) as conn:
+        _open_event(conn, 1)
+    first = enabled_predictors(PREDICTORS)[0].id
+    cap = load_predict_config(PREDICTORS.parent).max_attempts_per_cell
+    _fail(data, 1, first, cap)
+    fetches: list[int] = []
+
+    def listing() -> SgPetitionListing:
+        fetches.append(1)
+        return SgPetitionListing(frozenset({"26-101"}))
+
+    monkeypatch.setattr(cli, "_read_sg_petition_listing", listing)
+
+    plain = CliRunner().invoke(app, ["coverage-verdict"])
+    assert plain.exit_code == 3, plain.output
+    assert fetches == []
+    checks = [a["check"] for a in json.loads(plain.stdout.strip().splitlines()[-1])["alarms"]]
+    assert checks == ["attempt_capped"]
+
+    listed = CliRunner().invoke(app, ["coverage-verdict", "--sg-list"])
+    assert listed.exit_code == 3, listed.output
+    assert fetches == [1]
+    checks = [a["check"] for a in json.loads(listed.stdout.strip().splitlines()[-1])["alarms"]]
+    assert checks == ["sg_petition_list", "attempt_capped"]

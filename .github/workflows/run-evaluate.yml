@@ -954,7 +954,7 @@ jobs:
           rm -rf .claude
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
-      # Install the engine's CLI at the version `.github/engines/<engine>/`
+      # Install the engine's CLI at the version `engines/<engine>/`
       # pins, in its own SECRET-FREE step: the lockfile fixes every package by
       # hash and --ignore-scripts skips npm lifecycle scripts, and the step's
       # env carries nothing in case a package ever ran code at install. claude-code's binary

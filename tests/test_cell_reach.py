@@ -82,7 +82,7 @@ def test_batches_no_cell_runs_are_inert(paths: list[str]) -> None:
         # Any workflow, composite or pinned engine CLI.
         [".github/workflows/ci.yml"],
         [".github/actions/engine-cli/action.yml"],
-        [".github/engines/codex/package.json"],
+        ["engines/codex/package.json"],
         ["scripts/gemini-cell.sh"],
         ["scripts/engine-watchdog.sh"],
         ["config/dispatchers.json"],

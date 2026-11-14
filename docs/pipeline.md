@@ -537,9 +537,9 @@ queues behind the production run of the same mode. The modes:
   one court a day, in the quiet odd hours `run-pull`'s enrich job names. It
   writes nothing and uploads no artifact: the report (court-record
   identifiers, counts and the reader's reason strings) goes on the run's
-  summary page. A staging dispatch runs the same read against the same
-  account where the staging environment holds a token, and refuses before
-  any request where it does not.
+  summary page and in the sample step's log. A staging dispatch runs the
+  same read against the same account where the staging environment holds a
+  token, and refuses before any request where it does not.
 - **`ai-follow-ons`** (weekly, Tuesday 21:21 UTC, or dispatch) runs the
   follow-on check: `fedcourts ai-candidates-issue` reads the same raised set,
   and `fedcourts ai-follow-ons` searches the courts of appeals and the JPML
@@ -588,8 +588,10 @@ queues behind the production run of the same mode. The modes:
   forecast-coverage check as one verdict. Its first job runs `fedcourts
   coverage-verdict`: the missed-forecast monitor over 35 days, the grants and
   application rulings of the last 14 days that had no forecast, and the
-  federal-label cross-check on pending petitions (*The missed-forecast
-  guards*, below, says what each alarms on). The job's summary carries the
+  federal-label cross-check on pending petitions, read with `--sg-list`
+  against the Solicitor General's posted cert petitions, together with the
+  cells the predict attempt cap has given up on while their event is open
+  (*The missed-forecast guards*, below, says what each alarms on). The job's summary carries the
   verdict. That job holds the read-only role and no issue write and leaves the
   verdict and its issue body as a one-day artifact; the command's exit 3 (an
   alarm) is not a failed job, and any other failure uploads nothing. A second
@@ -1823,6 +1825,22 @@ amicus back-fill is: every poll writes the column on the row it reads, so the
 class regrows only where a channel other than the live application branch
 resolves a row, and a re-run fills that.
 
+`live-snapshot-restore` writes the content store alone (`fedcourts
+restore-replaced-live-snapshots`). A case has one snapshot key per day, shared
+by the live channel and the CourtListener refresh; the refresh leaves a stored
+live snapshot of the day in place, and this pass recovers a day on which a
+refresh's read is the key's current version and the Court's docket is an
+earlier one. It lists the versions of every dated snapshot key of each row both
+channels have read, and writes the newest live-shaped earlier version back as
+the current one; the displaced body becomes a noncurrent version. No index row
+and no committed artifact moves. It can only reach a body the bucket still
+holds, so it is run inside the noncurrent-version recovery window, and both
+modes need a role that may list and read object versions. Dispatched rather
+than swept: the refresh leaves a stored live snapshot in place, so the class
+does not grow. Each restore takes a CourtListener read off its day's key, so a
+case restored on many consecutive days can fall past the refresh's merge-base
+lookback and take one whole-docket read on its next refresh.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites
@@ -2510,8 +2528,8 @@ The mechanics:
     package but `cli.py` and the other listed modules imports one, and that no
     script or workflow names one; the cell workflows' own commands reach
     none). Everything else is *engine*: the
-    workflows, composites and pinned engine CLIs under `.github/`, the
-    prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
+    workflows and composites under `.github/`, the pinned engine CLIs under
+    `engines/`, the prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
     `pyproject.toml` and `uv.lock`, the schemas, every other `src/` module
     (`pricing.py`'s default models, provisioning, retrieval, the MCP code,
     the round planners' spend arithmetic and `cli.py` among them), every other script, any agent instruction or config
@@ -2844,7 +2862,7 @@ shallow checkout fetches no tags).
 ### Engine CLI updates
 
 The engine CLIs every cell, smoke and labeler runs — Claude Code, Codex and the
-Gemini CLI — are pinned once each, in `.github/engines/<engine>/` (an exact
+Gemini CLI — are pinned once each, in `engines/<engine>/` (an exact
 version and its lockfile), and installed from there by the `engine-cli` action
 with `npm ci` into a prefix outside the checkout. The claude cells hand
 `claude-code-action` that binary (`path_to_claude_code_executable`) and
@@ -2853,6 +2871,13 @@ action's own bump changes the wrapper and never the engine a cell runs. One
 skew follows from that: a Claude Code bump can run ahead of the agent SDK the
 pinned `claude-code-action` bundles until the action itself is bumped, and the
 `engine-actions-smoke` leg is what catches a combination that breaks.
+
+The pins sit at the repository root rather than beside the composites that
+install them because Dependabot can open a pull request that changes a file
+under `.github/` only for its `github-actions` ecosystem: an `npm` update
+there resolves, and then has its pull request refused ("The request contains
+invalid or unauthorized changes"), so the job fails daily and proposes
+nothing. A test holds the pins outside `.github/`.
 
 Dependabot checks the engines daily and proposes each release as its own PR
 against `staging` about three days after it ships (its `cooldown`): prompt
@@ -2864,18 +2889,34 @@ cell's `usage.json` carries the `engine_version` its binary reported, so a
 reading can cut by it. A **model** change is different — it moves the digest
 and is a new label.
 
-Before merging an engine bump, run both smokes for that engine on its branch,
-since one drives the CLI directly and the other drives it through the action
-the cells use (`<engine>` is `claude-code`, `codex` or `gemini`; `-f
-scenario=gate` runs both for all three):
+An engine bump is smoked on `staging`, after it merges there and before the
+next promotion candidate is cut. The bump's own branch cannot run a smoke: an
+engine leg binds an environment by ref, and only `main`, `staging` and
+`promote/*` resolve to one that carries the corpus settings and an engine
+sign-in; naming an environment on the dispatch does not help, since each
+environment admits only its own branches. A pin is an owned path, so the maintainer merges the bump; then run
+both smokes for that engine, since one drives the CLI directly and the other
+drives it through the action the cells use (`<engine>` is `claude-code`,
+`codex` or `gemini`):
 
 ```bash
-gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-smoke -f engine=<engine>
-gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-actions-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref staging -f scenario=engine-actions-smoke -f engine=<engine>
 ```
 
-A bump that fails either smoke stays unmerged until the engine or the harness
-is fixed; one that passes rides the next promotion like any other change.
+A bump that fails either smoke is reverted on `staging`, or fixed there,
+before a candidate is cut. Skipping the dispatch loses the early warning and
+not the check: a pin is an engine path to the cell-reach classifier, so the
+candidate that carries a bump owes the full `gate` suite, which runs both
+smokes for all three engines. That is the evidence the
+`promote:skip-engine-smoke` label trades away, so a batch carrying a bump does
+not take the label.
+
+A pin that falls weeks behind is a failure of this lane, not a quiet state:
+a model newer than the pinned CLI is refused when a cell asks for it.
+The lane's health is the `npm_and_yarn` run under the repository's *Dependabot
+Updates* workflow in the Actions tab; a red run there means no engine bump is
+being proposed.
 
 ### Adding a required status check
 
@@ -3047,12 +3088,26 @@ rather than after it. Over the pending paid docket it lists every petition
 outside the `federal` band that a reading looser than the caption rule places
 federal, so a mislabeled federal petitioner is seen while its conference is
 still ahead. It reads pending rows only and selects nothing; a confirmed miss
-is evidence for the next registered caption version.
+is evidence for the next registered caption version. With `--sg-list` it also
+reads an outside list that shares nothing with the caption grammar: the
+Office of the Solicitor General's own cert petitions, as posted on its briefs
+listing ([data-sources.md](data-sources.md)). A pending petition on that
+listing outside the `federal` band is an alarm whatever its selection, and so
+is a listing that could not be read, since a check that stopped reading its
+source would otherwise pass for a quiet one. A docket's listing alarm stands
+until the petition resolves or a registered caption version bands it
+`federal`, and the verdict files it under `sg_petition_list`.
 
 `fedcourts coverage-verdict` folds the three into one answer: the
 missed-forecast monitor read over 35 days, and the two censuses, as a single
 `ok` with the alarms named by check, a flat block of counts to keep as a
-series, and a rendered issue body. The round's own `::warning::` lines expire
+series, and a rendered issue body. It adds one alarm of its own,
+`attempt_capped`: a cell of an enabled predictor that has reached
+`predict.max_attempts_per_cell` recorded failures with no committed
+prediction, on an event with no `outcome.json` that the corpus still holds
+unresolved and in predict scope. The sweep no longer re-queues
+such a cell, so its forecast is owed and can still be made, and the monitor
+would report it only once the event had resolved. The round's own `::warning::` lines expire
 with the run log; the verdict is the form the same findings take when they
 are to outlive it. `run-analytics`' `coverage-verdict` mode runs it daily and
 latches its alarms onto the one `forecast-coverage` issue; `unforecast-outcomes`

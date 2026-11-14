@@ -162,7 +162,7 @@ runs:
       shell: bash
       env:
         CODEX_USER: ${{ inputs.codex-user }}
-        PINS: ${{ github.action_path }}/../../engines/codex
+        PINS: ${{ github.action_path }}/../../../engines/codex
       run: |
         set -euo pipefail
         # codex itself is installed later, inside codex-action, so the check

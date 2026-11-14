@@ -3007,7 +3007,7 @@ def test_the_codex_invocation_surface_agrees_across_cells_smoke_and_runner() -> 
     )
 
     # The CLI the action installs is the CLI the npm surfaces install: both read
-    # the one pin in .github/engines/<engine>/, the action through the
+    # the one pin in engines/<engine>/, the action through the
     # engine-cli step's version and the npm surfaces through the same action
     # installing codex itself. A literal npm pin re-appearing would split them.
     assert str(predict["with"]["codex-version"]) == "${{ steps.engine-cli.outputs.version }}"
@@ -6025,6 +6025,9 @@ def test_the_coverage_verdict_splits_its_read_from_its_issue_write() -> None:
     )
     assert '[ "$status" -ne 0 ] && [ "$status" -ne 3 ]' in run, (
         "an alarm (exit 3) must reach the alarm job; any other failure must not"
+    )
+    assert "coverage-verdict --sg-list" in run, (
+        "the daily verdict reads the Solicitor General's listing; docs/security.md says so"
     )
     crons = [entry["cron"] for entry in workflow[True]["schedule"]]
     assert [c for c in crons if c.startswith("9 ")] == ["9 16 * * *"]

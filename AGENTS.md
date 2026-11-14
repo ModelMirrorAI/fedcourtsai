@@ -164,7 +164,7 @@ before the first command rather than mid-task:
   **Five kinds of change still wait for the maintainer even into `staging`**,
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/`, `.github/actions/` or
-  `.github/engines/` (the permission surface, and the engine CLIs every agent
+  `engines/` (the permission surface, and the engine CLIs every agent
   cell executes, with run-repair's selector gate those workflows run by path,
   `src/fedcourtsai/repair_passes.py` and its test), `SECURITY.md` or the security posture it describes, the
   promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,

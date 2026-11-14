@@ -1061,7 +1061,7 @@ _GITHUB_DIR = Path(__file__).resolve().parents[1] / ".github"
 # The one pin every workflow installs from, and the expression a step uses to
 # defer to it. A step that defers adds no pin of its own; any other value is
 # counted as one, so a literal or a variable re-appearing in a workflow is seen.
-_ENGINE_PINS = _GITHUB_DIR / "engines" / "codex" / "package.json"
+_ENGINE_PINS = _GITHUB_DIR.parent / "engines" / "codex" / "package.json"
 _DEFERS_TO_THE_PIN = "${{"
 
 
@@ -1091,7 +1091,7 @@ def _codex_pins() -> dict[str, list[str]]:
 
 def test_the_code_mode_literals_are_confirmed_for_the_pinned_codex_version() -> None:
     pins = _codex_pins()
-    assert pins, "no codex version pin found under .github/ — the canary has nothing to watch"
+    assert pins, "no codex version pin found — the canary has nothing to watch"
     assert set(pins) == {CODE_MODE_LITERALS_CONFIRMED_AT}, (
         f"the codex pin moved to {sorted(set(pins) - {CODE_MODE_LITERALS_CONFIRMED_AT})} "
         f"(pinned in {pins}), but the code-mode literals in fedcourtsai/retrieval.py were "

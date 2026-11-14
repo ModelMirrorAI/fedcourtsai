@@ -40,6 +40,7 @@ from ..schemas import (
     FeeClass,
     InterimApplicantClass,
     InterimCapitalMarking,
+    Moment,
     PredictionContext,
     StatPack,
     StatPackAuthorshipTerm,
@@ -717,12 +718,13 @@ def interim_base_rate(
     on those rungs than the pooled cohort behind this rate. The rate is
     unconditioned on the ladder while the scored cells are selected on it, which
     is the register's own test 3 answered in the negative
-    (``docs/outcome-decomposition.md``). Two consequences travel with the number:
-    a positive interim skill against it is *not* by itself evidence of forecast
-    skill, and the conditioned rate the claim would need is not derivable from
-    any committed cut, because the pack publishes no ladder-by-grant cross-tab.
-    Conditioning the pool on the frozen rung is the registered next step, and it
-    is a new estimator applied forward, never a silent re-reading of this one.
+    (``docs/outcome-decomposition.md``). One consequence travels with the
+    number: a positive interim skill against it is *not* by itself evidence of
+    forecast skill. The pack publishes one conditioned cut, the per-moment
+    pools, and :func:`interim_moment_base_rate` reads them as a second
+    reference line beside this rate for a cell at a later moment. That line is
+    a separate estimator, never a re-reading of this one, and the arrival
+    moment has none.
 
     Two further selections are properties of the pooled counts themselves.
     Resolution is machine-matched, so the denominator is selected for
@@ -809,6 +811,98 @@ def interim_base_rate(
     if resolved < INTERIM_BASE_RATE_MIN_RESOLVED:
         return None
     return granted / resolved
+
+
+#: The interim moments that carry a per-moment reference pool: the two a cell
+#: reaches only because a later docket fact occurred. The arrival moment has
+#: none, because no as-of segment of the substantive slice describes it: every
+#: application arrives, and the reserve's own pick is a quota over what is
+#: pending rather than a property of the application
+#: (``docs/salience.md``, *The interim docket*).
+INTERIM_MOMENT_POOLS: Final[frozenset[Moment]] = frozenset(
+    {Moment.response_requested, Moment.response_filed}
+)
+
+
+def interim_moment_base_rate(
+    application_term: int,
+    moment: Moment | None,
+    statpack: StatPack,
+    *,
+    lookback_terms: int = 0,
+) -> float | None:
+    """The per-moment reference rate an interim cell's second skill line is scored against.
+
+    The grant rate, on the finer reading, of the strictly-prior applications
+    that reached ``moment`` before their decision: a response requested
+    (``moment_request_*``) or a response filed (``moment_response_filed_*``).
+    It sits **beside** :func:`interim_base_rate`, never in place of it. The
+    registered baseline pools the whole substantive slice, while a cell at one
+    of these moments exists only for an application that drew the request or
+    the response, a population granted about three times as often; this rate
+    is the yardstick conditioned on that one docket fact.
+
+    Terms, window and vocabulary are exactly those :func:`interim_base_rate`
+    pools on the finer reading for the same ``application_term``: strictly
+    prior Terms within ``lookback_terms`` over the registered slice, and from
+    :data:`INTERIM_WINDOW_FROM_TERM` the :data:`INTERIM_LOOKBACK_TERMS` Terms
+    before over the widened slice. So the two lines differ in the one
+    condition and in nothing else.
+
+    ``None`` for a moment outside :data:`INTERIM_MOMENT_POOLS`, for a pack with
+    no interim section, where any pooled Term predates the moment counts or
+    holds a row the finer reading has not read (the refusal the finer pool
+    makes, for its reason) or a row no moment pool can place
+    (``moment_undated``), and where the pooled sample is below
+    :data:`INTERIM_BASE_RATE_MIN_RESOLVED`. Finer reading only: a cell scored
+    on the registered reading has no moment line.
+    """
+    if moment not in INTERIM_MOMENT_POOLS or statpack.interim is None:
+        return None
+    windowed = application_term >= INTERIM_WINDOW_FROM_TERM
+    if windowed:
+        lookback_terms = INTERIM_LOOKBACK_TERMS
+    oldest = application_term - lookback_terms if lookback_terms > 0 else None
+    granted = 0
+    resolved = 0
+    for entry in statpack.interim.terms:
+        if entry.term >= application_term:
+            continue  # leakage guard: the case's own and later Terms never contribute
+        if oldest is not None and entry.term < oldest:
+            continue  # outside the lookback window
+        counts = _moment_counts(entry, moment, wide=windowed)
+        if counts is None:
+            return None  # a pooled Term the moment counts do not cover in full
+        granted += counts[0]
+        resolved += counts[1]
+    if resolved < INTERIM_BASE_RATE_MIN_RESOLVED:
+        return None
+    return granted / resolved
+
+
+def _moment_counts(
+    entry: StatPackInterimTerm, moment: Moment, *, wide: bool
+) -> tuple[int, int] | None:
+    """One Term's ``(granted, resolved)`` for a moment pool, or ``None`` if unread.
+
+    ``None`` wherever the finer pool over the same slice refuses the Term (it
+    predates the counts or holds an unread row), where the Term predates the
+    moment counts themselves, and where it holds a row no moment pool can place
+    (``moment_undated``).
+    """
+    if wide:
+        if _wide_counts(entry, "finer") is None:
+            return None
+    elif entry.finer_resolved is None or entry.finer_granted is None or entry.finer_unread:
+        return None
+    prefix = "wide_moment_" if wide else "moment_"
+    stem = "request" if moment == Moment.response_requested else "response_filed"
+    granted: int | None = getattr(entry, f"{prefix}{stem}_granted")
+    resolved: int | None = getattr(entry, f"{prefix}{stem}_resolved")
+    undated: int | None = getattr(entry, f"{prefix}undated")
+    if granted is None or resolved is None or undated is None or undated:
+        return None
+    return granted, resolved
 
 
 def _wide_counts(entry: StatPackInterimTerm, reading: InterimPoolReading) -> tuple[int, int] | None:

@@ -455,12 +455,20 @@ from .pipeline.evaluate import (
 )
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
-from .pipeline.federal_label import federal_label_check
+from .pipeline.federal_label import (
+    SgPetitionListing,
+    federal_label_check,
+    read_sg_petition_listing,
+)
 from .pipeline.filing_simulation import filing_simulation
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all, onboard_served
+from .pipeline.live_snapshot_restore import (
+    RestoreUnavailable,
+    restore_replaced_live_snapshots,
+)
 from .pipeline.merits_coverage import merits_coverage
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
@@ -1817,6 +1825,123 @@ def rederive_cert_amicus_briefs_cmd(
             "poll read since the dry run is already written, so the total ordinarily "
             "falls between the two dispatches; one above the dry run's means the "
             "population widened — triage the ledger before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+def _restore_mode(applied: bool, refused: bool) -> str:
+    if refused:
+        return "refused"
+    return "applied" if applied else "dry-run"
+
+
+@app.command("restore-replaced-live-snapshots")
+def restore_replaced_live_snapshots_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the restored snapshots; omit for a dry-run plan."),
+    ] = False,
+    max_restores: Annotated[
+        int | None,
+        typer.Option(
+            "--max-restores",
+            help="Blast-radius bound: refuse to apply more restores than this. "
+            "Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from, and a default
+        # would stand in for the maintainer's reading of it.
+    ] = None,
+) -> None:
+    """Restore a day's live snapshot where a same-day refresh stored over it.
+
+    A case has one snapshot key per day, shared by the live channel and the
+    CourtListener refresh. Where a refresh stored its read over the day's
+    supremecourt.gov docket, the bucket still holds the replaced body as a
+    noncurrent version. This pass lists the versions of every dated snapshot
+    key of each row both channels have read (`last_live_polled` and
+    `last_pulled` both set), and for a key whose current version is not
+    live-shaped but which holds an earlier live-shaped version, writes the
+    newest such body back as the key's current version
+    (`pipeline.live_snapshot_restore`). The displaced CourtListener body
+    becomes a noncurrent version. **Content store only**: no index row and no
+    committed artifact moves.
+
+    Prints the counts, one line per planned restore (case id and date), then
+    the `LiveSnapshotRestoreResult` as JSON. One pass per invocation (the plan
+    is the write set). `--apply` requires an explicit `--max-restores` and
+    refuses above it, printing the ledger first. Idempotent: re-running after
+    an apply reports `total_restores = 0`. Needs a store role that may list and
+    read object versions; run where the corpus is pulled (`run-repair`'s
+    `live-snapshot-restore` pass in production). Exits 1 when the corpus or the
+    store is absent, the store role may not read object versions, or the apply is refused.
+    """
+    settings = get_settings()
+    if apply and max_restores is None:
+        typer.echo(
+            "restore-replaced-live-snapshots: --apply requires an explicit --max-restores. "
+            "Read the dry run first and pass the total_restores you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before restoring live snapshots.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # An apply opens the blob as a writer does, though it writes no row: the
+    # store's write gate answers for a connection on the configured corpus file.
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
+        transport = casestore.write_transport(conn) if apply else casestore.active_transport()
+        if transport is None:
+            typer.echo(
+                "restore-replaced-live-snapshots: no content store is addressed"
+                + (" for writing" if apply else "")
+                + "; nothing can be read. An apply writes only from a corpus writer job.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        try:
+            result = restore_replaced_live_snapshots(
+                conn, transport, apply=apply, max_restores=max_restores
+            )
+        except RestoreUnavailable as exc:
+            typer.echo(f"restore-replaced-live-snapshots: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    verb = "restored" if result.applied else "would restore"
+    if result.refused:
+        verb = "refused to restore"
+    typer.echo(
+        f"restore-replaced-live-snapshots ({_restore_mode(result.applied, result.refused)}): "
+        f"{result.cases_read} row(s) both channels have read; {result.rewritten_keys} dated "
+        f"snapshot key(s) written more than once; {result.live_current} already serve the "
+        f"live shape, {result.no_live_version} hold no live-shaped version, "
+        f"{result.unreadable} unreadable"
+    )
+    typer.echo(
+        f"  {verb} {result.total_restores} case-day(s) on "
+        f"{len({r.case_id for r in result.restores})} case(s); "
+        f"{result.cases_without_live_snapshot} of those cases serve no live-shaped "
+        "snapshot on any day before the restore"
+    )
+    for restore in result.restores:
+        typer.echo(f"  {restore.case_id} {restore.snapshot_date.isoformat()}")
+    if not apply and max_restores is not None and result.total_restores > max_restores:
+        typer.echo(
+            f"note: {result.total_restores} restores is above --max-restores {max_restores}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"restore-replaced-live-snapshots: refusing to apply {result.total_restores} "
+            f"restore(s) (--max-restores {max_restores}). Nothing was written. A total above "
+            "the dry run's means a refresh replaced more live snapshots since; read the "
+            "ledger before raising the bound.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -6451,6 +6576,12 @@ def unforecast_outcomes_cmd(
         raise typer.Exit(code=3)
 
 
+def _read_sg_petition_listing() -> SgPetitionListing:
+    """One request to the Office's briefs listing, closed before the corpus is opened."""
+    with sg_briefs.OsgClient() as client:
+        return read_sg_petition_listing(client)
+
+
 @app.command("federal-label-check")
 def federal_label_check_cmd(
     salience_version: Annotated[
@@ -6460,6 +6591,14 @@ def federal_label_check_cmd(
             help="Read the bands under this registered scorer (default: the active one).",
         ),
     ] = None,
+    sg_list: Annotated[
+        bool,
+        typer.Option(
+            "--sg-list",
+            help="Also fetch the Solicitor General's posted cert petitions from "
+            "www.justice.gov (one request) and alarm on a pending one outside the band.",
+        ),
+    ] = False,
 ) -> None:
     """Cross-check the `federal` band on pending paid petitions, read-only.
 
@@ -6470,11 +6609,15 @@ def federal_label_check_cmd(
     selection and conference. The check selects nothing and moves no band; a
     confirmed miss is evidence for the next registered caption version.
     `--salience-version` re-reads the bands under another registered scorer.
-    Reads the corpus index; reads no snapshot and writes nothing. A summary to
-    stderr, a `FederalLabelReport` as JSON to stdout; exits 3 when an alarm
-    holds (a flagged petition the Solicitor General's office appears for that
-    is not selected, so no forecast is coming), 2 on an unregistered scorer, 1
-    if the corpus is absent.
+    `--sg-list` adds an outside list: one request for the first page of the
+    Office of the Solicitor General's own cert petitions on its briefs listing,
+    every one of which is the government's, so a pending petition on it
+    outside the `federal` band is an alarm, as is a listing that cannot be
+    read. Reads the corpus index; reads no snapshot and writes nothing. A
+    summary to stderr, a `FederalLabelReport` as JSON to stdout; exits 3 when
+    an alarm holds (a flagged petition the Solicitor General's office appears
+    for that is not selected, so no forecast is coming, or either `--sg-list`
+    alarm), 2 on an unregistered scorer, 1 if the corpus is absent.
     """
     if salience_version is not None and salience_version not in registered_versions():
         typer.echo(f"federal-label-check: {salience_version!r} is not registered.", err=True)
@@ -6488,15 +6631,26 @@ def federal_label_check_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    sg_listing = _read_sg_petition_listing() if sg_list else None
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         report = federal_label_check(
-            conn, today=datetime.now(UTC).date(), salience_version=salience_version
+            conn,
+            today=datetime.now(UTC).date(),
+            salience_version=salience_version,
+            sg_listing=sg_listing,
         )
     typer.echo(
         f"{report.salience_version}: pending paid petitions {report.pending}, "
         f"federal {report.federal}, flagged {len(report.flagged)}",
         err=True,
     )
+    listed = report.sg_petition_list
+    if listed is not None and listed.read:
+        typer.echo(
+            f"Solicitor General's listing: {listed.listed} docket numbers, {listed.pending} "
+            f"pending here, {len(listed.not_federal)} outside the federal band",
+            err=True,
+        )
     for alarm in report.alarms:
         typer.echo(f"alarm: {alarm}", err=True)
     typer.echo(report.model_dump_json())
@@ -6513,6 +6667,14 @@ def coverage_verdict_cmd(
         Path | None,
         typer.Option("--markdown-out", help="Write the verdict as an alarm-issue body here."),
     ] = None,
+    sg_list: Annotated[
+        bool,
+        typer.Option(
+            "--sg-list",
+            help="Also fetch the Solicitor General's posted cert petitions from "
+            "www.justice.gov (one request) for the federal-label cross-check.",
+        ),
+    ] = False,
 ) -> None:
     """Run every forecast-coverage check and print one verdict, read-only.
 
@@ -6521,8 +6683,13 @@ def coverage_verdict_cmd(
     (`pipeline/coverage_verdict.py`), folded into one answer: `ok`, the alarms
     by check, a flat block of counts to keep as a series, and each check's own
     report. Alarms: every event the monitor classes `missed`; a decided event
-    on a selected row with no outcome record three days on; and each alarm the
-    two censuses raise. Reads the corpus index and the committed ledger; the
+    on a selected row with no outcome record three days on; each alarm the
+    two censuses raise; and every cell of an open event that reached the
+    predict attempt cap (`predict.max_attempts_per_cell`) with no committed
+    prediction, which the sweep no longer re-queues. `--sg-list` hands the
+    federal-label cross-check the Solicitor General's posted cert petitions
+    (`federal-label-check --sg-list`), the one request this command makes off
+    the corpus. Reads the corpus index and the committed ledger; the
     only files it writes are the two it is asked for. `--markdown-out` renders
     the verdict as an issue body carrying identifiers and counts only. One
     line per alarm to stderr, the `CoverageVerdict` as JSON to stdout; exits 3
@@ -6537,12 +6704,15 @@ def coverage_verdict_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    sg_listing = _read_sg_petition_listing() if sg_list else None
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         verdict = coverage_verdict(
             conn,
             settings.data_root,
             settings.config_root / "predictors.yaml",
             today=datetime.now(UTC).date(),
+            max_attempts=load_predict_config(settings.config_root).max_attempts_per_cell,
+            sg_listing=sg_listing,
         )
     payload = verdict.model_dump_json()
     if json_out is not None:
@@ -11177,7 +11347,14 @@ def topic_cut_cmd(
         settings.data_root,
         cells,
         process_scope=scope,
-        skills=skill_components(cells, settings.data_root, statpack),
+        skills=skill_components(
+            cells,
+            settings.data_root,
+            statpack,
+            interim_lookback_terms=load_salience_config(
+                settings.config_root
+            ).base_rate_lookback_terms,
+        ),
         facts=cell_facts(cells, settings.data_root),
         vote_scores=vote_scores(cells, settings.data_root),
     )
@@ -11282,7 +11459,12 @@ def leaderboard(
         ),
     }
     evaluators = evaluator_agreement(settings.data_root, frozen_only=frozen_only)
-    skills = skill_components(over, settings.data_root, statpack)
+    skills = skill_components(
+        over,
+        settings.data_root,
+        statpack,
+        interim_lookback_terms=load_salience_config(settings.config_root).base_rate_lookback_terms,
+    )
     # Each cert cell's frozen band and realized outcome: the forward stratum's
     # per-band cut and the realized always-deny floor beside accuracy, over the
     # same cells and never a rank key.

@@ -67,6 +67,7 @@ from fedcourtsai.validate import (
     CHECK_PREDICTION_SEMANTIC,
     CHECK_REQUIRED_COLUMNS,
     CHECK_ROW_COUNT_MONOTONIC,
+    CHECK_SAMPLE_WEIGHTS_UNIT,
     CHECK_SCORED_VOTES,
     CHECK_SNAPSHOT_NOT_FUTURE,
     CHECK_STALE_UNPARSED_GRANTS,
@@ -645,6 +646,38 @@ def test_the_marking_advisory_is_ratcheted(monkeypatch: pytest.MonkeyPatch, tmp_
     check = next(c for c in verdict.checks if c.name == CHECK_DOCKET_NUMBER_MARKING)
     assert check.passed is False and check.failures == 1
     assert "above the ceiling" in check.detail
+
+
+# --- B: stored sample weights --------------------------------------------------
+
+
+@pytest.mark.parametrize("weight", [10, 0])
+def test_a_stored_weight_other_than_one_fails_the_verdict(tmp_path: Path, weight: int) -> None:
+    """A weighted row moves every weighted figure, so it is a failure, not a count
+    to watch: the check names the row and the verdict turns red."""
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET sample_weight = ? WHERE case_id = 'ca9/1'", (weight,))
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    check = next(c for c in verdict.checks if c.name == CHECK_SAMPLE_WEIGHTS_UNIT)
+    assert check.passed is False and check.failures == 1 and check.checked == 1
+    assert any("ca9/1" in p and f"sample_weight {weight}" in p for p in check.problems)
+
+
+@pytest.mark.parametrize("weight", [1, None])
+def test_a_unit_or_unset_weight_passes(tmp_path: Path, weight: int | None) -> None:
+    """One is the only weight a writer lands, and unset asserts nothing."""
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET sample_weight = ? WHERE case_id = 'ca9/1'", (weight,))
+        conn.commit()
+    verdict = _run(db, tmp_path / "data")
+    check = next(c for c in verdict.checks if c.name == CHECK_SAMPLE_WEIGHTS_UNIT)
+    assert verdict.ok and check.passed and check.failures == 0 and check.problems == []
 
 
 # --- C: orphan ledger references ----------------------------------------------

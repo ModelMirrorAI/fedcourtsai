@@ -14,7 +14,7 @@
 # executes.
 /.github/workflows/ @modelmirror
 /.github/actions/ @modelmirror
-/.github/engines/ @modelmirror
+/engines/ @modelmirror
 
 # The security posture, its setup, and the authorization checks that enforce
 # it: `authorize-trigger`, the self-contained run gate every environment-binding

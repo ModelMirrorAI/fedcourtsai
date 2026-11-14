@@ -235,6 +235,7 @@ PASSES: Mapping[str, RepairPass] = {
         _bounded("cert-amicus-rederive", "--max-changes"),
         _bounded("salience-cert-backfill", "--max-fills"),
         _bounded("application-reread", "--max-changes"),
+        _bounded("live-snapshot-restore", "--max-restores"),
         RepairPass("regrade-stale", ("regrade",), target_kind="cells"),
         RepairPass("refused-attempt-removal", ("regrade",), target_kind="attempts"),
         _bounded(
@@ -370,6 +371,14 @@ PERSIST: Mapping[str, Persist] = {
         message="repair: re-read the resolved applications' interim readings and asks",
         label="application-reread pointer",
         unchanged="Interim readings and asks already filled; nothing to persist.",
+    ),
+    "live-snapshot-restore": Persist(
+        message="repair: restore replaced live snapshots",
+        label="live-snapshot-restore pointer",
+        unchanged=(
+            "pointer unmoved — the restore writes the content store alone, and its dry run "
+            "is the control."
+        ),
     ),
 }
 

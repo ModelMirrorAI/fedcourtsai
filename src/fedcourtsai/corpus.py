@@ -7015,8 +7015,10 @@ def upsert_snapshot(
     normalized ``cases`` row does not fully capture — it is what ``pull`` diffs to
     detect change and what predictors/evaluators are provisioned from. Serialized
     with sorted keys so a re-store of the same facts is byte-identical. Idempotent:
-    a second pull on the same day overwrites that day's snapshot rather than
-    duplicating it.
+    a second write on the same day overwrites that day's snapshot rather than
+    duplicating it, so a caller that must not replace what the day already
+    holds checks first: ``pull_case`` leaves a day's live-shaped snapshot in
+    place.
     """
     # Under the split mode the snapshot lives only in the content store (mirrored
     # below); the blob keeps no snapshots table content, so change detection reads

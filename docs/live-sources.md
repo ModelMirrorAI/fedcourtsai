@@ -2031,11 +2031,11 @@ declining to store one saves no request; it only drops a row the corpus can then
 recover solely by re-walking the whole Term. Every row records its **inverse
 inclusion probability** as `sample_weight` — 1 where the corpus can show the row
 stands only for itself, min-latched so a weight can only ever be learned toward
-certainty. The column stays because the corpus still holds denials an earlier
-sampled walk kept at weight 10: a weighted aggregate multiplies by it so that
-legacy frame cannot bias a base rate, and each such row regresses to 1 once a
-re-walk has **enumerated its block**, so that the nine petitions the weight stood
-for arrive with it. Regressing it on the re-serve of the kept serial alone would
+certainty. The column is the inclusion probability a weighted aggregate
+multiplies by. An earlier sampled walk kept one denial in ten and stored each at
+weight 10, and the rule below is how such a row is read: it regresses to 1 once
+a re-walk has **enumerated its block**, so that the nine petitions the weight
+stood for arrive with it. Regressing it on the re-serve of the kept serial alone would
 leave those nine represented by nobody, which under-counts that block's denials
 rather than over-counting them.
 
@@ -2048,15 +2048,29 @@ reaches the corpus through `ingest_live_payload`, and a caller asserting weight
 poll stamps directly, but each re-upserts the row it read, so it echoes the
 stored weight and can never lower one.) Touching a row is not observing the
 block it stands for: a grid denial whose neighbours are still stored one in ten
-keeps its sampling weight however many times the walk re-serves it alone. That
-is what makes a re-weighting of the legacy frame durable — the min-latch keeps
-the smaller of stored and incoming, so a repaired 10 would otherwise be erased
-by the next re-serve's 1. A caller asserting any weight *other* than 1 is
-claiming knowledge the corpus cannot reproduce, and that value is written as
-given. The derivation is affordable per row because the density guard's read of
-the live slice is served by `idx_cases_live_docket`, a covering partial index
+is not read as certainty however many times the walk re-serves it alone, and the
+next paragraph says what happens to a write the derivation would weight above 1.
+The derivation is affordable per row because the density guard's read of the
+live slice is served by `idx_cases_live_docket`, a covering partial index
 over exactly that slice; every other outcome is settled on the row's own columns
 and one cursor lookup.
+
+**No ingest write stores a weight other than 1.** The corpus holds every decided
+petition of the walked Terms as its own row, so no stored row stands for
+another, and a write at any other weight would mint one that claims petitions
+the corpus counts separately. `ingest_live_payload` and `upsert_to_corpus` refuse it
+(`require_unit_weight`), and so does the backfill below: the write raises before
+anything is stored, names the row, and fails the run that made it, again on
+every later run until the block is whole. `refresh-dockets` is the way out, so
+it alone records a refusal against the one docket and carries on: name the
+block's missing serials with the refused one, and a second pass lands it. That covers a weight a caller asserts
+and a weight the derivation reads off a block holding fewer stored neighbours
+than the density guard asks for, which on a fully stored range means rows are
+missing. One derived weight is not a refusal: over a row already stored at 1 the
+min-latch would discard it, so that write proceeds and stores 1. The writers
+that re-upsert a stored row (the rotations' poll stamps, the dedupe merge) echo
+or lower what is stored and pass no refusal; `validate-corpus` holds the stored
+column to the same rule (`sample_weights_are_unit`), which covers them.
 
 Weights land exactly at ingest time; the backfill for pre-capture rows recovers
 them by the same rule (`legacy_denial_sample_weight`: denied + serial on the

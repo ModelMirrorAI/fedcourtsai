@@ -205,6 +205,9 @@ CHECK_STALE_UNPARSED_GRANTS = "no_stale_unparsed_grants"
 # specifically, which is exactly what it counts — a `*** … *** ` string the
 # strip leaves alone (a consolidated circuit docket) is not a defect.
 CHECK_DOCKET_NUMBER_MARKING = "docket_numbers_carry_no_capital_marking"
+# Every stored row stands for itself, so a weight other than 1 is a row that
+# claims petitions the corpus counts separately.
+CHECK_SAMPLE_WEIGHTS_UNIT = "sample_weights_are_unit"
 
 #: Ceiling on the advisory count above which it stops being advisory and fails.
 #: The strip runs at every ingest write site, so once this branch is live the
@@ -615,6 +618,50 @@ def check_docket_number_marking(conn: sqlite3.Connection) -> CorpusCheck:
                 else "no marked docket numbers stored"
             )
         ),
+    )
+
+
+def check_sample_weights_unit(conn: sqlite3.Connection) -> CorpusCheck:
+    """No stored ``sample_weight`` may be anything but 1.
+
+    The corpus holds every decided petition as its own row, so each row stands
+    for itself and the weighted aggregates read every weight as 1. A stored
+    weight above that claims petitions the corpus is already counting, which
+    moves published figures with no reader changing, and any value other than 1
+    stops the census cuts, which raise on it. The ingest writers refuse such a
+    write (``pipeline.ingest.require_unit_weight``); this holds the stored column
+    to the same rule, so a weight that arrived another way (the dedupe merge and
+    the rotations' poll stamps re-upsert what is stored, outside that refusal)
+    is a failed verdict naming its rows rather than a silent shift in the next
+    refresh.
+
+    ``NULL`` passes: no channel weighted the row, and every reader counts it
+    once. Reads the whole ``cases`` table, since no index covers the weight.
+    """
+    total = corpus.count(conn)
+    predicate = "sample_weight IS NOT NULL AND sample_weight != 1"
+    failures = int(conn.execute(f"SELECT COUNT(*) FROM cases WHERE {predicate}").fetchone()[0])
+    problems = [
+        f"case {record['case_id']} ({record['docket_number']}) stores sample_weight "
+        f"{record['sample_weight']}"
+        for record in conn.execute(
+            f"SELECT case_id, docket_number, sample_weight FROM cases WHERE {predicate} "
+            "ORDER BY case_id LIMIT ?",
+            (_MAX_PROBLEMS,),
+        )
+    ]
+    return CorpusCheck(
+        name=CHECK_SAMPLE_WEIGHTS_UNIT,
+        passed=not failures,
+        checked=total,
+        failures=failures,
+        detail=(
+            f"{failures} row(s) store a weight other than 1; `fedcourts corpus-info "
+            "--legacy-sample` counts the ones above it by Term"
+            if failures
+            else "every stored weight is 1 or unset"
+        ),
+        problems=problems,
     )
 
 
@@ -2258,6 +2305,7 @@ def _run_checks(
         check_row_count_monotonic(conn, baseline_count),
         check_required_columns(conn),
         check_docket_number_marking(conn),
+        check_sample_weights_unit(conn),
         check_snapshot_not_future(conn, today),
         check_stale_unparsed_grants(conn, today),
         check_case_dates(conn, today),

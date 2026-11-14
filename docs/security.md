@@ -1297,7 +1297,7 @@ non-blockingly, and the branch policy forces such a change to become a PR diff
 at all. The real control is that `.github/workflows/**` and
 `.github/actions/**` — the permission surface, composites included, since a
 composite runs inside the job and reads the same secrets — and
-`.github/engines/**`, the engine CLI pins and lockfiles every agent cell
+`engines/**`, the engine CLI pins and lockfiles every agent cell
 installs and executes, wait for the maintainer even into `staging`. The `staging` ruleset enforces it for every
 identity without the admin role: it requires a code owner's review, and
 `.github/CODEOWNERS` names the maintainer as owner of those directories, of
@@ -1776,7 +1776,8 @@ pair the third one writes:
   and `run-repair`'s application back-fill, opinion-record and document
   (`documents`, the OCR recovery's, the re-cut's and the document back-fill's) writer jobs,
   which run on an apply only) —
-  **append-only**: it grants *enumerated object actions* — get, put, list —
+  **append-only**: it grants *enumerated object actions* — get, put, list,
+  and the two version reads (list versions, get a version) —
   never `s3:*`, with an explicit `Deny` on every delete and on the two
   bucket-configuration changes that are delete-equivalent, **versioning** and
   **lifecycle configuration**. The lifecycle Deny is not redundant with the
@@ -1862,7 +1863,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — merits-coverage-alarm  | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes or closes the `merits-coverage` alarm issue, which only a `main`-ref run does |
 | `run-analytics` — order-reconcile        | read-only     | the rows the order-list reconciliation looks each listed docket up among (full `corpus-pull`), the content store's snapshot key listing for each listed application (no payload), the committed predictions and outcomes, and the Court's order lists, miscellaneous orders and opinions relating to orders off supremecourt.gov; the job fetches and parses those PDFs while holding the role, as the merits-coverage job does, and what it could reach through it is the read side only; it writes no corpus, mints no App token, holds no issue write, and hands its report (counts, docket numbers, case ids, headings, dispositions and dates) to the alarm job as a one-day artifact |
 | `run-analytics` — order-reconcile-alarm  | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes or closes the `order-reconcile` alarm issue, which only a `main`-ref run does |
-| `run-analytics` — coverage-verdict       | read-only     | the rows and events the forecast-coverage checks classify (full `corpus-pull`) and the committed predictions and outcomes; it fetches nothing from outside, writes no corpus, mints no App token, holds no issue write, and hands its verdict (counts, case ids, event ids, docket numbers, bands, reasons and dates) to the alarm job as a one-day artifact |
+| `run-analytics` — coverage-verdict       | read-only     | the rows and events the forecast-coverage checks classify (full `corpus-pull`) and the committed predictions and outcomes; its one request off the estate is an unauthenticated GET of the Solicitor General's posted cert petitions on `www.justice.gov`, which carries nothing of the corpus and from which only docket numbers and filing dates are kept; the job fetches and parses that page while holding the role, as the merits-coverage job does, and what it could reach through it is the read side only; it writes no corpus, mints no App token, holds no issue write, and hands its verdict (counts, case ids, event ids, docket numbers, bands, reasons and dates) to the alarm job as a one-day artifact |
 | `run-analytics` — coverage-verdict-alarm | none          | reads that artifact only — no corpus, no `id-token`, no App token, no environment. Its runtime token adds `issues: write`, on the one step that opens, refreshes, comments on or closes the `forecast-coverage` alarm issue, which only a `main`-ref run does |
 | `run-analytics` — decision-below          | read-only     | the fill's rotation (full `corpus-pull`, then each case's newest snapshot from the content store), then CourtListener's REST API; a dry run, it writes nothing. It binds the branch-resolved environment for the CourtListener token, scoped to its dry-run step, and mints no App token |
 | `run-analytics` — alignment-fit           | read-only     | the merits judgments and lineups the fit reads (full `corpus-pull`); it writes no corpus, mints no App token, and hands the fits file to the publish job, which assumes no role, as a one-day artifact |
@@ -1888,6 +1889,18 @@ The split is deliberate: a cell touches KBs of one case's data, so it reads the
 immutable index in place through its own sidecar and moves no full blob; the
 backlog derivations and the whole-corpus scanners (`run-analytics` and
 `run-backtest`) are scans across every case, so they take the full pull.
+
+Both production workflow roles also hold `s3:ListBucketVersions` and
+`s3:GetObjectVersion`. One caller needs them: `run-repair`'s
+`live-snapshot-restore` pass, whose dry run (read-only role) and apply
+(read-write role) list a snapshot key's versions and read an earlier one. The
+grant's reach is the role's, not the pass's: every job that assumes either
+role can read a noncurrent version of any object the role can read, for as
+long as the bucket's lifecycle rule keeps it. That adds no write and no
+delete, and it reaches only bodies the role could read while they were
+current, but it does mean a body stored over on purpose stays readable to
+those jobs until it expires. A restore that must not leave the earlier body
+readable is a version delete, which is the maintainer's by hand.
 
 Developer access is separate from the workflow roles: the maintainer uses IAM
 Identity Center SSO, a contributor gets an on-demand IAM user scoped
@@ -2201,10 +2214,10 @@ the labeling job's label-line count, which is arithmetic computed from the
 file rather than anything read out of it, and is therefore the one record that
 needs no scan ahead of it. A third summary is durable and is not counts-only:
 the `appeal-sample` job's, which carries its whole report, because the hand
-check of the reader works from its rows. It names appellate dockets the corpus
-does not hold, drawn at random from CourtListener, by court, docket id and
-number, with the numbers of the entries the reader cited, the reader's fixed
-reason strings and counts. It copies no caption, party, case type or entry
+check of the reader works from its rows; the sample step's log prints the same
+report. It names appellate dockets the corpus does not hold, drawn at random
+from CourtListener, by court, docket id and number, with the numbers of the
+entries the reader cited, the reader's fixed reason strings and counts. It copies no caption, party, case type or entry
 text; what it adds to public court records is which dockets a seeded draw
 selected, and nothing in it is conditioned on this project's selection or
 forecasts. A fourth run artifact rides the same one-day

@@ -169,7 +169,7 @@ denominator.
 - a reading rule for the merits stage blocks in
   [metrics/README.md](../metrics/README.md), saying what may be read from
   them and that they are never ranked;
-- a merits accuracy floor. The board's floor is cert-only today;
+- a merits accuracy floor. The board's floor covers the cert and interim stages;
 - `claim-scores` coverage of the merits claim sets, `merits-v1` and
   `merits-v2` (whose authorship rows are reported beside the binary claim and
   enter no total). `claim-scores` rolls

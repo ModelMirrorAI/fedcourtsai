@@ -115,6 +115,9 @@ def test_prose_only_diffs_take_the_docs_lane(paths: list[str]) -> None:
         ["config/predictors.yaml"],
         ["pyproject.toml"],
         ["uv.lock"],
+        # An engine CLI pin, which every cell installs and runs.
+        ["engines/codex/package.json"],
+        ["engines/codex/package-lock.json"],
         # Generated artifacts beside the prose are not prose.
         ["metrics/leaderboard.json"],
         ["corpus/other.ref"],

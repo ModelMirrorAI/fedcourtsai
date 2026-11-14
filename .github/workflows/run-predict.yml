@@ -1084,7 +1084,7 @@ jobs:
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
           uv run fedcourts record-write-baseline --stash-dir "$RUNNER_TEMP/write-baseline"
 
-      # Install the engine's CLI at the version `.github/engines/<engine>/`
+      # Install the engine's CLI at the version `engines/<engine>/`
       # pins, in its own SECRET-FREE step: the lockfile fixes every package by
       # hash and --ignore-scripts skips npm lifecycle scripts, and the step's
       # env carries nothing in case a package ever ran code at install. claude-code's binary

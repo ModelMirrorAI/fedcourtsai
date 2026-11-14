@@ -165,7 +165,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      (`fedcourts coverage-verdict`): the missed-forecast
 #                      monitor over 35 days, the grants and application
 #                      rulings selection left without a forecast, and the
-#                      federal-label cross-check on the pending docket. Also a
+#                      federal-label cross-check on the pending docket, which
+#                      also reads the Solicitor General's posted cert petitions
+#                      (one unauthenticated GET to www.justice.gov). Also a
 #                      daily cron's job. It reads the corpus (a full pull, the
 #                      read-only role) and the committed predictions and
 #                      outcomes, and leaves the verdict as a run artifact; a
@@ -198,8 +200,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and text-coverage's ledgers
 # additionally to a run artifact, because a worklist has to outlive the summary page
-# it is read beside — as do order-scan's and decision-below's reports; appeal-sample's
-# report is on its summary page alone. The six committing modes write only under their own
+# it is read beside — as do order-scan's and decision-below's reports;
+# appeal-sample's report is on its summary page and in its run log, and in no
+# artifact. The six committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` (the labels file and the run's spend record under
@@ -1994,14 +1997,14 @@ jobs:
       # this job ("claude native binary not installed", while the action still
       # exited `is_error: false` with no output). Install the pinned CLI here
       # instead — the engine-cli action every claude cell uses, reading the one
-      # pin in `.github/engines/<engine>/` — and hand the action the
+      # pin in `engines/<engine>/` — and hand the action the
       # executable, which skips its own install path entirely. The pin must stay
       # at or above the floor the newest `label_model` choice needs (an older
       # CLI refuses the model id).
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # The pin `.github/engines/claude-code/` holds for every claude cell.
+        # The pin `engines/claude-code/` holds for every claude cell.
         uses: ./.github/actions/engine-cli
         with:
           engine: claude-code
@@ -3753,7 +3756,8 @@ jobs:
     # identifiers and counts. It reads CourtListener's REST API and nothing
     # else (no corpus, no cloud role, no App token), so the CourtListener
     # token is the job's one secret, scoped to the sample step. It writes
-    # nothing and uploads nothing: the report goes on the run's summary page.
+    # nothing and uploads nothing: the report goes on the run's summary page
+    # and in the step's log.
     #
     # The court is the `court` dispatch input, checked by the command against
     # its closed list of four; any other value, or none, refuses before a
@@ -3816,9 +3820,10 @@ jobs:
           summary="$RUNNER_TEMP/appeal-sample-summary.txt"
           # The report JSON (court-record identifiers, counts and the
           # reader's fixed reason strings; no caption, case type or entry
-          # text) and the reading in counts both go on the summary page. A
-          # run that fails after printing its report still shows it, and the
-          # step then fails with the command's own status.
+          # text) and the reading in counts both go on the summary page and
+          # in this step's log, so a reader holding only the log reads the
+          # same rows. A run that fails after printing its report still shows
+          # it, and the step then fails with the command's own status.
           status=0
           uv run fedcourts appeal-sample --court "$COURT" > "$out" 2> "$summary" || status=$?
           {
@@ -3835,7 +3840,16 @@ jobs:
               echo '</details>'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+          # Both carry strings upstream wrote (a docket number, an error's
+          # text), so workflow commands are suspended while they print, under
+          # a token nothing fetched can know.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
           cat "$summary"
+          if [ -s "$out" ]; then
+            cat "$out"
+          fi
+          echo "::${stop_token}::"
           exit "$status"
 
   ai-candidates:
@@ -4464,6 +4478,14 @@ jobs:
     # ids, event ids, docket numbers, bands, reasons and dates: no caption and
     # no stored document text.
     #
+    # One request leaves the estate: `--sg-list` reads the first page of the
+    # Office of the Solicitor General's own cert petitions on www.justice.gov
+    # (docs/data-sources.md, *The Solicitor General's posted briefs*), with no
+    # token and nothing of the corpus in the request. Only docket numbers and
+    # filing dates are kept from the page, and the fetcher refuses a redirect
+    # off the Office's section. A listing that cannot be read is an alarm the
+    # verdict carries, not a failed job, so the other checks still report.
+    #
     # An alarm is not a failed job: the command's exit 3 says the checks ran
     # and found something, which the alarm issue carries. Any other non-zero
     # exit (a missing corpus) fails the job, uploads nothing, and so leaves
@@ -4519,7 +4541,7 @@ jobs:
           out="$RUNNER_TEMP/coverage-verdict"
           mkdir -p "$out"
           status=0
-          uv run fedcourts coverage-verdict --json-out "$out/verdict.json" \
+          uv run fedcourts coverage-verdict --sg-list --json-out "$out/verdict.json" \
             --markdown-out "$out/verdict.md" > /dev/null 2> "$out/summary.txt" || status=$?
           cat "$out/summary.txt"
           # Exit 3 is an alarm the checks found, carried by the verdict;

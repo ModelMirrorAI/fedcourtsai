@@ -1011,7 +1011,7 @@ jobs:
       # the live cells do, so this step installs the pinned claude CLI the
       # action is pointed at and resolves the codex version codex-action
       # installs — without it, codex-action would install the latest codex.
-      # Every version comes from `.github/engines/<engine>/`, the pin the
+      # Every version comes from `engines/<engine>/`, the pin the
       # cells read.
       - name: Install the selected agent CLI
         id: engine-cli
@@ -3088,7 +3088,7 @@ jobs:
       - name: Install the pinned Claude Code CLI for the labeler
         id: claude-cli
         timeout-minutes: 5
-        # The pin `.github/engines/claude-code/` holds for every claude cell.
+        # The pin `engines/claude-code/` holds for every claude cell.
         uses: ./.github/actions/engine-cli
         with:
           engine: claude-code

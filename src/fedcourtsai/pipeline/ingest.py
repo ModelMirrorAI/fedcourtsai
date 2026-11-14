@@ -103,6 +103,34 @@ LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
 # to re-derive the weight against the frame instead of taking the assertion.
 UNSAMPLED_WEIGHT: Final = 1
 
+
+class NonUnitSampleWeightError(ValueError):
+    """A write would store a ``sample_weight`` other than :data:`UNSAMPLED_WEIGHT`."""
+
+
+def require_unit_weight(weight: int | None, *, row: str, writer: str) -> None:
+    """Refuse to store a ``sample_weight`` other than :data:`UNSAMPLED_WEIGHT`.
+
+    The corpus holds every decided petition as its own row, so no stored row
+    stands for another and every aggregate may read a weight as 1. A write at any
+    other weight would mint a row that claims petitions the corpus counts
+    separately, and it would move every weighted figure without a line of reader
+    code changing. So the write is refused where it would land, naming the row
+    and the writer, rather than left for a census to find afterwards.
+
+    ``None`` passes: it asserts nothing, and the upsert's min-latch keeps the
+    stored value. ``validate-corpus`` holds the stored column to the same rule
+    (``sample_weights_are_unit``), which covers a weight that arrived by a route
+    other than these writers.
+    """
+    if weight is None or weight == UNSAMPLED_WEIGHT:
+        return
+    raise NonUnitSampleWeightError(
+        f"{writer} would store sample_weight {weight} on {row}; every stored row "
+        f"stands for itself, so the only weight a writer may land is {UNSAMPLED_WEIGHT}"
+    )
+
+
 # How far either side of a kept serial the block it stands for reaches. A sampled
 # row represents itself plus the `LEGACY_DENIAL_SAMPLE_EVERY - 1` petitions the
 # walk passed over, and which side of the serial they fell is not recorded — so
@@ -1663,8 +1691,16 @@ def upsert_to_corpus(
     channel's refresh date onto every row in the batch, advancing that channel's
     rotation key (each preserves the other channel's prior stamp).
     ``sample_weight`` asserts how the writing channel included the batch's rows
-    (min-latched; ``None`` preserves any stored weight).
+    (min-latched; ``None`` preserves any stored weight). A weight other than
+    :data:`UNSAMPLED_WEIGHT` is refused before anything is written
+    (:func:`require_unit_weight`).
     """
+    rows = list(rows)
+    require_unit_weight(
+        sample_weight,
+        row=", ".join(row.case_id for row in rows) or "an empty batch",
+        writer="upsert_to_corpus",
+    )
     store_rows = [
         to_corpus_row(
             row,
@@ -1886,9 +1922,10 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
       that residue is a handful of rows, so the rescan stays cheap.
     - **Weights** (``sample_weight``): :func:`legacy_denial_sample_weight` reads
       the row's inclusion probability back off its serial, against one reading
-      of :func:`live_slice_serials` shared by the batch. Weights land
-      exactly at ingest time going forward, so this fills only what no channel
-      ever weighted. A NULL is the predicate, and that is the whole safety
+      of :func:`live_slice_serials` shared by the batch, and the pass writes it
+      only where it is :data:`UNSAMPLED_WEIGHT` (the last paragraph of this
+      bullet). Weights land exactly at ingest time, so this fills only what no
+      channel ever weighted. A NULL is the predicate, and that is the whole safety
       argument, in both directions. Downward, a stored weight can be a
       *certainty* the corpus cannot re-derive — a poller row inside a
       walker-covered sampled range reads as sampled after the fact, because the
@@ -1905,6 +1942,9 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
       What this pass's guard *does* prevent is minting the error: a NULL row in
       an enumerated block can never come out of here at
       :data:`LEGACY_DENIAL_SAMPLE_EVERY`.
+      A NULL row the rule *would* weight above :data:`UNSAMPLED_WEIGHT` is
+      not written at all: :func:`require_unit_weight` raises, the pass rolls
+      back, and the run that called it fails naming the row.
 
     Idempotent and self-limiting: both predicates match nothing at steady
     state. Returns ``(signal_rows, weight_rows)`` back-filled.
@@ -1953,6 +1993,9 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
                 None if record["disposition"] is None else str(record["disposition"]),
                 serials=serials,
             )
+            # Raised inside the transaction, so a refused weight rolls back the
+            # whole pass and the corpus is left as it was found.
+            require_unit_weight(weight, row=str(record["case_id"]), writer="backfill_live_signals")
             conn.execute(
                 "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
                 (weight, str(record["case_id"])),
