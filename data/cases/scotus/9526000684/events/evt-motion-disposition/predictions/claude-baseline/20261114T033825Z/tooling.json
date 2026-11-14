@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000684",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned application text"],
+  "helpful": [
+    "applicant-class table in the statpack interim section",
+    "fedcourts query --docket-number for the same applicant's sibling applications"
+  ],
+  "gaps": [
+    "no filter for pro se applicants or for the same filer's other applications; the siblings surfaced only by recency",
+    "the interim per-Term table shows the older substantive counts, not the finer_* counts the pool is defined on; only the applicant-class table gives the pooled finer total"
+  ],
+  "notes": "The --era flag rejected the value 'modern' with a full help dump rather than naming accepted values."
+}

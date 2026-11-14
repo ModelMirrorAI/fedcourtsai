@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "fedcourts validate", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web.run", "jq", "apply_patch"],
+  "helpful": ["Case-level snapshot and explicit limited grant", "Provisioned opposing briefs and invited government brief", "Guarded grant-Term merits counts and complete-lineup vote counts", "MCP primary precedent texts"],
+  "gaps": ["Corpus reporter-citation coverage was too sparse for the Macquarie lookup", "Broad cert-grant queries returned no useful resolved merits analogues", "Web tool returned no usable payload"],
+  "notes": "Default uv cache was read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed the provisioned CLI to run without installing packages. One query used an invalid era token and was corrected to the supported decade vocabulary. Grant-moment record appropriately contained no merits briefs or transcript."
+}

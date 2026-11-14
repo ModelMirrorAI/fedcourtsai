@@ -1,0 +1,9 @@
+# Forecast of the Court's handling
+
+The modal outcome is a short, unexplained denial by Justice Sotomayor, without a response request, referral to the full Court, an additional amicus filing, or a separate writing. I expect action on an emergency timetable, most likely by November 16, 2026, given the hearing identified in the application; action during the following week is a secondary timing possibility. Timing is not a separately scored claim.
+
+The starting record shows only submission on November 11: no response has been requested, no referral has occurred, and no amicus entry is present. From that state, I assign a **6%** probability to a new response request, **3.5%** to a new referral, and **0.5%** to an increase above zero qualifying amicus entries, including submitted briefs. These forecast subsequent acts, not the probability that a rung is already present.
+
+The probability of substantive relief, in whole or in part and conditional on no moot disposition, is **3%**. If relief issues, a narrow preservation order is more plausible than the full set of restraints requested. A brief administrative hold, if entered, need not be followed by a substantive grant.
+
+A denial will probably provide no reasons and will not resolve whether the applicant was denied legally required disability accommodations. If the Court explains a denial, the likely grounds are inadequate prospects for certiorari and reversal in an unfinished, fact-specific state foreclosure case, with finality and the availability of further proceedings central. The impending hearing and alleged disability-related injury will not, on the modal path, overcome those threshold concerns. If relief is granted, its likely explanation will focus on preserving meaningful review and avoiding potentially irreversible harm while the jurisdictional and access issues are considered, rather than deciding the mortgage dispute.
