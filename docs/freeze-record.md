@@ -20191,8 +20191,8 @@ freeze commit is recorded here.
   unread-run `[pipeline note: …]` line and the manifest's `kind_description`
   a matching correction; both are made here. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-14` (merge
+  commit `049afb2f5f2eb448773ed20f83b3d2f55e2428d4`, merged `2026-11-14T15:51:37Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_amicus_line.py tests/test_cert_anchor_stamp.py
@@ -20215,8 +20215,8 @@ freeze commit is recorded here.
     `events` above 0.
 - **`proc-v23`, cert cells are handed their cert-stage amicus count and the
   amicus-adjusted reference forecast; recorded 2026-11-13.** Carried to
-  `main` by the promotion tagged `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  `main` by the promotion tagged `promotion/2026-11-14` (merge commit
+  `049afb2f5f2eb448773ed20f83b3d2f55e2428d4`, merged `2026-11-14T15:51:37Z`), to be tagged
   **`prereg/proc-v23`**. Registered under the merge-stamped rule, so its
   counting instant, its three predictor bless moments and every window edge
   it moves are the carrying merge's committer time. Only the predict prompt

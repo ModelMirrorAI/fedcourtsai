@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.88,
+    "notes": "Solicitor General petition challenging the D.C. Circuit's invalidation of President Trump's flagship southern-border entry-suspension and asylum-bar proclamation (Proclamation No. 10,888), testing the interplay of 8 U.S.C. 1182(f), 1185(a), 1158(a)(1), and Title 8 removal procedures alongside 8 U.S.C. 1252(f)(1)'s bar on classwide injunctive relief; granted plenary review on Questions 1 and 2, placing it in the upper marquee tier of OT2026 while preserving headroom near 1.0 for once-in-a-generation constitutional landmarks."
+  },
+  "brier_score": 0.0004000000000000007,
+  "brier_skill_score": 0.9943886280991735,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": 0.07088381562824017
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.12018447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.9,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.19106828610282053,
+    "total": 0.19106828610282053
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:14:48.841686Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-08-25 (run_id 20260825T052918Z, result_capture_coverage=0.0, all calls unobserved per engine telemetry shape), one day after docketing and nearly three months before the 2026-11-13 grant order. Graded on logged queries: read provisioned arrival inputs, lines 1-300 of petition.txt, and metrics/statpack.md, and ran one CourtListener search for the D.C. Circuit opinion below; no read touched data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.72,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json and record/snapshots/2026-11-13.json show two distributions (Conferences of 11/6/2026 and 11/13/2026, distribution_count=2) and a plenary certiorari grant on November 13, 2026.",
+        "claim": "The petition will be distributed for conference and granted on its first or second distribution for plenary review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null and disposition_route='plenary' (disposition_basis='standard').",
+        "claim": "No CVSG will occur because the Solicitor General is the petitioner, and a summary disposition such as a GVR is highly unlikely.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 13, 2026 order in record/snapshots/2026-11-13.json states: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition,' declining Question 3.",
+        "claim": "If granted, the Court is likely to take all three questions presented.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Certiorari was granted (actual_disposition='granted'), so the conditional denial branch was never tested.",
+        "claim": "Should the Court deny review, multiple conservative Justices will file a vigorous and lengthy dissent from denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260825T052918Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:14:48.841686Z"
+  },
+  "reasoning_quality": 0.58,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

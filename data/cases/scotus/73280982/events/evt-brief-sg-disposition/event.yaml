@@ -7,7 +7,7 @@ event_id: evt-brief-sg-disposition
 kind: brief
 moment: sg-brief
 opened_at: '2026-10-07'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: cert
 title: Robinhood Markets, Inc., et al. v. Vinod Sodha, et al.

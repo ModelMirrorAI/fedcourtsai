@@ -1,6 +1,6 @@
 {
-  "always_denied_accuracy": 0.9,
-  "always_not_granted_accuracy": 0.9,
+  "always_denied_accuracy": 1.0,
+  "always_not_granted_accuracy": 1.0,
   "entries": [
     {
       "accuracy": 1.0,
@@ -8,276 +8,11 @@
         {
           "accuracy": 1.0,
           "arm": "truncated",
-          "correct": 9,
-          "denied": 8,
-          "events_scored": 9,
-          "granted": 1,
-          "granted_correct": 9,
-          "lift_over_always_denied": 0.1111111111111111
-        },
-        {
-          "accuracy": 1.0,
-          "arm": "dated",
-          "correct": 1,
-          "denied": 1,
-          "events_scored": 1,
+          "correct": 10,
+          "denied": 10,
+          "events_scored": 10,
           "granted": 0,
-          "granted_correct": 1,
-          "lift_over_always_denied": 0.0
-        }
-      ],
-      "big_case": {
-        "maximum": 0.95,
-        "mean": 0.21555555555555556,
-        "minimum": 0.02,
-        "scored": 9
-      },
-      "calibration": [
-        {
-          "lower": 0.0,
-          "mean_probability": 0.017888888888888888,
-          "observed_granted_rate": 0.0,
-          "predictions": 9,
-          "upper": 0.1
-        },
-        {
-          "lower": 0.8,
-          "mean_probability": 0.82,
-          "observed_granted_rate": 1.0,
-          "predictions": 1,
-          "upper": 0.9
-        }
-      ],
-      "engine": "gemini",
-      "events_scored": 10,
-      "granted_accuracy": 1.0,
-      "granted_lift_over_always_denied": 0.09999999999999998,
-      "lift_over_always_denied": 0.09999999999999998,
-      "mean_brier_score": 0.0037511000000000024,
-      "model": "gemini-4-argon",
-      "predictor_id": "gemini-baseline",
-      "rank": 1,
-      "segments": [
-        {
-          "accuracy": 1.0,
-          "band": "federal",
-          "events_scored": 1,
-          "mean_brier_score": 0.03240000000000002,
-          "mean_brier_skill": 0.4147749999999999,
-          "pooled_brier_skill": 0.4147749999999999,
-          "segment_base_rate": 0.7647058823529411
-        },
-        {
-          "accuracy": 1.0,
-          "band": "elevated",
-          "events_scored": 2,
-          "mean_brier_score": 0.0001305,
-          "mean_brier_skill": 0.9858414240443184,
-          "pooled_brier_skill": 0.9840436428189666,
-          "segment_base_rate": 0.08993354711586755
-        },
-        {
-          "accuracy": 1.0,
-          "band": "baseline",
-          "events_scored": 7,
-          "mean_brier_score": 0.0006928571428571428,
-          "mean_brier_skill": -3.7137486900966414,
-          "pooled_brier_skill": -3.818047001045537,
-          "segment_base_rate": 0.011944607106178106
-        }
-      ]
-    },
-    {
-      "accuracy": 1.0,
-      "arms": [
-        {
-          "accuracy": 1.0,
-          "arm": "truncated",
-          "correct": 9,
-          "denied": 8,
-          "events_scored": 9,
-          "granted": 1,
-          "granted_correct": 9,
-          "lift_over_always_denied": 0.1111111111111111
-        },
-        {
-          "accuracy": 1.0,
-          "arm": "dated",
-          "correct": 1,
-          "denied": 1,
-          "events_scored": 1,
-          "granted": 0,
-          "granted_correct": 1,
-          "lift_over_always_denied": 0.0
-        }
-      ],
-      "big_case": {
-        "maximum": 0.95,
-        "mean": 0.16999999999999998,
-        "minimum": 0.02,
-        "scored": 10
-      },
-      "calibration": [
-        {
-          "lower": 0.0,
-          "mean_probability": 0.014444444444444446,
-          "observed_granted_rate": 0.0,
-          "predictions": 9,
-          "upper": 0.1
-        },
-        {
-          "lower": 0.8,
-          "mean_probability": 0.8,
-          "observed_granted_rate": 1.0,
-          "predictions": 1,
-          "upper": 0.9
-        }
-      ],
-      "engine": "claude-code",
-      "events_scored": 10,
-      "granted_accuracy": 1.0,
-      "granted_lift_over_always_denied": 0.09999999999999998,
-      "lift_over_always_denied": 0.09999999999999998,
-      "mean_brier_score": 0.004266999999999997,
-      "model": "claude-opus-5-5",
-      "predictor_id": "claude-baseline",
-      "rank": 2,
-      "segments": [
-        {
-          "accuracy": 1.0,
-          "band": "federal",
-          "events_scored": 1,
-          "mean_brier_score": 0.03999999999999998,
-          "mean_brier_skill": 0.27750000000000064,
-          "pooled_brier_skill": 0.27750000000000064,
-          "segment_base_rate": 0.7647058823529411
-        },
-        {
-          "accuracy": 1.0,
-          "band": "elevated",
-          "events_scored": 2,
-          "mean_brier_score": 0.000125,
-          "mean_brier_skill": 0.9866918550462087,
-          "pooled_brier_skill": 0.9847161329683589,
-          "segment_base_rate": 0.08993354711586755
-        },
-        {
-          "accuracy": 1.0,
-          "band": "baseline",
-          "events_scored": 7,
-          "mean_brier_score": 0.0003457142857142857,
-          "mean_brier_skill": -1.3634836827211703,
-          "pooled_brier_skill": -1.4040564417588035,
-          "segment_base_rate": 0.011944607106178106
-        }
-      ]
-    },
-    {
-      "accuracy": 1.0,
-      "arms": [
-        {
-          "accuracy": 1.0,
-          "arm": "truncated",
-          "correct": 9,
-          "denied": 8,
-          "events_scored": 9,
-          "granted": 1,
-          "granted_correct": 9,
-          "lift_over_always_denied": 0.1111111111111111
-        },
-        {
-          "accuracy": 1.0,
-          "arm": "dated",
-          "correct": 1,
-          "denied": 1,
-          "events_scored": 1,
-          "granted": 0,
-          "granted_correct": 1,
-          "lift_over_always_denied": 0.0
-        }
-      ],
-      "big_case": {
-        "maximum": 0.9,
-        "mean": 0.52,
-        "minimum": 0.18,
-        "scored": 3
-      },
-      "calibration": [
-        {
-          "lower": 0.0,
-          "mean_probability": 0.029777777777777778,
-          "observed_granted_rate": 0.0,
-          "predictions": 9,
-          "upper": 0.1
-        },
-        {
-          "lower": 0.8,
-          "mean_probability": 0.8,
-          "observed_granted_rate": 1.0,
-          "predictions": 1,
-          "upper": 0.9
-        }
-      ],
-      "engine": "codex",
-      "events_scored": 10,
-      "granted_accuracy": 1.0,
-      "granted_lift_over_always_denied": 0.09999999999999998,
-      "lift_over_always_denied": 0.09999999999999998,
-      "mean_brier_score": 0.005156399999999998,
-      "model": "gpt-6.1-sol",
-      "predictor_id": "codex-baseline",
-      "rank": 3,
-      "segments": [
-        {
-          "accuracy": 1.0,
-          "band": "federal",
-          "events_scored": 1,
-          "mean_brier_score": 0.03999999999999998,
-          "mean_brier_skill": 0.27750000000000064,
-          "pooled_brier_skill": 0.27750000000000064,
-          "segment_base_rate": 0.7647058823529411
-        },
-        {
-          "accuracy": 1.0,
-          "band": "elevated",
-          "events_scored": 2,
-          "mean_brier_score": 0.0005125,
-          "mean_brier_skill": 0.9374770495665009,
-          "pooled_brier_skill": 0.9373361451702713,
-          "segment_base_rate": 0.08993354711586755
-        },
-        {
-          "accuracy": 1.0,
-          "band": "baseline",
-          "events_scored": 7,
-          "mean_brier_score": 0.0015055714285714286,
-          "mean_brier_skill": -8.957541092148956,
-          "pooled_brier_skill": -9.46956646268431,
-          "segment_base_rate": 0.011944607106178106
-        }
-      ]
-    },
-    {
-      "accuracy": 0.9,
-      "arms": [
-        {
-          "accuracy": 0.8888888888888888,
-          "arm": "truncated",
-          "correct": 8,
-          "denied": 8,
-          "events_scored": 9,
-          "granted": 1,
-          "granted_correct": 8,
-          "lift_over_always_denied": 0.0
-        },
-        {
-          "accuracy": 1.0,
-          "arm": "dated",
-          "correct": 1,
-          "denied": 1,
-          "events_scored": 1,
-          "granted": 0,
-          "granted_correct": 1,
+          "granted_correct": 10,
           "lift_over_always_denied": 0.0
         }
       ],
@@ -286,47 +21,215 @@
         {
           "lower": 0.0,
           "mean_probability": 0.0,
-          "observed_granted_rate": 0.1,
+          "observed_granted_rate": 0.0,
           "predictions": 10,
           "upper": 0.1
         }
       ],
       "engine": null,
       "events_scored": 10,
-      "granted_accuracy": 0.9,
+      "granted_accuracy": 1.0,
       "granted_lift_over_always_denied": 0.0,
       "lift_over_always_denied": 0.0,
-      "mean_brier_score": 0.1,
+      "mean_brier_score": 0.0,
       "model": null,
       "predictor_id": "constant-denied",
-      "rank": 4,
+      "rank": 1,
       "segments": [
-        {
-          "accuracy": 0.0,
-          "band": "federal",
-          "events_scored": 1,
-          "mean_brier_score": 1.0,
-          "mean_brier_skill": -17.062499999999993,
-          "pooled_brier_skill": -17.062499999999993,
-          "segment_base_rate": 0.7647058823529411
-        },
         {
           "accuracy": 1.0,
           "band": "elevated",
-          "events_scored": 2,
+          "events_scored": 1,
           "mean_brier_score": 0.0,
-          "mean_brier_skill": 1.0,
-          "pooled_brier_skill": 1.0,
-          "segment_base_rate": 0.08993354711586755
+          "mean_brier_skill": null,
+          "pooled_brier_skill": null,
+          "segment_base_rate": null
         },
         {
           "accuracy": 1.0,
           "band": "baseline",
-          "events_scored": 7,
+          "events_scored": 9,
           "mean_brier_score": 0.0,
           "mean_brier_skill": 1.0,
           "pooled_brier_skill": 1.0,
-          "segment_base_rate": 0.011944607106178106
+          "segment_base_rate": 0.010397981599208317
+        }
+      ]
+    },
+    {
+      "accuracy": 1.0,
+      "arms": [
+        {
+          "accuracy": 1.0,
+          "arm": "truncated",
+          "correct": 10,
+          "denied": 10,
+          "events_scored": 10,
+          "granted": 0,
+          "granted_correct": 10,
+          "lift_over_always_denied": 0.0
+        }
+      ],
+      "big_case": {
+        "maximum": 0.42,
+        "mean": 0.173,
+        "minimum": 0.08,
+        "scored": 10
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.013600000000000001,
+          "observed_granted_rate": 0.0,
+          "predictions": 10,
+          "upper": 0.1
+        }
+      ],
+      "engine": "gemini",
+      "events_scored": 10,
+      "granted_accuracy": 1.0,
+      "granted_lift_over_always_denied": 0.0,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.00025499999999999996,
+      "model": "gemini-4-carbon",
+      "predictor_id": "gemini-baseline",
+      "rank": 2,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "elevated",
+          "events_scored": 1,
+          "mean_brier_score": 2.5e-05,
+          "mean_brier_skill": null,
+          "pooled_brier_skill": null,
+          "segment_base_rate": null
+        },
+        {
+          "accuracy": 1.0,
+          "band": "baseline",
+          "events_scored": 9,
+          "mean_brier_score": 0.0002805555555555555,
+          "mean_brier_skill": -2.9327154258719172,
+          "pooled_brier_skill": -1.3394004866822424,
+          "segment_base_rate": 0.010397981599208317
+        }
+      ]
+    },
+    {
+      "accuracy": 1.0,
+      "arms": [
+        {
+          "accuracy": 1.0,
+          "arm": "truncated",
+          "correct": 10,
+          "denied": 10,
+          "events_scored": 10,
+          "granted": 0,
+          "granted_correct": 10,
+          "lift_over_always_denied": 0.0
+        }
+      ],
+      "big_case": {
+        "maximum": 0.3,
+        "mean": 0.096,
+        "minimum": 0.03,
+        "scored": 10
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0123,
+          "observed_granted_rate": 0.0,
+          "predictions": 10,
+          "upper": 0.1
+        }
+      ],
+      "engine": "claude-code",
+      "events_scored": 10,
+      "granted_accuracy": 1.0,
+      "granted_lift_over_always_denied": 0.0,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.00028930000000000004,
+      "model": "claude-fable-5-2",
+      "predictor_id": "claude-baseline",
+      "rank": 3,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "elevated",
+          "events_scored": 1,
+          "mean_brier_score": 1.6e-05,
+          "mean_brier_skill": null,
+          "pooled_brier_skill": null,
+          "segment_base_rate": null
+        },
+        {
+          "accuracy": 1.0,
+          "band": "baseline",
+          "events_scored": 9,
+          "mean_brier_score": 0.00031966666666666667,
+          "mean_brier_skill": -2.6315215839107555,
+          "pooled_brier_skill": -1.665526811954381,
+          "segment_base_rate": 0.010397981599208317
+        }
+      ]
+    },
+    {
+      "accuracy": 1.0,
+      "arms": [
+        {
+          "accuracy": 1.0,
+          "arm": "truncated",
+          "correct": 10,
+          "denied": 10,
+          "events_scored": 10,
+          "granted": 0,
+          "granted_correct": 10,
+          "lift_over_always_denied": 0.0
+        }
+      ],
+      "big_case": {
+        "maximum": 0.55,
+        "mean": 0.43,
+        "minimum": 0.32,
+        "scored": 3
+      },
+      "calibration": [
+        {
+          "lower": 0.0,
+          "mean_probability": 0.0325,
+          "observed_granted_rate": 0.0,
+          "predictions": 10,
+          "upper": 0.1
+        }
+      ],
+      "engine": "codex",
+      "events_scored": 10,
+      "granted_accuracy": 1.0,
+      "granted_lift_over_always_denied": 0.0,
+      "lift_over_always_denied": 0.0,
+      "mean_brier_score": 0.0017975000000000005,
+      "model": "gpt-6.1-sol",
+      "predictor_id": "codex-baseline",
+      "rank": 4,
+      "segments": [
+        {
+          "accuracy": 1.0,
+          "band": "elevated",
+          "events_scored": 1,
+          "mean_brier_score": 0.0001,
+          "mean_brier_skill": null,
+          "pooled_brier_skill": null,
+          "segment_base_rate": null
+        },
+        {
+          "accuracy": 1.0,
+          "band": "baseline",
+          "events_scored": 9,
+          "mean_brier_score": 0.0019861111111111112,
+          "mean_brier_skill": -27.60902766911837,
+          "pooled_brier_skill": -15.561102455225779,
+          "segment_base_rate": 0.010397981599208317
         }
       ]
     },
@@ -334,72 +237,67 @@
       "accuracy": 0.9,
       "arms": [
         {
-          "accuracy": 0.8888888888888888,
+          "accuracy": 0.9,
           "arm": "truncated",
-          "correct": 8,
-          "denied": 8,
-          "events_scored": 9,
-          "granted": 1,
-          "granted_correct": 8,
-          "lift_over_always_denied": 0.0
-        },
-        {
-          "accuracy": 1.0,
-          "arm": "dated",
-          "correct": 1,
-          "denied": 1,
-          "events_scored": 1,
+          "correct": 9,
+          "denied": 10,
+          "events_scored": 10,
           "granted": 0,
-          "granted_correct": 1,
-          "lift_over_always_denied": 0.0
+          "granted_correct": 9,
+          "lift_over_always_denied": -0.1
         }
       ],
       "big_case": null,
       "calibration": [
         {
+          "lower": 0.1,
+          "mean_probability": 0.19275381941428277,
+          "observed_granted_rate": 0.0,
+          "predictions": 2,
+          "upper": 0.2
+        },
+        {
           "lower": 0.2,
-          "mean_probability": 0.2658541555897899,
-          "observed_granted_rate": 0.1,
-          "predictions": 10,
+          "mean_probability": 0.2613034726562479,
+          "observed_granted_rate": 0.0,
+          "predictions": 7,
           "upper": 0.30000000000000004
+        },
+        {
+          "lower": 0.7000000000000001,
+          "mean_probability": 0.7823620422898401,
+          "observed_granted_rate": 0.0,
+          "predictions": 1,
+          "upper": 0.8
         }
       ],
       "engine": null,
       "events_scored": 10,
       "granted_accuracy": 0.9,
-      "granted_lift_over_always_denied": 0.0,
-      "lift_over_always_denied": 0.0,
-      "mean_brier_score": 0.1286775201740308,
+      "granted_lift_over_always_denied": -0.09999999999999998,
+      "lift_over_always_denied": -0.09999999999999998,
+      "mean_brier_score": 0.11721965124274207,
       "model": null,
       "predictor_id": "prior-vote",
       "rank": 5,
       "segments": [
         {
           "accuracy": 0.0,
-          "band": "federal",
-          "events_scored": 1,
-          "mean_brier_score": 0.6181411213563356,
-          "mean_brier_skill": -10.165174004498807,
-          "pooled_brier_skill": -10.165174004498807,
-          "segment_base_rate": 0.7647058823529411
-        },
-        {
-          "accuracy": 1.0,
           "band": "elevated",
-          "events_scored": 2,
-          "mean_brier_score": 0.06102150533018261,
-          "mean_brier_skill": -6.4005016430882895,
-          "pooled_brier_skill": -6.461156588296732,
-          "segment_base_rate": 0.08993354711586755
+          "events_scored": 1,
+          "mean_brier_score": 0.6120903652159295,
+          "mean_brier_skill": null,
+          "pooled_brier_skill": null,
+          "segment_base_rate": null
         },
         {
           "accuracy": 1.0,
           "band": "baseline",
-          "events_scored": 7,
-          "mean_brier_score": 0.07808443853194393,
-          "mean_brier_skill": -553.1147744621513,
-          "pooled_brier_skill": -541.9899926350719,
-          "segment_base_rate": 0.011944607106178106
+          "events_scored": 9,
+          "mean_brier_score": 0.062234016356832345,
+          "mean_brier_skill": -974.7833581375648,
+          "pooled_brier_skill": -517.9356805466448,
+          "segment_base_rate": 0.010397981599208317
         }
       ]
     }
@@ -410,76 +308,76 @@
     "base_rate_lookback_terms": 10,
     "clocks": [
       {
-        "case_id": "scotus/66649062",
+        "case_id": "scotus/66648336",
         "decided_before": 2018,
-        "replay_cutoff": "2018-11-14",
+        "replay_cutoff": "2018-10-04",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/66723004",
+        "case_id": "scotus/66720147",
         "decided_before": 2018,
-        "replay_cutoff": "2019-06-27",
+        "replay_cutoff": "2019-02-07",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/66723988",
+        "case_id": "scotus/66722693",
+        "decided_before": 2018,
+        "replay_cutoff": "2019-05-29",
+        "snapshot_provenance": "truncated"
+      },
+      {
+        "case_id": "scotus/66723442",
+        "decided_before": 2018,
+        "replay_cutoff": "2019-06-20",
+        "snapshot_provenance": "truncated"
+      },
+      {
+        "case_id": "scotus/66726726",
         "decided_before": 2019,
-        "replay_cutoff": "2019-08-29",
+        "replay_cutoff": "2020-01-30",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/66727448",
-        "decided_before": 2019,
-        "replay_cutoff": "2020-03-05",
+        "case_id": "scotus/72461031",
+        "decided_before": 2017,
+        "replay_cutoff": "2017-12-07",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/72465207",
+        "case_id": "scotus/72465993",
         "decided_before": 2020,
-        "replay_cutoff": "2021-03-11",
+        "replay_cutoff": "2020-10-01",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/72471211",
+        "case_id": "scotus/72471147",
         "decided_before": 2021,
-        "replay_cutoff": "2021-10-14",
+        "replay_cutoff": "2021-10-07",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/72474388",
+        "case_id": "scotus/72473993",
         "decided_before": 2021,
-        "replay_cutoff": "2021-12-30",
+        "replay_cutoff": "2021-08-19",
         "snapshot_provenance": "truncated"
       },
       {
-        "case_id": "scotus/72479619",
-        "decided_before": 2023,
-        "replay_cutoff": "2024-10-03",
-        "snapshot_provenance": "truncated"
-      },
-      {
-        "case_id": "scotus/72483645",
+        "case_id": "scotus/72483907",
         "decided_before": 2024,
-        "replay_cutoff": "2025-06-04",
+        "replay_cutoff": "2024-11-07",
         "snapshot_provenance": "truncated"
-      },
-      {
-        "case_id": "scotus/9026000070",
-        "decided_before": 2026,
-        "replay_cutoff": "2026-08-20",
-        "snapshot_provenance": "dated"
       }
     ],
     "disclosure_tally": {
       "claude-baseline": {
-        "candidates": 3,
-        "cells_flagged": 6,
+        "candidates": 1,
+        "cells_flagged": 2,
         "cells_read": 10,
         "flags_unreadable": 0
       },
       "codex-baseline": {
-        "candidates": 2,
-        "cells_flagged": 4,
+        "candidates": 1,
+        "cells_flagged": 7,
         "cells_read": 10,
         "flags_unreadable": 0
       },
@@ -492,7 +390,7 @@
     },
     "disclosures": [
       {
-        "case_id": "scotus/66723004",
+        "case_id": "scotus/66648336",
         "flags": [
           {
             "category": "leakage-disclosure",
@@ -510,23 +408,10 @@
         "unreadable": false
       },
       {
-        "case_id": "scotus/66727448",
+        "case_id": "scotus/72461031",
         "flags": [
           {
-            "category": "leakage-disclosure",
-            "outcome_exposure_candidate": true,
-            "severity": "info"
-          }
-        ],
-        "predictor_id": "claude-baseline",
-        "scored": true,
-        "unreadable": false
-      },
-      {
-        "case_id": "scotus/72465207",
-        "flags": [
-          {
-            "category": "provisioning",
+            "category": "other",
             "outcome_exposure_candidate": false,
             "severity": "info"
           }
@@ -536,59 +421,7 @@
         "unreadable": false
       },
       {
-        "case_id": "scotus/72471211",
-        "flags": [
-          {
-            "category": "leakage-disclosure",
-            "outcome_exposure_candidate": true,
-            "severity": "info"
-          }
-        ],
-        "predictor_id": "claude-baseline",
-        "scored": true,
-        "unreadable": false
-      },
-      {
-        "case_id": "scotus/72479619",
-        "flags": [
-          {
-            "category": "provisioning",
-            "outcome_exposure_candidate": false,
-            "severity": "info"
-          }
-        ],
-        "predictor_id": "claude-baseline",
-        "scored": true,
-        "unreadable": false
-      },
-      {
-        "case_id": "scotus/9026000070",
-        "flags": [
-          {
-            "category": "provisioning",
-            "outcome_exposure_candidate": false,
-            "severity": "info"
-          }
-        ],
-        "predictor_id": "claude-baseline",
-        "scored": true,
-        "unreadable": false
-      },
-      {
-        "case_id": "scotus/66723004",
-        "flags": [
-          {
-            "category": "leakage-disclosure",
-            "outcome_exposure_candidate": true,
-            "severity": "warning"
-          }
-        ],
-        "predictor_id": "codex-baseline",
-        "scored": true,
-        "unreadable": false
-      },
-      {
-        "case_id": "scotus/72465207",
+        "case_id": "scotus/66722693",
         "flags": [
           {
             "category": "provisioning",
@@ -601,29 +434,16 @@
         "unreadable": false
       },
       {
-        "case_id": "scotus/72471211",
+        "case_id": "scotus/66723442",
         "flags": [
-          {
-            "category": "leakage-disclosure",
-            "outcome_exposure_candidate": true,
-            "severity": "warning"
-          }
-        ],
-        "predictor_id": "codex-baseline",
-        "scored": true,
-        "unreadable": false
-      },
-      {
-        "case_id": "scotus/9026000070",
-        "flags": [
-          {
-            "category": "data-quality",
-            "outcome_exposure_candidate": false,
-            "severity": "warning"
-          },
           {
             "category": "capture-gap",
             "outcome_exposure_candidate": false,
+            "severity": "warning"
+          },
+          {
+            "category": "other",
+            "outcome_exposure_candidate": false,
             "severity": "info"
           }
         ],
@@ -632,7 +452,77 @@
         "unreadable": false
       },
       {
-        "case_id": "scotus/66723004",
+        "case_id": "scotus/72461031",
+        "flags": [
+          {
+            "category": "provisioning",
+            "outcome_exposure_candidate": false,
+            "severity": "warning"
+          },
+          {
+            "category": "other",
+            "outcome_exposure_candidate": false,
+            "severity": "info"
+          }
+        ],
+        "predictor_id": "codex-baseline",
+        "scored": true,
+        "unreadable": false
+      },
+      {
+        "case_id": "scotus/72465993",
+        "flags": [
+          {
+            "category": "capture-gap",
+            "outcome_exposure_candidate": false,
+            "severity": "warning"
+          }
+        ],
+        "predictor_id": "codex-baseline",
+        "scored": true,
+        "unreadable": false
+      },
+      {
+        "case_id": "scotus/72471147",
+        "flags": [
+          {
+            "category": "provisioning",
+            "outcome_exposure_candidate": false,
+            "severity": "warning"
+          }
+        ],
+        "predictor_id": "codex-baseline",
+        "scored": true,
+        "unreadable": false
+      },
+      {
+        "case_id": "scotus/72473993",
+        "flags": [
+          {
+            "category": "provisioning",
+            "outcome_exposure_candidate": false,
+            "severity": "warning"
+          }
+        ],
+        "predictor_id": "codex-baseline",
+        "scored": true,
+        "unreadable": false
+      },
+      {
+        "case_id": "scotus/72483907",
+        "flags": [
+          {
+            "category": "leakage-disclosure",
+            "outcome_exposure_candidate": true,
+            "severity": "warning"
+          }
+        ],
+        "predictor_id": "codex-baseline",
+        "scored": true,
+        "unreadable": false
+      },
+      {
+        "case_id": "scotus/66648336",
         "flags": [
           {
             "category": "leakage-disclosure",
@@ -653,25 +543,23 @@
       "spread": true
     },
     "draw": {
-      "key": "2026-10-31",
+      "key": "2026-11-14",
       "passed_over": 0,
       "rule": "vintage-keyed-hash-v1",
       "salt": "fedcourtsai/cert-backtest/spread"
     },
     "dropped_predictors": [],
     "lost_cells": [],
-    "run_id": "20261031T092740Z",
+    "run_id": "20261114T104649Z",
     "salience_floor": 0.28
   },
   "provisioning": {
-    "dated": 1,
-    "truncated": 9
+    "truncated": 10
   },
   "provisioning_denied": {
-    "dated": 1,
-    "truncated": 8
+    "truncated": 10
   },
-  "salience_version": "sal-v4",
+  "salience_version": "sal-v8",
   "schema_version": "1.0",
   "stratum": "retrospective"
 }

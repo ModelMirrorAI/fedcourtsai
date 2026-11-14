@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.92,
+    "notes": "Questions 1 and 2 put nationwide access to asylum, presidential authority relative to the INA, and limits on classwide immigration relief before the Court. The limited grant leaves the separate Q3 class-definition question outside the express grant; high institutional and practical stakes do not establish any merits outcome."
+  },
+  "brier_score": 0.022500000000000006,
+  "brier_skill_score": 0.688753462603878,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7311320754716981,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.04978996084015663
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.10618447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.005,
+          "Gorsuch": 0.03,
+          "Jackson": 0.01,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.015,
+          "Roberts": 0.005,
+          "Sotomayor": 0.01,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.15597443131473698,
+    "total": 0.15597443131473698
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:01:01.921056Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 56 calls are outcome_only, so 0.0 captured coverage is not evidence of empty results. Queries include this petition's caption, a separate D.V.D. docket, and general recent dispositions, all on November 9 before the November 13 grant. The target-caption MCP result is described as empty only by the candidate, not verified from captured output. No query or prose establishes retrieval of the later target disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The resolved docket contains only the October 7 and November 9 distributions, then the November 13 grant. The forecast's description of the baseline dates is incorrect, but its prospective no-increment call succeeds.",
+        "claim": "No further distribution is most likely after the two already recorded.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The terminal snapshot contains no CVSG, and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The recorded disposition is a plenary grant on November 13, within the stated subsequent-November alternative, though not the first named date.",
+        "claim": "The Court will grant certiorari, most likely for plenary review on the November 9 or a subsequent November order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final docket entry limits the grant to Questions 1 and 2. Q1 was included, but the specific expectation of Q3's inclusion failed.",
+        "claim": "Plenary review will likely include Questions 1 and 3, with Question 2 either included or coordinated with D.V.D.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The outcome records only certiorari granted, judgment null, and no merits opinion. The grant does not establish a later judgment or doctrinal ground.",
+        "claim": "If plenary review is granted, a majority will disturb the D.C. Circuit's judgment on classwide-relief or asylum-authority grounds.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:01:01.921056Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7311320754716981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

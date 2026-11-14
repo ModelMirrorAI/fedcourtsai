@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-relist-disposition",
+      "message": "Disposition-taxonomy asymmetry affects exact-label accuracy: the November 13 docket entry explicitly grants only a reformulated question, but outcome.json uses actual_disposition=granted. claude-baseline and codex-baseline use granted-in-part and correctly forecast that scope in prose, yet each receives correct=0 under the required exact-label rule; gemini-baseline uses granted and receives correct=1. Brier scores use actual_granted=1 unchanged. Please review label consistency; no input was edited or score normalized.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0"
+}

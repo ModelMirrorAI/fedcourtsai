@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280982",
+  "gaps": [],
+  "helpful": [
+    "The decided snapshot preserves the exact reformulated question, allowing scope forecasts to be assessed separately from disposition labels.",
+    "The staged SG brief permits direct checking of a material quotation in a candidate's rationale.",
+    "Per-call capture markers distinguish unavailable results from affirmative evidence of empty retrieval."
+  ],
+  "notes": "Graded all three aliases without identity inference or external retrieval. Used frozen context only to assess the structure of calibration; did not consult or reconstruct the statpack or compute a replacement baseline. gemini-baseline's outcome-only capture was treated as a visibility limit, not as a tooling defect or affirmative clean-result evidence.",
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local shell and file inspection",
+    "Python JSON inspection",
+    "apply_patch",
+    "jsonschema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

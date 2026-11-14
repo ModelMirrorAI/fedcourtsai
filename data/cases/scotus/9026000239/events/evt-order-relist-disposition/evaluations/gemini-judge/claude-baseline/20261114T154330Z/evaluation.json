@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.91,
+    "notes": "Marquee OT2026 separation-of-powers, statutory-immigration, and remedial-jurisdiction grant. Plenary review of Questions 1 and 2 tests whether the President may invoke 8 U.S.C. 1182(f) and 1185(a) alongside categorical front-end asylum discretion to foreclose statutory asylum applications under 8 U.S.C. 1158 across the southern border, and whether 8 U.S.C. 1252(f)(1) bars classwide injunctive relief. Dropping Question 3 narrows the case slightly away from a standalone trans-substantive Rule 23(b)(2)/Article III sequel to Trump v. CASA, Inc., keeping its primary impact focused on executive border authority and immigration remedies."
+  },
+  "brier_score": 0.009999999999999995,
+  "brier_skill_score": 0.8616682056017236,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7311320754716981,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.062289960840156644
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11898447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.06,
+          "Barrett": 0.01,
+          "Gorsuch": 0.04,
+          "Jackson": 0.02,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.02,
+          "Roberts": 0.01,
+          "Sotomayor": 0.02,
+          "Thomas": 0.05
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.181274431314737,
+    "total": 0.181274431314737
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:09:00.528985Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-11-09T18:09:01Z, four days before the petition was granted on 2026-11-13. All 13 logged tool calls in retrieval_log.json are captured (coverage 1.0): reads of provisioned files (including pre-decision summary 2026-10-27.md) and a general fedcourts query for 2020s SCOTUS grants (retrieved_doc_date 2026-06-23). No MCP/web retrieval and no data/qp-topics/ reads.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'granted' and resolved_at '2026-11-13'; the 2026-11-13 docket snapshot records 'Petition GRANTED limited to Questions 1 and 2 presented by the petition' on Nov 13, 2026.",
+        "claim": "The Court will grant certiorari, most likely out of the November 13, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.distribution_count is 2, and the 2026-11-13 docket snapshot shows no distribution after Nov 09, 2026.",
+        "claim": "There will probably be no further relists beyond the second distribution for the November 13, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 13, 2026 docket entry states: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition,' dropping Question 3.",
+        "claim": "The grant will cover Question 1 and likely include Question 2, while a limited grant that drops Question 3 is plausible.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route 'plenary' and disposition_basis 'standard'.",
+        "claim": "Review will proceed via the plenary route rather than a GVR or summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 13, 2026 grant entry on the docket snapshot notes no separate writings, and outcome.json records writing_roles as null and votes as empty.",
+        "claim": "If the Court grants certiorari, no Justice will write separately on the grant order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:09:00.528985Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7311320754716981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

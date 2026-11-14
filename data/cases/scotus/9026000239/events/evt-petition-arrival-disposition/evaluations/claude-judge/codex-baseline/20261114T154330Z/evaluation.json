@@ -1,0 +1,117 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.95,
+    "notes": "Solicitor General petition from a final D.C. Circuit judgment holding unlawful Proclamation 10,888's entry suspension and asylum preclusion at the southern border, with a 1252(f)(1) classwide-relief question; the Court granted plenary review limited to QPs 1 and 2 on 2026-11-13. Among the highest-stakes immigration and executive-power cases of the Term."
+  },
+  "brier_score": 0.006399999999999993,
+  "brier_skill_score": 0.910218049586777,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": 0.06488381562824018
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": 0.07218447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.13706828610282054,
+    "total": 0.13706828610282054
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:06:09.181776Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Log mode is forward and the prediction was written 2026-08-24/25, the day the petition was docketed; the petition was granted 2026-11-13. No retrieved document date on or after resolution, no query reaching this petition's disposition, no read under data/qp-topics/, and the reasoning does not presuppose the result. Three CourtListener calls are unobserved and graded on their queries: a citation lookup, a search for 'Mullin v. Al Otro Lado' and a read of that opinion (a different case, decided 2026-06-25, before the snapshot), all disclosed in retrieval.md. That is legitimate forward signal about a comparator, not outcome material for this petition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: distributed for 11/6/2026, redistributed for 11/13/2026 (one relist), granted 2026-11-13.",
+        "claim": "The petition will be distributed at least once and probably granted after its initial conference or one relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket entry 2026-11-13: 'Petition GRANTED limited to Questions 1 and 2'. QP 2's inclusion was stated only as a possibility ('may add'), so the call held but was hedged on that half.",
+        "claim": "The Court will most likely grant QP 1 and may add the Section 1252(f)(1) question; the Article III / Rule 23 question is less likely to be granted.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json: disposition_route plenary. Right in direction; the hedge toward a summary route commits to less.",
+        "claim": "Plenary briefing and argument are more likely than a summary disposition, though a GVR or narrow summary ruling remains a material alternative.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome signals cvsg_date null. Close to entailed by the party alignment, so little credit.",
+        "claim": "No CVSG, because the United States is the petitioner.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The merits event is open; the staged record ends at the grant order.",
+        "claim": "If the Court reaches the merits after a plenary grant, it is likely to reverse on at least one ground.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260824T231410Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:06:09.181776Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

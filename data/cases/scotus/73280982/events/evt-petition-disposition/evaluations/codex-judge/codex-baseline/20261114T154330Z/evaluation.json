@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "The question concerns a recurring national standard for IPO registration-statement omission liability, affecting issuers, underwriters and investors. Its scope is important commercial regulation, narrowed to one statutory question; no merits holding has yet expanded its significance."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9222540518602563,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.38434197530864195
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.006,
+          "Barrett": 0.001,
+          "Gorsuch": 0.006,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.003,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5020203591154309,
+    "total": 0.5020203591154309
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T15:58:47.946968Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 26 run predates the November 13 resolution. Forty of 43 calls are captured. The three unobserved web calls concern only Macquarie (2024), not this petition; their results cannot be confirmed empty despite the candidate's disclosure. Other queries target provisioned inputs, aggregate statistics and serialization. No query or reasoning shows this petition already decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 1.0,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 13 docket entry grants precisely that reformulated question and does not grant the separate Item 303 question.",
+        "claim": "The Court will grant only the first question in a formulation distinguishing materiality from an additional misleading-effect inquiry, leaving Item 303 outside review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket adds a November 9 distribution for the November 13 conference, followed by the November 13 grant.",
+        "claim": "One further distribution will most likely precede a limited grant in November or December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged chronology shows the October 7 invited brief followed by redistribution and grant, without another CVSG.",
+        "claim": "The existing CVSG will not be followed by a new invitation before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged outcome identifies the route as plenary; no summary merits disposition appears in the grant entry.",
+        "claim": "The grant will lead to plenary consideration rather than a cert-order summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No merits judgment or opinion is staged. The limited grant establishes the scope of review, not a merits holding.",
+        "claim": "An eventual merits decision will likely require misleading-effect analysis distinct from materiality, without categorically exempting interim data or resolving Item 303.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261026T092709Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:58:47.946968Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

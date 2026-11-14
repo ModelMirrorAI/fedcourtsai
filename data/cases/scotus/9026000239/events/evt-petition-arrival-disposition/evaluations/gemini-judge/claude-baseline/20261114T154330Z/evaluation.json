@@ -1,0 +1,112 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.88,
+    "notes": "Solicitor General petition challenging the D.C. Circuit's invalidation of President Trump's flagship southern-border entry-suspension and asylum-bar proclamation (Proclamation No. 10,888), testing the interplay of 8 U.S.C. 1182(f), 1185(a), 1158(a)(1), and Title 8 removal procedures alongside 8 U.S.C. 1252(f)(1)'s bar on classwide injunctive relief; granted plenary review on Questions 1 and 2, placing it in the upper marquee tier of OT2026 while preserving headroom near 1.0 for once-in-a-generation constitutional landmarks."
+  },
+  "brier_score": 0.006399999999999993,
+  "brier_skill_score": 0.910218049586777,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": 0.06488381562824018
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11898447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.18386828610282052,
+    "total": 0.18386828610282052
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:14:48.841686Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-08-24 (run_id 20260824T231410Z, result_capture_coverage=1.0), the day the petition was docketed and nearly three months before the 2026-11-13 grant order. Captured tool calls read only pre-decision inputs, prior-Term statpack tables, two generic fedcourts query pulls, and a CourtListener search returning lower-court rulings through 2026-04-24 (latest logged retrieved_doc_date 2025-08-01); no read touched data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.94,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition='granted', disposition_route='plenary', and disposition_basis='standard' on resolved_at='2026-11-13'.",
+        "claim": "The Court will grant certiorari for plenary briefing and argument in late 2026 or very early 2027 rather than issuing a GVR or summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "record/snapshots/2026-11-13.json shows respondents filed their BIO on September 23, 2026, first distribution occurred October 7, 2026 for the November 6 conference, and the petition was granted November 13, 2026 after one relist (distribution_count=2, cvsg_date=null).",
+        "claim": "Respondents will oppose rather than waive, leading to first distribution in October or November 2026 and a grant within one to three conferences (one or two relists at most), with no CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 13, 2026 order in record/snapshots/2026-11-13.json states: 'Petition GRANTED limited to Questions 1 and 2 presented by the petition.'",
+        "claim": "The Court will take Question 1, Question 2 (8 U.S.C. 1252(f)(1)) will very likely ride along, and Question 3 (Rule 23/Article III) is the most likely to be pruned, such that the Court could grant limited to Questions 1 and 2.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record ends with the November 13, 2026 cert grant snapshot; argument scheduling and merits disposition have not yet occurred.",
+        "claim": "If granted, the Court will hear argument in OT2026 with a decision by June 2027 and is more likely to reverse in whole or in substantial part than affirm.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260824T231410Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:14:48.841686Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

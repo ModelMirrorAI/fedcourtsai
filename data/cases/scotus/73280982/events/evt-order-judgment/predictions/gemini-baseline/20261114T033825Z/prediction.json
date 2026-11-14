@@ -1,0 +1,152 @@
+{
+  "big_case_rationale": "Resolves a direct circuit split over public-offering disclosure liability for intra-quarter financial metrics under Section 11(a) in a high-profile fintech IPO, though narrowed to a single statutory question.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73280982",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.08,
+        "Barrett": 0.125,
+        "Gorsuch": 0.11,
+        "Jackson": 0.105,
+        "Kagan": 0.13,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.095,
+        "Sotomayor": 0.135,
+        "Thomas": 0.09,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.12,
+        "Barrett": 0.07,
+        "Gorsuch": 0.13,
+        "Jackson": 0.15,
+        "Kagan": 0.06,
+        "Kavanaugh": 0.08,
+        "Roberts": 0.015,
+        "Sotomayor": 0.11,
+        "Thomas": 0.18
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "band_refused": null,
+    "cert_amicus_briefs": 4,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-14",
+    "cvsg_date": "2026-06-01",
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-14T04:02:56.142197Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-14.json",
+  "judgment": "vacated",
+  "model": "gemini-4-carbon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ff9786ea91896f0f50f176c3b1de403074ccf54cbe49ba69d844d201c59d2069",
+    "label": "proc-v22",
+    "pipeline_sha": "87dc1beed8258ec35cc2c9f5c98b6b8d81eaaf0d",
+    "stamped_at": "2026-11-14T04:02:56.142197Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261114T033825Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Relying on the plain text of 15 U.S.C. \u00a7 77k(a) and the canon against surplusage, the majority holds that Section 11(a)'s misleading-omissions clause imposes two distinct requirements\u2014that an omitted fact be material and that its omission render an affirmative statement in the registration statement misleading\u2014extending Macquarie Infrastructure Corp. v. Moab Partners, L. P., 601 U.S. 257 (2024), and Omnicare, Inc. v. Laborers Dist. Council Constr. Industry Pension Fund, 575 U.S. 175 (2015), to foreclose pure-omission liability for undisclosed interim financial data while also rejecting the First Circuit's non-textual 'extreme departure' test from Shaw v. Digital Equipment Corp."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical rule for all Section 11(a) misleading-omissions claims\u2014requiring a statement-specific misleadingness inquiry alongside materiality whenever an issuer omits interim or other information\u2014but confines its decision strictly to that legal standard, declining to adopt any special categorical safe harbor for intra-quarter financial fluctuations and leaving both the sufficiency of respondents' half-truth allegations against Robinhood's registration statement and the unreviewed Item 303 claim for the lower courts on remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Section 11(a) misleading-omissions standard for interim financial data in IPO registration statements: a CVSG'd, SG/SEC-supported circuit conflict following Macquarie, with real consequences for issuers, underwriters and securities-class-action practice, and Chamber/SIFMA/WLF amicus interest. Technical statutory securities case with little public salience beyond the capital-markets bar; the grant is limited to one question and leaves the Item 303 theory alone."
+  },
+  "brier_score": 0.044099999999999986,
+  "brier_skill_score": 0.8970499069793144,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.3455056179775281,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.79,
+        "score": 0.3842628960989774
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.42,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.16,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.014,
+          "Barrett": 0.003,
+          "Gorsuch": 0.004,
+          "Jackson": 0.003,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.006,
+          "Sotomayor": 0.003,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5019412799057663,
+    "total": 0.5019412799057663
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T15:53:15.727741Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction written 2026-11-09, event resolved 2026-11-13. Log 0.94 captured. Corpus lookups targeted Macquarie (22-1165) and Omnicare (13-435), dated 2023 and 2013; the CourtListener search and snippet read were of Macquarie's 2024 opinion. Two web-search rows are unobserved; graded on their queries, both of which target the Macquarie slip opinion and not this petition. No retrieved_doc_date on or after the resolution, no order or opinion resolving this petition cited, and the reasoning treats the outcome as open.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 13 2026 in record/snapshots/2026-11-14.json: 'Petition GRANTED limited to the following question: Whether an issuer can be found liable under the misleading-omissions prong of Section 11(a) ... without an additional inquiry to determine whether the omission rendered any affirmative statement misleading.' The granted question is the SG's reformulation verbatim.",
+        "claim": "The Court will grant review limited to the first question presented, in the Solicitor General's proposed formulation or a substantively equivalent one, and decline the Item 303 question.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json resolved_at 2026-11-13, distribution_count 3; no later distribution entry.",
+        "claim": "The modal path is a limited grant after the November 13 conference with no further distribution (58%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route 'plenary'.",
+        "claim": "Conditional on a grant, plenary review (96%) rather than resolution in the cert order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 13 entry is a bare limited grant; outcome.json writing_roles null.",
+        "claim": "The cert order carries no merits opinion and no separate writing is the modal expectation.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:53:15.727741Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3455056179775281,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

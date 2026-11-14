@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The outcome records `actual_disposition: granted`, but the 2026-11-13 order reads 'Petition GRANTED limited to the following question' (Question 1 as reformulated by the Solicitor General; the Item 303 question was not taken). claude-baseline and codex-baseline predicted `granted-in-part` and forecast exactly that limited grant; under the exact-label rule both score `correct` = 0, while gemini-baseline's `granted` scores 1. I applied the rule as written. A maintainer should decide whether a question-limited cert grant is meant to resolve as `granted` or `granted-in-part`; the `correct` column for this cell turns on it. Brier scores are unaffected.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0"
+}

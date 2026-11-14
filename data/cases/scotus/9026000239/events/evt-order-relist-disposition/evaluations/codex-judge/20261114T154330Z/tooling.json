@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000239",
+  "run_id": "20261114T154330Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "fedcourts statpack-at", "apply_patch", "Python jsonschema"],
+  "helpful": [
+    "Opaque candidate aliases and staged rationale/forecast separation",
+    "Resolved docket entry specifying the limited grant",
+    "Prediction-time statpack reconstruction",
+    "Per-call result-capture markers"
+  ],
+  "gaps": [],
+  "notes": "The provisioned record sufficed. Captured results, unobserved web rows, and outcome-only calls were distinguished rather than treating uncaptured responses as empty. No new case facts were retrieved."
+}

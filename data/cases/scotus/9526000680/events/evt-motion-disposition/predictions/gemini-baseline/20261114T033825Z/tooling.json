@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000680",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_analyze_citations",
+    "google_web_search",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned application.txt (full 38-page OCR text)",
+    "mcp_courtlistener_read_document on parallel D. Conn. ECF 134 ruling",
+    "metrics/statpack.md and statpack.json interim finer_* and applicant_cuts tables",
+    "mcp_courtlistener_analyze_citations for OCR citation verification",
+    "fedcourts query for recent OT2025-2026 interim grant/denial comparators"
+  ],
+  "gaps": [
+    "fedcourts query filter for --application-kind substantive so interim priors can be queried directly without post-filtering cert petitions"
+  ],
+  "notes": "Reading the parallel federal District Court ruling (3:26-cv-01038, ECF 134) via CourtListener RECAP provided crucial objective state-docket chronology where the separately bound paper appendix was held in the SCOTUS Clerk's Office."
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "claude-baseline retrieval_log.json call 28 searches for and reads another case's CVSG-event prediction.json, then its flags.json and tooling.json, apparently as an output example. The query explicitly excludes docket 73280982. This is cross-cell prediction access worth reviewing; the staged evidence does not establish retrieval of this case's outcome or influence on its probability. The current event was unresolved at prediction time, so leakage remains not_applicable and the numerical scores are unchanged. No identity was sought or inferred by this evaluator.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0"
+}

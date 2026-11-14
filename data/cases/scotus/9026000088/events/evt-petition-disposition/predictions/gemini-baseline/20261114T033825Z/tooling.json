@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000088",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_get_endpoint_item",
+    "google_web_search"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number lookup quickly returned exact distribution_count, response_requested, and has_opinion metadata for directly analogous OT2024 and OT2026 campaign-finance disclosure petitions (25-1248, 23-1316, 23-926, 26A349).",
+    "Provisioned 2026-11-14.json snapshot captured all 16 cert-stage amicus filings, the August 31 Response Requested order, and the November 30 response extension."
+  ],
+  "gaps": [
+    "Appendix A in petition.txt (the Alaska Supreme Court opinion) was truncated after App. 24a by the 150,000-character document cap, and CourtListener opinion_id 11260453 carried metadata only without opinion text; prioritizing the primary decision below ahead of later appendices when applying the cap on state-court petitions (where decision-below.txt is not separately staged) would preserve the full opinion under review."
+  ],
+  "notes": "Forward-mode cert prediction at moment: distribution with Response Requested pending (BIOs due 2026-11-30)."
+}

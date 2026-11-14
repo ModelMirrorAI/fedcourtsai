@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73280982",
+  "gaps": [
+    "Unobserved candidate web results and gemini-baseline result bodies limit leakage verification",
+    "Some captured query slices omit arguments or search scope"
+  ],
+  "helpful": [
+    "Blinded aliases",
+    "Staged grant wording and SG brief",
+    "Historical statpack reconstruction",
+    "Per-call capture markers"
+  ],
+  "notes": "No packages installed and no external case facts fetched. Historical statpack reconstruction stayed within statpack history, never prediction history. Baselines, claims, and provenance stamps remain the harness's.",
+  "role": "evaluator",
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell record inspection",
+    "fedcourts statpack-at",
+    "apply_patch",
+    "repository Pydantic schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

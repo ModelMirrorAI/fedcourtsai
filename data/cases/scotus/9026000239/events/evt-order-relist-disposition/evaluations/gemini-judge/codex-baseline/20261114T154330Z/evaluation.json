@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.91,
+    "notes": "Marquee OT2026 separation-of-powers, statutory-immigration, and remedial-jurisdiction grant. Plenary review of Questions 1 and 2 tests whether the President may invoke 8 U.S.C. 1182(f) and 1185(a) alongside categorical front-end asylum discretion to foreclose statutory asylum applications under 8 U.S.C. 1158 across the southern border, and whether 8 U.S.C. 1252(f)(1) bars classwide injunctive relief. Dropping Question 3 narrows the case slightly away from a standalone trans-substantive Rule 23(b)(2)/Article III sequel to Trump v. CASA, Inc., keeping its primary impact focused on executive border authority and immigration remedies."
+  },
+  "brier_score": 0.009999999999999995,
+  "brier_skill_score": 0.8616682056017236,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7311320754716981,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.062289960840156644
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.46,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": 0.030584470474580364
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.32,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.018,
+          "Barrett": 0.004,
+          "Gorsuch": 0.01,
+          "Jackson": 0.023,
+          "Kagan": 0.009,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.003,
+          "Sotomayor": 0.02,
+          "Thomas": 0.02
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.09287443131473701,
+    "total": 0.09287443131473701
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:09:00.528985Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-11-09T18:17:27Z, four days before the petition was granted on 2026-11-13. Of 44 calls in retrieval_log.json (coverage 0.886), 39 are captured and 5 are unobserved web-search/URL calls targeting general precedents (20-322 Aleman Gonzalez, 17-965 Hawaii) and the separate 26-426 D.V.D. docket; shell file discovery explicitly excluded data/qp-topics/. No outcome material existed or was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'granted', actual_granted 1, disposition_route 'plenary', and disposition_basis 'standard'.",
+        "claim": "The Court will most likely grant certiorari (90% probability of any grant), with plenary review for briefing and argument as the modal route.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records resolved_at '2026-11-13' and signals.distribution_count 2; no third distribution occurred.",
+        "claim": "No further distribution beyond the two recorded distributions is narrowly more likely than another relist (46% probability of a further distribution), with prompt action in November or December 2026 absent a hold.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "While Question 1 was granted, the Court took Question 2 alongside Question 1 and excluded Question 3 ('Petition GRANTED limited to Questions 1 and 2 presented by the petition' on the 2026-11-13 docket snapshot).",
+        "claim": "If the Court grants plenary review, it will take Question 1 and possibly Question 3, while Question 2 is the issue most susceptible to separate coordination with DHS v. D.V.D.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route 'plenary' and resolved_at '2026-11-13', granting plenary review immediately without holding for D.V.D.",
+        "claim": "Plenary review is more likely (70% conditional) than disposing of the petition in the cert order via a hold-and-GVR for D.V.D. or summary reversal (30% conditional).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 13, 2026 grant entry on the docket snapshot carries no separate writings, and outcome.json records writing_roles as null and votes as empty.",
+        "claim": "Most likely, no Justice will write separately on the disposition order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:09:00.528985Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7311320754716981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

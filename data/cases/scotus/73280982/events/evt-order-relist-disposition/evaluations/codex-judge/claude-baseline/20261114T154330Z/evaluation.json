@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "A recurring nationwide IPO-disclosure and securities-liability issue, with SEC participation and consequences for issuers and investors. Its scope is a technical statutory standard, not a broad constitutional or structural change; the grant leaves the separate Item 303 theory outside review."
+  },
+  "brier_score": 0.02560000000000001,
+  "brier_skill_score": 0.9402375877249535,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.3455056179775281,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.84,
+        "score": 0.40276289609897736
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.11837838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.02,
+          "Gorsuch": 0.04,
+          "Jackson": 0.02,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.03,
+          "Roberts": 0.01,
+          "Sotomayor": 0.02,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5211412799057663,
+    "total": 0.5211412799057663
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T15:53:02.657988Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 12 logged November 9 calls have captured results (coverage 1.0). Visible requests read the provisioned November 9 snapshot, filings, an October summary, schemas/statpack, and generic granted priors. They do not seek this petition's later disposition. No own-case deciding order or post-resolution fact appears in the rationale or retrieval note. The event resolved November 13, after the forecast.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 13 docket entry grants precisely the reformulated question concerning materiality without an additional inquiry into whether an affirmative statement was misleading, not the Item 303 question.",
+        "claim": "The Court will grant only Question 1, most likely in the SG's formulation requiring an additional misleadingness inquiry.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records a November 13 grant after the November 9 redistribution, and the outcome retains distribution_count=3. The subsidiary expectation of announcement on a later order list was not realized: the grant is dated November 13 itself.",
+        "claim": "The grant will come from the November 13 conference with no further distribution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records only the June 1 invitation before the November 13 grant; outcome.signals.cvsg_date remains June 1.",
+        "claim": "No additional CVSG will occur before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route=plenary and no summary merits judgment.",
+        "claim": "Review will proceed plenarily rather than by summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome is a cert grant, with judgment=null. No merits opinion is staged; the question granted is not a holding on its answer.",
+        "claim": "After review the Court will separate materiality from misleadingness and vacate the Ninth Circuit's merger of the inquiries.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:53:02.657988Z"
+  },
+  "reasoning_quality": 0.79,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3455056179775281,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "Section 11(a) strict-liability omissions standard for IPO registration statements; the SG and SEC urged review, three business/academic cert-stage amici, and the Court granted on the government's reformulated question. Consequential for securities offerings and class-action exposure nationally, and a follow-on to Omnicare and Macquarie, but technical statutory securities doctrine without constitutional or broad public-law reach."
+  },
+  "brier_score": 0.03240000000000002,
+  "brier_skill_score": 0.9222540518602563,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.82,
+        "score": 0.38434197530864195
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.006,
+          "Barrett": 0.001,
+          "Gorsuch": 0.006,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.003,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5020203591154309,
+    "total": 0.5020203591154309
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T15:53:52.006254Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-10-26, eighteen days before the 2026-11-13 grant. Log shows provisioned-file and statpack reads plus three web-search rows (unobserved) whose queries target the 2024 Macquarie precedent, not this petition; the candidate's retrieval.md discloses them as returning nothing usable. No document dated on or after the resolution, no order resolving this petition, and no read under data/qp-topics/ appears in the log or prose.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "2026-11-13 docket entry: 'Petition GRANTED limited to the following question: Whether an issuer can be found liable under the misleading-omissions prong of Section 11(a) ... without an additional inquiry to determine whether the omission rendered any affirmative statement misleading.'",
+        "claim": "The Court will grant certiorari limited to the first question, reformulated along the lines the United States proposed, leaving the Item 303 question outside the grant.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: redistributed 2026-11-09 for the 11/13 conference; granted 2026-11-13; outcome signals distribution_count 3.",
+        "claim": "One further distribution before the limited grant, most likely in November or December 2026 (0.60).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route plenary.",
+        "claim": "Plenary briefing and argument will follow a grant; no cert-order summary disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The merits event is unresolved; no opinion is staged.",
+        "claim": "If the merits are reached, the ground would require a misleading-effect inquiry distinct from materiality, without a blanket exemption for interim information.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261026T092709Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:53:52.006254Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

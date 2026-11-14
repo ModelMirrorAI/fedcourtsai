@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Section 11(a) misleading-omissions standard for interim financial data in IPO registration statements: a CVSG'd, SG/SEC-supported circuit conflict following Macquarie, with real consequences for issuers, underwriters and securities-class-action practice, and Chamber/SIFMA/WLF amicus interest. Technical statutory securities case with little public salience beyond the capital-markets bar; the grant is limited to one question and leaves the Item 303 theory alone."
+  },
+  "brier_score": 0.1444,
+  "brier_skill_score": 0.6629026432610657,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.3455056179775281,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.62,
+        "score": 0.2839628960989774
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": 0.11287838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.015,
+          "Barrett": 0.004,
+          "Gorsuch": 0.02,
+          "Jackson": 0.003,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.012,
+          "Roberts": 0.003,
+          "Sotomayor": 0.003,
+          "Thomas": 0.025
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.39684127990576634,
+    "total": 0.39684127990576634
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T15:53:15.727741Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction written 2026-11-09, event resolved 2026-11-13. Log is outcome_only throughout (coverage 0.0), so graded on call targets: provisioned record files, the statpack, and two corpus queries (reporter citations of Macquarie/Omnicare/Facebook/NVIDIA; generic granted priors). No web or MCP calls. No retrieved_doc_date on or after the resolution, no order or opinion resolving this petition cited, and the reasoning treats the outcome as open.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 13 2026 in record/snapshots/2026-11-14.json: 'Petition GRANTED limited to the following question: Whether an issuer can be found liable under the misleading-omissions prong of Section 11(a) ... without an additional inquiry to determine whether the omission rendered any affirmative statement misleading.' The document did not forecast that the Court would adopt the SG's reformulated wording, which it did.",
+        "claim": "The Court will grant certiorari limited to the first question presented (Section 11(a) misleading-omissions), declining the Item 303 question.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json resolved_at 2026-11-13 with distribution_count 3; no further distribution entry on the docket.",
+        "claim": "The petition will be disposed of after the November 13, 2026 conference without a further relist (about 75%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json disposition_route 'plenary'; the order grants review limited to a question and decides nothing.",
+        "claim": "Conditional on a grant, the case is set for plenary briefing and argument rather than disposed of summarily in the cert order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 13 docket entry records no statement or dissent; outcome.json writing_roles and noted_dissent_from_denial are null.",
+        "claim": "If the Court grants, no separate writing accompanies the grant order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No judgment yet (outcome.json judgment null; evt-order-judgment unresolved); nothing staged under record/opinion/.",
+        "claim": "On the merits the Court will vacate the Ninth Circuit's Section 11(a) holding under Omnicare/Macquarie and remand for the half-truth inquiry.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T15:53:15.727741Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3455056179775281,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

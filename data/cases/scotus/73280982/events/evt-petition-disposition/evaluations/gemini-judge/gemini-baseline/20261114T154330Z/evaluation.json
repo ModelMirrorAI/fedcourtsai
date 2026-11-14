@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:86f2abefec9e0321c5007631d1abc7bf17ab2188b12eda8f922d31c9905f9d14",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Supreme Court review of Section 11(a)'s misleading-omissions standard for intra-quarter financial data in registration statements (following Omnicare and Macquarie) carries substantial practical consequences for IPO disclosures and strict-liability exposure across U.S. capital markets, as reflected by Solicitor General/SEC, Chamber of Commerce, and SIFMA participation, while remaining a targeted statutory securities question rather than a constitutional or structural public-law landmark."
+  },
+  "brier_score": 0.04839999999999999,
+  "brier_skill_score": 0.8838609910505064,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.35444444444444445,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.78,
+        "score": 0.368341975308642
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.001,
+          "Gorsuch": 0.008,
+          "Jackson": 0.002,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.001,
+          "Sotomayor": 0.002,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.48602035911543096,
+    "total": 0.48602035911543096
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:07:36.431056Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction recorded on 2026-10-26 (run_id 20261026T092709Z), eighteen days before the 2026-11-13 grant order. All logged calls in retrieval_log.json (timestamps 2026-10-26T09:32:47Z to 09:38:24Z; result_capture_coverage 0.0) read provisioned workspace inputs, schemas/statpack, and two historical fedcourts corpus queries (2020s granted petitions and Jeffrey B. Wall priors, the latter omitted from retrieval.md); no web or MCP calls were made and the outcome did not yet exist.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'granted' and disposition_route = 'plenary' on 2026-11-13.",
+        "claim": "The Court will grant certiorari for plenary merits review rather than issuing a summary disposition, GVR, or denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-14.json records on Nov 13 2026: 'Petition GRANTED limited to the following question: Whether an issuer can be found liable under the misleading-omissions prong of Section 11(a) ... without an additional inquiry to determine whether the omission rendered any affirmative statement misleading,' adopting the Solicitor General's reformulated Question 1 verbatim and excluding Question 2 (Item 303).",
+        "claim": "The grant order will be limited to Question 1\u2014most likely adopting or closely tracking the Solicitor General's proposed reformulation on Section 11(a)'s misleading-omissions prong\u2014and will decline review of Question 2 on Item 303.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-14.json records a third distribution on Nov 09 2026 for the Conference of 11/13/2026 after the 11/06/2026 Conference, and outcome.json records signals.distribution_count = 3 with no further CVSG.",
+        "claim": "Following the October 21, 2026 distribution for the November 6, 2026 Conference, the petition is moderately likely to be relisted at least once (distribution_count rising from 2 to 3+) to verify vehicle details and finalize the reformulated question text before granting.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-14.json shows an unsigned Nov 13 2026 limited-grant order with no concurring or dissenting statements, and outcome.json records votes = [].",
+        "claim": "The grant order will issue as a standard unsigned order-list entry without separate writings from any Justice.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Cert-stage event resolved on 2026-11-13; plenary merits briefing and decision have not yet occurred and no merits opinion exists in the staged record.",
+        "claim": "On plenary review, the Court is likely to vacate or reverse the Ninth Circuit under Omnicare and Macquarie because materiality alone does not establish a misleading omission under Section 11(a), remanding without deciding Item 303.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261026T092709Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:07:36.431056Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.35444444444444445,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

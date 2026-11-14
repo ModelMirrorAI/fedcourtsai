@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "Plenary certiorari grant (limited to the Solicitor General's reformulated Section 11(a) misleading-omissions question) arising from Robinhood's 2021 IPO registration statement, with CVSG participation by the United States and SEC and substantial stakes for capital-markets issuers, underwriters, and private securities class actions nationwide following Omnicare and Macquarie, tempered by its technical statutory scope and exclusion of the Item 303 question."
+  },
+  "brier_score": 0.044099999999999986,
+  "brier_skill_score": 0.8970499069793144,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.3455056179775281,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.79,
+        "score": 0.3842628960989774
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.42,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.11767838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.16,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.014,
+          "Barrett": 0.003,
+          "Gorsuch": 0.004,
+          "Jackson": 0.003,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.006,
+          "Sotomayor": 0.003,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5019412799057663,
+    "total": 0.5019412799057663
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T16:01:02.449306Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode prediction generated on 2026-11-09, four days before the 2026-11-13 grant order. In retrieval_log.json (result_capture_coverage: 0.9375; 30 captured calls and 2 unobserved web-search calls), external and corpus queries targeted only historical precedents Macquarie (601 U.S. 257 / No. 22-1165) and Omnicare (575 U.S. 175 / No. 13-435); no own-case post-cutoff query or qp-topics read occurred.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.94,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'granted', and the November 13, 2026 order in record/snapshots/2026-11-14.json grants review limited to the Solicitor General's exact reformulated Question 1 and excludes Question 2.",
+        "claim": "The Court will grant review limited to the first question presented in the Solicitor General's proposed formulation\u2014whether liability under Section 11(a)'s misleading-omissions prong can follow from materiality of omitted interim financial information without an additional inquiry into whether an affirmative statement was misleading\u2014while declining the Item 303 question.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records resolved_at '2026-11-13' with signals.distribution_count: 3 (unchanged from context.distribution_count: 3) and signals.cvsg_date: '2026-06-01'.",
+        "claim": "The modal path is a limited grant after the scheduled November 13, 2026 conference with no further distribution beyond the three already observed and no new CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route 'plenary' and disposition_basis 'standard', with no cert-order summary disposition or opinion in record/snapshots/2026-11-14.json.",
+        "claim": "Conditional on a grant, the Court will set the case for plenary briefing and argument (96%) rather than resolving it summarily or remanding in the certiorari order, and the cert order carries no majority merits opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record concludes at the November 13, 2026 certiorari grant (record/snapshots/2026-11-14.json), with merits proceedings not yet resolved.",
+        "claim": "A conditional merits ruling for Robinhood on Question 1 would clarify the misleading-omissions standard without necessarily disposing of the separate required-disclosure theory below.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:01:02.449306Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3455056179775281,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,132 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "Plenary certiorari grant (limited to the Solicitor General's reformulated Section 11(a) misleading-omissions question) arising from Robinhood's 2021 IPO registration statement, with CVSG participation by the United States and SEC and substantial stakes for capital-markets issuers, underwriters, and private securities class actions nationwide following Omnicare and Macquarie, tempered by its technical statutory scope and exclusion of the Item 303 question."
+  },
+  "brier_score": 0.02560000000000001,
+  "brier_skill_score": 0.9402375877249535,
+  "case_id": "scotus/73280982",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.3455056179775281,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.84,
+        "score": 0.40276289609897736
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.11837838380678897
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.02,
+          "Gorsuch": 0.04,
+          "Jackson": 0.02,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.03,
+          "Roberts": 0.01,
+          "Sotomayor": 0.02,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.5211412799057663,
+    "total": 0.5211412799057663
+  },
+  "correct": 0,
+  "created_at": "2026-11-14T16:01:02.449306Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode prediction generated on 2026-11-09, four days before the 2026-11-13 grant order. All 12 calls in retrieval_log.json are captured (result_capture_coverage: 1.0): reads covered predict.md, schemas, event.yaml, staged record/ files through 2026-11-09, metrics/statpack.md, two generic fedcourts query calls, and the first 1,500 bytes of summaries/2026-10-27.md (an undecided pre-relist case summary omitted from retrieval.md that contained no outcome or prediction data).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.93,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'granted', and the November 13, 2026 order in record/snapshots/2026-11-14.json grants the petition limited to Question 1 using that exact verbatim SG wording while excluding Question 2.",
+        "claim": "The Court grants certiorari limited to Question 1 in the Solicitor General's reformulated wording ('without an additional inquiry to determine whether the omission rendered any affirmative statement misleading') and denies or does not reach Question 2 (Item 303).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records resolved_at '2026-11-13', signals.distribution_count: 3 (unchanged from context.distribution_count: 3), and signals.cvsg_date: '2026-06-01', though the grant issued on the November 13 miscellaneous grant order rather than the following Monday's routine order list.",
+        "claim": "The grant comes from the November 13, 2026 conference with no further distribution and no further CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route 'plenary' and disposition_basis 'standard'.",
+        "claim": "Summary disposition (GVR or summary reversal) is unlikely because no intervening decision supports a GVR and the Solicitor General seeks plenary review.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record ends with the November 13, 2026 certiorari grant (record/snapshots/2026-11-14.json); no merits ruling or opinion exists yet.",
+        "claim": "If granted, the Court on the merits will likely hold under Omnicare and Macquarie that materiality and misleadingness are separate elements under Section 11(a) and vacate the Ninth Circuit's merger of the two inquiries.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:01:02.449306Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.3455056179775281,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

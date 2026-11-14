@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000680",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned 38-page application is nonempty and marked untruncated, but contains only an index to appendices A–Y and a closing notice that additional material is available in the Clerk's Office. The indexed state orders, accommodation evidence, transcript, and federal orders were not available as primary texts in this record. The forecast attributes their descriptions to the applicant and does not treat them as independently verified. This is an evidentiary limitation, not a missing-snapshot or package-provisioning blocker."
+    }
+  ]
+}

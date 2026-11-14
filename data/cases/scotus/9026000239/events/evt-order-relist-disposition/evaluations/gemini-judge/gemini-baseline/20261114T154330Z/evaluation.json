@@ -1,0 +1,137 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.91,
+    "notes": "Marquee OT2026 separation-of-powers, statutory-immigration, and remedial-jurisdiction grant. Plenary review of Questions 1 and 2 tests whether the President may invoke 8 U.S.C. 1182(f) and 1185(a) alongside categorical front-end asylum discretion to foreclose statutory asylum applications under 8 U.S.C. 1158 across the southern border, and whether 8 U.S.C. 1252(f)(1) bars classwide injunctive relief. Dropping Question 3 narrows the case slightly away from a standalone trans-substantive Rule 23(b)(2)/Article III sequel to Trump v. CASA, Inc., keeping its primary impact focused on executive border authority and immigration remedies."
+  },
+  "brier_score": 0.022500000000000006,
+  "brier_skill_score": 0.688753462603878,
+  "case_id": "scotus/9026000239",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7311320754716981,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": 0.04978996084015663
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.34725274725274724,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.10618447047458036
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.005,
+          "Gorsuch": 0.03,
+          "Jackson": 0.01,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.015,
+          "Roberts": 0.005,
+          "Sotomayor": 0.01,
+          "Thomas": 0.04
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.15597443131473698,
+    "total": 0.15597443131473698
+  },
+  "correct": 1,
+  "created_at": "2026-11-14T16:09:00.528985Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-relist-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-11-09T18:14:33Z, four days before the petition was granted on 2026-11-13. All 29 calls in retrieval_log.json carry outcome_only capture (coverage 0.0, an engine telemetry shape): reads of provisioned files, four fedcourts query calls (26-426, 2020s grants/denials, judge filter), and two CourtListener docket searches returning 0 results. No web searches, no data/qp-topics/ reads, and no outcome existed at run time.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.62,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json confirms signals.distribution_count remained 2 with no further relists before the Nov 13 grant, though the document misstated the underlying docket distribution/conference dates (which were Oct 7 for 11/6 and Nov 9 for 11/13).",
+        "claim": "The petition will probably receive no further distributions past distribution_count 2 (75% probability of no further relist), following supposed Oct 14/Oct 30 and Nov 2/Nov 6 conference distributions.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition 'granted', disposition_route 'plenary', and resolved_at '2026-11-13' (a subsequent November order, as Nov 9 was the relist distribution date rather than the grant date).",
+        "claim": "The Court will grant certiorari (85% probability), predominantly via plenary review (88% conditional plenary vs. 12% GVR after a hold for D.V.D.), most likely on the November 9 or a subsequent November 2026 order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 13, 2026 docket entry states 'Petition GRANTED limited to Questions 1 and 2 presented by the petition'\u2014granting Questions 1 and 2 while excluding Question 3.",
+        "claim": "If granted for plenary review, the Court is likely to grant Question 1 and Question 3, either alongside Question 2 or while leaving Question 2 for D.V.D.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "This is a cert-stage disposition cell; the staged record ends with the Nov 13, 2026 grant of certiorari and contains no merits decision.",
+        "claim": "Conditional on a plenary grant, a majority of the Court is likely to disturb the D.C. Circuit's judgment at least in part on class/remedial or asylum grounds.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The Nov 13, 2026 grant entry on the docket snapshot notes no separate writings, and outcome.json records writing_roles as null and votes as empty.",
+        "claim": "The primary expected cert-order writing outcome is a routine unsigned grant order without separate writings.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v22",
+    "pipeline_sha": "6b0fde49e1eb48611db3e766ec3f60e821f10a49",
+    "stamped_at": "2026-11-14T16:09:00.528985Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261114T154330Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7311320754716981,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000684",
+  "run_id": "20261114T033825Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned 63-page OCR application is marked nontruncated but contains the application and an appendix table of contents, not the cited appendix orders and exhibits. It ends with a notice that additional material is available in the Clerk's Office. I treated quoted lower-court findings, the foreclosure notice, and valuation evidence as the applicant's account rather than independently verified appendix evidence. Prediction completed from the available record; this is not asserted to be a provisioning failure."
+    }
+  ]
+}
