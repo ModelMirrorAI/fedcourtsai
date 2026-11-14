@@ -2510,8 +2510,8 @@ The mechanics:
     package but `cli.py` and the other listed modules imports one, and that no
     script or workflow names one; the cell workflows' own commands reach
     none). Everything else is *engine*: the
-    workflows, composites and pinned engine CLIs under `.github/`, the
-    prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
+    workflows and composites under `.github/`, the pinned engine CLIs under
+    `engines/`, the prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
     `pyproject.toml` and `uv.lock`, the schemas, every other `src/` module
     (`pricing.py`'s default models, provisioning, retrieval, the MCP code,
     the round planners' spend arithmetic and `cli.py` among them), every other script, any agent instruction or config
@@ -2844,7 +2844,7 @@ shallow checkout fetches no tags).
 ### Engine CLI updates
 
 The engine CLIs every cell, smoke and labeler runs — Claude Code, Codex and the
-Gemini CLI — are pinned once each, in `.github/engines/<engine>/` (an exact
+Gemini CLI — are pinned once each, in `engines/<engine>/` (an exact
 version and its lockfile), and installed from there by the `engine-cli` action
 with `npm ci` into a prefix outside the checkout. The claude cells hand
 `claude-code-action` that binary (`path_to_claude_code_executable`) and
@@ -2853,6 +2853,13 @@ action's own bump changes the wrapper and never the engine a cell runs. One
 skew follows from that: a Claude Code bump can run ahead of the agent SDK the
 pinned `claude-code-action` bundles until the action itself is bumped, and the
 `engine-actions-smoke` leg is what catches a combination that breaks.
+
+The pins sit at the repository root rather than beside the composites that
+install them because Dependabot can open a pull request that changes a file
+under `.github/` only for its `github-actions` ecosystem: an `npm` update
+there resolves, and then has its pull request refused ("The request contains
+invalid or unauthorized changes"), so the job fails daily and proposes
+nothing. A test holds the pins outside `.github/`.
 
 Dependabot checks the engines daily and proposes each release as its own PR
 against `staging` about three days after it ships (its `cooldown`): prompt
@@ -2864,18 +2871,34 @@ cell's `usage.json` carries the `engine_version` its binary reported, so a
 reading can cut by it. A **model** change is different — it moves the digest
 and is a new label.
 
-Before merging an engine bump, run both smokes for that engine on its branch,
-since one drives the CLI directly and the other drives it through the action
-the cells use (`<engine>` is `claude-code`, `codex` or `gemini`; `-f
-scenario=gate` runs both for all three):
+An engine bump is smoked on `staging`, after it merges there and before the
+next promotion candidate is cut. The bump's own branch cannot run a smoke: an
+engine leg binds an environment by ref, and only `main`, `staging` and
+`promote/*` resolve to one that carries the corpus settings and an engine
+sign-in; naming an environment on the dispatch does not help, since each
+environment admits only its own branches. A pin is an owned path, so the maintainer merges the bump; then run
+both smokes for that engine, since one drives the CLI directly and the other
+drives it through the action the cells use (`<engine>` is `claude-code`,
+`codex` or `gemini`):
 
 ```bash
-gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-smoke -f engine=<engine>
-gh workflow run integration-test.yml --ref <bump-branch> -f scenario=engine-actions-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f engine=<engine>
+gh workflow run integration-test.yml --ref staging -f scenario=engine-actions-smoke -f engine=<engine>
 ```
 
-A bump that fails either smoke stays unmerged until the engine or the harness
-is fixed; one that passes rides the next promotion like any other change.
+A bump that fails either smoke is reverted on `staging`, or fixed there,
+before a candidate is cut. Skipping the dispatch loses the early warning and
+not the check: a pin is an engine path to the cell-reach classifier, so the
+candidate that carries a bump owes the full `gate` suite, which runs both
+smokes for all three engines. That is the evidence the
+`promote:skip-engine-smoke` label trades away, so a batch carrying a bump does
+not take the label.
+
+A pin that falls weeks behind is a failure of this lane, not a quiet state:
+a model newer than the pinned CLI is refused when a cell asks for it.
+The lane's health is the `npm_and_yarn` run under the repository's *Dependabot
+Updates* workflow in the Actions tab; a red run there means no engine bump is
+being proposed.
 
 ### Adding a required status check
 
