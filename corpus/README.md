@@ -120,7 +120,7 @@ source.
 | `conference_history` | text | every conference a cert petition was distributed for, in docket order, as a JSON list of `{conference, distributed, transition}` (`pipeline.cert_signals.conference_history`): one step per distinct conference date named by a petition distribution (the `dist-v2` reading `distribution_count` holds), with the filing date of the entry that first named it and how the petition got there — `first`, `relist` (the conference before sat on it, and this entry followed within 14 days), `reschedule` (moved before the conference before sat, or taken off it by a call for response or a "Rescheduled" entry), `redistributed` (more than 14 days after a conference that sat), `after_decision` or `unknown`; its `relist` steps are the exact relist count, where `distribution_count - 1` is an upper bound; published on the schedule (`data/schedule/schedule.json`); written by the live poll's cert branch at ingest, latched so a longer reading wins; withheld from the `query` retrieval rows; null = an application, a row with no live proceedings, or not live-parsed since the column existed; `[]` = parsed and never distributed |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
-| `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row |
+| `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row; a stored value other than 1 fails `validate-corpus` |
 | `has_opinion`         | integer (0/1)   | presence bit for a linked published opinion — kept in the index so the scope classifiers still work when the split moves the `opinion_text` body to the content store |
 | `salience_score`      | real            | the salience gate's deterministic score ([docs/salience.md](../docs/salience.md)); owned by the selection pass, never an ingestion channel |
 | `salience_version`    | text            | the frozen scorer version the score was written under; null = unscored row |
@@ -235,9 +235,11 @@ so a weighted aggregate can multiply by it and count a denial the earlier
 sampled walk kept at full strength; null means no channel asserted a weight. The
 walk keeps every decided petition, but what it writes is a reading of the corpus
 rather than its own certainty: `ingest_live_payload` re-derives an asserted
-weight of 1 through `legacy_denial_sample_weight`, so a legacy row regresses only
-once a re-walk has enumerated the block it stands for — re-serving the kept
-serial alone leaves the nine petitions behind it represented by nobody. The
+weight of 1 through `legacy_denial_sample_weight`, which reads a denial on the
+earlier walk's sample grid as certain only where the block around it is stored
+row by row. A write
+that would store any weight other than 1 is refused at ingest, and
+`validate-corpus` fails on a stored one (`sample_weights_are_unit`). The
 response deadline (`response_due`, `response_due_state`) is a pair on the same
 terms, keyed on the incoming state: a writer with no reading keeps both, and a
 fresh reading takes both, because the reading that matters most is the one that
