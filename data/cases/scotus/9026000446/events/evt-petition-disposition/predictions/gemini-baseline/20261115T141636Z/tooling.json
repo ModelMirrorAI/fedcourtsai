@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000446",
+  "run_id": "20261115T141636Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "Provisioned context.json with frozen cert_anchor and cert_amicus_line reference rates",
+    "Staged petition.txt (including the full 65-page district court opinion) and decision-below.txt",
+    "CourtListener MCP read_document and search_document tools for verifying the alleged circuit split (Bart, McCreight, Stegall, Dominguez-Curry, Ponce, Ginger) and post-Babb federal-sector Title VII precedent (Babb v. Sec'y of Veterans Affairs, Huff v. Buttigieg, Seed v. EPA)"
+  ],
+  "gaps": [
+    "A counsel/attorney filter (--counsel or --attorney) and originating-court filter (--originating-court) on fedcourts query would make retrieving counsel-specific and circuit-specific SCOTUS cert priors much faster",
+    "A per-Term conditioned CFR / relist-increment hazard table in statpack.md split by respondent-waiver vs. BIO-filed status would sharpen relist-increment calibration on waived first-distribution petitions"
+  ],
+  "notes": "All provisioned files and CourtListener MCP endpoints functioned cleanly."
+}

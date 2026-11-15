@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000686",
+  "run_id": "20261115T141636Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_analyze_citations",
+    "web_fetch (supremecourt.gov dockets and linked petition/appendix PDFs)"
+  ],
+  "helpful": [
+    "Committed statpack.md and statpack.json interim applicant_cuts (private x capital cell and per-Term finer_granted/finer_resolved breakdowns) anchored the base rate cleanly.",
+    "fedcourts query with --disposition denied --limit 500 surfaced four directly comparable October-November 2026 capital stay applications (including 26A623 Guardado v. Florida, the exact precedent cited by the Florida Supreme Court below) with escalation-signal flags.",
+    "supremecourt.gov web_fetch on linked docket 26-6154 allowed reading the concurrently filed certiorari petition and the November 13, 2026 Florida Supreme Court opinion that the 4-page stay application incorporated by reference."
+  ],
+  "gaps": [
+    "A structured --application-kind substantive or --capital filter on fedcourts query would allow retrieving interim capital priors directly without filtering --disposition sweeps client-side.",
+    "Auto-staging linked cert docket filings (such as 26-6154's petition and appendix when 26A686 explicitly incorporates them) under record/related/ would help replay cells that cannot fetch supremecourt.gov."
+  ],
+  "notes": "All provisioned inputs were clean and intact; forward-mode retrieval resolved the full context of the cross-referenced cert petition 26-6154."
+}

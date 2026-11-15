@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000464",
+  "run_id": "20261115T141636Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["cert_anchor and cert_amicus_line in context.json", "relist-count and originating-court cuts in the statpack", "lower-court-docket.txt en banc reading"],
+  "gaps": ["A base rate conditioned on a respondent waiver with no call for a response", "Corpus query by lower court or subject for SCOTUS cert rows"],
+  "notes": "The corpus query returned recent high-profile grants unrelated to this petition; structured filters gave no way to find government-contract or Federal Circuit cert priors."
+}
