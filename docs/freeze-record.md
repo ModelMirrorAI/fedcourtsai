@@ -20487,3 +20487,39 @@ freeze commit is recorded here.
   digest. No prompt names these fields, and pointing a predictor at them is a
   prompt change that would be registered as one. The rendered
   `metrics/statpack.md` is unchanged.
+
+- **Readings the `proc-v23` entry owes, recorded 2026-11-15.** No rule moves
+  here. The `proc-v23` entry (dated 2026-11-13), carried to `main` by
+  `promotion/2026-11-14` (merge `049afb2f5`, registry stamped by `f1ee9b5cd`)
+  and tagged `prereg/proc-v23`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v21` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the stamped registry and the ledger at `origin/main`'s
+  `330ad5d5e` (`2026-11-15T07:22:43Z`).
+
+  **`proc-v23` closes `proc-v21`.** `uv run fedcourts successor-disclosures
+  --closed proc-v21 --successor proc-v23` prints:
+
+  ```
+  successor proc-v23 closes proc-v21 at 2026-11-14T15:51:37+00:00
+    closed proc-v21 codex-baseline: 18 counted event(s) — 0 resolved, 18 pending at close
+    closed proc-v21 claude-baseline: 18 counted event(s) — 0 resolved, 18 pending at close
+    closed proc-v21 gemini-baseline: 18 counted event(s) — 0 resolved, 18 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The provisional run, at an instant of `2026-11-14T00:00:00Z` over the
+  ledger at `94b3cd8e2`, printed 9 counted events per engine with none
+  resolved. At the stamped instant, `2026-11-14T15:51:37Z`, each engine
+  holds 18 counted events in its window, and none carries an outcome dated
+  on or before the close's day. The 9 events added are the ones whose cells
+  landed on `main` after the provisional ledger and before the carrying
+  merge, from the predict runs `20261113T190337Z`, `20261113T214525Z`,
+  `20261114T011216Z` and `20261114T033825Z`; the earlier 9 came from the
+  runs `20261112T230820Z`, `20261113T010844Z` and `20261113T042228Z`. So
+  the close was taken with no outcome visible on any of the 18 counted
+  events. No split event prints, no successor-counted line prints because
+  no prediction under a `proc-v23` digest is on `main` at this read, and no
+  `graded by` line prints.
