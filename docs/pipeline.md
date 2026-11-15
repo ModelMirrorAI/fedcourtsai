@@ -4344,6 +4344,11 @@ sits below the job cap (65), so a run that overruns trips the *step* — not the
 job. A step timeout (or a max-turns stop) fails only that step and leaves the
 runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
+Every engine step is `continue-on-error`, and the job's conclusion is decided
+by its last step before the log replay, *Conclude the cell*: it fails the job
+for any engine step that did not succeed, with one exception, a step the
+watchdog reaped (below). So a timeout or a max-turns stop still concludes the
+job red, after the tail has run.
 
 The value is measured, not guessed. Across every completed engine step of
 `run-predict` and `run-evaluate` on `main` from 2026-08-01 to 2026-10-06 — 1,548
@@ -4505,7 +4510,11 @@ where the runner has no `python3` to parse with, the sentinel stands down and
 says so, leaving the deadline as the only bound. The step concludes, the tail runs, `status.json` records
 produced+validated, and `collect` picks the cell up as **ready** — a reaped step
 is counted as an agent that finished, because the watchdog only ever reaps one
-that did. The parse is deliberately all the sentinel asks: schema truth is the
+that did. The job concludes green on the same reading: *Conclude the cell*
+excuses a reaped engine step, so a run whose every cell landed its work does
+not report a failed lane for the manner of one step's ending, and the reap
+stays visible as the disarm step's warning annotation and the `REAPED` marker
+in the cell artifact. The parse is deliberately all the sentinel asks: schema truth is the
 tail's `validate`, which routes a malformed cell to the draft PR, and that is
 strictly better than the job cap destroying it.
 

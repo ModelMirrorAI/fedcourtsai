@@ -95,7 +95,9 @@ the integration gate stays green. So the contracts get pinned here instead.
 
 import io
 import json
+import os
 import re
+import subprocess
 import textwrap
 import tomllib
 from contextlib import redirect_stdout
@@ -3308,7 +3310,6 @@ def test_the_gemini_engine_step_retries_in_place_inside_the_engine_deadline() ->
         assert set(step["env"]) & GEMINI_CELL_KNOBS == set(), (
             f"{name}: the gemini step overrides the script's bound"
         )
-        assert "continue-on-error" not in step
         assert step.get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT
 
     script = (REPO_ROOT / GEMINI_CELL_SCRIPT).read_text()
@@ -3522,6 +3523,82 @@ def test_a_reaped_cell_is_recorded_as_the_success_its_work_was() -> None:
         assert "!cancelled()" in str(usage["if"]), (
             f"{name}: the usage gate's implicit success() swallows the reaped clause"
         )
+
+
+def _conclude_the_cell(run: str, outcomes: str, reaped: str) -> subprocess.CompletedProcess[str]:
+    """Run a cell job's verdict step body as the runner would, under `bash -e`."""
+    return subprocess.run(
+        ["bash", "-e", "-c", run],
+        env={
+            "PATH": os.environ["PATH"],
+            "COURT_ID": "scotus",
+            "DOCKET_ID": "1",
+            "EVENT_ID": "evt-x",
+            "ENGINE_OUTCOMES": outcomes,
+            "REAPED": reaped,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_a_cell_job_fails_for_every_engine_ending_but_a_success_or_a_reap() -> None:
+    """A reaped cell's job concludes green, and nothing else is forgiven.
+
+    Every engine step is `continue-on-error` so that a reap — the watchdog
+    ending a step whose work was complete — need not redden the job, and with it
+    the run and the lane's public status. That tolerance would also swallow a
+    timeout, a max-turns stop and a deadline kill, so one step at the foot of
+    the job hands the failure back for all of those. Pinned here: the tolerance
+    and the verdict travel together, the verdict reads each step's `outcome`
+    (a tolerated step's `conclusion` is always success), nothing but the log
+    replay follows it, no tail gate reads an engine step's `conclusion`, and
+    the step's own shell gives the verdict the comments claim.
+    """
+    for name, job_name in ENGINE_WATCHDOG_CELL_JOBS.items():
+        steps = _load(name)["jobs"][job_name]["steps"]
+        engines = [steps[i] for i in _engine_step_indices(steps)]
+        for step in engines:
+            assert step.get("continue-on-error") is True, (
+                f"{name}: {step['name']} fails the job before the verdict can excuse a reap"
+            )
+        names = [str(s.get("name") or "") for s in steps]
+        at = names.index("Conclude the cell")
+        verdict = steps[at]
+        assert "continue-on-error" not in verdict, f"{name}: the verdict must fail the job"
+        assert "id" not in verdict, f"{name}: no later step may be gated on the verdict"
+        assert _norm(str(verdict["if"])) == "${{ !cancelled() }}"
+        assert names[at + 1 :] == ["Show the sidecar logs"], (
+            f"{name}: only the log replay may follow the verdict"
+        )
+        assert verdict["env"]["ENGINE_OUTCOMES"] == " ".join(
+            f"${{{{ steps.{step['id']}.outcome }}}}" for step in engines
+        ), f"{name}: the verdict does not read every engine step's outcome"
+        assert verdict["env"]["REAPED"] == "${{ steps.disarm.outputs.reaped == 'true' }}"
+        for step in steps:
+            gate = str(step.get("if") or "") + yaml.safe_dump(step.get("env") or {})
+            for engine in engines:
+                assert f"steps.{engine['id']}.conclusion" not in gate, (
+                    f"{name}: {step.get('name')} reads a tolerated step's conclusion"
+                )
+
+        run = str(verdict["run"])
+        for outcomes, reaped, code in (
+            ("success skipped skipped", "false", 0),
+            ("skipped skipped success", "false", 0),
+            ("skipped skipped skipped", "false", 0),  # a refused cell ran no engine
+            ("  ", "false", 0),  # a job that never reached its engine steps
+            ("skipped skipped failure", "true", 0),  # the reap
+            ("skipped skipped failure", "false", 1),
+            ("failure skipped skipped", "false", 1),
+            ("skipped cancelled skipped", "false", 1),
+            ("skipped skipped failure", "", 1),
+            ("skipped skipped failure", "True", 1),  # only the literal expression value
+        ):
+            done = _conclude_the_cell(run, outcomes, reaped)
+            assert done.returncode == code, (name, outcomes, reaped, done.stdout, done.stderr)
+            assert ("::error::" in done.stdout) == (code == 1), (name, outcomes, reaped)
 
 
 def test_the_cell_artifact_ships_only_the_cells_own_event_directory() -> None:

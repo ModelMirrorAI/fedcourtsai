@@ -305,12 +305,13 @@ runbook, [docs/security.md](docs/security.md).
   engines.
   What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
-  draft one, and nothing else. `produced` and `validated` still have to hold, the
+  draft one, and it excuses the cell's failed engine step in the job's
+  conclusion, so the job reads green — and nothing else. `produced` and `validated` still have to hold, the
   collect job still secret-scans and still enforces the `data/` path jail, the
   cell's credential still carries no `contents: write`, and a compliant agent
   could land the same bytes by finishing normally. The residual is that a cell
   which stopped early can present as one that finished — a claim about review
-  routing, not a capability. The deadline markers (`FIRED`, `STOOD_DOWN`) are
+  routing and about the colour of its job, not a capability. The deadline markers (`FIRED`, `STOOD_DOWN`) are
   forgeable on the same terms, and a planted one buys less still: it sets the
   cell's `engine_deadline` in `status.json`, which only changes the reason the
   draft PR names for a stop — it never readies a cell. The Gemini step's own
