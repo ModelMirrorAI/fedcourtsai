@@ -274,9 +274,8 @@ def _deny_base_rate(statpack: StatPack | None) -> tuple[float | None, int | None
     The calibration anchor: the disposition breakdown restricted to modern
     Term-prefixed discretionary-cert dockets — matched by its **shape**
     (``cert_stage`` + disposition grouping), never its title, and computed
-    upstream over the live/historical slice with denial-reweighted counts, so
-    both numbers are estimates of the true population rather than raw ingested
-    rows. ``(None, None)`` when the statpack or its cert-stage disposition
+    upstream over the live/historical slice, each row counted once.
+    ``(None, None)`` when the statpack or its cert-stage disposition
     section is absent — the render shows an explicit absence rather than
     anchoring against the wrong population.
     """
@@ -298,7 +297,7 @@ def _segment_base_rate(statpack: StatPack | None) -> tuple[float | None, int | N
 
     The base rate for the population the salience gate actually predicts on —
     read from the statpack's pack-wide salience-band section (matched by its
-    ``salience_band`` grouping, denial-reweighted), grant family pooled across
+    ``salience_band`` grouping), grant family pooled across
     every band. This is the anchor a selected-segment prediction should beat, not
     the whole-docket rate: with a salience gate the predicted slice grants far
     more often than the ~few-percent full docket. ``(None, None)`` when the

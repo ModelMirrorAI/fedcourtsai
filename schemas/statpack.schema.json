@@ -1570,7 +1570,7 @@
         },
         "weighted": {
           "default": false,
-          "description": "True when the section's counts are sample-weighted estimates (each row counted `sample_weight` times, so the historical walker's denial sampling does not bias the base rates); raw ingested counts otherwise",
+          "description": "A section flag whose name is kept. Every section counts each row once, whatever the flag; where it is true the rendered tables label the denominator `est. n=`",
           "title": "Weighted",
           "type": "boolean"
         }
@@ -1584,7 +1584,7 @@
     },
     "StatPackTerm": {
       "additionalProperties": false,
-      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice (weighted, so\nthe denial sampling does not bias them); a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding ``record/context.json``'s ``decided_before`` \u2014\nits own **docket-number** Term, which is what these entries are keyed on and\nwhat the cell is handed as ``DECIDED_BEFORE``, so its own entry (which\nalready holds its disposition) is always behind the bar. The cell's\nday-level *retrieval* boundary is a different field, ``cutoff``, which it\nreads as ``REPLAY_CUTOFF``; no anchoring Term is ever derived from it,\nbecause for a petition held over past its Term that day falls in a later\nTerm than the docket and a Term read off it would hand the cell its own row.",
+      "description": "One SCOTUS October Term's slice of the statpack: the live-slice cert population.\n\nThe per-Term detail published stat packs devote one document per Term to; here\nevery Term is an entry in a single artifact (recent first), so the statpack stays\none deterministic committed metric with reviewable diffs and a single-Term view is a\nfilter (``fedcourts stats --court scotus --term N``) rather than a separate file.\nAggregates are computed over the live/historical provenance slice, each row\ncounted once; a Term known only from the discovery\ncursors still appears, carrying its census with zero ingested rows. **This is\nthe replay self-selection surface**: a time-masked cell anchors only on Term\nentries strictly preceding ``record/context.json``'s ``decided_before`` \u2014\nits own **docket-number** Term, which is what these entries are keyed on and\nwhat the cell is handed as ``DECIDED_BEFORE``, so its own entry (which\nalready holds its disposition) is always behind the bar. The cell's\nday-level *retrieval* boundary is a different field, ``cutoff``, which it\nreads as ``REPLAY_CUTOFF``; no anchoring Term is ever derived from it,\nbecause for a petition held over past its Term that day falls in a later\nTerm than the docket and a Term read off it would hand the cell its own row.",
       "properties": {
         "alt_segments": {
           "description": "The same per-band slices under every OTHER registered salience version, so a prediction frozen at a version the live pass no longer scores with still finds its own scorer's base rate. Empty \u2014 and absent from the serialized payload \u2014 while only one version is registered",
@@ -1596,10 +1596,10 @@
         },
         "base_rates": {
           "$ref": "#/$defs/BaseRateBucket",
-          "description": "This Term's live-slice counts and weighted base rates"
+          "description": "This Term's live-slice counts and base rates, each row counted once"
         },
         "classes": {
-          "description": "Per-fee-class detail (paid, then ifp): census, completeness, and weighted estimates",
+          "description": "Per-fee-class detail (paid, then ifp): census, completeness, and rates",
           "items": {
             "$ref": "#/$defs/StatPackTermClass"
           },
@@ -1618,7 +1618,7 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family share of this Term's resolved live-slice rows \u2014 granted + gvr today, and the vocabulary's `summary-reversal` label pools in too if a resolver ever produces it. The only disposition series comparable across Terms. The `gvr` label is a forward convention: a Term resolved into the corpus before it existed carries its GVRs as plain `granted` (OT2023-24 carry zero), so the split inside `base_rates.dispositions` is safe within a Term and meaningless between them \u2014 anchor any cross-Term comparison on this field. None when nothing resolved",
+          "description": "Grant-family share of this Term's resolved live-slice rows \u2014 granted + gvr today, and the vocabulary's `summary-reversal` label pools in too if a resolver ever produces it. The only disposition series comparable across Terms. The `gvr` label is a forward convention: a Term resolved into the corpus before it existed carries its GVRs as plain `granted` (OT2023-24 carry zero), so the split inside `base_rates.dispositions` is safe within a Term and meaningless between them \u2014 anchor any cross-Term comparison on this field. None when nothing resolved",
           "title": "Est Grant Family Rate"
         },
         "grants": {
@@ -1630,7 +1630,7 @@
         },
         "ingested": {
           "default": 0,
-          "description": "Live-slice rows present for this Term \u2014 the raw ingested count, as opposed to the weighted estimates in `base_rates`",
+          "description": "Live-slice rows present for this Term \u2014 every ingested row, resolved or not",
           "minimum": 0,
           "title": "Ingested",
           "type": "integer"
@@ -1670,7 +1670,7 @@
         },
         "timing": {
           "$ref": "#/$defs/TimingStats",
-          "description": "Filing \u2192 cert-stage resolution timing over this Term's live-slice resolved cases (weighted nearest-rank)"
+          "description": "Filing \u2192 cert-stage resolution timing over this Term's live-slice resolved cases (nearest-rank)"
         }
       },
       "required": [
@@ -1682,7 +1682,7 @@
     },
     "StatPackTermClass": {
       "additionalProperties": false,
-      "description": "One (Term, fee class) slice of the live-slice cert population.\n\n``filings`` is the cursor-derived census \u2014 the count of docketed serials\nthrough the walked frontier, exact even for petitions the denial sample\nnever ingested (a slight upper bound: withheld serial numbers still count).\n``ingested``/``resolved`` are raw live-slice row counts; the estimates\n(``weighted_resolved``, ``est_grant_rate``, ``dispositions``) count each row\n``sample_weight`` times so the walker's denial sampling does not bias them.",
+      "description": "One (Term, fee class) slice of the live-slice cert population.\n\n``filings`` is the cursor-derived census \u2014 the count of docketed serials\nthrough the walked frontier, exact even for serials no row is stored for\n(a slight upper bound: withheld serial numbers still count).\n``ingested``/``resolved`` are raw live-slice row counts; ``weighted_resolved``,\n``est_grant_rate`` and ``dispositions`` keep their names and count each row\nonce, so ``weighted_resolved`` equals ``resolved``.",
       "properties": {
         "complete": {
           "default": false,
@@ -1691,7 +1691,7 @@
           "type": "boolean"
         },
         "dispositions": {
-          "description": "Weighted disposition estimates over the resolved rows",
+          "description": "Disposition counts over the resolved rows, each row counted once",
           "items": {
             "$ref": "#/$defs/DispositionShare"
           },
@@ -1710,7 +1710,7 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family (granted + gvr pooled) share of resolved \u2014 pooled, so comparable across Terms where the `dispositions` split is not; None when nothing resolved",
+          "description": "Grant-family (granted + gvr pooled) share of resolved, each row counted once \u2014 pooled, so comparable across Terms where the `dispositions` split is not; None when nothing resolved",
           "title": "Est Grant Rate"
         },
         "fee_class": {
@@ -1746,11 +1746,11 @@
         },
         "timing": {
           "$ref": "#/$defs/TimingStats",
-          "description": "Filing \u2192 cert-stage resolution timing (weighted nearest-rank), keyed on the petition-stage decision date, not docket termination"
+          "description": "Filing \u2192 cert-stage resolution timing (nearest-rank), keyed on the petition-stage decision date, not docket termination"
         },
         "weighted_resolved": {
           "default": 0,
-          "description": "Sample-weighted resolved estimate \u2014 each row counted `sample_weight` times (an unweighted-capture row counts once)",
+          "description": "Resolved rows, each counted once: equal to `resolved`. The name is kept",
           "minimum": 0,
           "title": "Weighted Resolved",
           "type": "integer"
@@ -1764,7 +1764,7 @@
     },
     "StatPackTermSegment": {
       "additionalProperties": false,
-      "description": "One salience-band slice of a Term's live-slice paid modern-cert petitions.\n\nThe **segment base rate** the salience program turns on: with a salience gate\nthe predicted population is a biased subsample (relist-2 petitions grant ~39%,\nrelist-0 ~0.8%), so the whole-docket cert rate is the wrong yardstick both as\nthe predict agent's prior and as the evaluator's naive baseline. Keying on the\nfrozen salience band gives each predicted case a base rate conditioned on its\nown grant-likelihood tier. Because the segment lives inside :class:`StatPackTerm`\nit inherits that surface's **per-Term self-selection contract** \u2014 a time-masked\nreplay cell reads only Terms strictly before its clock, so the rate never leaks\nthe current Term. Estimates are sample-weighted (each row counted\n``sample_weight`` times), matching the Term's other weighted cuts.\n\n**Two rates, answering two different questions.** A band is monotone\nnon-decreasing over a petition's life \u2014 the distribution count is max-latched\nand a CVSG date, once set, stays set \u2014 so a petition passes *through* the\nweaker bands **it can reach** on its way to the one it ends in. Which those\nare is the scorer's own\n(:meth:`fedcourtsai.pipeline.salience.SalienceScorer.reachable_bands`): under a\nvocabulary that interleaves a fixed-at-filing caption class among the\ntrajectory tiers, a petition walks its class's ladder and never enters\nanother class's bands.\n\n``est_grant_rate`` conditions on the band a petition **ended** in. It is the\ndescriptive cut: of the petitions that finished at one distribution, how many\nwere granted.\n\n``prefix_est_grant_rate`` conditions on having **reached** the band, which is\nthe same event as \"ended here or stronger *on this petition's own ladder*\".\nThat is the forecast baseline, because a cell is scored at the band it sat in\nwhen it ran, and from there the petition may still relist. Conditioning a live\nforecast on the terminal rate would ask it to beat a number computed with\nknowledge of its own future, and understates the honest baseline several-fold\nin the weaker bands (a band with nothing reachable above it has the two\ncoinciding exactly).",
+      "description": "One salience-band slice of a Term's live-slice paid modern-cert petitions.\n\nThe **segment base rate** the salience program turns on: with a salience gate\nthe predicted population is a biased subsample (relist-2 petitions grant ~39%,\nrelist-0 ~0.8%), so the whole-docket cert rate is the wrong yardstick both as\nthe predict agent's prior and as the evaluator's naive baseline. Keying on the\nfrozen salience band gives each predicted case a base rate conditioned on its\nown grant-likelihood tier. Because the segment lives inside :class:`StatPackTerm`\nit inherits that surface's **per-Term self-selection contract** \u2014 a time-masked\nreplay cell reads only Terms strictly before its clock, so the rate never leaks\nthe current Term. Every row counts once, as in the Term's other cuts; the\n``weighted_*`` field names are kept and each equals the raw count beside it.\n\n**Two rates, answering two different questions.** A band is monotone\nnon-decreasing over a petition's life \u2014 the distribution count is max-latched\nand a CVSG date, once set, stays set \u2014 so a petition passes *through* the\nweaker bands **it can reach** on its way to the one it ends in. Which those\nare is the scorer's own\n(:meth:`fedcourtsai.pipeline.salience.SalienceScorer.reachable_bands`): under a\nvocabulary that interleaves a fixed-at-filing caption class among the\ntrajectory tiers, a petition walks its class's ladder and never enters\nanother class's bands.\n\n``est_grant_rate`` conditions on the band a petition **ended** in. It is the\ndescriptive cut: of the petitions that finished at one distribution, how many\nwere granted.\n\n``prefix_est_grant_rate`` conditions on having **reached** the band, which is\nthe same event as \"ended here or stronger *on this petition's own ladder*\".\nThat is the forecast baseline, because a cell is scored at the band it sat in\nwhen it ran, and from there the petition may still relist. Conditioning a live\nforecast on the terminal rate would ask it to beat a number computed with\nknowledge of its own future, and understates the honest baseline several-fold\nin the weaker bands (a band with nothing reachable above it has the two\ncoinciding exactly).",
       "properties": {
         "band": {
           "description": "The frozen grant-likelihood band, in the vocabulary of the salience version stamped beside it",
@@ -1783,7 +1783,7 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family (granted + gvr pooled) share of the rows that ENDED in this band \u2014 a descriptive rate, not a forecast baseline; None when nothing in the band resolved",
+          "description": "Grant-family (granted + gvr pooled) share of the rows that ENDED in this band \u2014 a descriptive rate, not a forecast baseline; None when nothing in the band resolved",
           "title": "Est Grant Rate"
         },
         "ingested": {
@@ -1805,19 +1805,19 @@
             }
           ],
           "default": null,
-          "description": "Weighted grant-family (granted + gvr pooled) share over the band's risk set: P(grant | the petition has REACHED this band). The forecast baseline \u2014 this is what a predictor is asked to beat, because a cell is scored at the band it sat in when it ran, not the one it ended in. Identical to est_grant_rate for a band with nothing reachable above it; None when the risk set is empty",
+          "description": "Grant-family (granted + gvr pooled) share over the band's risk set: P(grant | the petition has REACHED this band). The forecast baseline \u2014 this is what a predictor is asked to beat, because a cell is scored at the band it sat in when it ran, not the one it ended in. Identical to est_grant_rate for a band with nothing reachable above it; None when the risk set is empty",
           "title": "Prefix Est Grant Rate"
         },
         "prefix_resolved": {
           "default": 0,
-          "description": "Rows in the band's risk set carrying a disposition (raw count) \u2014 the observed rows behind the weighted estimate beside it",
+          "description": "Rows in the band's risk set carrying a disposition (raw count) \u2014 the same count as `prefix_weighted_resolved` beside it",
           "minimum": 0,
           "title": "Prefix Resolved",
           "type": "integer"
         },
         "prefix_weighted_resolved": {
           "default": 0,
-          "description": "Sample-weighted resolved estimate over the band's risk set \u2014 every row that ever reached this band, not only those that ended in it. Risk sets nest down one petition class's reachable ladder and partition across classes, so this contains every stronger band the same class can reach",
+          "description": "Resolved rows in the band's risk set, equal to `prefix_resolved` (the name is kept) \u2014 every row that ever reached this band, not only those that ended in it. Risk sets nest down one petition class's reachable ladder and partition across classes, so this contains every stronger band the same class can reach",
           "minimum": 0,
           "title": "Prefix Weighted Resolved",
           "type": "integer"
@@ -1831,7 +1831,7 @@
         },
         "weighted_resolved": {
           "default": 0,
-          "description": "Sample-weighted resolved estimate for the band \u2014 the base rate's denominator",
+          "description": "Resolved rows in the band, equal to `resolved` (the name is kept) \u2014 the base rate's denominator",
           "minimum": 0,
           "title": "Weighted Resolved",
           "type": "integer"
@@ -1869,7 +1869,7 @@
     },
     "TimingStats": {
       "additionalProperties": false,
-      "description": "Duration stats over the resolved cases carrying a usable date pair.\n\nThe pack-level timing keys on ``date_filed`` \u2192 ``date_decided`` \u2014 docket\n*termination*, pooled across courts and both SCOTUS docket forms, so its\nmixture follows which rows carry a termination date at all; the per-Term\nstatistics key on the cert-stage resolution date, which is the petition's own\nmoment, and weight each row by its\n``sample_weight`` (each use states which). The two keys agree on a denied\npetition and diverge on a granted one, whose termination is the merits\njudgment months later. Rows missing either date are\nexcluded rather than guessed, so ``cases`` doubles as the coverage\ndenominator \u2014 a raw count in unweighted uses, the weighted estimate in\nweighted ones. Percentiles use the deterministic nearest-rank method, so the\nsame corpus reproduces the same stats.",
+      "description": "Duration stats over the resolved cases carrying a usable date pair.\n\nThe pack-level timing keys on ``date_filed`` \u2192 ``date_decided`` \u2014 docket\n*termination*, pooled across courts and both SCOTUS docket forms, so its\nmixture follows which rows carry a termination date at all; the per-Term\nstatistics key on the cert-stage resolution date, which is the petition's own\nmoment (each use states which). Every row counts once. The two keys agree on a denied\npetition and diverge on a granted one, whose termination is the merits\njudgment months later. Rows missing either date are\nexcluded rather than guessed, so ``cases`` doubles as the coverage\ndenominator, a count of rows. Percentiles use the deterministic nearest-rank method, so the\nsame corpus reproduces the same stats.",
       "properties": {
         "cases": {
           "default": 0,
@@ -2034,7 +2034,7 @@
       "type": "array"
     },
     "terms": {
-      "description": "Per-SCOTUS-Term live-slice detail (weighted base rates, timing, per-fee-class census), most recent Term first",
+      "description": "Per-SCOTUS-Term live-slice detail (base rates, timing, per-fee-class census), most recent Term first",
       "items": {
         "$ref": "#/$defs/StatPackTerm"
       },

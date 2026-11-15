@@ -324,17 +324,14 @@ def _candidates(conn: sqlite3.Connection) -> list[tuple[DuplicatePair, list[str]
         conflicts = _conflicts(keep_row, drop_row)
         # The survivor's weight is the pair's minimum — exactly what the
         # ingestion upsert's min-latch lands when two channels weight one row,
-        # applied here because the missed join kept that latch from firing. So
-        # the petition's inclusion probability is the pair's best (lowest)
-        # inverse weight.
+        # applied here because the missed join kept that latch from firing.
         #
-        # A NULL is **not** a weight of 1 in that minimum, and this is where the
-        # difference bites: the CourtListener-keyed row is the survivor and
-        # `pull` never writes the column at all, so reading its NULL as certainty
-        # would let every merge strip the live twin's sampled weight — a silent
-        # re-weighting of the legacy frame, performed by a de-duplication pass
-        # that observed nothing about the block. A NULL asserts nothing and is
-        # skipped; the fall-through applies only when neither row asserted.
+        # A NULL is **not** a weight of 1 in that minimum: the
+        # CourtListener-keyed row is the survivor and `pull` never writes the
+        # column at all, so its NULL is no reading of the weight. A NULL
+        # asserts nothing and is skipped, so the survivor carries what the live
+        # twin stored (1 on every row a writer has weighted); the fall-through
+        # applies only when neither row asserted.
         asserted = [
             weight
             for weight in (keep_row.sample_weight, drop_row.sample_weight)

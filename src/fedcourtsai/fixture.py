@@ -224,7 +224,7 @@ class FixtureCase:
 # two cases into one row (see the opt-in tests' disjointness pin).
 # The SCOTUS petitions carry lower-court linkage onto the ca9 dockets (304 →
 # ca9/102, 305 → ca9/103) and are live-slice rows, so the statpack's
-# originating-circuit and weighted cert cuts have material to aggregate. The
+# originating-circuit and cert cuts have material to aggregate. The
 # `26A11` application docket (scotus/306) is the interim stage in miniature: a
 # resolved substantive stay application whose motion-baseline event carries
 # `Stage.interim`, so the offline cascade can prove an interim cell end to end.
@@ -315,8 +315,8 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
         snapshot_date=date(2024, 6, 24),
         originating_court="ca9",
         originating_docket_number="22-15044",
-        # Written by the historical walker under an interval-5 denial sample
-        # (serial 845 sits on that grid): the fixture's weighted-aggregate case.
+        # A historical-walker row, stored at weight 1 as every row is: a denial
+        # for the statpack's row-count aggregates.
         last_live_polled=date(2026, 7, 1),
         sample_weight=1,
         distribution_count=2,

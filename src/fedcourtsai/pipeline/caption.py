@@ -863,9 +863,8 @@ def caption_census(
     the reverse.) ``pooled`` spans only the Terms whose frame carries no
     unresolved row — an in-progress Term is right-censored and its
     resolved-so-far rate is outcome-correlated, so it reports per-Term but
-    never pools. Every row's ``sample_weight`` must be 1: the census counts
-    raw, and a subsampled frame (a future re-walk vintage) must fail loud
-    here rather than overstate the grant family. Deterministic and
+    never pools. Every row is counted once: each stored row stands for one
+    petition, which the corpus validator enforces. Deterministic and
     read-only: two runs over one corpus pointer agree byte for byte, which
     is what lets a statistical review of this artifact license a frozen
     constant (``docs/salience.md``).

@@ -16,13 +16,13 @@
           "type": "integer"
         },
         "none_weighted_grants": {
-          "description": "The grant-family rows among them, on the same weights",
+          "description": "The grant-family rows among them, each counted once",
           "minimum": 0,
           "title": "None Weighted Grants",
           "type": "integer"
         },
         "none_weighted_resolved": {
-          "description": "The same rows, each counted `sample_weight` times",
+          "description": "The same count of rows as the field before it; the name is kept",
           "minimum": 0,
           "title": "None Weighted Resolved",
           "type": "integer"
@@ -39,13 +39,13 @@
           "type": "integer"
         },
         "some_weighted_grants": {
-          "description": "The grant-family rows among them, on the same weights",
+          "description": "The grant-family rows among them, each counted once",
           "minimum": 0,
           "title": "Some Weighted Grants",
           "type": "integer"
         },
         "some_weighted_resolved": {
-          "description": "The same rows, each counted `sample_weight` times",
+          "description": "The same count of rows as the field before it; the name is kept",
           "minimum": 0,
           "title": "Some Weighted Resolved",
           "type": "integer"

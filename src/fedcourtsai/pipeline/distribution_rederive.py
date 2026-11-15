@@ -57,9 +57,9 @@ the column's null is the parse-coverage sentinel for the whole live-signal
 family, so filling the count on its own would promote an unknown CVSG to an
 observed absence. ``backfill-live-signals`` owns that family, in one statement.
 
-Every figure here is a **raw count of rows**, never denial-reweighted, because
-they count writes rather than estimate a population — which is also why one of
-them may not be read against a reweighted cert cut from the statpack.
+Every figure here is a **raw count of rows**, because they count writes rather
+than describe a population — which is also why one of them may not be read
+against a cert cut from the statpack.
 
 **Band moves are reported over the census frame, not over the write frame**,
 for the matching reason: a band label is only meaningful where the gate scores,

@@ -70,8 +70,8 @@ def project_row(
       number (which fixes the Term and the paid/IFP fee class — assigned at
       filing, never changed), caption and structured petitioner title, filing
       date, originating-court linkage, the writ the opening petition entry
-      names (``opening_writ``, fixed at filing), and the sampling
-      ``sample_weight`` (a property of how the corpus was built, not of the
+      names (``opening_writ``, fixed at filing), and
+      ``sample_weight`` (a constant 1 on every stored row, not a fact of the
       docket's progress).
       The caption invariance is measured, not assumed, at the *class* grain
       (the two measurements and their vintages: ``pipeline.caption``'s module

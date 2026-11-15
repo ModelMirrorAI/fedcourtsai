@@ -70,7 +70,7 @@ from .schemas import (
 #: is a new name, never an edit to this one.
 AMICUS_LINE_RULE: Final = "amicus-line-v2"
 
-#: Observed (unweighted) resolved rows an arm's pool must hold before its rate
+#: Observed resolved rows an arm's pool must hold before its rate
 #: is used. Below it the forecast is the band rate.
 AMICUS_LINE_MIN_RESOLVED: Final = 30
 
@@ -175,11 +175,13 @@ class AmicusLineArmPool(_Model):
     arm: AmicusArm = Field(description="The arm pooled")
     terms: list[int] = Field(description="The Terms that contributed rows, recent first")
     resolved: int = Field(ge=0, description="Observed resolved rows in the pool (raw count)")
-    weighted_resolved: int = Field(ge=0, description="The pool's weighted resolved estimate")
+    weighted_resolved: int = Field(
+        ge=0, description="The same count of rows as `resolved`; the name is kept"
+    )
     rate: float | None = Field(
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share of the pool; null where it is empty. "
+        description="Grant-family share of the pool; null where it is empty. "
         "Printed whatever the count: `meets_minimum` says whether the line would use it",
     )
     meets_minimum: bool = Field(
@@ -277,11 +279,11 @@ def forecast(
     """The line's forecast for a cell that froze this band, version, Term and count.
 
     The arm's rate is pooled as the band anchor is
-    (``base_rates._pooled_band_rate``): aggregate weighted grants over aggregate
-    weighted resolved, across the Terms strictly before ``term`` that carry the
+    (``base_rates._pooled_band_rate``): aggregate grants over aggregate
+    resolved rows, across the Terms strictly before ``term`` that carry the
     band under ``salience_version``, no older than ``term - lookback_terms``
-    (``0`` is no window). The minimum is read on the pool's observed rows, not
-    its weighted estimate, so a heavily weighted handful cannot clear it.
+    (``0`` is no window). The minimum is read on the pool's observed rows
+    (``resolved``, which ``weighted_resolved`` equals).
     ``band_rate`` is the fallback, the risk-set rate the cell itself froze
     (``CertAnchor.rate``), and ``lookback_terms`` the window that anchor froze
     (``CertAnchor.lookback_terms``), so a later change to the configured window

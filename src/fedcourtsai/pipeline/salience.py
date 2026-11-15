@@ -97,7 +97,7 @@ logger = logging.getLogger(__name__)
 SALIENCE_VERSION = "sal-v8"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
-# is a real SCOTUS cert grant rate from ``metrics/statpack.md`` (denial-reweighted),
+# is a real SCOTUS cert grant rate from ``metrics/statpack.md``,
 # so the ranking is interpretable and grounded in reality rather than invented
 # weights. The primary signal is the stronger of the petition's *own-trajectory*
 # grant rates — relist bucket and CVSG — and the originating circuit rides only as
@@ -951,9 +951,9 @@ def distribution_census(
     the whole frame, before observability is decided, while the per-Term
     ``pending`` counts it among the observable rows only.
 
-    The frame **must not be subsampled**: a ``sample_weight`` other than 1 raises,
-    as it does in the caption census, because every figure here is a raw count
-    and a denial-sampled row would silently stand for ten.
+    Every figure here is a raw count, each row counted once, as in the caption
+    census: each stored row stands for one petition, which the corpus validator
+    enforces.
 
     **What a transition matrix here does not license.** The corpus column, the
     statpack's per-band base rates, and the relist-tier cutpoints the bands are

@@ -26,12 +26,12 @@ cell also carries its raw per-label counts, so a reader who wants plenary
 grants only, or withdrawals dropped from the denominator, recomputes from the
 cell rather than trusting one convention.
 
-**Reweighting.** The live slice stores a legacy block of IFP denials one row in
-ten (``sample_weight`` 10). The census excludes that block because it counts
-rows; a rate cannot, because dropping nine-tenths of a stratum's denials
-inflates its grant rate roughly tenfold. So every cell carries two pairs —
-raw rows, and rows counted ``sample_weight`` times — and ``grant_rate`` is the
-weighted pair's quotient. Where a cell holds no sampled row the pairs are equal.
+**Counting.** Every stored row stands for one petition and is counted once.
+Every cell carries two pairs of counts, ``resolved`` / ``granted`` and
+``weighted_resolved`` / ``weighted_granted``: the ``weighted_*`` names are
+kept, each value is the same count of rows as its plain twin, and
+``grant_rate`` is their quotient. ``sampled_rows`` keeps its name and is
+always 0.
 
 **The application population is the substantive asks.** An extension of time
 is granted as a matter of course and would swamp an emergency-docket rate, so

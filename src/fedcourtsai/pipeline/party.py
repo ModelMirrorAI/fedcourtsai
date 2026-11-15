@@ -222,8 +222,8 @@ DocketStratum = Literal["paid-cert", "ifp-cert", "application", "other"]
 #: The docket strata the frame mixes, in reporting order. The census keys every
 #: administration cell on one, because the strata are not present in equal
 #: proportion across the windows — the live channel's coverage of the IFP and
-#: application streams grew over the slice's span, and the excluded sampled block
-#: is entirely IFP — and the class rates differ sharply between them. A count
+#: application streams grew over the slice's span — and the class rates differ
+#: sharply between them. A count
 #: compared across administrations without holding the stratum fixed compares
 #: that mix, not litigation; holding it fixed is what makes the comparison mean
 #: anything. ``other`` is the residue the three named forms do not cover:
@@ -574,36 +574,30 @@ def party_census(
     """The live-slice party census: who the sovereign parties are, by administration.
 
     Counts only. Grant rates by government-party status are the party rates
-    cut (:mod:`.party_rates`), which carries its own population rules and
-    denial reweighting; what this artifact answers is the
+    cut (:mod:`.party_rates`), which carries its own population rules; what
+    this artifact answers is the
     prior question — how much of the frame each annotation cell holds, and how
     much of it the caption cannot classify at all.
 
-    The frame is the live slice's **unweighted** rows (SCOTUS rows the live
-    channel has polled whose ``sample_weight`` is 1 or unset), not the salience
+    The frame is the live slice (every SCOTUS row the live channel has
+    polled), each row counted once, not the salience
     gate's
     scored segment: the annotation is a property of a caption, so the honest
     denominator is every row that has one, IFP and interim-docket rows
-    included. The one exclusion is the live slice's legacy systematic denial
-    sample — a block the earlier historical walker kept one row in ten, still
-    stored weighted — counted whole in :attr:`PartyCensus.sampled_excluded`
-    and annotated nowhere. Mixing it in would understate that stratum tenfold
-    in exactly the cells it is concentrated in (IFP prisoner petitions against
-    wardens and the United States), and inflating it by its weight would report
-    a count of rows nobody holds; a raw count over the rows that stand for
-    themselves, beside the size of the block that does not, is the reading the
-    reweighted rate cut (:mod:`.party_rates`) builds on rather than one it would
-    have to contradict. The other coverage counters
+    included. Nothing is excluded as a sampled block: every stored row stands
+    for itself, so :attr:`PartyCensus.sampled_excluded` keeps its name and is
+    always 0, and the rate cut (:mod:`.party_rates`) reads the same rows. The
+    coverage counters
     (:attr:`PartyCensus.single_party`, :attr:`PartyCensus.undated`,
-    :attr:`PartyCensus.pending`) likewise name the rows a cell could not be
+    :attr:`PartyCensus.pending`) name the rows a cell could not be
     built from rather than dropping them silently.
 
     **Every administration cell is keyed on a docket stratum**
     (:data:`PARTY_STRATA`), and :attr:`PartyCensus.frame_by_administration` is
     the matching denominator. Without the stratum a cross-window comparison is
     a mix comparison: the windows hold wildly different proportions of paid
-    cert, IFP cert and applications, the excluded sampled block is entirely
-    IFP, and the class rates differ between the strata — enough that the raw
+    cert, IFP cert and applications,
+    and the class rates differ between the strata — enough that the raw
     federal-respondent share rises across the windows while the within-stratum
     share is flat. Window size alone does not fix that, which is why the
     denominator is cut the same way the numerator is.
