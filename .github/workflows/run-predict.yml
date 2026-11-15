@@ -1702,7 +1702,8 @@ jobs:
           # to have its own step counted clean. A codex cell cannot — its agent
           # is a separate account that cannot write the runner-owned bundle dir.
           # What contains a forged reap on the engines that can is not this path:
-          # it only promotes a cell that must still pass `produced`, `validate`,
+          # it only promotes a cell — to the ready PR, and its job to a green
+          # conclusion — that must still pass `produced`, `validate`,
           # the collect job's secret scan and the `data/` path jail — and an
           # agent that controls its own outputs faces exactly those anyway.
           # SECURITY.md carries this residual rather than leaving it implied
@@ -1871,11 +1872,12 @@ jobs:
       # fail the prediction — hence continue-on-error.
       # A reaped cell is included: the watchdog failed its step *after* the agent
       # finished, so the engine log it reads is a complete one and the tokens it
-      # measures were really spent. The explicit `!cancelled()` is what lets that
-      # clause reach anything — a reap ends the engine step as a failure, and
-      # without a status function here GitHub ANDs an implicit `success()`, which
-      # a failed step has already made false. It is the shape the evaluate cell's
-      # usage capture already carries.
+      # measures were really spent. The explicit `!cancelled()` is what keeps the
+      # agent-outcome test the only gate — without a status function here GitHub
+      # ANDs an implicit `success()`, and a failed step earlier in the tail
+      # would silently drop the usage record of a cell that had already spent
+      # its whole agent budget. It is the shape the evaluate cell's usage
+      # capture carries.
       - name: Capture model usage
         if: ${{ !cancelled() && (steps.predict_claude.outcome == 'success' || steps.predict_codex.outcome == 'success' || steps.predict_gemini.outcome == 'success' || steps.disarm.outputs.reaped == 'true') }}
         continue-on-error: true
@@ -2112,13 +2114,15 @@ jobs:
           retention-days: 7
 
       # The job's verdict on its engine step. Every engine step is
-      # `continue-on-error`, so the step's own ending no longer decides the
+      # `continue-on-error`, so the step's own ending does not decide the
       # job's conclusion; this step does, and it fails the job for every ending
       # but two: the step succeeded, or the watchdog reaped it. A reap is the
       # watchdog ending a step whose required outputs were complete, parsing
-      # and quiescent, so the cell's work is whole and "Record cell status"
-      # has already counted it clean — a red job there would report a lane
-      # failure the run's own record denies. A turn that ran out of turns, a
+      # and quiescent, so the agent finished and "Record cell status"
+      # has already counted it as one that did — a red job there would report
+      # a lane failure the run's own record denies. Whether the output is
+      # valid is that step's question, answered into `status.json` as it is
+      # for a step that succeeded, and never this one's. A turn that ran out of turns, a
       # step the runner timed out, and a step the watchdog ended at its
       # deadline all still fail the job, after the tail has salvaged what they
       # left. `outcome` and not `conclusion`: a tolerated step's conclusion is

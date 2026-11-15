@@ -3514,10 +3514,9 @@ def test_a_reaped_cell_is_recorded_as_the_success_its_work_was() -> None:
         )
         # Its tokens were really spent, and the engine log the capture reads is
         # a complete one — the hang is after the agent, not during it. The
-        # `!cancelled()` beside it is what lets the clause reach anything: a reap
-        # ends the engine step as a failure, and a gate with no status function
-        # is ANDed with an implicit `success()` that a failed step has already
-        # made false — so the reaped clause would be dead YAML without it.
+        # `!cancelled()` beside it keeps that the only gate: one with no status
+        # function is ANDed with an implicit `success()`, which a failed step
+        # earlier in the tail would make false for a cell that spent its budget.
         usage = next(s for s in steps if s.get("name") == "Capture model usage")
         assert reaped in str(usage["if"]), f"{name}: a reaped cell's usage is never captured"
         assert "!cancelled()" in str(usage["if"]), (

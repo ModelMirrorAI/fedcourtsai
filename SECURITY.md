@@ -306,7 +306,9 @@ runbook, [docs/security.md](docs/security.md).
   What either buys is narrow and worth stating exactly: the marker sets
   `agent_ok`, which routes the cell to the run's **ready** PR instead of the
   draft one, and it excuses the cell's failed engine step in the job's
-  conclusion, so the job reads green — and nothing else. `produced` and `validated` still have to hold, the
+  conclusion, so the job reads green — and with it, where no other cell
+  failed, the run, the ops health rate and the lane on the public status page
+  that read the run's conclusion — and nothing else. `produced` and `validated` still have to hold, the
   collect job still secret-scans and still enforces the `data/` path jail, the
   cell's credential still carries no `contents: write`, and a compliant agent
   could land the same bytes by finishing normally. The residual is that a cell

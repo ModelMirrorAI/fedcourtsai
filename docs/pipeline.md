@@ -4513,8 +4513,10 @@ is counted as an agent that finished, because the watchdog only ever reaps one
 that did. The job concludes green on the same reading: *Conclude the cell*
 excuses a reaped engine step, so a run whose every cell landed its work does
 not report a failed lane for the manner of one step's ending, and the reap
-stays visible as the disarm step's warning annotation and the `REAPED` marker
-in the cell artifact. The parse is deliberately all the sentinel asks: schema truth is the
+stays visible on the run as the disarm step's warning annotation and its
+section of the job summary, with the `REAPED` marker in the cell artifact for
+as long as the artifact is retained. Nothing committed records a reap, so a
+count of reaps over time is a read of run annotations. The parse is deliberately all the sentinel asks: schema truth is the
 tail's `validate`, which routes a malformed cell to the draft PR, and that is
 strictly better than the job cap destroying it.
 
