@@ -884,11 +884,6 @@ def caption_census(
         if row.disposition is None:
             unresolved[term] += 1
             continue
-        if (row.sample_weight or 1) != 1:
-            raise ValueError(
-                f"{row.case_id}: sample_weight {row.sample_weight} — the census "
-                "counts raw and must not run over a subsampled frame"
-            )
         cell = counts[term][classify(row)]
         cell[0] += 1
         if row.disposition in GRANT_FAMILY_DISPOSITIONS:

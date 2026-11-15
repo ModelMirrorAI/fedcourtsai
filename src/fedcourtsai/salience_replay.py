@@ -277,7 +277,7 @@ def _replay_cell(
     largest_weighted_cohort = max(
         (
             sum(
-                float(member.sample_weight or 1)
+                1.0
                 for member in members
                 if not version.carve_out(member, scores[member.case_id], config.floor)
             )
@@ -293,7 +293,7 @@ def _replay_cell(
     raw_selected_granted = raw_granted = 0
     weighted_selected = weighted_selected_granted = weighted_granted = weighted_population = 0.0
     for real, _ in projected:
-        weight = float(real.sample_weight or 1)
+        weight = 1.0
         granted = granted_flag(Disposition(str(real.disposition))) == 1
         weighted_population += weight
         if granted:

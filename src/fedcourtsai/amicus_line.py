@@ -109,10 +109,10 @@ def arm_of(cert_amicus_briefs: int) -> AmicusArm:
 def fit_rows(rows: Iterable[corpus.CorpusRow]) -> list[AmicusLineCell]:
     """Every (Term, version, band) risk set over ``rows``, cut on the amicus count.
 
-    The population, the weights and the risk-set walk are the statpack's own
+    The population and the risk-set walk are the statpack's own
     (``analytics._TermAcc.add``): a live-slice paid modern-cert row inside a
     version's segment joins its own band's risk set and every weaker band on
-    its reachable ladder, weighted by ``sample_weight`` floored at 1. Only
+    its reachable ladder, counted once. Only
     resolved rows are counted, since a pending row is in no rate. Sorted by
     Term (recent first), version and the scorer's own band order.
     """
@@ -126,7 +126,6 @@ def fit_rows(rows: Iterable[corpus.CorpusRow]) -> list[AmicusLineCell]:
         term = corpus.scotus_term_year(row.docket_number)
         if term is None:
             continue
-        weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
         granted = row.disposition in _GRANT_LABELS
         amicus = row.cert_amicus_briefs
         for version, banding in scorers:
@@ -143,8 +142,8 @@ def fit_rows(rows: Iterable[corpus.CorpusRow]) -> list[AmicusLineCell]:
                     continue
                 offset = 3 if amicus >= 1 else 0
                 cell[offset] += 1
-                cell[offset + 1] += weight
-                cell[offset + 2] += weight if granted else 0
+                cell[offset + 1] += 1
+                cell[offset + 2] += 1 if granted else 0
     order = {
         version: {band: index for index, band in enumerate(banding.bands)}
         for version, banding in scorers

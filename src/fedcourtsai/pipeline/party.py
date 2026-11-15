@@ -637,13 +637,6 @@ def party_census(
     excluded_counts: dict[tuple[str | None, DocketStratum], int] = defaultdict(int)
     for row in corpus.iter_rows(conn, court="scotus", live_slice=True):
         stratum = docket_stratum(row)
-        if (row.sample_weight or 1) != 1:
-            sampled_excluded += 1
-            # The excluded block is dated and stratified exactly as the frame
-            # is: the coverage gap is only legible in the same cells the
-            # federal counts are read in.
-            excluded_counts[(administration_for(as_of_date(row, as_of_field)), stratum)] += 1
-            continue
         as_of = as_of_date(row, as_of_field)
         annotation = annotate(row, as_of)
         rows += 1

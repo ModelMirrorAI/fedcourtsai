@@ -180,11 +180,9 @@ class _Acc:
         else:
             self.excluded_unknown_ask += 1
 
-    def add(self, disposition: str | None, weight: int) -> bool:
+    def add(self, disposition: str | None) -> bool:
         """Count one population row; ``True`` where it entered the rate as resolved."""
         self.rows += 1
-        if weight > 1:
-            self.sampled_rows += 1
         if disposition is None:
             self.pending += 1
             return False
@@ -195,8 +193,8 @@ class _Acc:
         flag = granted_flag(label)
         self.resolved += 1
         self.granted += flag
-        self.weighted_resolved += weight
-        self.weighted_granted += weight * flag
+        self.weighted_resolved += 1
+        self.weighted_granted += flag
         self.dispositions[label.value] += 1
         return True
 
@@ -315,8 +313,7 @@ def _rates(  # noqa: PLR0913 - one keyword per stamp the cut carries
         counted += 1
         private_practice += bool(counsel and counsel.private_practice)
         undated += as_of is None
-        weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
-        if acc.add(disposition, weight) and resolution is None:
+        if acc.add(disposition) and resolution is None:
             resolution_undated += 1
     windows: list[str | None] = [*(admin.label for admin in ADMINISTRATIONS), None]
     counsel_sides: tuple[CounselSide | None, ...] = COUNSEL_SIDES if counsel_annotator else (None,)

@@ -1003,11 +1003,6 @@ def distribution_census(
         term = corpus.scotus_term_year(row.docket_number)
         if term is None:
             continue
-        if (row.sample_weight or 1) != 1:
-            raise ValueError(
-                f"{row.case_id}: sample_weight {row.sample_weight} — the census "
-                "counts raw and must not run over a subsampled frame"
-            )
         term_cell = per_term[term]
         # Maturity is a property of the docket and readability a property of the
         # pull, so pending is counted here — over the whole frame — and again

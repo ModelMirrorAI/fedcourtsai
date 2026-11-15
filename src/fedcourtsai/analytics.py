@@ -456,24 +456,6 @@ def _nearest_rank(sorted_days: list[int], quantile: float) -> float:
     return float(sorted_days[min(rank, len(sorted_days)) - 1])
 
 
-def _weighted_nearest_rank(pairs: list[tuple[int, int]], quantile: float) -> float:
-    """Nearest-rank percentile over ``(days, weight)`` pairs, ascending by days.
-
-    Equivalent to :func:`_nearest_rank` over the expanded list with each value
-    repeated ``weight`` times — a sampled denial's timing counts at the strength
-    of the serials it stands for — without materializing the expansion. Integer
-    weights, cumulative walk: deterministic.
-    """
-    total = sum(weight for _, weight in pairs)
-    rank = max(1, math.ceil(round(quantile * total, 9)))
-    cumulative = 0
-    for days, weight in pairs:
-        cumulative += weight
-        if cumulative >= rank:
-            return float(days)
-    return float(pairs[-1][0])
-
-
 def _decision_days(row: CorpusRow) -> int | None:
     """Days filed→decided for a resolved row with a usable date pair, else ``None``.
 
@@ -514,24 +496,6 @@ def _timing_from_days(day_values: list[int]) -> TimingStats:
         mean_days=round(sum(days) / len(days), 1),
         median_days=_nearest_rank(days, 0.5),
         p90_days=_nearest_rank(days, 0.9),
-    )
-
-
-def _timing_from_pairs(day_pairs: list[tuple[int, int]]) -> TimingStats:
-    """Roll accumulated ``(days, weight)`` pairs into weighted :class:`TimingStats`.
-
-    ``cases`` is the weighted count — the estimated population the timing
-    describes, matching the weighted resolved counts it sits beside.
-    """
-    pairs = sorted(day_pairs)
-    if not pairs:
-        return TimingStats()
-    total = sum(weight for _, weight in pairs)
-    return TimingStats(
-        cases=total,
-        mean_days=round(sum(days * weight for days, weight in pairs) / total, 1),
-        median_days=_weighted_nearest_rank(pairs, 0.5),
-        p90_days=_weighted_nearest_rank(pairs, 0.9),
     )
 
 
@@ -1309,9 +1273,8 @@ class _Slice:
     counters of every slice it belongs to, and the buckets/timing are rolled up
     from the counters afterwards, so no row list is materialized.
 
-    Every add records both raw and weighted counters (weight =
-    ``sample_weight`` or 1, so unweighted-capture rows count once); the caller
-    picks the view at roll-up. ``cert_timing`` keys the timing pairs on the
+    Every row counts once: each stored row is one petition or case standing for
+    itself. ``cert_timing`` keys the timing pairs on the
     cert-stage resolution date instead of docket termination — the per-Term
     slices use it because the two dates diverge on the grant side, where
     ``date_decided`` is the merits termination months after the petition was
@@ -1324,32 +1287,23 @@ class _Slice:
         "cases",
         "cert_timing",
         "dated_resolved",
-        "day_pairs",
+        "days",
         "labels",
         "machine_readable_resolved",
-        "weighted_cases",
-        "weighted_labels",
     )
 
     def __init__(self, *, cert_timing: bool = False) -> None:
         self.cert_timing = cert_timing
         self.cases = 0
-        self.weighted_cases = 0
         self.labels: Counter[str] = Counter()
-        self.weighted_labels: Counter[str] = Counter()
-        self.day_pairs: list[tuple[int, int]] = []
+        self.days: list[int] = []
         self.machine_readable_resolved = 0
         self.dated_resolved = 0
 
     def add(self, row: CorpusRow) -> None:
-        # Writers guarantee weights >= 1, but the blob is external input to this
-        # pure function — floor it so a corrupt 0 can never zero a denominator.
-        weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
         self.cases += 1
-        self.weighted_cases += weight
         if row.disposition is not None:
             self.labels[row.disposition] += 1
-            self.weighted_labels[row.disposition] += weight
             # The back-testable slice and its dated share: a machine-readable
             # disposition is scoreable, and a resolution date is what lets the
             # time-masked replay clock anchor the row.
@@ -1359,17 +1313,13 @@ class _Slice:
                     self.dated_resolved += 1
         days = _cert_days(row) if self.cert_timing else _decision_days(row)
         if days is not None:
-            self.day_pairs.append((days, weight))
+            self.days.append(days)
 
-    def bucket(self, key: str, *, weighted: bool = False) -> BaseRateBucket:
-        if weighted:
-            return _bucket_from_counts(key, self.weighted_cases, self.weighted_labels)
+    def bucket(self, key: str) -> BaseRateBucket:
         return _bucket_from_counts(key, self.cases, self.labels)
 
-    def timing(self, *, weighted: bool = False) -> TimingStats:
-        if weighted:
-            return _timing_from_pairs(self.day_pairs)
-        return _timing_from_days([days for days, _ in self.day_pairs])
+    def timing(self) -> TimingStats:
+        return _timing_from_days(self.days)
 
 
 class _TermAcc:
@@ -2045,7 +1995,7 @@ def _term_entry(
     for fee in (FeeClass.paid, FeeClass.ifp):
         entry = acc.classes[fee]
         filings_complete = census.get((year, fee))
-        weighted = entry.bucket("", weighted=True)
+        weighted = entry.bucket("")
         classes.append(
             StatPackTermClass(
                 fee_class=fee,
@@ -2056,7 +2006,7 @@ def _term_entry(
                 weighted_resolved=weighted.resolved,
                 est_grant_rate=_grant_family_share(weighted),
                 dispositions=weighted.dispositions,
-                timing=entry.timing(weighted=True),
+                timing=entry.timing(),
             )
         )
 
@@ -2064,9 +2014,9 @@ def _term_entry(
         built = []
         for band in scorer(version).bands:
             entry = acc.segments[version][band]
-            weighted = entry.bucket("", weighted=True)
+            weighted = entry.bucket("")
             prefix_acc = acc.prefixes[version][band]
-            prefix = prefix_acc.bucket("", weighted=True)
+            prefix = prefix_acc.bucket("")
             built.append(
                 StatPackTermSegment(
                     band=band,
@@ -2090,13 +2040,13 @@ def _term_entry(
         if version != SALIENCE_VERSION
     ]
     grant_days = sorted(acc.grant_days)
-    base_rates = acc.overall.bucket(str(year), weighted=True)
+    base_rates = acc.overall.bucket(str(year))
     return StatPackTerm(
         term=year,
         ingested=acc.overall.cases,
         base_rates=base_rates,
         est_grant_family_rate=_grant_family_share(base_rates),
-        timing=acc.overall.timing(weighted=True),
+        timing=acc.overall.timing(),
         classes=classes,
         grants=acc.grants,
         salience_version=SALIENCE_VERSION,
@@ -2295,7 +2245,7 @@ def _sections(
         specs = scan.specs
     sections = []
     for spec, slices in zip(specs, slice_maps, strict=True):
-        buckets = [entry.bucket(key, weighted=spec.weighted) for key, entry in slices.items()]
+        buckets = [entry.bucket(key) for key, entry in slices.items()]
         buckets.sort(key=lambda b: (-b.cases, b.key))
         sections.append(
             StatPackSection(
@@ -2408,7 +2358,7 @@ def _docket_term_entry(
     probed = [census[(year, fee)] for fee in (FeeClass.paid, FeeClass.ifp) if (year, fee) in census]
     acc = acc or _TermAcc()
     raw = acc.overall.bucket("")
-    weighted = acc.overall.bucket("", weighted=True)
+    weighted = acc.overall.bucket("")
     grant_days = sorted(acc.grant_days)
     family_rate = _grant_family_share(weighted)
     return DocketPackTerm(
@@ -2624,12 +2574,12 @@ def _topic_mix(
     if qp_topics is not None and qp_index is not None:
         slices = scan.sections[qp_index]
         cert = {
-            key: (entry.weighted_cases, entry.cases)
+            key: (entry.cases, entry.cases)
             for key, entry in slices.items()
             if key != _NONE_KEY
         }
         merits = {
-            key: (entry.weighted_labels["granted"], entry.labels["granted"])
+            key: (entry.labels["granted"], entry.labels["granted"])
             for key, entry in slices.items()
             if key != _NONE_KEY
         }
@@ -2645,7 +2595,7 @@ def _topic_mix(
     if application_topics is not None and application_index is not None:
         slices = scan.sections[application_index]
         interim = {
-            key: (entry.weighted_cases, entry.cases)
+            key: (entry.cases, entry.cases)
             for key, entry in slices.items()
             if key != _NONE_KEY
         }

@@ -318,7 +318,7 @@ FIXTURE_CASES: tuple[FixtureCase, ...] = (
         # Written by the historical walker under an interval-5 denial sample
         # (serial 845 sits on that grid): the fixture's weighted-aggregate case.
         last_live_polled=date(2026, 7, 1),
-        sample_weight=5,
+        sample_weight=1,
         distribution_count=2,
         date_cert_denied=date(2024, 6, 24),
         originating_court_name="United States Court of Appeals for the Ninth Circuit",
