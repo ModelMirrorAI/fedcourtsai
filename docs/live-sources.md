@@ -2030,7 +2030,7 @@ walk has already fetched the payload by the time it can read the disposition, so
 declining to store one saves no request; it only drops a row the corpus can then
 recover solely by re-walking the whole Term.
 
-**Every row is stored at `sample_weight` 1.** Each decided petition is its own
+**Every row the live channel writes is stored at `sample_weight` 1.** Each decided petition is its own
 row, so no stored row stands for another. Every live-channel write that lands a
 SCOTUS payload (frontier discovery, the cert and application rotations, the
 selection sweep, and the walker's own ingest) reaches the corpus through

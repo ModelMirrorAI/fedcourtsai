@@ -2464,7 +2464,8 @@ def _update_clause(column: str) -> str:
     so a channel that maps no counsel keeps the live channel's per-side
     reading, while a non-empty one replaces it; ``sample_weight`` is a
     min-latch (the smaller of the stored and the incoming weight is kept, and
-    a writer asserting none keeps the stored one); ``predict_excluded`` is owned by the scope reconcile (not an
+    a writer asserting none keeps the stored one); ``predict_excluded`` is
+    owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
     it to the model default; the ``salience_*`` columns (the salience
     selection pass) are owned on the same keep-stored rationale; and the

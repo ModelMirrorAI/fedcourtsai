@@ -20589,8 +20589,8 @@ freeze commit is recorded here.
   another weight is removed; recorded 2026-11-15.** A supersession of the
   durability half of the 2026-09-01 entry (*The sampled-frame weight repair is
   registered, and its durability half lands*), which is not otherwise edited.
-  No digest, constant, window or membership moves, and no figure moves, because
-  no weighted row remains to be read.
+  No digest, constant, window or membership moves, and no figure moves on the
+  blob read below, because it holds no weighted row.
 
   **What the landed entry registered.** Three statements about the live-ingest
   seam, `pipeline.live.ingest_live_payload`: that it derives an asserted
@@ -20606,7 +20606,8 @@ freeze commit is recorded here.
   `ingest_live_payload`, `upsert_to_corpus` and `backfill_live_signals`, before
   anything is stored, and `validate-corpus` fails on a stored one
   (`sample_weights_are_unit`). From that commit an asserted weight other than 1
-  is refused, not written as given, and a derived 10 is refused, not kept. The
+  is refused, not written as given, and a derived 10 is refused, not kept
+  (over a row already stored at 1 the write went ahead and stored 1). The
   second is the change this entry lands with, which removes the derivation:
   `legacy_denial_sample_weight`, its density guard
   (`sampled_block_is_enumerated`) and the sampling interval are deleted,
@@ -20634,12 +20635,18 @@ freeze commit is recorded here.
   removed rule, run from `staging`'s tree before this change over the same
   59,770 rows, derives 1 on every one, so on this blob it refuses nothing and
   the removal changes no write. `uv run fedcourts process-digest --all` prints
-  the same six digests before and after.
+  the same six digests before and after. `main`'s corpus pointer has since
+  moved to `524ad095…`; these are readings of `staging`'s blob, not of `main`'s
+  current one.
+
+  **The apply half of the landed entry** is not superseded here and is not
+  restated. Its membership predicate reads the density guard, which is
+  removed, so that registration licenses no further write.
 
   **What is given up, stated so it is not discovered later.** The removed rule
-  refused one write on a corpus with rows missing: a denial on the old sample
-  grid, under a walker cursor, in a block holding fewer than seven stored
-  neighbours. That refusal was a side effect that named a gap in a walked
+  refused one kind of write on a corpus with rows missing, at ingest and in
+  the back-fill: a denial on the old sample grid, under a walker cursor, in a
+  block holding fewer than seven stored neighbours. That refusal was a side effect that named a gap in a walked
   range, and it is gone; such a denial now lands at weight 1 like any other
   row. A stored weight above 1, should one arrive by a route other than these
   writers, is no longer held in place or refused on its re-serve: the upsert
