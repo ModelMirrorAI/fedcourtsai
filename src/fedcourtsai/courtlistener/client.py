@@ -128,6 +128,36 @@ def refusal_detail(exc: BaseException) -> str:
     return "; ".join(parts)
 
 
+#: The most of a request's cursor a failure reason quotes.
+_CURSOR_MAX_CHARS: Final = 120
+#: The characters a cursor is quoted in: base64's alphabets and its padding.
+_CURSOR_CHARS: Final = frozenset("-_+/=")
+
+
+def failed_cursor(exc: BaseException) -> str:
+    """The ``cursor`` of the request a failure came from, for a failure reason; ``""`` if none.
+
+    A cursor-paginated read names each page after the first by the cursor the
+    page before it handed over, so the cursor of the request that failed says
+    exactly where a long read stopped. Upstream wrote it and it reaches a CI
+    log: only base64's characters are kept, cut to a bounded length, so a
+    quoted cursor identifies the page and may not be the one sent byte for
+    byte. A failure with no request behind it, or whose request asked for a
+    first page, has none.
+    """
+    if not isinstance(exc, httpx.HTTPError):
+        return ""
+    try:
+        request = exc.request
+    except RuntimeError:
+        return ""
+    raw = request.url.params.get("cursor", "")
+    kept = "".join(c for c in raw if c.isascii() and (c.isalnum() or c in _CURSOR_CHARS))
+    if len(kept) > _CURSOR_MAX_CHARS:
+        kept = kept[:_CURSOR_MAX_CHARS] + "…"
+    return kept
+
+
 def _retries(exc: BaseException) -> bool:
     """What the client's own retry cycle presses on: transient faults it can outwait."""
     return is_transient(exc) and not isinstance(exc, ThrottleOutlastsWait)

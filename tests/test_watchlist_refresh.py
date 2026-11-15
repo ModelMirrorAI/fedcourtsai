@@ -419,7 +419,6 @@ def test_the_share_left_shrinks_by_what_each_refresh_spent(tmp_path: Path) -> No
 
 def test_a_run_stops_at_its_deadline_and_defers_the_rest(tmp_path: Path) -> None:
     db = _db(tmp_path)
-    ticks = iter([0.0, 5.0, 11.0])
     fake = FakeClient({n: [{"id": n}] for n in (1, 2, 3)})
     plan = [_planned(n, ReadMode.onboard) for n in (1, 2, 3)]
     report = refresh_watchlist(
@@ -430,7 +429,8 @@ def test_a_run_stops_at_its_deadline_and_defers_the_rest(tmp_path: Path) -> None
         today=TODAY,
         share=160,
         deadline=10.0,
-        clock=lambda: next(ticks),
+        # Six seconds a docket read: the third would start past the deadline.
+        clock=lambda: 6.0 * len(fake.counted),
     )
     assert [r.case_id for r in report.refreshed] == ["cand/1", "cand/2"]
     assert report.deferred == ["cand/3"]
@@ -487,7 +487,9 @@ def test_a_refused_docket_s_reason_names_the_limit_that_refused(tmp_path: Path) 
     assert report.failed["cand/1"] == (
         "HTTPStatusError: 429 Too Many Requests "
         + "[Retry-After 1800s; upstream said: Request was throttled. "
-        + "Rate limit exceeded: 300/hour.]"
+        + "Rate limit exceeded: 300/hour.] "
+        + "[last request: the docket; 0s since it was asked for, waits and resends included, "
+        + "0s into this docket's read]"
     )
     assert [r.case_id for r in report.refreshed] == ["cand/2"]
 
@@ -562,12 +564,108 @@ def test_a_long_onboard_refused_mid_read_waits_and_lands_whole(
     assert "Retry-After 51s" in unheld.failed["cand/7"]
 
 
+def test_a_read_that_times_out_says_which_page_and_how_long_it_took(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real client under the refresh: one page of a long onboard never answers.
+
+    Upstream serves the count, the docket and two pages in a second each, then
+    times out on the third page however often the client sends it. The reason
+    names that page and its cursor, the time since it was first sent (every
+    resend's timeout) and the time the whole read had run.
+    """
+    get: Any = CourtListenerClient._get  # tenacity attaches the Retrying as `.retry`
+    monkeypatch.setattr(get.retry, "sleep", lambda _seconds: None)
+    now = 0.0
+    timed_out = 0
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal now, timed_out
+        params = dict(request.url.params)
+        if request.url.path.endswith("/dockets/7/"):
+            now += 1
+            return httpx.Response(200, json=_docket(7))
+        if params.get("count") == "on":
+            now += 1
+            return httpx.Response(200, json={"count": 100})
+        page = int(params.get("cursor", "1"))
+        if page == 3:
+            now += 30
+            timed_out += 1
+            raise httpx.ReadTimeout("The read operation timed out")
+        now += 1
+        entries = [{"id": page * 100 + n} for n in range(20)]
+        return httpx.Response(
+            200,
+            json={"results": entries, "next": f"{_API}docket-entries/?cursor={page + 1}&docket=7"},
+        )
+
+    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+    client._client = httpx.Client(base_url=_API, transport=httpx.MockTransport(handle))
+    db = _db(tmp_path)
+    with client:
+        report = refresh_watchlist(
+            client,
+            db,
+            [_planned(7, ReadMode.onboard)],
+            max_entry_pages=150,
+            today=TODAY,
+            share=160,
+            clock=lambda: now,
+        )
+    assert timed_out == 4
+    assert report.failed == {
+        "cand/7": "ReadTimeout: The read operation timed out "
+        + "[last request: page 3 of the entries, cursor 3; 120s since it was asked for, "
+        + "waits and resends included, 124s into this docket's read]"
+    }
+    with corpus.connect(db) as conn:
+        assert corpus.latest_snapshot(conn, "cand/7") is None
+
+
+def test_a_refresh_names_each_request_it_sends(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    fake = FakeClient({1: [{"id": 1}]}, changed={1: []}, pages=2)
+    steps: list[str] = []
+    refresh_docket(
+        _client(fake),
+        db,
+        _planned(1, ReadMode.onboard),
+        max_entry_pages=150,
+        today=TODAY,
+        on_step=steps.append,
+    )
+    assert steps == [
+        "the entry count",
+        "the docket",
+        "page 1 of the entries",
+        "page 2 of the entries",
+    ]
+    steps.clear()
+    since = TODAY - timedelta(days=3)
+    refresh_docket(
+        _client(fake),
+        db,
+        PlannedRefresh("cand", 1, ReadMode.incremental, TODAY, since),
+        max_entry_pages=150,
+        today=TODAY,
+        on_step=steps.append,
+    )
+    assert steps == [
+        "the docket",
+        f"page 1 of the entries changed since {since}",
+        f"page 2 of the entries changed since {since}",
+    ]
+
+
 def test_a_malformed_entry_fails_its_docket_only(tmp_path: Path) -> None:
     db = _db(tmp_path)
     fake = FakeClient({1: [{"description": "no id"}], 2: [{"id": 2}]})
     plan = [_planned(n, ReadMode.onboard) for n in (1, 2)]
     report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=150, today=TODAY, share=160)
     assert list(report.failed) == ["cand/1"] and report.failed["cand/1"].startswith("KeyError")
+    # Raised after the page answered: the reason places it by the last request, no cursor.
+    assert "[last request: page 1 of the entries; 0s since" in report.failed["cand/1"]
     assert [r.case_id for r in report.refreshed] == ["cand/2"]
 
 
