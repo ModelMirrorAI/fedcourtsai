@@ -786,7 +786,12 @@ directory without knowing which part is which invites trusting the wrong half.
   of the source into rows marked `code_mode_source`, in source order: a
   manifest one named in the same `mcp__<server>__<tool>` spelling a direct item
   would carry, a builtin one under the name the code-mode surface exposes it
-  as. A `codex-baseline` log whose rows all carry a null `call_source` is
+  as. A call written by index is lifted the same way: a quoted name
+  (`tools["mcp__<server>__<tool>"](`) under that name, and a computed one
+  (`tools[result.name](`, how a program calls a tool it discovered through
+  `tool_search`) under the fixed name `code_mode_computed_call`, which says a
+  tool was called and not which, so it stays outside the manifest counts and
+  its number bounds what they can be missing. A `codex-baseline` log whose rows all carry a null `call_source` is
   row-blind — the calls its program made have no rows of their own — and a
   leakage grading formed on it is read as unassessed rather than clean (*The
   leakage exclusion* in `metrics/README.md`).

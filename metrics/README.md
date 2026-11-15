@@ -4585,7 +4585,11 @@ output is captured. No part of that output is attributable to an individual
 call inside it — a single call site may run many times, and the output also
 holds whatever else the program did — so every lifted row is `unobserved` by
 construction, and such an engine likewise **cannot be observed being
-throttled**. Its manifest calls are counted; its results are not read. Two
+throttled**. Its manifest calls are counted; its results are not read. A call
+it makes by computed index (`tools[result.name](`, a tool the program found at
+run time) is counted under `code_mode_computed_call` rather than under a tool
+name, so it is in no manifest figure, and where such rows exist the manifest
+counts for that cell are a floor short by at most their number. Two
 consequences bind any reading. A cross-engine throttle comparison is
 **denominator-incomparable** on top of being descriptive — the engines differ
 in what could be seen, not only in what happened, and no two of the three
