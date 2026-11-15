@@ -859,7 +859,7 @@ def test_codex_code_mode_lifts_a_manifest_call_written_by_quoted_index(tmp_path:
         + """const c = await tools[`mcp__courtlistener__get_docket`]({id: 7});"""
     )
     sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
-    _freeform, *lifted = parse_codex_retrieval(sessions)
+    lifted = parse_codex_retrieval(sessions)[1:]
 
     assert [row.tool for row in lifted] == [
         "mcp__courtlistener__search",
@@ -885,7 +885,7 @@ def test_codex_code_mode_lifts_a_call_by_computed_index_without_naming_it(
         + "const t = await tools[`mcp__${server}__search`]({q: 2});"
     )
     sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
-    _freeform, *lifted = parse_codex_retrieval(sessions)
+    lifted = parse_codex_retrieval(sessions)[1:]
 
     assert [row.tool for row in lifted] == [
         "tool_search",
