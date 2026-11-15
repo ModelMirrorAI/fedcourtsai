@@ -10,6 +10,8 @@ maintainer-owned file, before it can run unapproved.
 
 from __future__ import annotations
 
+from typing import Any
+
 from typer.main import get_command
 
 from fedcourtsai import corpus_check as cc
@@ -21,8 +23,8 @@ from fedcourtsai.config import get_settings
 PINNED_SURFACE: dict[str, list[tuple[str, list[str], str]]] = {
     "corpus-info": [
         ("corpus_backend", ["--corpus-backend"], "str"),
-        ("text_coverage", ["--text-coverage"], "boolean"),
-        ("legacy_sample", ["--legacy-sample"], "boolean"),
+        ("text_coverage", ["--text-coverage"], "bool"),
+        ("legacy_sample", ["--legacy-sample"], "bool"),
     ],
     "decision-census": [
         ("first_term", ["--first-term"], "int"),
@@ -45,7 +47,19 @@ PINNED_SURFACE: dict[str, list[tuple[str, list[str], str]]] = {
 
 def _surface(name: str) -> list[tuple[str, list[str], str]]:
     command = getattr(get_command(app), "commands", {})[name]
-    return [(str(p.name), list(p.opts), str(p.type.name)) for p in command.params]
+    return [(str(p.name), list(p.opts), _type_name(p)) for p in command.params]
+
+
+def _type_name(param: Any) -> str:
+    """The parameter's annotated type as typer names it, a container's element included."""
+    return str(param.bare_type())
+
+
+def _reaches_the_filesystem(param: Any) -> bool:
+    """Whether typer would hand the command a path or an open file for this parameter."""
+    descriptor = param.type_descriptor
+    name = _type_name(param)
+    return bool(descriptor.is_path or descriptor.is_file) or "Path" in name or "File" in name
 
 
 def test_every_allowlisted_subcommand_has_a_pinned_surface() -> None:
@@ -61,5 +75,6 @@ def test_each_allowlisted_subcommand_keeps_its_pinned_surface() -> None:
 
 def test_no_allowlisted_subcommand_takes_a_path_or_file() -> None:
     for name in PINNED_SURFACE:
-        for _param, _opts, type_name in _surface(name):
-            assert type_name not in {"path", "file", "filename"}, name
+        command = getattr(get_command(app), "commands", {})[name]
+        for param in command.params:
+            assert not _reaches_the_filesystem(param), f"{name}: {param.name}"
