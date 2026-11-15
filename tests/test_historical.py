@@ -20,7 +20,6 @@ from fedcourtsai.pipeline.historical import (
     load_terms,
     render_markdown,
 )
-from fedcourtsai.pipeline.ingest import NonUnitSampleWeightError
 from fedcourtsai.pipeline.live import ingest_live_payload
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.supremecourt import SupremeCourtClient, live_docket_id
@@ -593,12 +592,14 @@ def _precapture_denial(db: Path, data_root: Path, *, cursor: int) -> str:
     return stale.case_id
 
 
-def test_load_terms_backfills_precapture_live_rows(tmp_path: Path) -> None:
+@pytest.mark.parametrize("cursor", [9, 10], ids=["cursor-short-of-it", "cursor-past-it"])
+def test_load_terms_backfills_precapture_live_rows(tmp_path: Path, cursor: int) -> None:
     # A pre-capture live row (NULL weight and signals) is healed by the walk's
-    # start-of-run backfill before any probing happens.
+    # start-of-run backfill before any probing happens, wherever the walk's
+    # cursor sits against its serial: the weight it takes is 1 on every row.
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data_root = tmp_path / "data"
-    case_id = _precapture_denial(db, data_root, cursor=9)
+    case_id = _precapture_denial(db, data_root, cursor=cursor)
     with _serving_client({}) as client:
         load_terms(client, db, data_root, _config(), today=date(2026, 7, 10))
     with corpus.connect(db) as conn:
@@ -606,24 +607,6 @@ def test_load_terms_backfills_precapture_live_rows(tmp_path: Path) -> None:
     assert healed is not None
     assert healed.sample_weight == 1
     assert healed.distribution_count == 0  # re-parsed from the stored snapshot
-
-
-def test_load_terms_fails_on_a_precapture_row_the_rule_reads_as_sampled(tmp_path: Path) -> None:
-    # The same row with the cursor past it sits on the old sample grid with no
-    # stored neighbours, so the rule derives the legacy interval. No writer may
-    # land that weight: the walk fails at its start-of-run backfill, before any
-    # probe, and the row is left as it was found.
-    db = corpus.corpus_db_path(tmp_path / "corpus")
-    data_root = tmp_path / "data"
-    case_id = _precapture_denial(db, data_root, cursor=10)
-    with (
-        _serving_client({}) as client,
-        pytest.raises(NonUnitSampleWeightError, match=case_id),
-    ):
-        load_terms(client, db, data_root, _config(), today=date(2026, 7, 10))
-    with corpus.connect(db) as conn:
-        left = corpus.get_row(conn, case_id)
-    assert left is not None and left.sample_weight is None and left.distribution_count is None
 
 
 @pytest.mark.parametrize(
@@ -997,43 +980,31 @@ def test_refresh_dockets_lets_one_numbers_failure_cost_only_that_number(tmp_path
     assert report.walk.failed[0]["serial"] == 1
 
 
-def test_refresh_dockets_lets_a_refused_weight_cost_only_that_number(tmp_path: Path) -> None:
-    """A refusal means the block around a serial is missing rows, and this pass is
-    how they are landed, so a refused member must not stop the list behind it.
-
-    `22-20` is a denial on the sample grid under the cursor with no stored
-    neighbours: its write is refused and stores nothing. The seven neighbours
-    named after it land, and a second pass over the same list then lands it."""
+def test_refresh_dockets_lands_a_lone_denial_under_the_cursor_at_weight_one(
+    tmp_path: Path,
+) -> None:
+    """A re-served docket is stored as one row standing for itself, whatever the
+    corpus holds around it: `22-20` is a denial under the walk's cursor with no
+    stored neighbours, and it lands at weight 1 on the first pass."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     with corpus.connect(db) as conn:
         corpus.set_live_cursor(conn, 22, "historical-paid", 100)
         conn.commit()
-    numbers = ["22-20", *(f"22-{serial}" for serial in range(21, 28))]
-    served = {number: _decided(number, _DENIED_ENTRY) for number in numbers}
 
     def handler(request: httpx.Request) -> httpx.Response:
         name = request.url.path.rsplit("/", 1)[-1].removesuffix(".json")
-        return httpx.Response(200, json=served[name]) if name in served else httpx.Response(404)
+        if name == "22-20":
+            return httpx.Response(200, json=_decided("22-20", _DENIED_ENTRY))
+        return httpx.Response(404)
 
     with _client(handler) as client:
-        first = historical_module.refresh_dockets(
-            client, db, tmp_path / "data", _config(), numbers, today=date(2026, 7, 12)
+        report = historical_module.refresh_dockets(
+            client, db, tmp_path / "data", _config(), ["22-20"], today=date(2026, 7, 12)
         )
-    assert first.walk.ingested_denied == 7
-    assert [f["serial"] for f in first.walk.failed] == [20]
-    assert "NonUnitSampleWeightError" in str(first.walk.failed[0]["reason"])
-    refused = ids.case_id("scotus", live_docket_id(22, 20))
+    assert report.walk.failed == [] and report.walk.ingested_denied == 1
     with corpus.connect(db) as conn:
-        assert corpus.get_row(conn, refused) is None
-        assert corpus.latest_snapshot(conn, refused) is None
-
-    with _client(handler) as client:
-        second = historical_module.refresh_dockets(
-            client, db, tmp_path / "data", _config(), numbers, today=date(2026, 7, 13)
-        )
-    assert second.walk.failed == []
-    with corpus.connect(db) as conn:
-        landed = corpus.get_row(conn, refused)
+        landed = corpus.get_row(conn, ids.case_id("scotus", live_docket_id(22, 20)))
+        assert corpus.get_live_cursor(conn, 22, "historical-paid") == 100
     assert landed is not None and landed.sample_weight == 1
 
 

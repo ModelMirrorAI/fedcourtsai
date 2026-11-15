@@ -20584,3 +20584,80 @@ freeze commit is recorded here.
   "code_mode_computed_call" or .tool == "tool_search")] | length'` over them
   says whether the index form is in use: zero on every cell means the surface
   held nothing back, and the dotted counts are as complete as before.
+
+- **Every write stores `sample_weight` 1, and the rule that derived or kept
+  another weight is removed; recorded 2026-11-15.** A supersession of the
+  durability half of the 2026-09-01 entry (*The sampled-frame weight repair is
+  registered, and its durability half lands*), which is not otherwise edited.
+  No digest, constant, window or membership moves, and no figure moves on the
+  blob read below, because it holds no weighted row.
+
+  **What the landed entry registered.** Three statements about the live-ingest
+  seam, `pipeline.live.ingest_live_payload`: that it derives an asserted
+  weight of 1 through `legacy_denial_sample_weight`, so a grid denial whose
+  block is stored one row in ten keeps its sampling weight however often it is
+  re-served; that a caller asserting any weight other than 1 "is written as
+  given"; and that, as the invariant, "a later repair's 10 survives every
+  re-serve". None of the three holds any longer.
+
+  **What holds instead, in two changes.** The first is commit `7b4d6c521`
+  (2026-11-14), which refuses the write the landed entry kept:
+  `require_unit_weight` raises on any weight other than 1 at
+  `ingest_live_payload`, `upsert_to_corpus` and `backfill_live_signals`, before
+  anything is stored, and `validate-corpus` fails on a stored one
+  (`sample_weights_are_unit`). From that commit an asserted weight other than 1
+  is refused, not written as given, and a derived 10 is refused, not kept
+  (over a row already stored at 1 the write went ahead and stored 1). The
+  second is the change this entry lands with, which removes the derivation:
+  `legacy_denial_sample_weight`, its density guard
+  (`sampled_block_is_enumerated`) and the sampling interval are deleted,
+  `ingest_live_payload` takes no weight from its caller and writes 1, and the
+  walker's start-of-run back-fill writes 1 on a live-slice row that carries no
+  weight. `upsert_to_corpus` keeps its refusal and `validate-corpus` keeps its
+  check.
+
+  **Why.** The 2026-11-13 entry (*The legacy one-in-ten IFP denial sample is
+  complete in every Term*) records that every sampled block was re-walked and
+  stored row by row, and it left `sample_weight` and its guards as they were,
+  to be retired separately. This is the write half of that retirement. With
+  every decided petition its own row, a weight of 10 on any row would claim
+  nine petitions the corpus counts one by one, so the frame the landed entry
+  protected no longer exists to protect. The readers are unchanged here: every
+  weighted aggregate still multiplies by the stored column, which is 1 or
+  unset on every row.
+
+  **Readings**, from the blob `staging`'s corpus pointer names (sha256
+  `0ff3e908…`; latest pull 2026-11-15, latest snapshot 2026-07-13). The live
+  slice holds 59,770 rows, all SCOTUS, every one stored at weight 1 and none
+  unset, so the back-fill has nothing to write. No row in the corpus stores a
+  weight other than 1 (2,094,420 rows carry none), and `uv run fedcourts
+  corpus-info --legacy-sample` prints `legacy sample: no weighted rows`. The
+  removed rule, run from `staging`'s tree before this change over the same
+  59,770 rows, derives 1 on every one, so on this blob it refuses nothing and
+  the removal changes no write. `uv run fedcourts process-digest --all` prints
+  the same six digests before and after. `main`'s corpus pointer has since
+  moved to `524ad095…`; these are readings of `staging`'s blob, not of `main`'s
+  current one.
+
+  **The apply half of the landed entry** is not superseded here and is not
+  restated. Its membership predicate reads the density guard, which is
+  removed, so that registration licenses no further write.
+
+  **What is given up, stated so it is not discovered later.** The removed rule
+  refused one kind of write on a corpus with rows missing, at ingest and in
+  the back-fill: a denial on the old sample grid, under a walker cursor, in a
+  block holding fewer than seven stored neighbours. That refusal was a side effect that named a gap in a walked
+  range, and it is gone; such a denial now lands at weight 1 like any other
+  row. A stored weight above 1, should one arrive by a route other than these
+  writers, is no longer held in place or refused on its re-serve: the upsert
+  keeps the smaller of the stored and the incoming weight, so serving that
+  docket again takes it to 1, and until then `validate-corpus` fails on it.
+
+  **The landed entry's effect check** names `tests/test_legacy_denial_weight.py`,
+  which this change deletes with the rule it pinned. The tests that pin what
+  holds now are in `tests/test_unit_sample_weight.py`.
+
+  **Effect check.** On `main`, after the promotion carrying this entry and the
+  first `run-seed` window on it: the window's `validate-corpus` verdict shows
+  `sample_weights_are_unit` passed, and `uv run fedcourts corpus-info
+  --legacy-sample` still prints `legacy sample: no weighted rows`.
