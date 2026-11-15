@@ -2043,11 +2043,12 @@ stored column to the same rule (`sample_weights_are_unit`). A live-slice row
 written before the column existed carries none, and the walker's start-of-run
 back-fill (`backfill_live_signals`) writes 1 on it; that pass reads only a
 null, so it never rewrites a stored weight.
+
 When a stream's end is observed (consecutive 404s), the walk persists
 `frontier_serial` beside the cursor — `frontier_serial = last_serial` is the
 per-Term **walk complete** signal, and the cursors alone give an exact filings
 census per Term and fee class (paid serials from 1, IFP from 5001) even for the
-serials the sample never ingested. Each kept petition lands through `ingest_live_payload` already
+serials the walk never ingested. Each kept petition lands through `ingest_live_payload` already
 **resolved** (machine-read label, dated raw-JSON snapshot, its cert event
 closed and marked `resolved_without_outcome` as a first mint on a decided row)
 with filed documents provisioned for OT2021+ (the links'

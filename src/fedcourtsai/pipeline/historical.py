@@ -409,9 +409,9 @@ def load_terms(
     step summary.
     """
     _migrate_legacy_cursors(corpus_db_path)
-    # Pre-capture live rows get their parsed signals and sample weights filled
-    # here — the daily corpus-writer entrypoint — so the statpack's live-slice
-    # aggregates never see a NULL a rule could have resolved. (The forward
+    # Pre-capture live rows get their parsed signals re-read and their weight
+    # set to 1 here — the daily corpus-writer entrypoint — so the statpack's
+    # live-slice aggregates never see a NULL the corpus could resolve. (The forward
     # poller needs no such hook: its active rows self-heal on the next re-poll
     # through the ordinary ingest path.)
     backfill_live_signals(corpus_db_path)
