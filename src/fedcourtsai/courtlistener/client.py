@@ -139,10 +139,11 @@ def failed_cursor(exc: BaseException) -> str:
 
     A cursor-paginated read names each page after the first by the cursor the
     page before it handed over, so the cursor of the request that failed says
-    exactly where a long read stopped, and is what a second attempt at that one
-    page would send. Upstream wrote it and it reaches a CI log: only base64's
-    characters are kept, cut to a bounded length. A failure with no request
-    behind it, or whose request asked for a first page, has none.
+    exactly where a long read stopped. Upstream wrote it and it reaches a CI
+    log: only base64's characters are kept, cut to a bounded length, so a
+    quoted cursor identifies the page and may not be the one sent byte for
+    byte. A failure with no request behind it, or whose request asked for a
+    first page, has none.
     """
     if not isinstance(exc, httpx.HTTPError):
         return ""

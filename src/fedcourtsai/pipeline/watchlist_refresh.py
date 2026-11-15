@@ -51,10 +51,12 @@ request again, since a whole read that fails keeps none of its pages; a longer
 stated wait fails the docket at once. A failed docket's reason quotes what
 upstream said, which names the limit that refused.
 
-A failed docket's reason also says where its read stopped: the request it was
-on (the entry count, the docket, or a numbered page of the entries with that
-page's cursor), how long ago that request was first sent, and how long the
-docket's read had run. A failed read keeps none of its pages, so two failures
+A failed docket's reason also says where its read stopped: the last request it
+asked for (the entry count, the docket, or a numbered page of the entries,
+with that page's cursor where the failure came from it), how long ago that
+request was asked for, and how long the docket's read had run. The first time
+covers this process's own rate-limit waits and the client's resends as well as
+upstream's answer. A failed read keeps none of its pages, so two failures
 of one long docket are compared by those: the same page each time is one slow
 page upstream, a different one each time is the read's length.
 """
@@ -439,20 +441,23 @@ class _ReadProgress:
         self._step, self._step_at = step, self._clock()
 
     def where(self, exc: BaseException) -> str:
-        """The request the read was on when ``exc`` was raised, and the time it had taken.
+        """The last request the read asked for before ``exc``, and the time it had taken.
 
-        The first time is from when that request was first sent, so it covers
-        every resend the client made of it; the second is the docket's whole
-        read. ``""`` for a read that raised before sending anything.
+        The first time is from when that request was asked for, so it covers
+        the limiter's wait before it was sent and every resend the client made
+        of it; the second is the docket's whole read. A failure raised after
+        that request answered (a malformed entry, a read past the page cap) is
+        placed by it all the same. ``""`` for a read that raised before asking
+        for anything.
         """
         if self._step is None:
             return ""
         now = self._clock()
         cursor = failed_cursor(exc)
         return (
-            f"at {self._step}"
+            f"last request: {self._step}"
             + (f", cursor {cursor}" if cursor else "")
-            + f"; {now - self._step_at:.0f}s since that request was first sent, "
+            + f"; {now - self._step_at:.0f}s since it was asked for, waits and resends included, "
             + f"{now - self._began:.0f}s into this docket's read"
         )
 
@@ -477,8 +482,8 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     back to an incremental one rather than stopping the run, and an onboard it
     cannot cover is deferred while the run goes on. A docket that
     fails (an HTTP error, a malformed entry, or a read past ``max_entry_pages``)
-    is recorded, with the request its read was on and the time that took, and
-    skipped. The share running out, the ``deadline`` (a
+    is recorded, with the last request its read asked for and the time since,
+    and skipped. The share running out, the ``deadline`` (a
     ``clock`` reading) passing, or ``max_consecutive_transient_failures``
     transient errors in a row stop the run, and the dockets not reached are
     deferred. None of these writes anything for the docket, which keeps its

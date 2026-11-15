@@ -488,7 +488,8 @@ def test_a_refused_docket_s_reason_names_the_limit_that_refused(tmp_path: Path) 
         "HTTPStatusError: 429 Too Many Requests "
         + "[Retry-After 1800s; upstream said: Request was throttled. "
         + "Rate limit exceeded: 300/hour.] "
-        + "[at the docket; 0s since that request was first sent, 0s into this docket's read]"
+        + "[last request: the docket; 0s since it was asked for, waits and resends included, "
+        + "0s into this docket's read]"
     )
     assert [r.case_id for r in report.refreshed] == ["cand/2"]
 
@@ -615,8 +616,8 @@ def test_a_read_that_times_out_says_which_page_and_how_long_it_took(
     assert timed_out == 4
     assert report.failed == {
         "cand/7": "ReadTimeout: The read operation timed out "
-        + "[at page 3 of the entries, cursor 3; 120s since that request was first sent, "
-        + "124s into this docket's read]"
+        + "[last request: page 3 of the entries, cursor 3; 120s since it was asked for, "
+        + "waits and resends included, 124s into this docket's read]"
     }
     with corpus.connect(db) as conn:
         assert corpus.latest_snapshot(conn, "cand/7") is None
@@ -663,6 +664,8 @@ def test_a_malformed_entry_fails_its_docket_only(tmp_path: Path) -> None:
     plan = [_planned(n, ReadMode.onboard) for n in (1, 2)]
     report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=150, today=TODAY, share=160)
     assert list(report.failed) == ["cand/1"] and report.failed["cand/1"].startswith("KeyError")
+    # Raised after the page answered: the reason places it by the last request, no cursor.
+    assert "[last request: page 1 of the entries; 0s since" in report.failed["cand/1"]
     assert [r.case_id for r in report.refreshed] == ["cand/2"]
 
 
