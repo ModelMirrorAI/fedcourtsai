@@ -710,7 +710,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 142
+      "petitions": 143
     }
   ],
   "discovery": {
@@ -718,7 +718,7 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-14",
+        "checked_on": "2026-11-15",
         "cursor": 633,
         "frontier": 633,
         "holes": 0,
@@ -735,11 +735,11 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-14",
+        "checked_on": "2026-11-15",
         "cursor": 6154,
         "frontier": 6154,
         "holes": 1,
-        "holes_reprobed": 5,
+        "holes_reprobed": 1,
         "holes_serving": [],
         "lookahead_hits": [],
         "newest_filed": "2026-11-14",
@@ -752,7 +752,7 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-14",
+        "checked_on": "2026-11-15",
         "cursor": 686,
         "frontier": 686,
         "holes": 2,
@@ -773,8 +773,8 @@
   "documents_provisioned": 172,
   "generated_on": "2026-11-15",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 142,
+  "next_conference_petitions": 143,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 824
+  "watchlist": 825
 }
