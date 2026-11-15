@@ -800,8 +800,8 @@ stays outside the gate:
   nothing rather than a blend. It rests on a **stated minimum** —
   `pipeline.base_rates.REALIZED_BAND_RATE_MIN_RESOLVED`, 30 measured *after* the
   leave-one-out and binding on the weighted denominator **and** the observed
-  row count behind it, since a reweighted Term can otherwise clear a weighted
-  31 on as few as five real petitions wherever a Term's walk was sampled —
+  row count behind it, which are one figure because each stored row is one
+  petition and the `weighted_*` fields count rows —
   below which the cell is omitted rather
   than scored on a handful of cases. It bites hardest on a **caption class
   floor**, whose risk set is that class alone rather than every band above it —
@@ -832,8 +832,8 @@ stays outside the gate:
   too generous on granted ones — which means it does not average out of the
   mean. Treat an open Term's realized-Term figure as directional; only a closed
   Term's is settled. The leave-one-out itself carries a matching residual: it
-  removes one unit of weight rather than the row's own sample weight (identical
-  on a weight-1 live Term, short by `w − 1` on a reweighted historical one), and
+  removes one unit, which is the row's whole contribution because each stored
+  row counts once, and
   on a pack built before the case resolved it over-corrects by one unit —
   bounded by `1 / 30` and self-correcting at the next refresh.
 
@@ -2897,9 +2897,9 @@ the rendered table) and
   under. Each cell names the version that produced it, and reports
   the would-have-been selection (carve-out vs rank-fill, and where capacity
   actually bit), the band mix including `unobservable`, the
-  snapshot-provenance mix, and sample-weighted **precision/recall of the
+  snapshot-provenance mix, and **precision/recall of the
   selection against the realized grant-family outcomes**, with raw counts
-  beside the weighted selection and grant figures.
+  beside the `weighted_*` selection and grant figures, which equal them.
 
   **What may be claimed.** The numbers describe the *gate* — how the
   deterministic selection rule would have behaved at a reconstructed moment —
@@ -2967,18 +2967,12 @@ the rendered table) and
   the replay, so the backtest-as-iteration doctrine below applies in full. A
   Term replayed before it has fully resolved censors its pending — and
   disproportionately high-salience — petitions, so read only completed Terms.
-  Weighted figures use each row's `sample_weight` (inverse inclusion
-  probability), and what they estimate depends on the statistic: row-wise
-  quantities (the carve-out slice, the grant totals) reweight into population
-  estimates, but the **rank fill is a functional of the walked sample's
-  cohort** — under legacy denial weights a replayed cohort holds a thinned
-  fraction of the real one, so the top-N of that subsample is not the
-  population's top-N, and `capacity_bound_cohorts` can read inert where the
-  real cohort would have been cut. Each cell's `largest_weighted_cohort`
-  against the capacity is the check: rank-fill figures are trustworthy where
-  it too sits below capacity (or on Terms walked at weight 1 throughout).
-  The raw counts beside the weighted figures count walked rows; the two must
-  not be mixed. Read the provenance mix before the rates: a `truncated`
+  The figures named `weighted_*` keep the name and count rows: each stored
+  row is one petition, so each equals the raw count beside it. The **rank
+  fill is a functional of the replayed cohort**, which holds each stored
+  petition once, and each cell's `largest_weighted_cohort` is a row count:
+  the most rank-fill candidates any one cohort holds, the figure to read
+  against the capacity beside `capacity_bound_cohorts`. Read the provenance mix before the rates: a `truncated`
   projection cannot detect an entry back-filled later but dated earlier (an
   accepted residual a `dated` snapshot does not carry), and the blind causes
   read differently under recall — `blind-no-moment` is a faithful gate miss
@@ -3142,8 +3136,7 @@ the rendered table) and
   included) gives composition context. The **live/historical-slice cert
   statistics** are what predictor and evaluator cells anchor on: disposition
   base rates computed over rows the supremecourt.gov channel wrote, each row
-  counted `sample_weight` times so denials the earlier sampled walk kept at a
-  higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
+  counted once as the one petition it is — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
   by relist count, by CVSG status, by **amicus-brief count** and by
   **capital-case marking** over the same
@@ -3154,7 +3147,8 @@ the rendered table) and
   by-originating-court reader table that names state courts. A coverage block
   states the pack's own denominators, and the per-Term array carries each
   October Term's cursor-derived filings census by fee class (paid/IFP),
-  walk-complete flags, weighted estimates, grants, pace-to-grant, and the
+  walk-complete flags, the `weighted_*` and `est_*` figures (row counts and
+  the rates over them), grants, pace-to-grant, and the
   per-salience-band **segment base rate** in two forms — over the petitions that
   *ended* in a band, and over every petition that ever *reached* it (the risk
   set). A prediction carrying a frozen prediction-time band is scored against the
@@ -3222,8 +3216,7 @@ the rendered table) and
   where that pooled sample clears the per-pool floor pre-registered in
   [`docs/salience.md`](../docs/salience.md); below the floor a cell carries no
   baseline and no substitute. Either way the rate is comparable to nothing the cert sections publish (a
-  different population resolving on a different standard, unweighted where the
-  cert cuts are denial-reweighted). Extensions are counted so the docket's
+  different population resolving on a different standard). Extensions are counted so the docket's
   administrative dominance stays visible, but they never pool into any rate.
   The section carries no salience version, because it is not a salience-band
   product; the per-Term rows share the cert tables' replay self-selection
@@ -3382,15 +3375,14 @@ the rendered table) and
   never here. That exclusion is what makes the pack citable on its own terms.
 
   Read it the same way as the statpack's live-slice cuts: every section states its
-  own scope, and every rate repeats its denominator. **Every cert cut is
-  denial-reweighted** — including the by-originating-court table, which is the
-  statpack's raw reader cut recomputed as an estimate, because it is the only
-  place a state court appears and an unweighted rate over the walker's frame
-  inflates the grant family several-fold. A reweighted denominator is written
-  `est. n=` and a raw one `n=`, because the first estimates a population and the
-  second counts rows; a breakdown row carries no raw view of its own, so a small `est. n=`
-  is weaker evidence than it looks; the per-Term census is the exception and
-  prints the observed `ingested (rows)` beside the estimate.
+  own scope, and every rate repeats its denominator. **Every cert cut prints
+  the scope phrase "denial-reweighted estimates" and counts each stored row
+  once**, since each row is one petition; that includes the
+  by-originating-court table, the only place a state court appears. A
+  denominator written `est. n=` and one written `n=` are both row counts, the
+  first printed on a section carrying the `weighted: true` flag, so an
+  `est. n=` is exactly that many petitions read; the per-Term census
+  prints the observed `ingested (rows)` beside it.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
   *not yet parsed*, not *did not happen*, and on the **amicus-brief cut** it
@@ -3424,8 +3416,8 @@ the rendered table) and
   with the reference rater against the rate a constant labeler scores (agreement,
   **not** accuracy), the labels that vocabulary cannot yet measure, and the inline
   scope string it requires — which says in the same breath that no reweighting
-  recovers the docket, so that cut's `est. n=` is the one denominator here that
-  rescales a QP-bearing stream rather than estimating a docket population. The
+  recovers the docket, so that cut's `est. n=` counts rows of a QP-bearing
+  stream and is never a docket population. The
   labeled rows are a **partial frame** — the labeling accrues one batch a run —
   so that scope string also names what the gap between labeled and in-scope rows
   is made of. How many of those rows carry a questions-presented text at all is
@@ -3443,8 +3435,8 @@ the rendered table) and
   two states of the table itself outrank a frame, since the factor describes the
   table's mix: no drawn row at all publishes an unbounded factor, and a table
   whose own rows are all labeled over a frame labeled out publishes no factor. Each bucket also prints the rows on
-  hand behind it, and its reference-sourced share of them, because a
-  denial-reweighted `est. n=` runs above the rows read and the thinnest buckets
+  hand behind it, which equal its `est. n=`, and its reference-sourced share
+  of them, because the thinnest buckets
   here rest on a handful. The **emergency applications** get a cut of their
   own on the same terms from the `qp-topic-v1` application labels file, over the
   live slice's non-extension application dockets and measured against the
@@ -3845,7 +3837,7 @@ quality is conditioned on, and every batch **covers** it: the first cleared all
 a published cut waited on. It is not a rate for the supplement — a pooled figure
 is the same however the disagreements fall between the blocks — so the pooled
 rate still certifies the grant stream, and the denial/IFP stream that dominates
-any reweighted cut is measured at review rather than by the artifact, which
+any docket-wide cut is measured at review rather than by the artifact, which
 carries the pooled figure only. The deterministic shadow rules'
 disagreement count is a regression trip-wire on one labeler's movement between
 runs, not a second measurement — its *level* is uninterpretable off the
@@ -3859,7 +3851,7 @@ denominator here; a labeling run describes the corpus and commits a predictor to
 nothing.
 
 **What may be claimed from the party census.** `fedcourts party-census`
-(`pipeline.party`, [docs/cli.md](../docs/cli.md)) annotates every unweighted
+(`pipeline.party`, [docs/cli.md](../docs/cli.md)) annotates every
 live-slice row from its caption — `federal_party` and `state_party` as none /
 petitioner / respondent / both, the administration a federal party's date falls
 in, and a president's surname appearing as a party — and prints the counts. It
@@ -3867,7 +3859,7 @@ is descriptive corpus structure, not a performance instrument: no annotation
 enters a claim score, a leaderboard rank, or any denominator here, and the
 census publishes **counts only**. A grant rate by government-party status is a
 different artifact — `fedcourts party-rates`, below — with its own population
-rules and denial reweighting; computing one from these cells would inherit
+rules; computing one from these cells would inherit
 every caveat below without carrying them.
 Six rules travel with any figure quoted from it, and the first two are the ones
 that invert a conclusion when they are skipped. **No cross-administration reading
@@ -3996,13 +3988,11 @@ nine more are specific to rates.
   `filed` convention, same blob); plenary grants alone are 47 of 96 and 41 of
   81. A comparison with a published "the Solicitor General wins cert about 70%
   of the time" figure has to say which of the two it is quoting.
-- **The IFP rate is a weighted estimate.** The legacy one-in-ten sampled denial
-  block is restored to full strength (`weighted_granted` /
-  `weighted_resolved`, each row counted `sample_weight` times), and
-  `grant_rate` is that pair's quotient; the raw pair beside it is the rows
-  actually held. A cell with `sampled_rows` above zero is an estimate resting
-  on the sample being a systematic one-in-ten draw of denials, and its raw pair
-  is never quoted as a rate. `pending` stays a raw row count.
+- **The IFP rate is a rate over rows.** Each stored row is one petition, so
+  the pair named `weighted_granted` / `weighted_resolved` keeps its name,
+  counts each row once and equals the raw pair beside it;
+  `grant_rate` is that pair's quotient. `sampled_rows` is 0 in every cell.
+  `pending` is a row count too.
 - **Without `--through`, the newest window is right-censored.** Under `filed`
   its pending rows sit outside the rate (18 of the 45 `trump-47` paid-cert
   federal-petitioner rows on the same blob), and the petitions still pending

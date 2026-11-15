@@ -187,7 +187,7 @@ The upsert therefore latches it: an empty incoming list keeps the stored one,
 and a non-empty reading (the live channel's re-read) replaces it, so a
 corrected parse still lands. A row last written before the column existed
 stays empty until a live re-poll, a re-walk or `refresh-dockets` re-serves it —
-the same legacy-row shape as `sample_weight` below. A decided docket leaves the
+the same shape as a null `sample_weight` below. A decided docket leaves the
 live rotation (a granted docket stays in it until its judgment), so on a
 decided row that re-serve does not come on its own.
 

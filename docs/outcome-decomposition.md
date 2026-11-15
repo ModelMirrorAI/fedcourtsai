@@ -618,12 +618,13 @@ Drawn from the above, and cheaper to apply than to rediscover:
    agreement figures: it covers a calibration bin scored against a band-derived
    baseline, or a leakage grade computed from the parser that produced the log.
 7. **Is the rate weighted the way the frame demands, and is the frame uniform?**
-   The corpus's legacy denial-subsampled rows mean a raw count over the walker's
-   rows overstates anything that correlates with non-denial. Pooling Terms drawn under
-   different sampling designs compounds it. A reweighted rate prints `est. n=`
-   and a raw one plain `n`; `metrics/README.md` is the governing statement. The
-   docket pack reweights every cert cut; the statpack keeps one raw reader cut on
-   purpose, so read the scope line rather than assuming.
+   Each stored corpus row is one petition, so a count over the walker's rows
+   is a count of petitions and the weighting half is met by construction; the
+   frame half still has to be checked for the pool being quoted. A rate printed
+   with `est. n=` and one printed with plain `n` are both over row counts;
+   `metrics/README.md` is the governing statement. The packs' cert cuts carry
+   the scope phrase "denial-reweighted estimates" over those same counts, so
+   read the scope line for the population rather than for a weighting.
 8. **Is the baseline far enough from 0 (or 1) that a correct call is worth more
    than a season of honest reporting?** The rule pays `(b − y)² − (p − y)²` per
    claim, so at a baseline of half a percent an honest confident negative
@@ -693,8 +694,7 @@ the grant family is what moves it to a coin-flip-scale question. Over the
 committed pack, under the configured ten-Term window that a cell's strictly-prior
 slice does not fill, the pooled prior-Term rate for a cell in OT2025 is **0.354**
 (288 cert-order dispositions over 814 paid grant-family rows, OT2017–OT2024 — a raw
-`n`, not an estimate, because only denials were ever subsampled and every
-grant-family row carries weight 1).
+`n`, each row one petition).
 
 It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
 the paid class is the scored population: IFP petitions are Tier-0-excluded by
@@ -815,9 +815,8 @@ that grants it, so an open Term's still-pending petitions are absent from
 numerator and denominator alike rather than from one of them. (6) Neither side
 derives from the other: the marker is parsed from order text at resolution, the
 baseline from prior Terms' published counts. (7) Weighting is a non-issue here
-for a stateable reason — only denials were ever subsampled, so every row inside
-the grant family carries weight 1 and the ratio is an unweighted count of
-grants; the fee-class cut is what makes the *frame* uniform, since the pooled
+for a stateable reason — every stored row is one petition, so the ratio is a
+count of grants; the fee-class cut is what makes the *frame* uniform, since the pooled
 cut mixes two populations of which only one is ever predicted. (8) **This is
 the test the conditioning exists for.** Unconditionally the class runs near one
 percent of resolved petitions, inside the band test 8 rejects; conditioned on
@@ -840,8 +839,8 @@ whole-corpus rate: a noted dissent is recorded in the denial order itself, so
 resolved-only is the right frame here, but the *coverage* gap is real and
 separate — the marker fills only as dockets refresh, so the first cuts will
 price a coverage-limited population and must say so. (6) Neither side derives
-from the other. (7) Denials are exactly the rows the walker subsampled, so any
-future baseline over them must be reweighted and print `est. n=`;
+from the other. (7) Each stored denial is one petition, so any
+future baseline over them counts rows;
 `metrics/README.md` governs. (8) **Aggregated existence is the whole design, and
 the test is not yet passed — only survivable.** Per-Justice notings sit near one
 percent of petitions and concentrate in two Justices (from the public record;
@@ -965,8 +964,8 @@ to bound a free score against.
 machine-matchable resolution text, and the escalation columns beside it are
 right-censored by the pending tail — a second, independent reason the increment
 baselines stay `None`. Both caveats travel with the number wherever it is quoted
-rather than being corrected away. **Test 7** is clean on weighting — the
-application stream carries no denial sampling, so every row stands for itself
+rather than being corrected away. **Test 7** is clean on weighting — every
+application row stands for itself
 and the counts are raw — but **not** on frame uniformity: parse coverage differs
 sharply between application-Terms, so a pooled rate blends a Term the poller
 covered fully with one it reached only in part, and that unevenness is the
@@ -1918,8 +1917,7 @@ reader's opinion. Three evaluators grade each cell, so it is measurable.
   claim type is easy, that one is hard — can carry a tau-b near +1 while
   within-claim agreement is exactly zero. A caveat in prose does not bound
   that, so the **number of claims pooled** publishes beside the coefficient,
-  the way `pair_events` publishes beside `pairs` and a reweighted denominator
-  prints `est. n=`. At one claim the contrast is unavailable and cannot be
+  the way `pair_events` publishes beside `pairs`. At one claim the contrast is unavailable and cannot be
   doing the work; the higher it runs, the more of the coefficient it could be.
   Splitting the coefficient per claim is a job for a version with the per-claim
   sample to spend on it.
