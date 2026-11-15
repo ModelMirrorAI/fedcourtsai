@@ -1981,9 +1981,8 @@ grade needs. In dependency order, most binding first, what is still owed:
 
 1. **A decided merits case.** A grade lives in an evaluation, and the evaluate
    backlog mints a cell only for a resolved event, so a merits cell carries no
-   grade until its judgment resolves — 90 committed merits predictions, on 30 of
-   the 44 committed merits events, sit against no resolved merits event at
-   all. Nothing is owed
+   grade until its judgment resolves — 225 committed merits predictions, on 73 of
+   the 93 committed merits events, none of them on a resolved event. Nothing is owed
    here but the Court's own calendar; it is listed because it binds ahead of
    everything below it.
 2. **Opinion coverage.** 35 rows carry the `has_opinion` bit an ingested body

@@ -674,8 +674,8 @@ on the next predict dispatch after any future flip: a cell minted under a
 version the committed pack does not yet render reads the version-pinned pool's
 designed `None` — legitimately empty, supporting no claim — and a whole round
 minted before the refresh has no skill column. For `sal-v4` that refresh has
-run: the committed pack's Terms stamp `sal-v4`, its `alt_segments` hold
-`sal-v1`/`sal-v2`/`sal-v3`, and `elevated`'s published rates moved with the
+run: the committed pack's Terms stamp the active version, `sal-v4` sits in its
+`alt_segments` beside the other superseded versions, and `elevated`'s published rates moved with the
 re-derived column (the falsification check the activation registered — a
 rebuild leaving them unmoved would have been evidence it did not happen).
 

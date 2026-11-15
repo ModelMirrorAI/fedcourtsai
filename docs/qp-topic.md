@@ -466,8 +466,8 @@ application inputs in place of the petition ones:
   seeded-hash draw of the applications not yet labeled, stratified on Term
   alone (an application has no fee class). It refuses a converged frame and a
   frame holding under the coverage floor of the block, as the petition extract
-  does. The frame fits under the row ceiling, so the first batch is the whole
-  frame.
+  does. The frame (about 2,200 rows) exceeds the row ceiling, so it accrues over
+  several batches.
 - `qp-topics --frame applications` measures the batch against the application
   block under the same agreement gate and coverage floor. A block member
   publishes its adjudicated label, never the labeler's, and every other row is
@@ -845,9 +845,9 @@ Three consequences bind every use of the set:
   is the thing to revisit if the extract ever carries more than this. The
   application extract (`qp-corpus --frame applications`) carries more, and the
   `qp-topic-label-applications` mode uploads it the same way. It is batched by
-  the petition extract's rule, but the frame fits under the row ceiling, so its
-  first batch carries the whole application frame (about 850 rows) and every
-  kept application text, a gate-refusing dispatch included, and it names the
+  the petition extract's rule, and the frame (about 2,200 rows) exceeds the row ceiling, so a batch carries
+  up to the ceiling's worth of the application frame and its
+  kept application texts, a gate-refusing dispatch included, and it names the
   full frame before any committed labels file does. It is accepted on the same
   footing for the same two reasons. The frame it names is the one the
   application labels file names. And what it carries is
@@ -1263,8 +1263,8 @@ argument for leaving the ceiling where it is rather than for raising it: the
 clock cannot rise without the step cap rising first, the turn count varies by
 nearly two to one across two runs of the same size, and the next complete run's
 minutes are the number that would re-derive the headroom. The default,
-`claude-opus-5-5`, has not run a batch yet, so its first run, complete or
-cut off by the clock, is the one that measures its pace. The labeling
+`claude-opus-5-5`, has run complete batches on both frames, and a run's own
+minutes are what measure its pace. The labeling
 prompt states its budget as "whatever the extract holds" for the same reason —
 one number, in one place, and no second copy to drift.
 

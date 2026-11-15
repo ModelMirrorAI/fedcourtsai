@@ -73,7 +73,7 @@ holds it. Every workflow that binds an environment (every row above but
 `src/fedcourtsai/run_gate.py` by path from a sparse checkout of itself and its
 allow-list: a dispatch proceeds only for a human `config/dispatchers.json`
 names, or for the pipeline bot it allows for that workflow (the dispatch App,
-for `run-predict` alone); a re-run of any run, scheduled ones included, only
+for `run-predict`, `run-pull` and `integration-test`); a re-run of any run, scheduled ones included, only
 for such a human; a first attempt only for a dispatch, `schedule`, `push` or
 `pull_request`. Every other job needs that job and ends its condition with the
 same guard, which also re-checks a re-run of *some* jobs — that keeps the

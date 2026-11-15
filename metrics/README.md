@@ -595,8 +595,7 @@ stays outside the gate:
   re-grade is a legitimate operation — but it is the cue to ask **why** a cell
   was graded twice before reading a standing that a re-grade could have moved.
   Read it beside the scope, because a zero has two meanings: on an empty
-  frozen board — the committed state while no stamped grading has yet reached
-  the population the board ranks — nothing was in scope to supersede, so `0` is the
+  frozen board nothing was in scope to supersede, so `0` is the
   shakedown state rather than a clean audit, and re-grades in the shakedown
   ledger are counted on no committed artifact at all. `--all-versions` is where
   they show. The collapse stops at the
@@ -3817,10 +3816,7 @@ the corpus blob.
 **Statpack directions not built.** The published stat packs
 (SCOTUSblog / Empirical SCOTUS) carry whole families of statistics this
 project's docket-first corpus cannot compute yet, kept here as named
-directions rather than silent gaps: justice-level statistics (frequency in
-the majority, agreement matrices, opinion authorship — need per-justice vote
-data, e.g. a Supreme Court Database import), amicus-brief counts per petition
-(need docket-entry parsing beyond the proceedings), oral-argument statistics
+directions rather than silent gaps: oral-argument statistics
 (need transcript data), and a merits circuit scorecard (affirm/reverse by
 court below — the parsed merits judgments carry no cut by originating court).
 
