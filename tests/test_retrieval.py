@@ -1113,7 +1113,7 @@ def test_a_program_that_retrieves_only_through_its_shell_is_not_full_coverage(
 # ledger and the tool-usage report as an engine that never retrieved. So the
 # literals are recorded against the codex version they were confirmed at, and
 # the canary below fails the moment the repository's codex pin moves off it.
-CODE_MODE_LITERALS_CONFIRMED_AT = "0.144.1"
+CODE_MODE_LITERALS_CONFIRMED_AT = "0.167.2"
 # Every spelling of the codex pin the repository carries: the `codex-version`
 # input of each codex-action step, and the npm pin of the bare CLI. Both the
 # workflows and the composite actions are scanned, so a pin that moves into an
