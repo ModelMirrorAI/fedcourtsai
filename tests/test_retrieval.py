@@ -850,6 +850,115 @@ def test_codex_code_mode_lift_is_a_floor_keyed_on_one_calling_idiom(tmp_path: Pa
     assert [row.tool for row in rows] == ["exec"]
 
 
+def test_codex_code_mode_lifts_a_manifest_call_written_by_quoted_index(tmp_path: Path) -> None:
+    # `tools["<name>"](` names its tool as plainly as `tools.<name>(` does, so
+    # it lands under the same spelling and in the same offered denominator.
+    source = (
+        """const a = await tools["mcp__courtlistener__search"]({q:"standing"}); """
+        + """const b = await tools['exec_command']({cmd:"ls"}); """
+        + """const c = await tools[`mcp__courtlistener__get_docket`]({id: 7});"""
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    _freeform, *lifted = parse_codex_retrieval(sessions)
+
+    assert [row.tool for row in lifted] == [
+        "mcp__courtlistener__search",
+        "exec_command",
+        "mcp__courtlistener__get_docket",
+    ]
+    assert all(row.call_source == "code_mode_source" for row in lifted)
+    assert normalize_call(lifted[0].tool) == "courtlistener.search"
+    assert lifted[0].query is not None and "standing" in lifted[0].query
+
+
+def test_codex_code_mode_lifts_a_call_by_computed_index_without_naming_it(
+    tmp_path: Path,
+) -> None:
+    # A program that discovers a deferred tool and calls it as
+    # `tools[result.name](...)` names the tool only at run time. The row says a
+    # tool was called, carries the index expression, and stays out of the
+    # manifest counts, because nothing in the source says which tool it was.
+    source = (
+        'const found = await tools.tool_search({query: "docket search", limit: 8}); '
+        + 'const hit = found.tools[0]; const r = await tools[hit.name]({q:"mootness"}); '
+        + "const s = await tools[names[0]]({id: 1}); "
+        + "const t = await tools[`mcp__${server}__search`]({q: 2});"
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    _freeform, *lifted = parse_codex_retrieval(sessions)
+
+    assert [row.tool for row in lifted] == [
+        "tool_search",
+        retrieval.CODE_MODE_COMPUTED_TOOL,
+        retrieval.CODE_MODE_COMPUTED_TOOL,
+        retrieval.CODE_MODE_COMPUTED_TOOL,
+    ]
+    computed = lifted[1]
+    assert computed.query is not None
+    assert computed.query.startswith("[hit.name](")
+    assert "mootness" in computed.query
+    assert lifted[2].query is not None and lifted[2].query.startswith("[names[0]](")
+    assert normalize_call(computed.tool) is None
+    assert computed.result_capture == "unobserved"
+    assert computed.call_source == "code_mode_source"
+    # A computed call is not evidence of a manifest call, so the tripwire that
+    # watches the manifest idiom still reports this cell as one to look at.
+    assert collect.code_mode_lift_blind(parse_codex_retrieval(sessions))
+
+
+def test_codex_code_mode_leaves_an_index_that_names_no_engine_tool(tmp_path: Path) -> None:
+    # Nothing reserves the name `tools` in agent-authored source. A fixed name
+    # that is neither a manifest spelling nor a known builtin is the program's
+    # own object, and an index that is not called is not a call.
+    source = (
+        'const tools = {helper: (x) => x}; tools["helper"](1); '
+        + "const first = tools[0]; const n = tools[key]; found.tools[0](1);"
+    )
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+
+    assert [row.tool for row in parse_codex_retrieval(sessions)] == ["exec"]
+
+
+def test_codex_code_mode_index_scan_stays_linear_on_a_run_of_spaces(tmp_path: Path) -> None:
+    # Agent-authored source in a post-run step: an unclosed index followed by a
+    # long run of spaces must cost a scan, not a backtracking search.
+    source = "tools[" + " " * 20000 + "x"
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    started = time.monotonic()
+    rows = parse_codex_retrieval(sessions)
+
+    assert [row.tool for row in rows] == ["exec"]
+    assert time.monotonic() - started < 2.0
+
+
+def test_codex_code_mode_keeps_a_computed_shell_call_out_of_the_attempt_count(
+    tmp_path: Path,
+) -> None:
+    # A computed row names no tool, so nothing says it ran a command.
+    source = 'await tools[name]({cmd: "uv run fedcourts query --court scotus"});'
+    sessions = _codex_rollout(tmp_path, *_code_mode_call("//\n" * 300 + source, "{}"))
+    rows = parse_codex_retrieval(sessions)
+
+    assert rows[-1].tool == retrieval.CODE_MODE_COMPUTED_TOOL
+    assert not collect.attempted_corpus_query(rows[1:])
+
+
+def test_codex_code_mode_cannot_tell_a_program_local_computed_call_from_the_engines(
+    tmp_path: Path,
+) -> None:
+    # The limit of the computed row, pinned so it is read as one: a computed
+    # index on the program's own `tools` object looks the same in source as one
+    # on the engine's, so it mints the row too. That is why the row is kept
+    # out of every manifest count.
+    source = "const tools = {a: (x) => x}; const key = 'a'; tools[key](1);"
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+
+    assert [row.tool for row in parse_codex_retrieval(sessions)] == [
+        "exec",
+        retrieval.CODE_MODE_COMPUTED_TOOL,
+    ]
+
+
 def test_codex_code_mode_argument_scan_tolerates_unbalanced_source(tmp_path: Path) -> None:
     # Agent-authored source may be truncated mid-call. The row still records
     # that the call was made and roughly what it asked.
@@ -1044,7 +1153,7 @@ def test_a_program_that_retrieves_only_through_its_shell_is_not_full_coverage(
 # ledger and the tool-usage report as an engine that never retrieved. So the
 # literals are recorded against the codex version they were confirmed at, and
 # the canary below fails the moment the repository's codex pin moves off it.
-CODE_MODE_LITERALS_CONFIRMED_AT = "0.144.1"
+CODE_MODE_LITERALS_CONFIRMED_AT = "0.167.2"
 # Every spelling of the codex pin the repository carries: the `codex-version`
 # input of each codex-action step, and the npm pin of the bare CLI. Both the
 # workflows and the composite actions are scanned, so a pin that moves into an
@@ -1101,7 +1210,9 @@ def test_the_code_mode_literals_are_confirmed_for_the_pinned_codex_version() -> 
         f"(_CODEX_CODE_MODE_TOOL in retrieval.py, CODE_MODE_PARENT_TOOL in collect.py); "
         f"(2) a program still reaches tools as `tools.<name>(` with manifest tools spelled "
         f"`mcp__<server>__<tool>` (_CODE_MODE_CALL_RE); (3) the builtins that object "
-        f"exposes are still the ones _CODE_MODE_BUILTIN_RE enumerates. Then dispatch the "
+        f"exposes are still the ones _CODE_MODE_BUILTIN_RE enumerates; (4) a tool the "
+        f"surface holds back is still called by index, `tools[<name>](` "
+        f"(_CODE_MODE_INDEX_RE). Then dispatch the "
         f"integration `engine-smoke` scenario and read its codex item-shapes artifact "
         f"(`fedcourts codex-item-shapes`), which is what shows a real rollout still "
         f"parses. A rename left unchecked reads as a codex that made no manifest calls."
@@ -1112,7 +1223,10 @@ def test_the_code_mode_literals_are_confirmed_for_the_pinned_codex_version() -> 
     assert collect.CODE_MODE_PARENT_TOOL == retrieval._CODEX_CODE_MODE_TOOL
     assert retrieval._CODE_MODE_CALL_RE.pattern.startswith(r"\btools\.(mcp__")
     assert retrieval._CODE_MODE_BUILTIN_RE.pattern == (
-        r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan)\s*\("
+        r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan|tool_search)\s*\("
+    )
+    assert retrieval._CODE_MODE_INDEX_RE.pattern == (
+        r"(?<![.\w$])tools\[((?:[^\[\]]|\[[^\[\]]{0,80}\]){1,200}?)\]\s*\("
     )
 
 

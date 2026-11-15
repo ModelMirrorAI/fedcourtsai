@@ -4508,7 +4508,9 @@ from that source, so what `calls` and the offered-vs-called table's *called in*
 report is how many times a tool is *named* in the programs, not how many times
 it ran: a site inside a loop counts once however many times the loop turned, a
 site in an untaken branch or a comment counts though it never ran, and a call
-reached through an alias or a computed name is not counted at all. It is
+reached through an alias is not counted at all, and a call by computed index
+(`tools[result.name](`) is counted under `code_mode_computed_call`, in no
+tool's row. It is
 therefore neither a floor nor a bound on invocations. The claim it supports —
 and the one the offered-vs-called cut needs — is *the program asked for these
 tools*. It is not an execution trace, and no per-call rate should be built on it.
@@ -4585,7 +4587,16 @@ output is captured. No part of that output is attributable to an individual
 call inside it — a single call site may run many times, and the output also
 holds whatever else the program did — so every lifted row is `unobserved` by
 construction, and such an engine likewise **cannot be observed being
-throttled**. Its manifest calls are counted; its results are not read. Two
+throttled**. Its manifest calls are counted; its results are not read. A call
+it makes by computed index (`tools[result.name](`, a tool the program found at
+run time) is counted under `code_mode_computed_call` rather than under a tool
+name, so it is in no manifest figure. Such a row marks a call site whose tool
+the source does not name: it may be a manifest tool, a builtin, or the
+program's own function, and one site can reach several tools. Where a cell
+carries such rows its manifest counts and its called-tool set are incomplete by
+an unknown amount, and the rows say only that the gap exists; the cell counts
+as a builtin-only one in the mean MCP calls and in the web-without-MCP signal
+though it may not be. Two
 consequences bind any reading. A cross-engine throttle comparison is
 **denominator-incomparable** on top of being descriptive — the engines differ
 in what could be seen, not only in what happened, and no two of the three

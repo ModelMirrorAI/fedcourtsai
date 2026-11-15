@@ -1577,7 +1577,14 @@ def test_the_command_running_builtins_are_a_subset_of_what_the_lift_mints() -> N
     # rather than silently admitted or silently dropped. Pinned against the
     # lift's own pattern, the same way the code-mode parent's name is.
     minted = set(retrieval._CODE_MODE_BUILTIN_RE.pattern.split("(")[1].split(")")[0].split("|"))
-    assert minted == {"exec_command", "write_stdin", "apply_patch", "view_image", "update_plan"}
+    assert minted == {
+        "exec_command",
+        "write_stdin",
+        "apply_patch",
+        "view_image",
+        "update_plan",
+        "tool_search",
+    }
     assert minted >= CODE_MODE_SHELL_BUILTINS
 
 

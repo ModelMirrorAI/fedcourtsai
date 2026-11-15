@@ -486,8 +486,9 @@ _CODEX_CODE_MODE_TOOL = "exec"
 #
 # The lift reads the *text* of a program rather than executing it, so both
 # patterns below are a syntactic count with syntactic limits, in both
-# directions. Neither can see a call reached indirectly — through a computed
-# name or an alias bound earlier — and both count a call that appears in the
+# directions. Neither can see a call reached through an alias bound earlier,
+# a call by computed index is seen without its name (`_CODE_MODE_INDEX_RE`
+# below), and both count a call that appears in the
 # source but never ran: one inside a branch not taken, or commented out.
 # Neither is worth a JavaScript parser to close, and the cheap screens for the
 # second are worse than the miss: `//` earlier on the line is as often a URL in
@@ -522,8 +523,42 @@ _CODE_MODE_CALL_RE = re.compile(r"\btools\.(mcp__[a-z0-9]+__[A-Za-z0-9_]+)\s*\("
 # manifest: the cut past 500 is a head-cut with no marker, and what it drops is
 # the *late* rows — the retrieval a leakage reading most wants.
 _CODE_MODE_BUILTIN_RE = re.compile(
-    r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan)\s*\("
+    r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan|tool_search)\s*\("
 )
+# The same two calls written by index: `tools[<expression>](`. The code-mode
+# surface can hold tools back and have the program discover them, through
+# `tools.tool_search`, and then call what it found as
+# `tools[result.name](arguments)`, so a program that reaches the manifest that
+# way writes no `tools.mcp__` at all. The index is read in two ways. A quoted
+# name (`tools["mcp__courtlistener__search"](`) says which tool as plainly as
+# the dotted form does, and is lifted under that name where it is a manifest
+# spelling or one of the builtins above; any other quoted name is left alone
+# for the reason the builtin list is enumerated. A computed index
+# (`result.name`, a template with a substitution) names its tool only at run
+# time, in a value the program text does not hold, so no reading of the source
+# recovers it. That call is lifted under :data:`CODE_MODE_COMPUTED_TOOL`: a row
+# that says a tool was called and not which. It sits outside the manifest
+# counts, since nothing shows it was a manifest tool: it may be a builtin, or a
+# function on the program's own object, and one site in a loop can reach
+# several tools. So where a cell carries such rows its manifest counts are
+# incomplete by an amount the rows do not bound; they say only that the gap
+# exists. One level of brackets inside the index is read, so
+# `tools[names[0]](` is one call. The index is taken with its padding and
+# trimmed afterwards, so that no two parts of the pattern compete for one run
+# of spaces in agent-authored source, and a `tools` that is a property of
+# something else (`found.tools[0](`, the shape a search result has) is not the
+# engine's object and is not read.
+_CODE_MODE_INDEX_RE = re.compile(
+    r"(?<![.\w$])tools\[((?:[^\[\]]|\[[^\[\]]{0,80}\]){1,200}?)\]\s*\("
+)
+_CODE_MODE_QUOTED_NAME_RE = re.compile(
+    r"""(?P<quote>["'`])(?P<name>mcp__[a-z0-9]+__[A-Za-z0-9_]+"""
+    r"""|exec_command|write_stdin|apply_patch|view_image|update_plan|tool_search)(?P=quote)"""
+)
+_CODE_MODE_ANY_QUOTED_RE = re.compile(r"""(["'`])[^"'`$]*\1""")
+#: The tool name a lifted row carries when the program picked its tool with a
+#: computed index, so the name was not in the source to read.
+CODE_MODE_COMPUTED_TOOL = "code_mode_computed_call"
 # How far past a call's opening parenthesis its argument text is scanned for a
 # balancing close. Bounds the per-call walk over agent-authored source, which
 # is unbounded and may be unbalanced (a truncated program, a paren inside a
@@ -681,14 +716,32 @@ def _code_mode_nested_calls(source: str | None, *, timestamp: str | None) -> lis
     # for the same reason it reads honest at all.
     window = source[:_REDACT_WINDOW]
     matches = sorted(
-        (*_CODE_MODE_CALL_RE.finditer(window), *_CODE_MODE_BUILTIN_RE.finditer(window)),
+        (
+            *_CODE_MODE_CALL_RE.finditer(window),
+            *_CODE_MODE_BUILTIN_RE.finditer(window),
+            *_CODE_MODE_INDEX_RE.finditer(window),
+        ),
         key=lambda match: match.start(),
     )
     for match in matches:
         args = _code_mode_arguments(source, match.end())
+        tool = match.group(1)
+        if match.re is _CODE_MODE_INDEX_RE:
+            index = tool.strip()
+            quoted = _CODE_MODE_QUOTED_NAME_RE.fullmatch(index)
+            if quoted is not None:
+                tool = quoted.group("name")
+            elif _CODE_MODE_ANY_QUOTED_RE.fullmatch(index):
+                # A fixed name that is neither a manifest spelling nor a known
+                # builtin: the program's own object, or a tool no list here names.
+                continue
+            else:
+                # The index expression leads the row's arguments, so the row
+                # shows what the program computed its tool name from.
+                tool, args = CODE_MODE_COMPUTED_TOOL, f"[{index}]({args or ''})"
         rows.append(
             RetrievalCall(
-                tool=_tool_name(match.group(1)),
+                tool=_tool_name(tool),
                 query=_query_slice(args),
                 params_digest=_digest(args),
                 # The parent call's stamp: the transcript times the freeform

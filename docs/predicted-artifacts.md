@@ -786,7 +786,13 @@ directory without knowing which part is which invites trusting the wrong half.
   of the source into rows marked `code_mode_source`, in source order: a
   manifest one named in the same `mcp__<server>__<tool>` spelling a direct item
   would carry, a builtin one under the name the code-mode surface exposes it
-  as. A `codex-baseline` log whose rows all carry a null `call_source` is
+  as. A call written by index is lifted the same way: a quoted name
+  (`tools["mcp__<server>__<tool>"](`) under that name, and a computed one
+  (`tools[result.name](`, how a program calls a tool it discovered through
+  `tool_search`) under the fixed name `code_mode_computed_call`, which says a
+  tool was called and not which, so it stays outside the manifest counts,
+  which are incomplete for that cell by an amount the row does not bound. A
+  `codex-baseline` log whose rows all carry a null `call_source` is
   row-blind — the calls its program made have no rows of their own — and a
   leakage grading formed on it is read as unassessed rather than clean (*The
   leakage exclusion* in `metrics/README.md`).
@@ -801,7 +807,7 @@ directory without knowing which part is which invites trusting the wrong half.
   **call sites in program text**, which is neither a floor nor a bound on
   invocations: a site inside a loop counts once however many times it ran, a
   site in an untaken branch or a comment counts though it never ran, and a call
-  reached through an alias or a computed name is not counted at all. The claim
+  reached through an alias is not counted at all. The claim
   it supports is *the program asked for these tools* — enough for
   offered-vs-called, and not an execution trace. The freeform call keeps
   its own row beside them, so a count over all rows counts both the wrapping

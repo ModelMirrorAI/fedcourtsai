@@ -20523,3 +20523,64 @@ freeze commit is recorded here.
   events. No split event prints, no successor-counted line prints because
   no prediction under a `proc-v23` digest is on `main` at this read, and no
   `graded by` line prints.
+
+- **The code-mode lift reads a call written by index, and the Codex CLI pin
+  moves to 0.167.2; recorded 2026-11-15.** A **capture** change of the
+  masking-surface class, like the 2026-11-08 document-date entry, which is not
+  otherwise edited. No digest, constant, window or membership moves, and `uv
+  run fedcourts process-digest --all` prints the same `proc-v23` digests
+  before and after.
+
+  **Why.** The Codex CLI's own tool guidance at 0.167.2 has a code-mode
+  program discover a tool the surface holds back with `tools.tool_search` and
+  then call it as `tools[result.name](arguments)`. The lift read only the
+  dotted form, `tools.<name>(`, so a manifest call made that way minted no
+  row. This is read from the strings embedded in the 0.144.1 and 0.167.2
+  binaries of the published npm package, compared on 2026-11-15: the freeform
+  tool is `exec` and a `custom_tool_call` in both, the dotted calling form and
+  the five builtins the lift enumerates are in both, and the tool-search
+  guidance is in 0.167.2 only. Whether the surface holds back any tool a cell
+  is offered is not readable from the binary, and no rollout at 0.167.2 has
+  been read.
+
+  **What moved.** `fedcourtsai.retrieval` lifts `tools[<index>](` beside the
+  dotted forms. A quoted index that is a manifest spelling or an enumerated
+  builtin lands under that name. A computed index lands under the fixed name
+  `code_mode_computed_call`, with the index expression leading its query
+  slice. `tool_search` joins the enumerated builtins. The lift runs at
+  capture, so no committed log changes. The pin in `engines/codex` moves from
+  0.144.1 to 0.167.2 in the same change; each cell's `usage.json` records the
+  version it ran under as `engine_version`.
+
+  **What it reaches.** A grader reading a codex candidate's log captured
+  after the carrying merge can see two kinds of row no earlier log carries: a
+  `tool_search` row and a `code_mode_computed_call` row, both lifted, both
+  `unobserved`, both in the blinding mask's `other` class, the second's query
+  carrying the index expression. So `codex-baseline` logs under one digest
+  span a further lifted regime, with no marker on the log beyond the rows
+  themselves.
+
+  **The reading rule** (`metrics/README.md`). A `code_mode_computed_call` row
+  marks a call site whose tool the source does not name. It may be a manifest
+  tool, a builtin, or the program's own function, and one site can reach
+  several tools. It is in no manifest figure, and a cell carrying such rows
+  has manifest counts and a called-tool set that are incomplete by an unknown
+  amount. A codex log captured before the carrying merge at a pin that offers
+  the index form would have missed those calls without a row to say so; no
+  committed log is known to be one, since every committed codex log predates
+  the pin.
+
+  **Why no label bump and no harness-boundary row.** The same as the
+  2026-10-15 entry: no digest moves, and no predict cell reads anything
+  different because of the lift, which runs after the engine, on its own log.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells, `jq -r .engine_version` over those cells'
+  `usage.json` prints `0.167.2`, their `retrieval_log.json` still carries
+  `code_mode_source` rows, and `jq '[.calls[] | select(.tool ==
+  "code_mode_computed_call" or .tool == "tool_search")] | length'` over them
+  says whether the index form is in use: zero on every cell means the surface
+  held nothing back, and the dotted counts are as complete as before.
