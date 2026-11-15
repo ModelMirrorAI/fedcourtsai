@@ -1,0 +1,23 @@
+{
+  "available": [],
+  "available_rule": null,
+  "day": "2026-11-15",
+  "entries": [
+    {
+      "case": "Buist v. Anthropic",
+      "category": "antitrust",
+      "court": "cand",
+      "date_filed": "2026-11-13",
+      "docket_id": 74816200,
+      "docket_number": "3:26-cv-10693",
+      "entry_id": 485614072,
+      "entry_number": 52,
+      "kind": "ruling",
+      "motion": "transfer",
+      "supersedes": null,
+      "url": "https://www.courtlistener.com/docket/74816200/52/buist-v-anthropic-pbc/"
+    }
+  ],
+  "rule": "ai-activity-v2",
+  "schema_version": "1.0"
+}
