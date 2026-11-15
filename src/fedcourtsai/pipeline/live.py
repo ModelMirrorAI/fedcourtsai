@@ -100,9 +100,7 @@ from .events import extract_events
 from .ingest import (
     UNSAMPLED_WEIGHT,
     from_live_record,
-    legacy_denial_sample_weight,
     map_live_docket,
-    require_unit_weight,
     upsert_to_corpus,
 )
 from .interim_signals import ApplicationKind
@@ -218,7 +216,6 @@ def ingest_live_payload(
     docket_id: int,
     *,
     today: date,
-    sample_weight: int = UNSAMPLED_WEIGHT,
     form: Literal["cert", "application"] = "cert",
 ) -> LiveResult:
     """Land one fetched docket JSON in the corpus; detect change and resolution.
@@ -229,91 +226,21 @@ def ingest_live_payload(
     events, then re-extract predictable events from the mapped record so a
     filing that appeared since onboarding becomes trackable.
 
-    ``sample_weight`` is what the *calling channel* asserts about how it came to
-    include this row. Every channel through here includes every row it touches,
-    so every caller asserts :data:`~.ingest.UNSAMPLED_WEIGHT`; the parameter
-    stays a parameter because the assertion is the caller's to make.
-
-    **What lands in the column is not that assertion but a reading of the
-    corpus**, and this is the seam that makes the reading unskippable: every
-    live-channel write that lands a SCOTUS *payload* — frontier discovery, the
-    cert and application rotations, the selection sweep, and the historical
-    walker's ingest — reaches ``upsert_to_corpus`` through this one call. (The
-    rotations' bare poll stamps write rows directly, but they re-upsert the row
-    they read, so they echo its stored weight and can never lower one.) Touching
-    a row is not the same as enumerating the block it stands for: a pre-capture
-    denial on the legacy walk's sampling grid, inside a range that is still
-    stored one row in ten, represents nine petitions the corpus does not hold,
-    and re-serving that one row observes none of them. So an asserted certainty
-    is *derived* instead — :func:`~.ingest.legacy_denial_sample_weight`, density
-    guard included — and an unenumerated grid denial is not read as certainty
-    merely because it was re-served.
-
-    The derivation ratifies the caller's assertion on almost everything, and
-    cheaply: an application number, a grant, an unparseable spelling, an
-    off-grid serial and a serial above the walk's cursor are each settled on the
-    row's own columns plus one cursor lookup. Only a denial on the grid at or
-    below its cell's cursor reaches the density guard, which reads the live
-    slice — an ordered walk of ``idx_cases_live_docket``, the partial index that
-    exists so this is affordable per row rather than only per batch.
-
-    **No write through here stores a weight other than** ``UNSAMPLED_WEIGHT``.
-    The corpus holds every decided petition of the walked Terms as its own row,
-    so a derivation that reads a block as sampled is reading a sampled frame the
-    corpus does not hold, and landing it
-    would mint a row that claims petitions counted separately. Such a write is
-    refused (:func:`~.ingest.require_unit_weight`) before the snapshot or the
-    row is written, so a refusal stores nothing, and it fails the run that made
-    it (``historical.refresh_dockets`` records it against the one docket and
-    carries on with its list). One case is not a refusal: over a
-    row already stored at certainty the min-latch would discard the derived
-    weight, so that write proceeds and stores ``UNSAMPLED_WEIGHT``. A caller
-    asserting any other weight is refused outright, whatever the row holds.
-
-    The refusal is reachable on a healthy corpus in one shape, and it is the
-    rule's registered fabricating default: a denial on the grid, below a walker
-    cursor, inside a block holding fewer stored neighbours than the density guard
-    asks for, written to a row that is new or carries no weight. Every block the
-    walks covered is stored row by row, so such a block means rows are missing
-    from the corpus, which is the condition worth stopping a run for.
+    The row lands at ``sample_weight`` :data:`~.ingest.UNSAMPLED_WEIGHT`. Every
+    live-channel write that lands a SCOTUS *payload* reaches ``upsert_to_corpus``
+    through this one call (frontier discovery, the cert and application
+    rotations, the selection sweep, the historical walker's ingest), and each
+    stores the docket it was served as one row standing for itself, so the
+    weight is this function's to write and no caller's to assert.
     """
     case_id = ids.case_id("scotus", docket_id)
     record = map_live_docket(payload, docket_id, form=form)
     row = from_live_record(record)
-    weight = sample_weight
-    if weight == UNSAMPLED_WEIGHT:
-        # Derived against the corpus as it stands *before* this row lands. The
-        # guard counts neighbours and excludes the serial itself, so the row's
-        # own arrival could not change the verdict — and reading first keeps a
-        # re-walk's verdict a fact about the block rather than about this write.
-        with corpus.connect(corpus_db_path) as conn:
-            # `str` rather than `.value`: the ingestion model is built with
-            # `use_enum_values`, so the label is already the stored string, and
-            # `Disposition` is a `StrEnum` either way. The back-fill reads it the
-            # same way, which is what keeps the two derivations one rule.
-            weight = legacy_denial_sample_weight(
-                conn,
-                row.docket_number,
-                None if row.disposition is None else str(row.disposition),
-            )
-            if weight != UNSAMPLED_WEIGHT:
-                # The upsert min-latches, so over a row already stored at
-                # certainty the derived weight would be discarded: that write
-                # lands `UNSAMPLED_WEIGHT` and is passed as such. On any other
-                # row the derived weight is what would be stored, and it is
-                # refused below.
-                stored = corpus.get_row(conn, case_id)
-                if stored is not None and stored.sample_weight == UNSAMPLED_WEIGHT:
-                    weight = UNSAMPLED_WEIGHT
-    # Settled before the snapshot lands, so a refused write stores nothing: a
-    # snapshot kept from a refused poll would read as unchanged on the retry and
-    # sit beside a row that never took its facts.
-    require_unit_weight(weight, row=case_id, writer="ingest_live_payload")
     with corpus.connect(corpus_db_path) as conn:
         prior = corpus.latest_snapshot(conn, case_id)
         changed = prior is None or prior[1] != payload
         corpus.upsert_snapshot(conn, case_id, today, payload)
-    upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=weight)
+    upsert_to_corpus(corpus_db_path, [row], last_live_polled=today, sample_weight=UNSAMPLED_WEIGHT)
 
     # Resolution before re-extraction, exactly as in pull_case, so detection
     # judges the docket's events as they stood before this poll's extraction

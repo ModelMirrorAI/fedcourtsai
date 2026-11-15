@@ -2028,79 +2028,21 @@ the same cursor table as the forward frontier's, disjoint names so the walkers
 never collide) and **ingests every decided petition**, denials included. The
 walk has already fetched the payload by the time it can read the disposition, so
 declining to store one saves no request; it only drops a row the corpus can then
-recover solely by re-walking the whole Term. Every row records its **inverse
-inclusion probability** as `sample_weight` — 1 where the corpus can show the row
-stands only for itself, min-latched so a weight can only ever be learned toward
-certainty. The column is the inclusion probability a weighted aggregate
-multiplies by. An earlier sampled walk kept one denial in ten and stored each at
-weight 10, and the rule below is how such a row is read: it regresses to 1 once
-a re-walk has **enumerated its block**, so that the nine petitions the weight
-stood for arrive with it. Regressing it on the re-serve of the kept serial alone would
-leave those nine represented by nobody, which under-counts that block's denials
-rather than over-counting them.
+recover solely by re-walking the whole Term.
 
-**So a channel does not get to assert the certainty; it is checked.** Every
-live-channel write that lands a SCOTUS payload — frontier discovery, the cert
-and application rotations, the selection sweep, and the walker's own ingest —
-reaches the corpus through `ingest_live_payload`, and a caller asserting weight
-1 there has that assertion re-derived through `legacy_denial_sample_weight`
-(density guard included) before it is written. (The rotations also write bare
-poll stamps directly, but each re-upserts the row it read, so it echoes the
-stored weight and can never lower one.) Touching a row is not observing the
-block it stands for: a grid denial whose neighbours are still stored one in ten
-is not read as certainty however many times the walk re-serves it alone, and the
-next paragraph says what happens to a write the derivation would weight above 1.
-The derivation is affordable per row because the density guard's read of the
-live slice is served by `idx_cases_live_docket`, a covering partial index
-over exactly that slice; every other outcome is settled on the row's own columns
-and one cursor lookup.
-
-**No ingest write stores a weight other than 1.** The corpus holds every decided
-petition of the walked Terms as its own row, so no stored row stands for
-another, and a write at any other weight would mint one that claims petitions
-the corpus counts separately. `ingest_live_payload` and `upsert_to_corpus` refuse it
-(`require_unit_weight`), and so does the backfill below: the write raises before
-anything is stored, names the row, and fails the run that made it, again on
-every later run until the block is whole. `refresh-dockets` is the way out, so
-it alone records a refusal against the one docket and carries on: name the
-block's missing serials with the refused one, and a second pass lands it. That covers a weight a caller asserts
-and a weight the derivation reads off a block holding fewer stored neighbours
-than the density guard asks for, which on a fully stored range means rows are
-missing. One derived weight is not a refusal: over a row already stored at 1 the
-min-latch would discard it, so that write proceeds and stores 1. The writers
-that re-upsert a stored row (the rotations' poll stamps, the dedupe merge) echo
-or lower what is stored and pass no refusal; `validate-corpus` holds the stored
-column to the same rule (`sample_weights_are_unit`), which covers them.
-
-Weights land exactly at ingest time; the backfill for pre-capture rows recovers
-them by the same rule (`legacy_denial_sample_weight`: denied + serial on the
-sample grid + walker cursor covers the serial + the block it would stand for is
-not already stored row by row). The last conjunct is what the first three cannot
-supply: landing on the grid below the cursor proves the serial was *probed*, not
-that only one in ten was *kept*, and those coincided during the legacy sampled
-walk and not after it — so without it a denial from a fully-walked range would
-stand for ten petitions, nine of which the corpus is separately counting at 1.
-A weight of 10 is a checkable claim about nine specific neighbouring serials, so
-`sampled_block_is_enumerated` checks it: it counts how many of the serials within
-nine either side are stored in the live slice, and a count in the enumerated
-range means those petitions are observed rather than passed over. The read is **per row**, not per
-Term, because the enumerating walk resumes from the sampled walk's persisted
-cursor — one Term can carry a sampled prefix and an enumerated tail, and a
-whole-Term verdict would hand one regime's answer to the other's rows.
-
-The criterion between the two error directions is that over-weighting fabricates
-an observation while under-weighting only forgoes a correction. The enumeration
-check is a **deny-list**, so the rule's default is the sampled weight — the
-fabricating side — and both known residuals land there: a pre-capture
-poller-resolved denial inside a *sampled* range reads as sampled, and a block
-only partly stored (the walk's grant-family keeps, or a neighbourhood straddling
-the resume boundary) stays sampled until enough of it is present. What bounds
-them is where the threshold sits rather than the shape of the rule: measured
-across the corpus's grid denials a sampled block holds at most six stored
-neighbours and an enumerated one at least ten, and the cut is placed at the low
-edge of that empty band so the slack goes to catching enumeration. Only the
-reverse misclassification — a genuinely sampled block read as enumerated — fails
-safe.
+**Every row is stored at `sample_weight` 1.** Each decided petition is its own
+row, so no stored row stands for another. Every live-channel write that lands a
+SCOTUS payload (frontier discovery, the cert and application rotations, the
+selection sweep, and the walker's own ingest) reaches the corpus through
+`ingest_live_payload`, which writes the weight itself; no caller passes one.
+`upsert_to_corpus` refuses a batch asserted at any other weight
+(`require_unit_weight`): the write raises before anything is stored and names
+the rows. The writers that re-upsert a stored row (the rotations' poll stamps,
+the dedupe merge) echo or lower what is stored, and `validate-corpus` holds the
+stored column to the same rule (`sample_weights_are_unit`). A live-slice row
+written before the column existed carries none, and the walker's start-of-run
+back-fill (`backfill_live_signals`) writes 1 on it; that pass reads only a
+null, so it never rewrites a stored weight.
 When a stream's end is observed (consecutive 404s), the walk persists
 `frontier_serial` beside the cursor — `frontier_serial = last_serial` is the
 per-Term **walk complete** signal, and the cursors alone give an exact filings

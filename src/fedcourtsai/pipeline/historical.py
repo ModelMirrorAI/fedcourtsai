@@ -81,7 +81,7 @@ from ..matrix import event_has_predictions
 from ..schemas import Disposition
 from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient, parse_scotus_docket_number
 from .cert_signals import docket_disposition_signals
-from .ingest import UNSAMPLED_WEIGHT, NonUnitSampleWeightError, backfill_live_signals
+from .ingest import backfill_live_signals
 from .live import _resolve_identity, ingest_live_payload, provision_documents
 
 # The walker's per-Term numbering streams. Same bases as the forward poller's,
@@ -357,19 +357,6 @@ class _Walk:
             payload,
             docket_id,
             today=self.today,
-            # The walk keeps every decided petition, so it includes every row it
-            # writes with certainty. What lands is `ingest_live_payload`'s reading
-            # rather than this assertion — but on *this* path the two always
-            # agree, and for a reason worth stating: the stream sets its cursor
-            # after each serial is served, so at ingest the stored cursor is
-            # `serial - 1` and the weight rule's cursor conjunct short-circuits
-            # before the density guard is consulted. A forward walk therefore
-            # writes 1 unconditionally. The guard bites on the below-cursor
-            # re-serves instead — `refresh_dockets`, which touches no cursor, and
-            # the poller's rotations and sweep — where re-serving one serial
-            # observes nothing about the block around it, and a write the rule
-            # would weight above 1 there is refused (`require_unit_weight`).
-            sample_weight=UNSAMPLED_WEIGHT,
         )
         if label in (Disposition.granted, Disposition.gvr):
             report.ingested_granted += 1
@@ -551,22 +538,7 @@ def refresh_dockets(
             report.undecided.append(number)
             continue
         deferred = walk.report.left_to_watchlist
-        try:
-            walk.ingest(payload, term, serial, disposition)
-        except NonUnitSampleWeightError as exc:
-            # The refusal stores nothing, and it too costs only its number. That
-            # matters here more than anywhere: a refusal means the block around
-            # the serial is missing rows, and this pass is how they are named
-            # and landed, after which a second pass over the list lands this one.
-            walk.report.failed.append(
-                {
-                    "term": term,
-                    "stream": "targeted",
-                    "serial": serial,
-                    "reason": f"{type(exc).__name__}: {exc}",
-                }
-            )
-            continue
+        walk.ingest(payload, term, serial, disposition)
         if walk.report.left_to_watchlist > deferred:
             report.left_to_watchlist.append(number)
     return report
