@@ -28,7 +28,14 @@ from typing import Final
 
 from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
 from ..process_version import scores_finer_interim_reading
-from ..schemas import GRANTED_DISPOSITIONS, Outcome, Prediction, StatPack, VoteValue
+from ..schemas import (
+    GRANTED_DISPOSITIONS,
+    Disposition,
+    Outcome,
+    Prediction,
+    StatPack,
+    VoteValue,
+)
 
 # `merits_base_rate` is re-exported, not used here — see the module docstring
 # and `__all__`, which is what states the re-export to both linters.
@@ -50,6 +57,7 @@ __all__ = [
     "brier_score",
     "brier_skill",
     "brier_skill_score",
+    "cert_label",
     "interim_base_rate",
     "is_correct",
     "judgment_correct",
@@ -63,7 +71,7 @@ __all__ = [
 ]
 
 
-def is_correct(prediction: Prediction, outcome: Outcome) -> int:
+def is_correct(prediction: Prediction, outcome: Outcome, *, interim: bool = False) -> int:
     """Did the prediction name the right outcome label — on the stage's own axis?
 
     The cert/interim axis is the disposition label. The **merits** axis is the
@@ -79,10 +87,41 @@ def is_correct(prediction: Prediction, outcome: Outcome) -> int:
     prediction, but ``correct`` is computed before validate runs.) This keeps
     the leaderboard's accuracy column meaningful at every stage instead of
     publishing a constant for one of them.
+
+    On a **cert** cell ``granted-in-part`` and ``granted`` are one label
+    (:func:`cert_label`): the cert resolver records a grant limited in scope as
+    ``granted``, so a forecast of that grant under either label names the
+    outcome that was recorded. Every other pair of labels is compared as
+    written, and so is every label on an interim cell (``interim=True``, the
+    caller's word, since neither artifact records the stage), whose own rule is
+    :func:`stage_correct`'s.
     """
     if outcome.judgment is not None:
         return int(prediction.judgment == outcome.judgment)
-    return int(prediction.predicted_disposition == outcome.actual_disposition)
+    if interim:
+        return int(prediction.predicted_disposition == outcome.actual_disposition)
+    return int(
+        cert_label(prediction.predicted_disposition) == cert_label(outcome.actual_disposition)
+    )
+
+
+def cert_label(disposition: Disposition) -> Disposition:
+    """The label a cert disposition is compared under for ``correct``.
+
+    ``granted-in-part`` reads as ``granted``; every other label is itself. A
+    question-limited grant opens the same merits proceeding as a full one
+    (:data:`fedcourtsai.schemas.MERITS_PROCEEDING_DISPOSITIONS`) and the cert
+    resolver records both as ``granted``, so the two labels cannot tell a
+    right call from a wrong one. ``gvr`` and ``summary-reversal`` stay
+    distinct, because each names a different route out of the cert order from
+    the plenary grant ``granted`` records. The resolver mints ``gvr`` and never
+    ``summary-reversal``, so a ``summary-reversal`` call matches no recorded
+    cert outcome.
+    """
+    # Compared by value: a parsed record carries its label as the plain string.
+    if disposition == Disposition.granted_in_part:
+        return Disposition.granted
+    return disposition
 
 
 def scores_finer_reading(prediction: Prediction | None) -> bool:
@@ -126,7 +165,7 @@ def stage_correct(prediction: Prediction, outcome: Outcome, *, interim: bool) ->
     score the same event. ``None`` where the cell is unscored.
     """
     if not (interim and scores_finer_reading(prediction)):
-        return is_correct(prediction, outcome)
+        return is_correct(prediction, outcome, interim=interim)
     target = outcome.interim_granted
     if target is None:
         return None
