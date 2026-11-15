@@ -328,6 +328,31 @@ def test_docket_entries_past_the_page_cap_are_refused_whole() -> None:
     assert (read.pages, read.complete, len(read.entries)) == (4, False, 4)
 
 
+def test_docket_entries_start_at_a_cursor_and_hand_over_each_page() -> None:
+    transport, seen = _cursor_entries(4)
+    client = _client(transport)
+    handed: list[tuple[list[int], str | None]] = []
+
+    read = client.docket_entries(
+        7,
+        max_pages=10,
+        cursor="2",
+        on_page=lambda found, following: handed.append(([e["id"] for e in found], following)),
+    )
+
+    # Only the pages from the cursor on, each handed over with where the read goes next.
+    assert (read.pages, read.complete, [e["id"] for e in read.entries]) == (2, True, [2, 3])
+    assert seen == [{"docket": "7", "cursor": "2"}, {"docket": "7", "cursor": "3"}]
+    assert handed == [([2], "3"), ([3], None)]
+
+    handed.clear()
+    capped = client.docket_entries(
+        7, max_pages=2, on_page=lambda found, following: handed.append(([], following))
+    )
+    # The page that reaches the cap is handed over with nowhere to go on to.
+    assert not capped.complete and [following for _, following in handed] == ["1", None]
+
+
 def test_docket_entries_date_filter_rides_the_first_page() -> None:
     transport, seen = _cursor_entries(1)
     client = _client(transport)

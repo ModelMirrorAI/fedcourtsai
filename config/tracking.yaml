@@ -832,8 +832,8 @@ watchlist_refresh:
   # A 429 states how long to wait (Retry-After). A wait that, with the
   # client's one-second margin, is at most this many seconds is waited out
   # and the request sent again: the account's per-minute
-  # window clears within it, and a long onboard would otherwise lose every page
-  # it had read to one refusal. A longer stated wait (the hourly or daily
+  # window clears within it, and a long onboard would otherwise stop there and
+  # wait for its next turn. A longer stated wait (the hourly or daily
   # window) fails the docket at once.
   max_throttle_wait_seconds: 65
   # The most one run may wait this way in all, at least one
@@ -842,6 +842,12 @@ watchlist_refresh:
   # and these waits add three, inside the step's sixteen-minute timeout
   # (max_run_minutes is checked only between dockets).
   throttle_wait_budget_seconds: 180
+  # An onboard that stops part-way keeps the pages it read in the content
+  # store, and the docket's next onboard goes on from them for this many days
+  # after the read first began; after that the docket is read whole again. A
+  # resumed onboard closes with a read of what changed since it began, which
+  # cannot see an entry deleted upstream, so this bounds that drift.
+  onboard_resume_max_age_days: 14
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener

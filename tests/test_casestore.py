@@ -138,6 +138,25 @@ def test_latest_snapshot_date_is_presence_without_a_body_read() -> None:
     assert casestore.read_latest_snapshot_date(t, "ca9/64512346") is None
 
 
+def test_an_unfinished_onboard_object_is_never_a_snapshot() -> None:
+    t = casestore.InMemoryObjectTransport()
+    assert casestore.read_onboard_partial(t, "nysd/68117049") is None
+    ref = casestore.write_onboard_partial(t, "nysd/68117049", {"kind": "onboard-partial"})
+    assert ref.key == "nysd/68117049/onboard/partial.json"
+    assert casestore.read_onboard_partial(t, "nysd/68117049") == {"kind": "onboard-partial"}
+    # Kept beside `snapshots/`, the only prefix a snapshot read lists.
+    assert casestore.read_latest_snapshot(t, "nysd/68117049") is None
+    assert casestore.read_latest_snapshot_date(t, "nysd/68117049") is None
+    assert casestore.read_snapshot_at(t, "nysd/68117049", before=date(2100, 1, 1)) is None
+    # Overwritten in place as the read advances; a body that is not an object is nothing.
+    casestore.write_onboard_partial(t, "nysd/68117049", {"cleared": "2026-11-16"})
+    assert casestore.read_onboard_partial(t, "nysd/68117049") == {"cleared": "2026-11-16"}
+    t.put(ref.key, b"[1, 2]")
+    assert casestore.read_onboard_partial(t, "nysd/68117049") is None
+    t.put(ref.key, b"not json")
+    assert casestore.read_onboard_partial(t, "nysd/68117049") is None
+
+
 def test_latest_stored_snapshot_date_reads_the_process_transport() -> None:
     """The seam outside callers probe through: the active transport, and ``None``
     with the store unbuilt — the same "reads as empty" an unconfigured store gets

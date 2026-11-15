@@ -385,7 +385,9 @@ jobs:
       # window that runs takes the share and later windows and dispatches skip;
       # a dropped 01:17 window is made up at 07:17. pull-all's rotation leaves
       # these dockets out, so this step is their only refresh. A docket that
-      # fails writes nothing and fails the step, which the summary reports while
+      # fails writes no snapshot and no row (an onboard stopped part-way keeps
+      # its pages in the content store for the next run to go on from) and
+      # fails the step, which the summary reports while
       # the window still pushes what pull-all wrote. The step timeout backs the
       # command's own 10-minute budget, which is checked only between dockets.
       - name: Refresh the AI watchlist dockets

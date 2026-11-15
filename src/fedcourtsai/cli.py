@@ -19521,6 +19521,9 @@ def watchlist_refresh_cmd(
             deadline=deadline,
             max_consecutive_transient_failures=cfg.max_consecutive_transient_failures,
             on_refreshed=record,
+            resume=watchlist_refresh.OnboardResume(
+                overlap_days=cfg.overlap_days, max_age_days=cfg.onboard_resume_max_age_days
+            ),
         )
     _ensure_corpus_layout(db)
     if recorded or became:
@@ -19538,6 +19541,11 @@ def watchlist_refresh_cmd(
         f"({changed} changed), failed {len(result.failed)}, "
         f"deferred {len(result.deferred)}{stopped}"
     )
+    for done in result.refreshed:
+        if done.resumed_pages:
+            typer.echo(
+                f"  onboarded {done.case_id} from {done.resumed_pages} page(s) an earlier run kept"
+            )
     for case_id, reason in sorted(result.failed.items()):
         typer.echo(f"  failed {case_id}: {reason}", err=True)
     if result.failed:
