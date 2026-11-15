@@ -79,18 +79,21 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     ``band_refused="outside-segment"``, so the null band is told apart from an
     unobservable docket and from an application without inference.
 
-    The base row carries exactly one counsel fact, in two readings: whether
-    the payload lists the Solicitor General's office as counsel of record for
-    the captioned petitioner, as ``caption-v4`` admits payloads (served by the
-    cut, :func:`counsel_fact`) and as ``caption-v5`` does (a forward cell's
-    ``truncated`` payload too, :func:`forward_counsel_fact`). A caller that
-    redacts the payload before this call — the replay and back-test
-    provisioners — reads the fact off the payload it redacted and passes it as
-    ``sg_counsel_of_record_for_petitioner``, and both readings take it, since
-    they agree off a forward cell; left ``None``, both are read off ``payload``
+    The base row carries its counsel facts as booleans and nothing else about
+    counsel: whether the payload lists the Solicitor General's office as
+    counsel of record for the captioned petitioner, as ``caption-v4`` admits
+    payloads (served by the cut, :func:`counsel_fact`) and as ``caption-v5``
+    does (a forward cell's ``truncated`` payload too,
+    :func:`forward_counsel_fact`), and ``caption-v6``'s fact, which on a
+    forward cell also reads the office as the block's only counsel of record
+    (:func:`office_petition_fact`). A caller that redacts the payload before
+    this call — the replay and back-test provisioners — reads the caption-v4
+    fact off the payload it redacted and passes it as
+    ``sg_counsel_of_record_for_petitioner``, and every reading takes it, since
+    they agree off a forward cell; left ``None``, all are read off ``payload``
     itself, which for a forward cell is the served payload. Nothing the cell
-    reads carries either: the fact can reach the record only as the band of a
-    version that reads ``caption-v4`` or ``caption-v5``.
+    reads carries any of them: a fact can reach the record only as the band of
+    a version that reads ``caption-v4``, ``caption-v5`` or ``caption-v6``.
     """
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
@@ -102,17 +105,26 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     # which band the context freezes below.
     application = corpus.is_scotus_application_form(docket_number)
     active = scorer()
-    # The caption-v5 reading differs from caption-v4's only on a forward cell,
-    # which never passes the fact in: a caller that does is a redacting
-    # provisioner, a replay or back-test, where the two readings agree. A
+    # The caption-v5 and caption-v6 readings differ from caption-v4's only on a
+    # forward cell, which never passes the fact in: a caller that does is a
+    # redacting provisioner, a replay or back-test, where the readings agree. A
     # forward caller that passed it would get caption-v4's narrower reading,
     # the safe direction, so the forward path must leave it None.
     sg_counsel_of_record_forward: bool | None = None
+    sg_office_petition: bool | None = None
     if sg_counsel_of_record_for_petitioner is None:
         sg_counsel_of_record_for_petitioner = counsel_fact(
             case_id, payload, snapshot_date=snapshot_date, provenance=provenance, cutoff=cutoff
         )
         sg_counsel_of_record_forward = forward_counsel_fact(
+            case_id,
+            payload,
+            snapshot_date=snapshot_date,
+            provenance=provenance,
+            cutoff=cutoff,
+            mode=mode,
+        )
+        sg_office_petition = office_petition_fact(
             case_id,
             payload,
             snapshot_date=snapshot_date,
@@ -142,6 +154,7 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
         parse=active.distribution_parse,
         sg_counsel_of_record_for_petitioner=sg_counsel_of_record_for_petitioner,
         sg_counsel_of_record_forward=sg_counsel_of_record_forward,
+        sg_office_petition=sg_office_petition,
     )
     observable = projected.observable
     count = projected.row.distribution_count
@@ -302,6 +315,32 @@ def forward_counsel_fact(
     it is :func:`counsel_fact` exactly.
     """
     return caption.sg_counsel_of_record_on_forward_cut(
+        payload,
+        caption_text=caption.petitioner_caption(_base_row(case_id, payload)),
+        cut=cutoff if cutoff is not None else snapshot_date,
+        provenance=provenance,
+        mode=mode,
+    )
+
+
+def office_petition_fact(
+    case_id: str,
+    payload: Mapping[str, Any],
+    *,
+    snapshot_date: date,
+    provenance: str,
+    cutoff: date | None,
+    mode: str,
+) -> bool:
+    """``caption-v6``'s counsel fact, read off ``payload``.
+
+    :func:`.caption.sg_office_petition_on_forward_cut` over the same caption
+    and cut :func:`counsel_fact` reads, with the cell's ``mode``: on a
+    ``forward`` cell it is :func:`forward_counsel_fact` or the office as the
+    block's only counsel of record, and on any other mode it is
+    :func:`counsel_fact` exactly.
+    """
+    return caption.sg_office_petition_on_forward_cut(
         payload,
         caption_text=caption.petitioner_caption(_base_row(case_id, payload)),
         cut=cutoff if cutoff is not None else snapshot_date,

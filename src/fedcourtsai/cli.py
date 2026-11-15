@@ -2229,7 +2229,7 @@ def caption_census_cmd(
     rule_version: str = typer.Option(
         CAPTION_RULE_VERSION,
         "--rule-version",
-        help="Which registered caption rule cuts the frame (caption-v1 to caption-v5).",
+        help="Which registered caption rule cuts the frame (caption-v1 to caption-v6).",
     ),
 ) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.
@@ -16912,8 +16912,8 @@ def _harness_correct_for(
 
     The stage's own label comparison between the two committed artifacts,
     through the shared numeric core
-    (:func:`fedcourtsai.pipeline.evaluate.is_correct`, which routes on the
-    outcome: judgment on a merits cell, disposition elsewhere), so the stamped
+    (:func:`fedcourtsai.pipeline.evaluate.stage_correct`: judgment on a merits
+    cell, disposition elsewhere, under the event's own stage rule), so the stamped
     bit is the definition rather than a restatement of it. The scored prediction
     is the predictor's **latest** for this event, the same join the Brier and
     the claim block take.
@@ -19520,6 +19520,9 @@ def watchlist_refresh_cmd(
             deadline=deadline,
             max_consecutive_transient_failures=cfg.max_consecutive_transient_failures,
             on_refreshed=record,
+            resume=watchlist_refresh.OnboardResume(
+                overlap_days=cfg.overlap_days, max_age_days=cfg.onboard_resume_max_age_days
+            ),
         )
     _ensure_corpus_layout(db)
     if recorded or became:
@@ -19537,6 +19540,11 @@ def watchlist_refresh_cmd(
         f"({changed} changed), failed {len(result.failed)}, "
         f"deferred {len(result.deferred)}{stopped}"
     )
+    for done in result.refreshed:
+        if done.resumed_pages:
+            typer.echo(
+                f"  onboarded {done.case_id} from {done.resumed_pages} page(s) an earlier run kept"
+            )
     for case_id, reason in sorted(result.failed.items()):
         typer.echo(f"  failed {case_id}: {reason}", err=True)
     if result.failed:

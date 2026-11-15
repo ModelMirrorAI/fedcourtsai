@@ -453,7 +453,14 @@ stays outside the gate:
   which the harness stamps on **every** stage — cert included, unlike the skill
   record beside it — from the scored prediction's committed label and the
   outcome's, so the board's first rank key is recomputed from committed
-  artifacts rather than taken on the evaluator's word. A cell whose `correct`
+  artifacts rather than taken on the evaluator's word. On a cert cell the two
+  labels must match, with `granted-in-part` and `granted` read as one label:
+  the cert resolver records a grant limited to some of the questions as
+  `granted`, so a forecast of that grant under either label is a right call.
+  `gvr` and `summary-reversal` stay labels of their own, each naming a route
+  out of the cert order that a plenary grant is not; no resolver records
+  `summary-reversal`, so a call under that label is right on no recorded
+  outcome. A cell whose `correct`
   the stamp could not compute (no readable prediction, or no committed outcome)
   leaves both halves of the fraction rather than entering as a wrong call, which
   is what `accuracy_scored` beside the column records; read accuracy against
@@ -925,10 +932,11 @@ stays outside the gate:
   miss for it; a block pooling both readings mixes the two rules, as its
   `accuracy` does. `always_deny_accuracy` scores a constant `denied` call over
   exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
-  per judge. On a cert cell that is the same exact-match rule `correct` uses —
-  so a GVR, a partial grant or a summary reversal is a miss for it, just as it
-  is for a `granted` call. `accuracy_lift` is `accuracy - always_deny_accuracy`, a
-  paired difference over the identical cells. Both are averaged over
+  per judge. On a cert cell that is the same label-match rule `correct` uses —
+  so any outcome but `denied` is a miss for it, and a GVR is a miss for a
+  `granted` call too. `accuracy_lift` is
+  `accuracy - always_deny_accuracy`, a paired difference over the identical
+  cells. Both are averaged over
   **gradings**, so they are weighted by panel depth, and depth varies by
   design; the **per-petition** reading counts each event once:
   `event_accuracy`, `event_always_deny_accuracy` and `event_accuracy_lift` over
@@ -2928,8 +2936,8 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The superseded `sal-v6` and `sal-v7`, the never-activated `sal-v5` and
-  the active `sal-v8`.** Their cells and their statpack blocks cover a narrower population
+  **The superseded `sal-v6` and `sal-v7`, the never-activated `sal-v5`,
+  the active `sal-v8` and the registered `sal-v9`.** Their cells and their statpack blocks cover a narrower population
   than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
@@ -2954,12 +2962,18 @@ the rendered table) and
   row and every replay cell exactly as `caption-v4` does, so its statpack
   block and its replay cells equal `sal-v7`'s; it differs only on a forward
   cell rebuilt by truncation, which no replay cell is. `sal-v8` is the
-  active scorer. Any of these blocks over past Terms is
+  active scorer. `sal-v9` is `sal-v8` with the class read through
+  `caption-v6`, which also reads `federal` a petition whose petitioner side
+  has no counsel of record but the Solicitor General's office. Its replay
+  cells read `caption-v4`'s fact, so they equal `sal-v8`'s and say nothing
+  about that reading; its statpack block bands stored rows, and differs from
+  `sal-v8`'s only where such a row exists, which is one pending row and no
+  resolved one on the blob `docs/salience.md`'s `sal-v9` section names. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
   rows the live poll has re-read, and no figure from the block may be quoted
-  (`docs/salience.md`, the `sal-v5`, `sal-v6`, `sal-v7` and `sal-v8` sections).
+  (`docs/salience.md`, the `sal-v5`, `sal-v6`, `sal-v7`, `sal-v8` and `sal-v9` sections).
 
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before

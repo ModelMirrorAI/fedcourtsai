@@ -642,7 +642,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     attribute to the scorer.
 
     The parse is the one axis that splits the reconstruction rather than riding
-    it: the active sal-v8 and the registered sal-v4, sal-v5, sal-v6 and sal-v7 pin
+    it: the active sal-v8 and the registered sal-v4, sal-v5, sal-v6, sal-v7 and sal-v9 pin
     `dist-v2` and share one projection, apart from the four `dist-v1` versions.
     Its projection-derived counts still match theirs — a parse changes
     the *count* read off a docket, never which dockets the frame holds or which
@@ -662,19 +662,20 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         "sal-v5",
         "sal-v6",
         "sal-v7",
+        "sal-v9",
     ]
     assert report.salience_versions == versions
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 9  # one (term, policy) cell x 9 registered versions
+    assert report.cells_evaluated == 10  # one (term, policy) cell x 10 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
     assert set(by_version) == set(versions)
-    active, toy, v1, v2, v3, v4, v5, v6, v7 = (by_version[v] for v in versions)
+    active, toy, v1, v2, v3, v4, v5, v6, v7, v9 = (by_version[v] for v in versions)
     # Each cell records the parse its reconstruction was counted under.
-    assert {c.distribution_parse for c in (active, v4, v5, v6, v7)} == {"dist-v2"}
+    assert {c.distribution_parse for c in (active, v4, v5, v6, v7, v9)} == {"dist-v2"}
     assert {c.distribution_parse for c in (toy, v1, v2, v3)} == {"dist-v1"}
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1, v2, v3, v4, v5, v6, v7):
+    for other in (toy, v1, v2, v3, v4, v5, v6, v7, v9):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
@@ -689,6 +690,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     assert set(v4.bands) <= caption_bands
     assert set(v6.bands) <= caption_bands
     assert set(v7.bands) <= caption_bands
+    assert set(v9.bands) <= caption_bands
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
@@ -701,6 +703,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         == sum(v4.bands.values())
         == sum(v6.bands.values())
         == sum(v7.bands.values())
+        == sum(v9.bands.values())
     )
 
 

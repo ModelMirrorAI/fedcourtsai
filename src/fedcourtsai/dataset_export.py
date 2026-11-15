@@ -797,7 +797,7 @@ mean Brier and prior-Term skill, given its rules:
   ratio of sums, `1 - sum(brier_score) / sum(baseline)`, never a mean of
   per-grading ratios.
 - The always-deny floor (cert stage) scores a synthetic `denied` call by the
-  same exact-match rule as `correct`: 1 where `actual_disposition` is
+  same label-match rule as `correct`: 1 where `actual_disposition` is
   `denied`, else 0.
 
 Not reproducible from the bundle: realized-Term skill (it needs the statpack

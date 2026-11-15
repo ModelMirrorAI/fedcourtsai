@@ -186,7 +186,12 @@ kinds resolve on the cert standard by construction.
 - `probability` is P(any grant), and `granted` its 1/0 form.
 - `predicted_disposition` may take any label in the vocabulary. `gvr`,
   `summary-reversal`, and `granted-in-part` all count as grants on the binary
-  axis, so they travel with `granted: 1`.
+  axis, so they travel with `granted: 1`. For `correct`, `granted-in-part` and
+  `granted` are one label on a cert cell (`pipeline.evaluate.cert_label`): a
+  grant limited to some of the questions resolves as `granted`, and a forecast
+  of it under either label is a right call. `gvr` and `summary-reversal` each
+  match only themselves, and since no resolver records `summary-reversal`, a
+  call under that label matches no recorded cert outcome.
 - The declared set is **`cert-v3`**: `cert-v2`'s five binary claims and the
   `order-writers` distribution claim, collected and never scored. The five
   claims are `disposition` — which must

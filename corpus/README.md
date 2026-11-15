@@ -40,6 +40,7 @@ The corpus has two halves:
     case.json                                    # the CorpusRow
     events.json                                  # the case's events
     snapshots/<YYYY-MM-DD>.json                  # dated point-in-time docket payload
+    onboard/partial.json                         # an unfinished first read's pages (not a snapshot)
     documents/documents.json                     # manifest: kind -> current text leaf
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
   scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
@@ -58,7 +59,11 @@ The corpus has two halves:
   reads it: where the live channel and a CourtListener refresh both read a
   SCOTUS docket on one day, the day's key holds the Court's own docket, because
   the refresh leaves a stored live snapshot in place and a live poll replaces a
-  refresh's. The small manifests are
+  refresh's. `onboard/partial.json` is working
+  state: the pages a watchlist docket's first whole read fetched before it
+  stopped, which its next onboard goes on from; it sits outside `snapshots/`,
+  so no snapshot read finds it, and it is emptied when the docket's first
+  snapshot is stored. The small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is
   *derived* from the stored petition text rather than fetched, so a fixed
   extractor can be carried onto rows already stored (`fedcourts
