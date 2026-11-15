@@ -1838,6 +1838,10 @@ and a class above `opinion_record_ceiling` refused
 whole by the writer. The dispatched pass stays pinned to OT2018–OT2025 under a
 maintainer's bound.
 
+A sixth is `ocr-recovery`: run-seed's window runs it as the same split
+(`ocr-recover-petitions --sweep`), sliced at the walker's per-window OCR cap,
+and the dispatched pass drains the class under a maintainer's bound.
+
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural
 rather than a convention. The procedure is two dispatches: `repair_mode: dry-run` tees the

@@ -306,7 +306,7 @@ the case count and an estimated cost range. On `main`, the plan job runs
 `fedcourts hold-decision --seam summarize`, which prices the run at the plan's
 upper estimate and releases it to the reviewer-less `review-auto` environment
 only within `config/review-hold.yaml`'s per-round cap, the daily round count
-shared with the other two lanes, and the trailing spend budget
+shared with the predict, evaluate and topic-label lanes, and the trailing spend budget
 ([pipeline.md](pipeline.md), *Auto-release*). An auto-released run's publish
 commit carries `[auto-released]` and names its Actions run. A staging
 rehearsal never asks: `review-auto` admits `main` alone. The measured spend

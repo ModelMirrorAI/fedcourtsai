@@ -515,9 +515,10 @@ same PR.
   it reads `metrics/*.json`, `metrics/updates/*.md`, the two topic labels
   files `data/qp-topics/qp-topics.json` and
   `data/qp-topics/qp-topics-applications.json`, the `event.yaml`, `outcome.json`,
-  `prediction.json` and `evaluation.json` records and the case summaries under
-  `data/cases/`, the release manifest `docs/releases.json`, and each release
-  document at its tag. A change to the shape of any of these needs a matching
+  `prediction.json`, `prediction_summary.md` and `evaluation.json` records and
+  the case summaries under `data/cases/`, the release manifest `docs/releases.json`, and each release
+  document at its tag, and the daily `status.json` on the `ops-metrics` branch.
+  A change to the shape of any of these needs a matching
   PR on the site repository, opened alongside it and linked from both
   descriptions; otherwise the site keeps its last good deploy until the site
   is fixed.
@@ -620,7 +621,7 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | How does a PR get its corpus-dependent figure checked without corpus access? | `docs/corpus-check.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the weekly metrics refresh regenerates `metrics/docket.md`, so its cut follows the labels `main` publishes) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, weekly per frame, and its `batches` list is the count; the weekly metrics refresh regenerates `metrics/docket.md`, so its cut follows the labels `main` publishes) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
 | How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, registered and collected on every stage, rolled up per judge on the `forecast-document-grades` board) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
@@ -634,6 +635,7 @@ task-specific instructions: the prompt file named in your run
 | What are the plain-language case summaries, which cases get one, and who writes them? | `docs/case-summaries.md` |
 | How do I test this, and what does CI run? | `docs/testing.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |
-| What must the long-conference release write-up state, and what produces each number? (filled from the metrics refresh and its export, each figure beside the command that produced it; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-long-conference.md` |
+| What must the long-conference release write-up state, and what produces each number? (filled from the metrics refresh and its export, each figure beside the command that produced it; published at the `results/ot2026-longconf` tag) | `docs/release-ot2026-long-conference.md` |
 | What must the end-of-Term release state about the merits docket, and what produces each number? (a skeleton written before any merits outcome; its unbuilt evidence is marked owed in place) | `docs/release-ot2026-merits.md` |
-| What does the release's public page show, and from where is each figure copied? (a template committed before the conference, now filled from the audit write-up and the export; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-public-summary.md` |
+| What does the release's public page show, and from where is each figure copied? (filled from the audit write-up and the export; published at the `results/ot2026-longconf` tag) | `docs/release-ot2026-public-summary.md` |
+| What does the emergency-docket replication release state about the executive branch's applications, and what produces each number? (an analysis release that scores no forecast; published at the `results/ot2026-interim-exec` tag) | `docs/release-ot2026-interim-exec.md`, `docs/release-ot2026-interim-exec-public-summary.md` |
