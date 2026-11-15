@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from collections.abc import Iterable, Mapping
 from datetime import date
 from enum import StrEnum
@@ -44,9 +43,7 @@ from ..schemas import (
     Stage,
 )
 from ..supremecourt import (
-    IFP_SERIAL_BASE,
     parse_scotus_application_number,
-    parse_scotus_docket_number,
 )
 from . import moments
 from .cert_amicus import cert_amicus_briefs
@@ -85,22 +82,9 @@ from .vided import vided_amicus_keys
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
-# The denial-sampling interval the historical walker used before it began keeping
-# every decided petition. Not a knob: it is a fact about rows already in the corpus,
-# and the only thing that can read a pre-capture denial's inclusion probability back
-# off its serial. Changing it would silently re-weight history. It stops mattering
-# once every Term has been re-walked — but a Term is re-walked by *enumerating* it,
-# not by re-serving one row in it: a re-served grid denial regresses to weight 1
-# only once the density guard below reads its block as stored row by row, and the
-# min-latch then takes that 1. Re-serving the kept serial alone observes none of
-# the nine petitions it stands for and leaves the weight where it is.
-LEGACY_DENIAL_SAMPLE_EVERY: Final = 10
-
-# The weight of a row the serial sample cannot show was kept by it: one petition
-# standing for itself. Named rather than written as a bare 1 because it is the
-# rule's fall-through in five separate branches, and because a channel that means
-# to assert certainty writes *this* — which is the flag `ingest_live_payload` reads
-# to re-derive the weight against the frame instead of taking the assertion.
+# The weight every stored row carries: one petition standing for itself. Named
+# rather than written as a bare 1 because the writers, the dedupe merge and the
+# write guard below all mean the same thing by it.
 UNSAMPLED_WEIGHT: Final = 1
 
 
@@ -130,27 +114,6 @@ def require_unit_weight(weight: int | None, *, row: str, writer: str) -> None:
         f"stands for itself, so the only weight a writer may land is {UNSAMPLED_WEIGHT}"
     )
 
-
-# How far either side of a kept serial the block it stands for reaches. A sampled
-# row represents itself plus the `LEGACY_DENIAL_SAMPLE_EVERY - 1` petitions the
-# walk passed over, and which side of the serial they fell is not recorded — so
-# the check looks both ways over the doubled window rather than guessing the
-# block's alignment.
-_SAMPLE_BLOCK_SPAN: Final = LEGACY_DENIAL_SAMPLE_EVERY - 1
-
-# How many of those `2 * _SAMPLE_BLOCK_SPAN` neighbouring serials have to be
-# stored before the block counts as walked row by row rather than sampled.
-#
-# Placed inside the gap the two regimes leave, at its low edge, and NOT at a
-# round fraction of the block. Measured across the corpus's grid denials, a
-# sampled block holds at most 6 stored neighbours — the walk kept the grant
-# family in full, and those are what land there — while an enumerated one holds
-# at least 10, so 7..9 is empty of both. The cut sits at 7 because the two
-# errors are not symmetric: reading an enumerated block as sampled fabricates
-# nine petitions the corpus already holds, while reading a sampled one as
-# enumerated only forgoes a correction. The margin therefore belongs on the
-# enumerated side, which a majority-of-eighteen cut would spend on arithmetic.
-_ENUMERATED_BLOCK_MIN_KEPT: Final = 7
 
 # The cert dispositions that open a merits proceeding, as the strings
 # `_live_resolution` returns — the live latch's eligibility, matching the
@@ -1591,10 +1554,10 @@ def to_corpus_row(
     docket facts), so they are supplied by the caller: ``pull`` stamps the REST
     refresh date, the live poller stamps its own, and every other writer leaves
     both ``None`` (the upsert preserves any timestamp a prior stamp set).
-    ``sample_weight`` is likewise walk-construction state — how the writing
-    channel came to include this row (see the storage field's docstring) — not
-    a payload fact; a writer with nothing to assert leaves it ``None`` and the
-    upsert's min-latch preserves the stored value.
+    ``sample_weight`` is likewise supplied by the caller rather than read from
+    the payload (see the storage field's docstring); a writer with nothing to
+    assert leaves it ``None`` and the upsert's min-latch preserves the stored
+    value.
 
     The bulk export's docket↔opinion-cluster join is misjoined on the circuit
     slices (19th-century cluster text and OCR-garbled judge names on
@@ -1690,7 +1653,7 @@ def upsert_to_corpus(
     rather than duplicating it. ``last_pulled`` / ``last_live_polled`` stamp the writing
     channel's refresh date onto every row in the batch, advancing that channel's
     rotation key (each preserves the other channel's prior stamp).
-    ``sample_weight`` asserts how the writing channel included the batch's rows
+    ``sample_weight`` is the weight the writing channel stores its rows at
     (min-latched; ``None`` preserves any stored weight). A weight other than
     :data:`UNSAMPLED_WEIGHT` is refused before anything is written
     (:func:`require_unit_weight`).
@@ -1714,195 +1677,6 @@ def upsert_to_corpus(
         return corpus.upsert_rows(conn, store_rows)
 
 
-def legacy_sample_cell(docket_number: str) -> tuple[tuple[int, str], int] | None:
-    """A stored docket number's ``((Term, walker stream), serial)``, or ``None``.
-
-    The (Term, stream) pair is the unit the denial sample was drawn in: the
-    walker holds one cursor per pair and walked each independently, so a serial's
-    inclusion probability is a fact about its cell rather than about the corpus.
-    The serial comes back beside it because every caller needs both — the cell to
-    read the regime, the serial to test the grid — and parsing twice is how the
-    two drift apart.
-
-    Reads the number through :func:`corpus.strip_docket_annotation`, because a
-    number still carrying the Court's ``*** CAPITAL CASE ***`` marking parses as
-    nothing at all. ``None`` for anything that is not a modern Term-form docket
-    number: an application (``26A11``), an original, an unparseable spelling.
-    """
-    parsed = parse_scotus_docket_number(corpus.strip_docket_annotation(docket_number))
-    if parsed is None:
-        return None
-    term, serial = parsed
-    stream = "historical-ifp" if serial >= IFP_SERIAL_BASE else "historical-paid"
-    return (term, stream), serial
-
-
-def live_slice_serials(conn: sqlite3.Connection) -> dict[tuple[int, str], frozenset[int]]:
-    """Every live-slice SCOTUS docket serial, grouped by its walk cell.
-
-    The neighbourhood the sampling claim is checked against by
-    :func:`sampled_block_is_enumerated`. Worth reusing across a batch where there
-    is a batch, because the check itself is a set membership — but the read is
-    an ordered walk of ``idx_cases_live_docket``, a covering partial index over
-    exactly this slice, so it is also cheap enough to pay per row. That is what
-    lets the live-ingest seam derive a weight inline; without the index the same
-    query visits every SCOTUS row and its full payload, and the rule stops being
-    something a writer can afford to consult.
-    """
-    serials: dict[tuple[int, str], set[int]] = {}
-    for record in conn.execute(
-        f"SELECT docket_number FROM cases WHERE {corpus.LIVE_SLICE_SQL} AND court = 'scotus'"
-    ):
-        read = legacy_sample_cell(str(record["docket_number"]))
-        if read is None:
-            continue
-        cell, serial = read
-        serials.setdefault(cell, set()).add(serial)
-    return {cell: frozenset(found) for cell, found in serials.items()}
-
-
-def sampled_block_is_enumerated(
-    serials: Mapping[tuple[int, str], frozenset[int]], cell: tuple[int, str], serial: int
-) -> bool:
-    """Whether the block a sampled serial would stand for is already stored row by row.
-
-    A weight of :data:`LEGACY_DENIAL_SAMPLE_EVERY` is a claim that this row
-    represents itself **and** the nine neighbouring petitions the walk did not
-    keep. The claim is checkable, and this checks it: count how many of the
-    serials within :data:`_SAMPLE_BLOCK_SPAN` either side are stored in the live
-    slice, and once :data:`_ENUMERATED_BLOCK_MIN_KEPT` of them are, those
-    petitions are not unobserved — the corpus is already counting them
-    individually, at :data:`UNSAMPLED_WEIGHT`.
-
-    **This is a deny-list, so its default is the sampled weight.** A block it
-    cannot read — a cell holding almost nothing, a range the walk barely
-    reached — comes back ``False`` and its grid denials derive
-    :data:`LEGACY_DENIAL_SAMPLE_EVERY`. That is the fabricating direction, and it
-    is the shape of the check rather than an oversight: only a *misclassification*
-    here (a genuinely sampled block read as enumerated) fails safe. The threshold
-    is placed accordingly.
-
-    Read **per row** rather than per Term, and that is what makes it sound on a
-    Term walked under both regimes. The enumerating walk resumes from the sampled
-    walk's persisted cursor, so a Term can carry a sampled prefix and an
-    enumerated tail; a whole-cell verdict would hand one regime's answer to the
-    other's rows, and it is the sampled verdict on an enumerated tail that
-    invents petitions. A neighbourhood cannot straddle that boundary by more than
-    its own width.
-
-    Counts rows of **every** disposition, because the claim being falsified is
-    about petitions and not about denials: a stored grant in the block is a
-    petition the corpus observes, whatever the walk's reason for keeping it.
-    """
-    return stored_block_neighbours(serials, cell, serial) >= _ENUMERATED_BLOCK_MIN_KEPT
-
-
-def stored_block_neighbours(
-    serials: Mapping[tuple[int, str], frozenset[int]], cell: tuple[int, str], serial: int
-) -> int:
-    """How many of a serial's ``2 * _SAMPLE_BLOCK_SPAN`` neighbours the live slice holds.
-
-    The occupancy :func:`sampled_block_is_enumerated` thresholds, named on its own
-    because a reading of the frame wants the number where the verdict wants the
-    boolean: the occupancy shows how far from the threshold a block sits, which
-    ``False`` cannot. One definition of the window serves both, so the two can
-    never disagree about which serials a block reaches over.
-    """
-    neighbourhood = serials.get(cell, frozenset())
-    return sum(
-        1
-        for near in range(serial - _SAMPLE_BLOCK_SPAN, serial + _SAMPLE_BLOCK_SPAN + 1)
-        if near != serial and near in neighbourhood
-    )
-
-
-def legacy_denial_sample_weight(
-    conn: sqlite3.Connection,
-    docket_number: str,
-    disposition: str | None,
-    *,
-    serials: Mapping[tuple[int, str], frozenset[int]] | None = None,
-) -> int:
-    """The inclusion weight a live-slice row's serial implies, from the corpus alone.
-
-    The one rule that can read a pre-capture denial's inclusion probability back
-    off its stored columns, and the single definition of it. A denial the
-    historical walker provably kept by its **serial sample** — the number parses,
-    the serial lands on the sample grid, it sits at or below the walker's
-    confirmed cursor for its (Term, stream), and the block it would stand for is
-    not already stored row by row — was one row in
-    :data:`LEGACY_DENIAL_SAMPLE_EVERY`, so it stands for that many petitions.
-    Everything else stands for itself (:data:`UNSAMPLED_WEIGHT`).
-
-    The final conjunct is load-bearing and is the one a grid test alone omits.
-    Being on the grid at or below the cursor proves the serial was **probed**,
-    which is not the same as only one in ten having been **kept**: the walk now
-    keeps every decided petition, so a weight of ten on a fully-walked range
-    claims nine petitions the corpus is separately counting at 1.
-    :func:`sampled_block_is_enumerated` checks that claim against the
-    neighbourhood itself. Pass ``serials`` (from :func:`live_slice_serials`) to
-    reuse one reading across a batch; it is rebuilt per call otherwise, which is
-    an index-served read of the live slice rather than a table scan.
-
-    Only a denial whose serial is on the grid at or below its cell's cursor gets
-    that far. Everything else — a grant, an application number, an unparseable
-    spelling, an off-grid serial, a cell the walk never reached — is decided on
-    the row's own columns and one cursor lookup, which is why a writer can call
-    this per row without reading the slice on most of them.
-
-    The number is read through :func:`corpus.strip_docket_annotation` before it
-    is parsed, here and in :func:`live_slice_serials`, and the second is the one
-    that matters: a stored number still carrying the Court's
-    ``*** CAPITAL CASE ***`` marking parses as *nothing*, so an unstripped
-    marking would keep that petition out of every neighbourhood it belongs to and
-    make the blocks around it read emptier than they are — which biases toward
-    the sampled weight, the direction that fabricates. The row's own number falls
-    through to :data:`UNSAMPLED_WEIGHT` when it will not parse, which is the safe
-    side of the same question.
-
-    **The bias criterion, since both directions have a claim on the word
-    "conservative": never invent a petition the corpus is already counting.**
-    Over-weighting a denial the corpus holds once is a fabricated observation;
-    under-weighting one only forgoes a correction.
-
-    Say plainly which way the residuals run, because the enumeration check is a
-    **deny-list** and so the rule's default is
-    :data:`LEGACY_DENIAL_SAMPLE_EVERY` — the fabricating side. Two known cases
-    land there, and neither is safe by accident:
-
-    - A poller-resolved denial inside a walker-covered *sampled* range reads as
-      sampled rather than as the certainty the poller included it with, because
-      the rule cannot tell the channels apart after the fact. Bounded to the
-      Terms both channels cover.
-    - A block only *partly* stored — the walk's grant-family keeps, or a
-      neighbourhood straddling the resume boundary between the two walk regimes
-      — stays sampled until :data:`_ENUMERATED_BLOCK_MIN_KEPT` of it is present.
-
-    What keeps those bounded is the threshold's placement rather than the shape
-    of the rule: it sits at the low edge of the gap the two regimes leave, so the
-    slack is spent on catching enumeration rather than on preserving sampling.
-    The one residual that *does* fail safe is the reverse misclassification — a
-    genuinely sampled block read as enumerated derives
-    :data:`UNSAMPLED_WEIGHT`, forgoing a correction rather than inventing a row.
-    """
-    if disposition != Disposition.denied.value:
-        return UNSAMPLED_WEIGHT
-    read = legacy_sample_cell(docket_number)
-    if read is None:
-        return UNSAMPLED_WEIGHT
-    cell, serial = read
-    if serial % LEGACY_DENIAL_SAMPLE_EVERY != 0:
-        return UNSAMPLED_WEIGHT
-    cursor = corpus.get_live_cursor(conn, *cell)
-    if cursor is None or cursor < serial:
-        return UNSAMPLED_WEIGHT
-    if serials is None:
-        serials = live_slice_serials(conn)
-    if sampled_block_is_enumerated(serials, cell, serial):
-        return UNSAMPLED_WEIGHT
-    return LEGACY_DENIAL_SAMPLE_EVERY
-
-
 def backfill_live_signals(db_path: Path) -> tuple[int, int]:
     """Back-fill live-parsed signals and sample weights onto pre-capture rows.
 
@@ -1920,37 +1694,16 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
       parsers. A live-slice row with no live-shaped snapshot (a 404-stamped
       poll that never stored one) stays ``NULL`` and is re-examined next run;
       that residue is a handful of rows, so the rescan stays cheap.
-    - **Weights** (``sample_weight``): :func:`legacy_denial_sample_weight` reads
-      the row's inclusion probability back off its serial, against one reading
-      of :func:`live_slice_serials` shared by the batch, and the pass writes it
-      only where it is :data:`UNSAMPLED_WEIGHT` (the last paragraph of this
-      bullet). Weights land exactly at ingest time, so this fills only what no
-      channel ever weighted. A NULL is the predicate, and that is the whole safety
-      argument, in both directions. Downward, a stored weight can be a
-      *certainty* the corpus cannot re-derive — a poller row inside a
-      walker-covered sampled range reads as sampled after the fact, because the
-      rule cannot tell the channels apart — so overwriting one from here would
-      raise a denial that was included with certainty back to a sampled weight it
-      does not carry. Upward, the stored value can equally be *wrong* the other
-      way: a weight this rule would derive at
-      :data:`LEGACY_DENIAL_SAMPLE_EVERY` but which some earlier write latched to
-      :data:`UNSAMPLED_WEIGHT` leaves its block's unobserved petitions
-      represented by nobody. Neither is this pass's to settle. Re-weighting a
-      stored row moves published figures, so it would have to be a deliberate
-      act on the frame — a reviewed writer-lane pass whose dry-run ledger a
-      maintainer reads — never a convergence sweep that runs at every walk.
-      What this pass's guard *does* prevent is minting the error: a NULL row in
-      an enumerated block can never come out of here at
-      :data:`LEGACY_DENIAL_SAMPLE_EVERY`.
-      A NULL row the rule *would* weight above :data:`UNSAMPLED_WEIGHT` is
-      not written at all: :func:`require_unit_weight` raises, the pass rolls
-      back, and the run that called it fails naming the row.
+    - **Weights** (``sample_weight``): a live-slice row no channel ever weighted
+      is written at :data:`UNSAMPLED_WEIGHT`, the weight every stored row
+      carries. A NULL is the predicate: a stored weight is never rewritten from
+      here, so a row ``validate-corpus`` would fail (``sample_weights_are_unit``)
+      stays as it is for that check to name.
 
     Idempotent and self-limiting: both predicates match nothing at steady
     state. Returns ``(signal_rows, weight_rows)`` back-filled.
     """
     signal_rows = 0
-    weight_rows = 0
     with corpus.connect(db_path) as conn, conn:
         pending = conn.execute(
             f"SELECT case_id FROM cases WHERE {corpus.LIVE_SLICE_SQL} "
@@ -1978,27 +1731,9 @@ def backfill_live_signals(db_path: Path) -> tuple[int, int]:
                 ),
             )
             signal_rows += 1
-        unweighted = conn.execute(
-            f"SELECT case_id, docket_number, disposition FROM cases "
-            f"WHERE {corpus.LIVE_SLICE_SQL} AND sample_weight IS NULL ORDER BY case_id"
-        ).fetchall()
-        # One reading of the live slice's serials for the whole batch: the rule
-        # would otherwise re-scan it per row. Built only where there is something
-        # to weight, so a converged corpus pays nothing.
-        serials = live_slice_serials(conn) if unweighted else {}
-        for record in unweighted:
-            weight = legacy_denial_sample_weight(
-                conn,
-                str(record["docket_number"]),
-                None if record["disposition"] is None else str(record["disposition"]),
-                serials=serials,
-            )
-            # Raised inside the transaction, so a refused weight rolls back the
-            # whole pass and the corpus is left as it was found.
-            require_unit_weight(weight, row=str(record["case_id"]), writer="backfill_live_signals")
-            conn.execute(
-                "UPDATE cases SET sample_weight = ? WHERE case_id = ?",
-                (weight, str(record["case_id"])),
-            )
-            weight_rows += 1
+        weight_rows = conn.execute(
+            f"UPDATE cases SET sample_weight = ? "
+            f"WHERE {corpus.LIVE_SLICE_SQL} AND sample_weight IS NULL",
+            (UNSAMPLED_WEIGHT,),
+        ).rowcount
     return signal_rows, weight_rows

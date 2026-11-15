@@ -40,6 +40,7 @@ The corpus has two halves:
     case.json                                    # the CorpusRow
     events.json                                  # the case's events
     snapshots/<YYYY-MM-DD>.json                  # dated point-in-time docket payload
+    onboard/partial.json                         # an unfinished first read's pages (not a snapshot)
     documents/documents.json                     # manifest: kind -> current text leaf
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
   scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
@@ -58,7 +59,11 @@ The corpus has two halves:
   reads it: where the live channel and a CourtListener refresh both read a
   SCOTUS docket on one day, the day's key holds the Court's own docket, because
   the refresh leaves a stored live snapshot in place and a live poll replaces a
-  refresh's. The small manifests are
+  refresh's. `onboard/partial.json` is working
+  state: the pages a watchlist docket's first whole read fetched before it
+  stopped, which its next onboard goes on from; it sits outside `snapshots/`,
+  so no snapshot read finds it, and it is emptied when the docket's first
+  snapshot is stored. The small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is
   *derived* from the stored petition text rather than fetched, so a fixed
   extractor can be carried onto rows already stored (`fedcourts
@@ -124,7 +129,7 @@ source.
 | `conference_history` | text | every conference a cert petition was distributed for, in docket order, as a JSON list of `{conference, distributed, transition}` (`pipeline.cert_signals.conference_history`): one step per distinct conference date named by a petition distribution (the `dist-v2` reading `distribution_count` holds), with the filing date of the entry that first named it and how the petition got there — `first`, `relist` (the conference before sat on it, and this entry followed within 14 days), `reschedule` (moved before the conference before sat, or taken off it by a call for response or a "Rescheduled" entry), `redistributed` (more than 14 days after a conference that sat), `after_decision` or `unknown`; its `relist` steps are the exact relist count, where `distribution_count - 1` is an upper bound; published on the schedule (`data/schedule/schedule.json`); written by the live poll's cert branch at ingest, latched so a longer reading wins; withheld from the `query` retrieval rows; null = an application, a row with no live proceedings, or not live-parsed since the column existed; `[]` = parsed and never distributed |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
-| `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row; a stored value other than 1 fails `validate-corpus` |
+| `sample_weight`       | integer         | how many petitions the row stands for: 1 on every row a channel has weighted, since each decided petition is its own row; null = no channel weighted the row; a stored value other than 1 fails `validate-corpus` |
 | `has_opinion`         | integer (0/1)   | presence bit for a linked published opinion — kept in the index so the scope classifiers still work when the split moves the `opinion_text` body to the content store |
 | `salience_score`      | real            | the salience gate's deterministic score ([docs/salience.md](../docs/salience.md)); owned by the selection pass, never an ingestion channel |
 | `salience_version`    | text            | the frozen scorer version the score was written under; null = unscored row |
@@ -233,17 +238,11 @@ fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live
 channel stamped — which on `response_requested_at` would leave the max-latched
 `response_requested` flag standing beside a null date, the shape reserved for a
-genuinely undated request. `sample_weight` is
-min-latched — an inclusion probability is only ever learned toward certainty —
-so a weighted aggregate can multiply by it and count a denial the earlier
-sampled walk kept at full strength; null means no channel asserted a weight. The
-walk keeps every decided petition, but what it writes is a reading of the corpus
-rather than its own certainty: `ingest_live_payload` re-derives an asserted
-weight of 1 through `legacy_denial_sample_weight`, which reads a denial on the
-earlier walk's sample grid as certain only where the block around it is stored
-row by row. A write
-that would store any weight other than 1 is refused at ingest, and
-`validate-corpus` fails on a stored one (`sample_weights_are_unit`). The
+genuinely undated request. `sample_weight` is 1 on every row a channel has
+weighted, and null where no channel asserted one: `ingest_live_payload` writes
+1, the upsert keeps the smaller of the stored and the incoming weight, a write
+that would store any other weight is refused at ingest, and `validate-corpus`
+fails on a stored one (`sample_weights_are_unit`). The
 response deadline (`response_due`, `response_due_state`) is a pair on the same
 terms, keyed on the incoming state: a writer with no reading keeps both, and a
 fresh reading takes both, because the reading that matters most is the one that

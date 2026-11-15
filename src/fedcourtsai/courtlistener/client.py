@@ -438,6 +438,8 @@ class CourtListenerClient:
         date_filed_gte: date | None = None,
         date_modified_gte: date | None = None,
         on_request: Callable[[], None] | None = None,
+        cursor: str | None = None,
+        on_page: Callable[[list[JsonDict], str | None], None] | None = None,
     ) -> EntryPages:
         """Read up to ``max_pages`` pages of a docket's entries, following the cursor.
 
@@ -448,6 +450,14 @@ class CourtListenerClient:
         that needs every entry treats an incomplete read as a refusal, never as
         the whole docket. ``on_request`` is called before each page is sent, so
         a caller keeping its own request count stays exact when a page fails.
+
+        ``cursor`` starts the read at the page an earlier read's ``next`` link
+        named rather than at the first, so a read that stopped part-way can be
+        taken up where it stopped; the result then holds only the pages from
+        there on. ``on_page`` is called with each page's entries as it arrives
+        and the cursor of the page after it (``None`` after the last page, and
+        after the page that reaches ``max_pages``), so a caller holds what a
+        read fetched, and where it would go next, when a later page fails.
         """
         if max_pages < 1:
             raise ValueError("max_pages must be >= 1")
@@ -458,22 +468,35 @@ class CourtListenerClient:
             asked["date_modified__gte"] = date_modified_gte.isoformat()
         if on_request is not None:
             on_request()
-        payload = self.list_docket_entries(
-            docket_id, date_filed_gte=date_filed_gte, date_modified_gte=date_modified_gte
-        )
-        entries: list[JsonDict] = list(payload.get("results", []))
-        pages = 1
-        while (next_url := payload.get("next")) and pages < max_pages:
-            params = self.link_params(next_url, "docket-entries/")
-            # The link must re-ask the first page's question, adding only its
-            # cursor: a dropped date filter would quietly widen the read.
-            if {k: v for k, v in params.items() if k not in _CURSOR_KEYS} != asked:
-                raise ValueError(f"docket-entries next link asks another question: {next_url!r}")
+        if cursor is None:
+            payload = self.list_docket_entries(
+                docket_id, date_filed_gte=date_filed_gte, date_modified_gte=date_modified_gte
+            )
+        else:
+            payload = self._get("docket-entries/", {**asked, "cursor": cursor})
+        entries: list[JsonDict] = []
+        pages = 0
+        while True:
+            found: list[JsonDict] = list(payload.get("results", []))
+            entries.extend(found)
+            pages += 1
+            next_url = payload.get("next")
+            params: dict[str, str] | None = None
+            if next_url and pages < max_pages:
+                params = self.link_params(next_url, "docket-entries/")
+                # The link must re-ask the first page's question, adding only its
+                # cursor: a dropped date filter would quietly widen the read.
+                if {k: v for k, v in params.items() if k not in _CURSOR_KEYS} != asked:
+                    raise ValueError(
+                        f"docket-entries next link asks another question: {next_url!r}"
+                    )
+            if on_page is not None:
+                on_page(found, params.get("cursor") if params is not None else None)
+            if params is None:
+                break
             if on_request is not None:
                 on_request()
             payload = self._get("docket-entries/", dict(params))
-            entries.extend(payload.get("results", []))
-            pages += 1
         return EntryPages(entries=entries, pages=pages, complete=not payload.get("next"))
 
     def iter_docket_entries(

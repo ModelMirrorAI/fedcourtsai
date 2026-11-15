@@ -429,6 +429,18 @@ def test_watchlist_throttle_waits_outlast_a_minute_window_and_fit_the_step(
         load_watchlist_refresh_config(tmp_path)
 
 
+def test_watchlist_kept_onboard_pages_outlast_a_turn_of_the_lead(tmp_path: Path) -> None:
+    cfg = load_watchlist_refresh_config(_REPO / "config")
+    # A stopped onboard's docket leads again within as many days as onboards
+    # are pending; kept pages must still be usable then, and for a few turns.
+    assert cfg.onboard_resume_max_age_days >= 7
+    (tmp_path / "tracking.yaml").write_text(
+        "watchlist_refresh: {onboard_resume_max_age_days: -1}\n"
+    )
+    with pytest.raises(ValueError, match="onboard_resume_max_age_days"):
+        load_watchlist_refresh_config(tmp_path)
+
+
 def test_pull_lane_is_sized_for_every_scheduled_pull_window() -> None:
     budget = load_courtlistener_budget(_REPO / "config")
     workflow = yaml.safe_load((_REPO / ".github" / "workflows" / "run-pull.yml").read_text())
