@@ -19,6 +19,7 @@ Layout (under the configured ``s3://<bucket>/<prefix>``)::
         case.json                              # the CorpusRow (facts + our tracking)
         events.json                            # the case's CorpusEvent list
         snapshots/<YYYY-MM-DD>.json            # dated point-in-time docket payload
+        onboard/partial.json                   # an unfinished first read's pages (not a snapshot)
         documents/documents.json               # manifest: kind -> current text leaf
         documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed leaf)
     scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
@@ -30,6 +31,12 @@ documents' writings. A dated snapshot has one key per day, which the day's last
 writer holds; a CourtListener refresh leaves a stored live snapshot in place
 (``pull.pull_case``), so on a day both channels read a docket the key holds the
 Court's own.
+``onboard/partial.json`` is working state rather than content: the pages a
+watchlist docket's first whole read fetched before it stopped, kept so the next
+run continues from them (:mod:`fedcourtsai.pipeline.watchlist_refresh`). It sits
+outside ``snapshots/``, which is the only prefix a snapshot read lists, and its
+body is not a docket, so nothing can read it as one; it is rewritten each time
+the read stops further on and emptied when the docket's first snapshot lands.
 ``case.json`` / ``events.json`` / ``documents.json`` are small mutable manifests
 overwritten as the case evolves — S3 object versioning retains their history, and
 a consumer pins the exact content it read via the recorded object key + digest
@@ -787,6 +794,11 @@ def snapshot_key(case_id: str, snapshot_date: date) -> str:
     return f"{case_prefix(case_id)}/snapshots/{snapshot_date.isoformat()}.json"
 
 
+def onboard_partial_key(case_id: str) -> str:
+    """Where an unfinished first read's pages are kept: beside ``snapshots/``, never in it."""
+    return f"{case_prefix(case_id)}/onboard/partial.json"
+
+
 def documents_manifest_key(case_id: str) -> str:
     return f"{case_prefix(case_id)}/documents/documents.json"
 
@@ -858,6 +870,32 @@ def write_snapshot(
     key = snapshot_key(case_id, snapshot_date)
     transport.put(key, body)
     return ObjectRef(key=key, digest=digest_bytes(body), size=len(body))
+
+
+def write_onboard_partial(
+    transport: ObjectTransport, case_id: str, payload: Mapping[str, Any]
+) -> ObjectRef:
+    """Write a case's unfinished-onboard object; overwrite (working state, one key a case)."""
+    body = _canonical_json(dict(payload))
+    key = onboard_partial_key(case_id)
+    transport.put(key, body)
+    return ObjectRef(key=key, digest=digest_bytes(body), size=len(body))
+
+
+def read_onboard_partial(transport: ObjectTransport, case_id: str) -> dict[str, Any] | None:
+    """A case's unfinished-onboard object, or ``None`` when absent or not a JSON object.
+
+    What the object means, and whether it is still usable, is its writer's to
+    judge (:mod:`fedcourtsai.pipeline.watchlist_refresh`).
+    """
+    body = transport.get(onboard_partial_key(case_id))
+    if body is None:
+        return None
+    try:
+        found = json.loads(body)
+    except ValueError:
+        return None
+    return found if isinstance(found, dict) else None
 
 
 def _put_document_leaf(

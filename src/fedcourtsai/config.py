@@ -383,7 +383,7 @@ class WatchlistRefreshConfig(BaseModel):
     # Longest wait, in seconds, a 429's own Retry-After may cost before the
     # refused request is sent again. Above a minute, so a refusal by the
     # account's per-minute window is waited out rather than failing the read
-    # (a failed onboard keeps none of its pages); an hour- or day-scale wait is
+    # (the rest of a long onboard waits behind it); an hour- or day-scale wait is
     # over it and fails the docket at once. Zero never waits.
     max_throttle_wait_seconds: float = Field(default=65.0, ge=0)
     # Most seconds one run may spend on those waits in all, at least one
@@ -392,6 +392,13 @@ class WatchlistRefreshConfig(BaseModel):
     # timeout in the pull job; `max_run_minutes` is checked only between
     # dockets.
     throttle_wait_budget_seconds: float = Field(default=180.0, ge=0)
+    # Days after an onboard first began that the pages it kept when it stopped
+    # are still gone on from; older kept pages are ignored and the docket is
+    # read whole again. The read that closes a resumed onboard sees entries
+    # added or changed since it began, but not one deleted upstream, so this
+    # bounds how long a first snapshot can trail such a deletion. Zero keeps
+    # pages for the same day only.
+    onboard_resume_max_age_days: int = Field(default=14, ge=0)
 
     @model_validator(mode="after")
     def _budget_covers_one_wait(self) -> WatchlistRefreshConfig:
