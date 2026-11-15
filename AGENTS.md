@@ -516,7 +516,7 @@ same PR.
   files `data/qp-topics/qp-topics.json` and
   `data/qp-topics/qp-topics-applications.json`, the `event.yaml`, `outcome.json`,
   `prediction.json`, `prediction_summary.md` and `evaluation.json` records and
-  the case summaries under `data/cases/`, the release manifest `docs/releases.json`, and each release
+  the case summaries under `data/cases/`, the release manifest `docs/releases.json`, each release
   document at its tag, and the daily `status.json` on the `ops-metrics` branch.
   A change to the shape of any of these needs a matching
   PR on the site repository, opened alongside it and linked from both

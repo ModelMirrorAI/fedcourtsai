@@ -58,8 +58,9 @@ predictor side by side — on an issue the maintainer closes once read) and
 document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly
 public update history, the
-labeling lane (the qp-topic labeler per frame and the merits side coder, the
-only modes that run an agent, weekly behind the `review` hold), the adverse-order scan
+labeling lane (the only modes that run an agent: the qp-topic labeler per
+frame and the merits side coder weekly behind the `review` hold, the
+replicates dispatch-only), the adverse-order scan
 of CourtListener's RECAP index, the weekly AI-watchlist candidate and
 follow-on docket checks, the weekly merits coverage check against the
 Court's Granted & Noted list, the daily order-list reconciliation, and the

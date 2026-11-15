@@ -878,8 +878,9 @@ export of the ledger built from the tagged commit by `fedcourts export` — a
 predictions table and a gradings table (CSV and Parquet), the reasoning
 documents, a data dictionary, the schemas, and a manifest naming the commit and
 each file's checksum — deposited on Zenodo as a dataset record. The
-long-conference release published the first
-([10.5281/zenodo.23263986](https://doi.org/10.5281/zenodo.23263986)). The data files are under
+long-conference release's is
+[10.5281/zenodo.23263986](https://doi.org/10.5281/zenodo.23263986). The data
+files are under
 **CC BY 4.0**, a licence that covers only the project's own predictions,
 outcomes and evaluations; the schemas are generated from the code and ship
 under its BSD 3-Clause licence. It carries **no code**. Everything in it is the
