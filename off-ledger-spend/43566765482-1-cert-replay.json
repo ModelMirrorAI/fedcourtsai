@@ -1,0 +1,40 @@
+{
+  "conclusion": "success",
+  "environment": "prod",
+  "estimated_cost_usd": 12.6947481,
+  "lane": "cert-replay",
+  "leg": "cert-replay",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 599706,
+      "cache_read_input_tokens": 4386159,
+      "engine": "claude-code",
+      "estimated_cost_usd": 9.3285798,
+      "input_tokens": 176,
+      "model": "claude-fable-5-2",
+      "output_tokens": 61322,
+      "priced_as": null,
+      "records": null,
+      "source": "claude-transcripts"
+    },
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 10055623,
+      "engine": "codex",
+      "estimated_cost_usd": 3.3661683,
+      "input_tokens": 700578,
+      "model": "gpt-6.1-sol",
+      "output_tokens": 95945,
+      "priced_as": null,
+      "records": null,
+      "source": "codex-sessions"
+    }
+  ],
+  "recorded_at": "2026-11-14T12:50:08.803929Z",
+  "ref": "main",
+  "run_attempt": 1,
+  "run_id": "43566765482",
+  "schema_version": "1.0",
+  "selection": "cert",
+  "workflow": "run-backtest"
+}
