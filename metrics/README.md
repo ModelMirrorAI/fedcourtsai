@@ -453,7 +453,14 @@ stays outside the gate:
   which the harness stamps on **every** stage — cert included, unlike the skill
   record beside it — from the scored prediction's committed label and the
   outcome's, so the board's first rank key is recomputed from committed
-  artifacts rather than taken on the evaluator's word. A cell whose `correct`
+  artifacts rather than taken on the evaluator's word. On a cert cell the two
+  labels must match, with `granted-in-part` and `granted` read as one label:
+  the cert resolver records a grant limited to some of the questions as
+  `granted`, so a forecast of that grant under either label is a right call.
+  `gvr` and `summary-reversal` stay labels of their own, each naming a route
+  out of the cert order that a plenary grant is not; no resolver records
+  `summary-reversal`, so a call under that label is right on no recorded
+  outcome. A cell whose `correct`
   the stamp could not compute (no readable prediction, or no committed outcome)
   leaves both halves of the fraction rather than entering as a wrong call, which
   is what `accuracy_scored` beside the column records; read accuracy against
@@ -926,10 +933,11 @@ stays outside the gate:
   miss for it; a block pooling both readings mixes the two rules, as its
   `accuracy` does. `always_deny_accuracy` scores a constant `denied` call over
   exactly the gradings `accuracy` averages — the `accuracy_scored` cells, one
-  per judge. On a cert cell that is the same exact-match rule `correct` uses —
-  so a GVR, a partial grant or a summary reversal is a miss for it, just as it
-  is for a `granted` call. `accuracy_lift` is `accuracy - always_deny_accuracy`, a
-  paired difference over the identical cells. Both are averaged over
+  per judge. On a cert cell that is the same label-match rule `correct` uses —
+  so any outcome but `denied` is a miss for it, and a GVR is a miss for a
+  `granted` call too. `accuracy_lift` is
+  `accuracy - always_deny_accuracy`, a paired difference over the identical
+  cells. Both are averaged over
   **gradings**, so they are weighted by panel depth, and depth varies by
   design; the **per-petition** reading counts each event once:
   `event_accuracy`, `event_always_deny_accuracy` and `event_accuracy_lift` over
