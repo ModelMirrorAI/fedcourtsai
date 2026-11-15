@@ -570,6 +570,33 @@ def _sal_v8_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
     return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v5(row) == "federal"
 
 
+# sal-v9: sal-v8 with the petitioner class read through caption-v6. caption-v6
+# reads federal every row caption-v5 does, and also a petition whose petitioner
+# side has no counsel of record but the Solicitor General's office, whatever
+# party label the Clerk gave its entry (docs/salience.md).
+
+
+def _sal_v9_band(row: corpus.CorpusRow) -> str:
+    """sal-v8's band rule, read through ``caption-v6``."""
+    trajectory = _sal_v5_trajectory(row)
+    cls = caption.petitioner_class_v6(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v9_reachable(row: corpus.CorpusRow) -> tuple[str, ...]:
+    """``sal-v9``'s reachable ladder: the caption partition read through ``caption-v6``."""
+    return _caption_reachable_bands(caption.petitioner_class_v6(row))
+
+
+def _sal_v9_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v6``."""
+    return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v6(row) == "federal"
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -791,6 +818,22 @@ _SAL_V8 = SalienceScorer(
     admits=_sal_v5_admits,  # sal-v7's segment: Rule 20 writs out
 )
 
+# sal-v9: registered, not active (docs/salience.md). sal-v8's score, writ scope
+# and parse pin as the same callables, with the band, carve-in and reachable
+# ladder read through caption-v6. It pins `dist-v2`, the default parse, so its
+# activation moves one constant.
+_SAL_V9 = SalienceScorer(
+    version="sal-v9",
+    score=_sal_v5_score,  # sal-v8's score, unchanged; the caption never weights it
+    band=_sal_v9_band,
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v9_carve_out,
+    selects_arrivals=True,
+    reachable=_sal_v9_reachable,  # caption-v6's partition
+    distribution_parse="dist-v2",
+    admits=_sal_v5_admits,  # sal-v8's segment: Rule 20 writs out
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
@@ -804,6 +847,7 @@ SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
         _SAL_V6.version: _SAL_V6,
         _SAL_V7.version: _SAL_V7,
         _SAL_V8.version: _SAL_V8,
+        _SAL_V9.version: _SAL_V9,
     }
 )
 
