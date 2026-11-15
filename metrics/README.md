@@ -831,9 +831,8 @@ stays outside the gate:
   and the resulting error is outcome-dependent — too harsh on denied cases,
   too generous on granted ones — which means it does not average out of the
   mean. Treat an open Term's realized-Term figure as directional; only a closed
-  Term's is settled. The leave-one-out itself carries a matching residual: it
-  removes one unit, which is the row's whole contribution because each stored
-  row counts once, and
+  Term's is settled. The leave-one-out removes one row, the case's whole
+  contribution;
   on a pack built before the case resolved it over-corrects by one unit —
   bounded by `1 / 30` and self-correcting at the next refresh.
 
@@ -3381,7 +3380,7 @@ the rendered table) and
   by-originating-court table, the only place a state court appears. A
   denominator written `est. n=` and one written `n=` are both row counts, the
   first printed on a section carrying the `weighted: true` flag, so an
-  `est. n=` is exactly that many petitions read; the per-Term census
+  `est. n=` is exactly that many resolved rows; the per-Term census
   prints the observed `ingested (rows)` beside it.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
@@ -3873,15 +3872,9 @@ windows while the paid-cert share is flat at 21.4% → 22.3% → 21.7%. The wind
 *size* is not the confound; its *composition* is. Both the numerator
 (`federal_by_administration`) and the denominator (`frame_by_administration`)
 are therefore keyed on the stratum, and only a stratum-matched share is
-readable across windows — the paid-cert stratum being the one captured whole in
-every window, since the excluded one-in-ten sampled denial block is entirely
-IFP and covers OT2017–OT2024, leaving the two newest Terms of a frame that runs
-to OT2026 with no exclusion at all. **And one stratum is not rescued by holding
-it fixed**: because the exclusion *is* the IFP stratum, the older windows'
-`ifp-cert` cells are the complement of a systematic sample — frame coverage of
-the estimated IFP stratum runs about 3.6% in each of the two older windows
-against 74% in the newest — so no `ifp-cert` series may be read across windows
-from this census — the reweighted IFP rates are `party-rates`, below. **Always with the date convention and
+readable across windows. The census sets no row aside (`sampled_excluded` is 0
+in every cell). **The `ifp-cert` series is not read across windows from this
+census**; the IFP rates are `party-rates`, below. **Always with the date convention and
 the rule version**, both stamped on the artifact (`as_of_field`,
 `rule_version`): a petition filed under one administration is routinely
 resolved under the next, so two cuts are comparable only where both stamps

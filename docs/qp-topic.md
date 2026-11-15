@@ -1035,10 +1035,9 @@ the corpus is a **document-fetch artifact, not a sample**:
 - QP-bearing rows are **grant-enriched by roughly an order of magnitude**
   (the exact ratio varies by Term, and the
   newest Term's ratio is censored by still-pending petitions), and coverage
-  is far higher on paid dockets than IFP. Counting each stored IFP denial as
-  the one petition it is therefore shifts
-  the observed mix toward the in-forma-pauperis stream and concentrates
-  `criminal-law`, `firearms`, `constitutional-rights`, and `unclassifiable`.
+  is far higher on paid dockets than IFP, so the labeled mix under-represents
+  the in-forma-pauperis stream, where `criminal-law`, `firearms`,
+  `constitutional-rights`, and `unclassifiable` concentrate.
 - **The labeled rows are the QP-bearing part of one frame, and it is the
   published cut's own frame.** `qp-corpus` selects the live/historical slice's
   modern discretionary-cert petitions — the same frame the docket pack's topic

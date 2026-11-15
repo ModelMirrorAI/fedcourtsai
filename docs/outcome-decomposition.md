@@ -531,8 +531,9 @@ underlying point survives either way: for a petition already relisted, "will be
 relisted at least once" is trivially true.
 
 Measured over the population the gate actually predicts on — paid modern-cert
-petitions, live/historical slice, resolved, denial-reweighted, conditioned on
-sitting at a single distribution — a petition faces about a **26%** chance of
+petitions, live/historical slice, resolved, denial-reweighted (measured on a
+blob that stored one IFP denial in ten at weight 10, and not re-measured),
+conditioned on sitting at a single distribution — a petition faces about a **26%** chance of
 being relisted at all (est. n≈13,100). Over the whole live-parsed slice with IFP
 included the same rate is **19%** (est. n≈43,300).
 
@@ -562,16 +563,9 @@ A base rate far enough from 0 to be worth forecasting leaves room for a forecast
 to move it; whether the docket and the briefs support *skill* over that base rate
 is unmeasured, because nothing here has ever scored a predictor on relist.
 
-The weighting is not optional bookkeeping. The walk's legacy sampled rows keep
-one denial in ten (`sample_weight` reconstructs the rest; freshly walked rows
-carry weight 1), and relists correlate with non-denial, so a raw count runs high
-while legacy rows remain in the pool — measured at 26.2% unweighted against
-19.0% reweighted over the same rows. Worse, the frame is not uniform, and the
-axis it splits on is the **fee class** rather than the Term: every paid cell is
-walked row by row at weight 1, while the sampled design survives only in the IFP
-stream of the earlier Terms — so a row-count pool that spans fee classes
-silently mixes two sampling designs, and one that spans Terms within the paid
-stream does not. `metrics/README.md` states the rule this paragraph is obeying.
+Each stored row is one petition, so a rate over the corpus's rows is a rate
+over petitions. The frame is still not uniform across fee classes, so a pool
+that spans them mixes two populations; `metrics/README.md` states the rule.
 
 **The floor priced none of it.** The control was to report a recent-window rate
 while the baseline pooled every prior Term, and the gap between the two windows

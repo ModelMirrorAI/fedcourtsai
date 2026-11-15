@@ -20661,3 +20661,47 @@ freeze commit is recorded here.
   first `run-seed` window on it: the window's `validate-corpus` verdict shows
   `sample_weights_are_unit` passed, and `uv run fedcourts corpus-info
   --legacy-sample` still prints `legacy sample: no weighted rows`.
+
+- **Every reader counts a stored row once, and the censuses' refusal to run
+  over a weighted frame is removed; recorded 2026-11-15.** The read half of the
+  retirement whose write half is the entry above, which says "The readers are
+  unchanged here" and is not otherwise edited. No digest, constant, window or
+  membership moves, and no figure moves on the blob read below.
+
+  **What moved.** The statpack and docket-pack accumulator, the amicus-line
+  fit, `party-rates` and the salience replay stop reading `sample_weight` and
+  count each row once. The caption census, the salience census and the
+  distribution band cut drop their refusal to run over a row stored at a
+  weight other than 1, which the 2026-09-01 entry names ("the three census
+  cuts' refusal to run over a `sample_weight != 1` frame"), and the party
+  census sets no sampled block aside. The published field names are kept:
+  `weighted_resolved`, `prefix_weighted_resolved`, `weighted_granted`, the
+  `weighted` section flag, the amicus-line and salience-replay `weighted_*`
+  fields, `sampled_rows` and `sampled_excluded`. Each `weighted_*` figure
+  equals the row count beside it, and the two `sampled_*` fields are 0. The
+  text the code renders into `metrics/statpack.md`, `metrics/docket.md` and
+  the ops report is unchanged, "denial-reweighted estimates" included, and so
+  are the prompts.
+
+  **Readings**, from the blob `staging`'s corpus pointer names (sha256
+  `0ff3e908…`; latest pull 2026-11-15, latest snapshot 2026-07-13), which
+  stores no weight other than 1. Built from `staging`'s tree before the change
+  and from the tree with it, these are byte-identical: `statpack` (JSON and
+  markdown), `docket` (JSON and markdown), `scope-manifest`, `backtest` (2
+  predictors over 65,274 resolved events), `party-rates` and `party-census`
+  under each of `--as-of filed` and `--as-of resolved`, `caption-census`,
+  `distribution-census --candidate-parse dist-v2` and `amicus-line-fit`. The
+  party census prints `sampled-excluded=0` on every frame line. `uv run
+  fedcourts process-digest --all` prints the same six digests before and
+  after. `salience-replay` over the committed Term set was not run to
+  completion.
+
+  **What is given up.** A census run over a corpus that fails
+  `sample_weights_are_unit` prints figures that count the offending row once,
+  where it raised before. The check that names such a row is the
+  `validate-corpus` verdict the corpus-writer runs carry.
+
+  **Effect check.** On `main`, in the first metrics refresh after the
+  promotion carrying this entry: `jq '[.terms[].classes[] |
+  select(.weighted_resolved != .resolved)] | length' metrics/statpack.json`
+  prints 0.
