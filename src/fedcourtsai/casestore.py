@@ -35,8 +35,8 @@ Court's own.
 watchlist docket's first whole read fetched before it stopped, kept so the next
 run continues from them (:mod:`fedcourtsai.pipeline.watchlist_refresh`). It sits
 outside ``snapshots/``, which is the only prefix a snapshot read lists, and its
-body is not a docket, so nothing can read it as one; it is overwritten as the
-read advances and emptied once the docket's first snapshot lands.
+body is not a docket, so nothing can read it as one; it is rewritten each time
+the read stops further on and emptied when the docket's first snapshot lands.
 ``case.json`` / ``events.json`` / ``documents.json`` are small mutable manifests
 overwritten as the case evolves — S3 object versioning retains their history, and
 a consumer pins the exact content it read via the recorded object key + digest

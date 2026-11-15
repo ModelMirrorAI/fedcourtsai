@@ -630,7 +630,7 @@ class PagedUpstream:
 
     ``slow`` names pages that time out however often they are asked for;
     ``added`` is entries the date-narrowed read serves; ``refuse_cursor`` makes
-    upstream answer any cursor with a 404. Every request is recorded.
+    upstream answer any cursor with ``refusal``. Every request is recorded.
     """
 
     def __init__(self, docket_id: int, pages: int) -> None:
@@ -639,6 +639,7 @@ class PagedUpstream:
         self.slow: set[int] = set()
         self.added: list[dict[str, Any]] = []
         self.refuse_cursor = False
+        self.refusal = 404
         self.asked: list[str] = []
 
     def entries(self, page: int) -> list[dict[str, Any]]:
@@ -658,7 +659,7 @@ class PagedUpstream:
             return httpx.Response(200, json={"results": self.added, "next": None})
         if "cursor" in params and self.refuse_cursor:
             self.asked.append("refused")
-            return httpx.Response(404, json={"detail": "Invalid cursor"})
+            return httpx.Response(self.refusal, json={"detail": "Invalid cursor"})
         page = int(params.get("cursor", "1"))
         self.asked.append(f"page {page}")
         if page in self.slow:
@@ -819,14 +820,24 @@ def test_kept_pages_past_their_age_or_for_another_docket_are_not_used(
     assert upstream.asked == ["count", "docket", "page 1", "page 2", "page 3"]
     assert [(r.entries, r.resumed_pages) for r in late.refreshed] == [(60, 0)]
 
-    for unusable in (
-        {"kind": "onboard-partial", "version": 1, "docket_id": 8, "pages": 1, "cursor": "2"},
-        {"kind": "onboard-partial", "version": 2, "docket_id": 7, "pages": 1, "cursor": "2"},
-        {"kind": "onboard-partial", "version": 1, "docket_id": 7, "pages": 0, "cursor": "2"},
-        {"kind": "onboard-partial", "version": 1, "docket_id": 7, "pages": 1, "cursor": ""},
-        {"id": 7, "docket_entries": []},
+    for index, unusable in enumerate(
+        (
+            {"kind": "onboard-partial", "version": 1, "docket_id": 8, "pages": 1, "cursor": "2"},
+            {"kind": "onboard-partial", "version": 2, "docket_id": 7, "pages": 1, "cursor": "2"},
+            {"kind": "onboard-partial", "version": 1, "docket_id": 7, "pages": 0, "cursor": "2"},
+            {"kind": "onboard-partial", "version": 1, "docket_id": 7, "pages": 1, "cursor": ""},
+            {"id": 7, "docket_entries": []},
+            {
+                "kind": "onboard-partial",
+                "version": 1,
+                "docket_id": 7,
+                "pages": 1,
+                "cursor": "2",
+                "entries": [{"description": "no id"}],
+            },
+        )
     ):
-        other = tmp_path / str(len(str(unusable)))
+        other = tmp_path / f"unusable-{index}"
         casestore.write_onboard_partial(
             store, "cand/7", {"started": TODAY.isoformat(), "entries": [], **unusable}
         )
@@ -834,6 +845,8 @@ def test_kept_pages_past_their_age_or_for_another_docket_are_not_used(
         whole = _onboard(upstream, _db(other), TODAY)
         assert upstream.asked == ["count", "docket", "page 1", "page 2", "page 3"], unusable
         assert whole.refreshed[0].resumed_pages == 0
+        # Pages no onboard will go on from do not outlive the docket's first snapshot.
+        assert "entries" not in json.loads(store.objects[_PARTIAL_KEY])
     store.objects[_PARTIAL_KEY] = b"not json"
     assert _onboard(upstream, _db(tmp_path / "raw"), TODAY).refreshed[0].entries == 60
 
@@ -846,6 +859,12 @@ def test_kept_pages_whose_cursor_upstream_refuses_are_dropped(
     upstream.slow = {3}
     _onboard(upstream, db, TODAY)
     upstream.slow, upstream.refuse_cursor = set(), True
+    upstream.refusal = 403
+    forbidden = _onboard(upstream, db, TODAY + timedelta(days=1))
+    # A refusal of the caller is not a refusal of the cursor: the pages stay.
+    assert "dropped" not in forbidden.failed["cand/7"]
+    assert json.loads(store.objects[_PARTIAL_KEY])["pages"] == 2
+    upstream.refusal = 404
     refused = _onboard(upstream, db, TODAY + timedelta(days=1))
     assert refused.refreshed == []
     assert refused.failed["cand/7"].endswith(
@@ -857,6 +876,52 @@ def test_kept_pages_whose_cursor_upstream_refuses_are_dropped(
     whole = _onboard(upstream, db, TODAY + timedelta(days=2))
     assert upstream.asked == ["count", "docket", "page 1", "page 2", "page 3"]
     assert whole.refreshed[0].entries == 60
+
+
+def test_an_onboard_the_share_stops_keeps_its_pages_and_says_so_in_the_stop_reason(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=4)
+    served = upstream.handle
+
+    def share_spent_at_page_three(request: httpx.Request) -> httpx.Response:
+        if dict(request.url.params).get("cursor") == "3":
+            raise RateBudgetExceeded("lane share spent")
+        return served(request)
+
+    monkeypatch.setattr(upstream, "handle", share_spent_at_page_three)
+    report = _onboard(upstream, db, TODAY)
+    assert report.failed == {} and report.deferred == ["cand/7"]
+    assert report.stop_reason == (
+        "lane share spent "
+        + f"[kept 2 page(s) of entries, read since {TODAY}, for this docket's next onboard]"
+    )
+    assert json.loads(store.objects[_PARTIAL_KEY])["cursor"] == "3"
+
+
+def test_a_docket_with_a_row_and_no_snapshot_goes_on_from_kept_pages_too(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    """Planned incremental, but nothing stored to merge into: the read becomes an onboard."""
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.slow = {3}
+    _onboard(upstream, db, TODAY)
+    upstream.slow = set()
+    upstream.asked.clear()
+    since = TODAY - timedelta(days=3)
+    with upstream.client() as client:
+        done = refresh_docket(
+            client,
+            db,
+            PlannedRefresh("cand", 7, ReadMode.incremental, TODAY - timedelta(days=1), since),
+            max_entry_pages=150,
+            today=TODAY,
+            resume=_RESUME,
+        )
+    assert upstream.asked == ["docket", "count", "page 3", f"since {TODAY - timedelta(2)}"]
+    assert (done.mode, done.entries, done.resumed_pages) == (ReadMode.onboard, 60, 2)
 
 
 def test_a_closing_read_that_fails_keeps_the_whole_read_and_owes_only_itself(

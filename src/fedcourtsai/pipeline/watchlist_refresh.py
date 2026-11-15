@@ -32,9 +32,11 @@ A docket is read three ways:
   sized at the pages still owed, and closes with a read of the entries changed
   since the day the first attempt began, laid over the kept pages by id. Kept
   pages older than ``onboard_resume_max_age_days`` are ignored, and they are
-  emptied once the docket's first snapshot is stored. They are never a
+  emptied when the docket's first snapshot is stored. They are never a
   snapshot: nothing reads them but the onboard that goes on from them. A run
-  that may not write the content store keeps nothing and reads whole.
+  that may not write the content store keeps nothing and reads whole. Kept
+  pages only help past a page that answers on a later day: a page that never
+  answers stops every attempt at the same place until the kept pages age out.
 - **full**, a whole re-read on a day the docket's id picks, once every
   ``full_read_every_days``, so the reads spread across the period. It catches
   what the incremental read cannot see: an entry deleted upstream, or a
@@ -289,9 +291,11 @@ class _OnboardKeeper:
 
     A whole read that stops part-way leaves the pages it fetched, and the
     cursor of the page it stopped on, in the docket's ``onboard/partial.json``;
-    the next run's onboard goes on from that cursor. Upstream orders a docket's
-    entries newest id first and a cursor names a position in that order, so the
-    pages after it are the same entries whenever they are read; what a later
+    the next run's onboard goes on from that cursor. This rests on upstream's
+    own ordering, which the client does not choose: it serves a docket's
+    entries newest id first and its cursor names a position in that order (an
+    entry id), so the pages after it are the same entries whenever they are
+    read; what a later
     day cannot see from there is an entry added or changed since the read
     began, so a read taken up again closes with an incremental read back to
     that day, laid over the kept pages by id. An entry deleted upstream in
@@ -315,6 +319,9 @@ class _OnboardKeeper:
         self._docket_id = planned.docket_id
         self._today = today
         self._resume = resume
+        # Whether the object holds pages at all, usable or not: pages this
+        # docket's onboard will never go on from are emptied when it finishes.
+        self._holds_pages = False
         self.kept = self._load()
 
     def _load(self) -> _KeptPages | None:
@@ -324,6 +331,7 @@ class _OnboardKeeper:
         except Exception as exc:  # broad by design: an unreadable store means a whole read
             logger.warning("watchlist-refresh: kept pages of %s unreadable: %s", self._case_id, exc)
             return None
+        self._holds_pages = body is not None and "entries" in body
         if (
             body is None
             or body.get("kind") != _PARTIAL_KIND
@@ -342,7 +350,7 @@ class _OnboardKeeper:
             and pages >= 1
             and (cursor is None or (isinstance(cursor, str) and cursor))
             and isinstance(entries, list)
-            and all(isinstance(e, dict) for e in entries)
+            and all(isinstance(e, dict) and _has_id(e) for e in entries)
             and 0 <= (self._today - started).days <= self._resume.max_age_days
         ):
             return None
@@ -352,8 +360,10 @@ class _OnboardKeeper:
         """Requests the entries still cost, of a docket upstream counts at ``counted`` pages."""
         if self.kept is None:
             return counted
-        # The pages not yet held (none once the whole read is done), and at
-        # least one page of the closing read.
+        # The pages not yet held (none once the whole read is done), and one
+        # page of the closing read. A closing read that runs longer is not
+        # sized here: the client's limiter holds the run to its share, and a
+        # read it stops keeps its pages like any other.
         rest = 0 if self.kept.cursor is None else max(1, counted - self.kept.pages)
         return rest + 1
 
@@ -460,17 +470,28 @@ class _OnboardKeeper:
         return merge_entries(entries, closing.entries)
 
     def finish(self) -> None:
-        """The docket's snapshot is stored: the kept pages have served, and are emptied."""
-        if self.kept is not None:
+        """The docket's snapshot is stored: whatever pages the object held are emptied."""
+        if self._holds_pages:
             self._drop()
 
 
+def _has_id(entry: Mapping[str, Any]) -> bool:
+    try:
+        int(entry["id"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    return True
+
+
 def _refuses_cursor(exc: BaseException) -> bool:
-    """Whether upstream answered a request with a refusal of the request itself (a 4xx)."""
-    return (
-        isinstance(exc, httpx.HTTPStatusError)
-        and not is_transient(exc)
-        and httpx.codes.is_client_error(exc.response.status_code)
+    """Whether upstream refused the request as asked (400) or found nothing at it (404).
+
+    Not a 401 or 403, which refuse the caller whatever it asks: kept pages are
+    not dropped over a credential.
+    """
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in (
+        httpx.codes.BAD_REQUEST,
+        httpx.codes.NOT_FOUND,
     )
 
 
@@ -481,7 +502,7 @@ def _onboard_keeper(
 
     None without ``resume``, and wherever a corpus write on this database would
     not reach the store (a dev checkout, a scratch database): pages that cannot
-    be emptied again are not read either, so such a run reads whole as before.
+    be emptied again are not read either, so such a run reads whole.
     """
     if resume is None:
         return None

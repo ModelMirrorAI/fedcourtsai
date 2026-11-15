@@ -62,7 +62,7 @@ The corpus has two halves:
   refresh's. `onboard/partial.json` is working
   state: the pages a watchlist docket's first whole read fetched before it
   stopped, which its next onboard goes on from; it sits outside `snapshots/`,
-  so no snapshot read finds it, and it is emptied once the docket's first
+  so no snapshot read finds it, and it is emptied when the docket's first
   snapshot is stored. The small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is
   *derived* from the stored petition text rather than fetched, so a fixed
