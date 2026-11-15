@@ -355,7 +355,15 @@ def test_corpus_info_counts_the_legacy_sample_per_term(fixture_corpus: FixtureCo
     plain = runner.invoke(app, ["corpus-info"])
     assert plain.exit_code == 0, plain.output
     assert "legacy sample" not in plain.stdout  # opt-in: it scans every case row
-    # The fixture carries one weighted denial of its own.
+    # Every fixture row is stored at weight 1.
+    clean = runner.invoke(app, ["corpus-info", "--legacy-sample"])
+    assert clean.exit_code == 0, clean.output
+    assert "legacy sample: no weighted rows" in clean.stdout
+
+    # The count reads the stored column, so the weights are written straight to it.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        conn.execute("UPDATE cases SET sample_weight = 5 WHERE case_id = 'scotus/304'")
+        conn.commit()
     before = runner.invoke(app, ["corpus-info", "--legacy-sample"])
     assert before.exit_code == 0, before.output
     assert "legacy sample: 1 weighted row(s) (OT22 1)" in before.stdout

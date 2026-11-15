@@ -232,12 +232,11 @@ def test_an_empty_proceedings_list_is_degradation_not_a_count_of_zero(tmp_path: 
     assert (result.scored_segment, result.scored_segment_unobservable) == (0, 1)
 
 
-def test_a_subsampled_census_frame_row_refuses_the_band_cut(tmp_path: Path) -> None:
-    """The band matrix counts raw, as both censuses do, so it refuses a weight.
+def test_a_census_frame_row_stored_with_a_weight_is_cut_once(tmp_path: Path) -> None:
+    """The band matrix counts raw, as both censuses do, whatever weight a row stores.
 
-    Published beside `distribution-census` figures, a denial-sampled row would
-    silently stand for ten. The *write* is per-row and indifferent to weight,
-    which is why the refusal is keyed on the census frame rather than the walk.
+    A census-frame row with a `sample_weight` above 1 is one petition: the pass
+    walks it, writes its count, and places it in the matrix exactly once.
     """
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
@@ -245,9 +244,11 @@ def test_a_subsampled_census_frame_row_refuses_the_band_cut(tmp_path: Path) -> N
             conn, [_row("scotus/1", "24-100").model_copy(update={"sample_weight": 10.0})]
         )
         corpus.upsert_snapshot(conn, "scotus/1", date(2026, 8, 1), _live(_OWN, _MOTION))
-        with pytest.raises(ValueError, match="must not run over a subsampled census frame"):
-            rederive_distribution_counts(conn, parse="dist-v2", apply=True)
-        assert _stored(conn, "scotus/1") == 2
+        result = rederive_distribution_counts(conn, parse="dist-v2", apply=True)
+        assert _stored(conn, "scotus/1") == 1
+    assert (result.eligible, result.observable, result.changed) == (1, 1, 1)
+    assert (result.scored_segment, result.scored_segment_unobservable) == (1, 0)
+    assert sum(move.n for move in result.band_moves) == 1
 
 
 def test_the_incumbent_parse_moves_nothing_when_the_column_agrees_with_it(

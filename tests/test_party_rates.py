@@ -2,9 +2,9 @@
 
 The cut publishes shares, so the fixtures pin the parts of a share a reader
 cannot see from the number: which rows are in the denominator (substantive asks
-only, one row per docket, pending and unreadable rows outside), how the sampled
-denial block is restored to full strength, and what `--through` does to an
-outcome dated after the cut.
+only, one row per docket, pending and unreadable rows outside), that a row
+stored with a `sample_weight` above 1 counts once like any other, and what
+`--through` does to an outcome dated after the cut.
 """
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ def _rates_corpus(db: Path) -> None:
             date_cert_granted=date(2019, 10, 1),
             disposition=Disposition.granted,
         ),
-        _row(  # ...and one sampled denial standing for ten
+        _row(  # ...and one denial stored with a weight of 10, counted once
             "scotus/8",
             "John Poe v. United States",
             docket_number="18-5010",
@@ -150,17 +150,17 @@ def test_every_rate_carries_its_numerator_and_denominator(tmp_path: Path) -> Non
     )
 
 
-def test_the_sampled_block_counts_at_its_weight(tmp_path: Path) -> None:
-    """A sampled denial is ten denials in the rate, one row in the raw pair."""
+def test_a_row_stored_with_a_weight_counts_once(tmp_path: Path) -> None:
+    """A denial stored with `sample_weight` 10 is one denial: the weighted pair is the raw pair."""
     db = tmp_path / "corpus.db"
     _rates_corpus(db)
     with corpus.connect(db) as conn:
         rates = party_rates(conn, as_of_field="filed")
     cells = _cells(rates)
     ifp = cells[("trump-45", "ifp-cert", "respondent")]
-    assert (ifp.rows, ifp.sampled_rows, ifp.resolved, ifp.granted) == (2, 1, 2, 1)
-    assert (ifp.weighted_resolved, ifp.weighted_granted) == (11, 1)
-    assert ifp.grant_rate == pytest.approx(1 / 11)
+    assert (ifp.rows, ifp.sampled_rows, ifp.resolved, ifp.granted) == (2, 0, 2, 1)
+    assert (ifp.weighted_resolved, ifp.weighted_granted) == (ifp.resolved, ifp.granted)
+    assert ifp.grant_rate == pytest.approx(1 / 2)
     paid = cells[("trump-45", "paid-cert", "petitioner")]
     assert (paid.granted, paid.resolved, paid.grant_rate) == (1, 1, 1.0)
     unreadable = cells[("trump-45", "paid-cert", "respondent")]
@@ -199,14 +199,14 @@ def test_since_bounds_the_cut_from_below(tmp_path: Path) -> None:
     assert rates.filed_before_since == 5
 
 
-def test_a_sampled_row_decided_after_the_cut_is_pending(tmp_path: Path) -> None:
-    """Under `through` a sampled denial dated later drops out of both pairs."""
+def test_a_weighted_row_decided_after_the_cut_is_pending(tmp_path: Path) -> None:
+    """Under `through` a denial dated later drops out of both pairs, whatever its stored weight."""
     db = tmp_path / "corpus.db"
     _rates_corpus(db)
     with corpus.connect(db) as conn:
         rates = party_rates(conn, as_of_field="filed", through=date(2019, 9, 1))
     ifp = _cells(rates)[("trump-45", "ifp-cert", "respondent")]
-    assert (ifp.rows, ifp.sampled_rows, ifp.pending) == (2, 1, 2)
+    assert (ifp.rows, ifp.sampled_rows, ifp.pending) == (2, 0, 2)
     assert (ifp.weighted_resolved, ifp.grant_rate) == (0, None)
 
 
@@ -250,9 +250,10 @@ def test_the_command_prints_the_rates_with_its_vintage(
     )
     assert "corpus latest pull never pulled" in result.stderr
     assert "trump-47 application federal-petitioner: granted 1/2 = 50.0%" in result.stderr
-    assert "granted 1/11 = 9.1% (raw 1/2, 1 sampled row(s) counted at their weight)" in (
-        result.stderr
-    )
+    # The row stored with a weight counts once, so the share is the raw pair
+    # and the line carries no sampled-row note.
+    assert "trump-45 ifp-cert federal-respondent: granted 1/2 = 50.0%;" in result.stderr
+    assert "sampled row(s)" not in result.stderr
     payload = json.loads(result.stdout)
     assert payload["through"] == "2025-10-01"
     assert payload["as_of_field"] == "filed"
