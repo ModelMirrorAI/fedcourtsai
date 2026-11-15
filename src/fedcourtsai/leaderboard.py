@@ -2022,7 +2022,7 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
     under, never the corpus's current one. The always-deny figure is
     :func:`fedcourtsai.pipeline.evaluate.is_correct` itself, applied to the
     scored prediction with its call replaced by ``denied``, so the floor and
-    ``Evaluation.correct`` answer to one exact-match rule; the scored
+    ``Evaluation.correct`` answer to one label-match rule; the scored
     prediction is re-scored too, so a grading whose stamped ``correct`` no
     longer reproduces against the committed outcome is detectable. A cell with no
     readable scored prediction is left out, which leaves its stratum's floor

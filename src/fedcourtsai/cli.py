@@ -16913,8 +16913,8 @@ def _harness_correct_for(
 
     The stage's own label comparison between the two committed artifacts,
     through the shared numeric core
-    (:func:`fedcourtsai.pipeline.evaluate.is_correct`, which routes on the
-    outcome: judgment on a merits cell, disposition elsewhere), so the stamped
+    (:func:`fedcourtsai.pipeline.evaluate.stage_correct`: judgment on a merits
+    cell, disposition elsewhere, under the event's own stage rule), so the stamped
     bit is the definition rather than a restatement of it. The scored prediction
     is the predictor's **latest** for this event, the same join the Brier and
     the claim block take.

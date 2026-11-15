@@ -36,6 +36,7 @@ from fedcourtsai.pipeline.evaluate import (
     is_correct,
     judgment_correct,
     segment_base_rate,
+    stage_correct,
     vote_accuracy,
 )
 from fedcourtsai.pipeline.moments import moments_for, scores_votes
@@ -1002,6 +1003,55 @@ def test_correct_stays_the_disposition_axis_off_the_merits_stage() -> None:
     # comparison is unchanged — the path every committed evaluation took.
     assert is_correct(_prediction(0.9), _outcome(1)) == 1
     assert is_correct(_prediction(0.1), _outcome(1)) == 0
+
+
+def _labelled(prediction: Disposition, outcome: Disposition) -> tuple[Prediction, Outcome]:
+    # Round-tripped through JSON, so each label is held as a committed record
+    # holds it.
+    said = _prediction(0.9).model_copy(update={"predicted_disposition": prediction})
+    recorded = _outcome(1).model_copy(update={"actual_disposition": outcome})
+    return (
+        Prediction.model_validate_json(said.model_dump_json()),
+        Outcome.model_validate_json(recorded.model_dump_json()),
+    )
+
+
+@pytest.mark.parametrize(
+    ("prediction", "outcome"),
+    [
+        (Disposition.granted_in_part, Disposition.granted),
+        (Disposition.granted, Disposition.granted_in_part),
+        (Disposition.granted_in_part, Disposition.granted_in_part),
+    ],
+)
+def test_a_cert_cell_reads_a_limited_grant_and_a_grant_as_one_label(
+    prediction: Disposition, outcome: Disposition
+) -> None:
+    # The cert resolver records a question-limited grant as `granted`, so a
+    # forecast of that grant under either label names the recorded outcome.
+    said, recorded = _labelled(prediction, outcome)
+    assert is_correct(said, recorded) == 1
+    assert stage_correct(said, recorded, interim=False) == 1
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [Disposition.gvr, Disposition.summary_reversal, Disposition.denied, Disposition.dismissed],
+)
+def test_a_limited_grant_call_matches_no_other_cert_label(outcome: Disposition) -> None:
+    # Only the two merits-opening grant labels are read as one: a GVR and a
+    # summary reversal are routes of their own, recorded under their own labels.
+    said, recorded = _labelled(Disposition.granted_in_part, outcome)
+    assert is_correct(said, recorded) == 0
+    assert is_correct(*_labelled(Disposition.granted, outcome)) == 0
+
+
+def test_an_interim_cell_on_the_registered_reading_keeps_the_labels_apart() -> None:
+    # The one-label rule is the cert stage's: an interim cell scored on the
+    # registered reading compares the labels as written.
+    said, recorded = _labelled(Disposition.granted_in_part, Disposition.granted)
+    assert is_correct(said, recorded, interim=True) == 0
+    assert stage_correct(said, recorded, interim=True) == 0
 
 
 # --- vote_accuracy: the stage gate on the one quantity that has one --------------
