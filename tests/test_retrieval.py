@@ -912,11 +912,51 @@ def test_codex_code_mode_leaves_an_index_that_names_no_engine_tool(tmp_path: Pat
     # own object, and an index that is not called is not a call.
     source = (
         'const tools = {helper: (x) => x}; tools["helper"](1); '
-        + "const first = tools[0]; const n = tools[key];"
+        + "const first = tools[0]; const n = tools[key]; found.tools[0](1);"
     )
     sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
 
     assert [row.tool for row in parse_codex_retrieval(sessions)] == ["exec"]
+
+
+def test_codex_code_mode_index_scan_stays_linear_on_a_run_of_spaces(tmp_path: Path) -> None:
+    # Agent-authored source in a post-run step: an unclosed index followed by a
+    # long run of spaces must cost a scan, not a backtracking search.
+    source = "tools[" + " " * 20000 + "x"
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+    started = time.monotonic()
+    rows = parse_codex_retrieval(sessions)
+
+    assert [row.tool for row in rows] == ["exec"]
+    assert time.monotonic() - started < 2.0
+
+
+def test_codex_code_mode_keeps_a_computed_shell_call_out_of_the_attempt_count(
+    tmp_path: Path,
+) -> None:
+    # A computed row names no tool, so nothing says it ran a command.
+    source = 'await tools[name]({cmd: "uv run fedcourts query --court scotus"});'
+    sessions = _codex_rollout(tmp_path, *_code_mode_call("//\n" * 300 + source, "{}"))
+    rows = parse_codex_retrieval(sessions)
+
+    assert rows[-1].tool == retrieval.CODE_MODE_COMPUTED_TOOL
+    assert not collect.attempted_corpus_query(rows[1:])
+
+
+def test_codex_code_mode_cannot_tell_a_program_local_computed_call_from_the_engines(
+    tmp_path: Path,
+) -> None:
+    # The limit of the computed row, pinned so it is read as one: a computed
+    # index on the program's own `tools` object looks the same in source as one
+    # on the engine's, so it mints the row too. That is why the row is kept
+    # out of every manifest count.
+    source = "const tools = {a: (x) => x}; const key = 'a'; tools[key](1);"
+    sessions = _codex_rollout(tmp_path, *_code_mode_call(source, "{}"))
+
+    assert [row.tool for row in parse_codex_retrieval(sessions)] == [
+        "exec",
+        retrieval.CODE_MODE_COMPUTED_TOOL,
+    ]
 
 
 def test_codex_code_mode_argument_scan_tolerates_unbalanced_source(tmp_path: Path) -> None:
@@ -1185,7 +1225,9 @@ def test_the_code_mode_literals_are_confirmed_for_the_pinned_codex_version() -> 
     assert retrieval._CODE_MODE_BUILTIN_RE.pattern == (
         r"\btools\.(exec_command|write_stdin|apply_patch|view_image|update_plan|tool_search)\s*\("
     )
-    assert retrieval._CODE_MODE_INDEX_RE.pattern.startswith(r"\btools\[")
+    assert retrieval._CODE_MODE_INDEX_RE.pattern == (
+        r"(?<![.\w$])tools\[((?:[^\[\]]|\[[^\[\]]{0,80}\]){1,200}?)\]\s*\("
+    )
 
 
 # Real codex rollout inputs, reconstructed from committed retrieval logs and

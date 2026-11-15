@@ -538,11 +538,18 @@ _CODE_MODE_BUILTIN_RE = re.compile(
 # time, in a value the program text does not hold, so no reading of the source
 # recovers it. That call is lifted under :data:`CODE_MODE_COMPUTED_TOOL`: a row
 # that says a tool was called and not which. It sits outside the manifest
-# counts, since nothing shows it was a manifest tool, and its number bounds
-# what those counts can be missing for the cell. One level of brackets inside
-# the index is read, so `tools[names[0]](` is one call.
+# counts, since nothing shows it was a manifest tool: it may be a builtin, or a
+# function on the program's own object, and one site in a loop can reach
+# several tools. So where a cell carries such rows its manifest counts are
+# incomplete by an amount the rows do not bound; they say only that the gap
+# exists. One level of brackets inside the index is read, so
+# `tools[names[0]](` is one call. The index is taken with its padding and
+# trimmed afterwards, so that no two parts of the pattern compete for one run
+# of spaces in agent-authored source, and a `tools` that is a property of
+# something else (`found.tools[0](`, the shape a search result has) is not the
+# engine's object and is not read.
 _CODE_MODE_INDEX_RE = re.compile(
-    r"\btools\[\s*((?:[^\[\]\n]|\[[^\[\]\n]{0,80}\]){1,200}?)\s*\]\s*\("
+    r"(?<![.\w$])tools\[((?:[^\[\]]|\[[^\[\]]{0,80}\]){1,200}?)\]\s*\("
 )
 _CODE_MODE_QUOTED_NAME_RE = re.compile(
     r"""(?P<quote>["'`])(?P<name>mcp__[a-z0-9]+__[A-Za-z0-9_]+"""

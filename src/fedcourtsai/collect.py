@@ -1134,8 +1134,9 @@ _NAMED_CELL_CAP = 8
 
 
 #: The code-mode builtins that **run a command**, out of the enumerated set the
-#: retrieval lift mints rows for. The other three carry prose the program wrote
-#: — a patch body, a plan step, an image path — and their argument text becomes
+#: retrieval lift mints rows for. The others carry text the program wrote
+#: — a patch body, a plan step, an image path, a tool-search query — and their
+#: argument text becomes
 #: the row's query slice verbatim, so a plan step reading "pull priors with
 #: `fedcourts query`" or a patch that writes the attempted command into the
 #: cell's own `retrieval.md` would otherwise be counted as the invocation it
@@ -1194,6 +1195,10 @@ def attempted_corpus_query(calls: Sequence[RetrievalCall]) -> bool:
       screened, which errs toward counting the attempt;
     * and the command *segment* it sits in must not be a `grep`-alike reading
       the corpus CLI's name out of this repository's docs.
+
+    A command run through a builtin the program reached by computed index
+    (``tools[name](...)``) is not counted either: that row names no tool, so
+    nothing says it ran a command.
 
     What survives is still syntactic, and still misses in one direction: an
     invocation past a row's 500-character query cut is not counted at all. That
