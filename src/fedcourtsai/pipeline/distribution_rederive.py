@@ -57,9 +57,9 @@ the column's null is the parse-coverage sentinel for the whole live-signal
 family, so filling the count on its own would promote an unknown CVSG to an
 observed absence. ``backfill-live-signals`` owns that family, in one statement.
 
-Every figure here is a **raw count of rows**, never denial-reweighted, because
-they count writes rather than estimate a population — which is also why one of
-them may not be read against a reweighted cert cut from the statpack.
+Every figure here is a **raw count of rows**, because they count writes rather
+than describe a population — which is also why one of them may not be read
+against a cert cut from the statpack.
 
 **Band moves are reported over the census frame, not over the write frame**,
 for the matching reason: a band label is only meaningful where the gate scores,
@@ -323,16 +323,6 @@ def rederive_distribution_counts(
                 scored_unobservable += int(in_census_frame)
                 continue
             observable += 1
-            if in_census_frame and (row.sample_weight or 1) != 1:
-                # The same refusal the caption and distribution censuses keep:
-                # every figure here is a raw count, and a denial-sampled row
-                # would stand for ten in a matrix published beside theirs. The
-                # *write* is per-row and indifferent to weight; the banded cut
-                # is not, so the refusal is keyed on the census frame.
-                raise ValueError(
-                    f"{row.case_id}: sample_weight {row.sample_weight} — the band cut "
-                    "counts raw and must not run over a subsampled census frame"
-                )
             stored = row.distribution_count
             if stored is None:
                 scored_no_count += int(in_census_frame)

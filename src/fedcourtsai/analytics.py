@@ -456,24 +456,6 @@ def _nearest_rank(sorted_days: list[int], quantile: float) -> float:
     return float(sorted_days[min(rank, len(sorted_days)) - 1])
 
 
-def _weighted_nearest_rank(pairs: list[tuple[int, int]], quantile: float) -> float:
-    """Nearest-rank percentile over ``(days, weight)`` pairs, ascending by days.
-
-    Equivalent to :func:`_nearest_rank` over the expanded list with each value
-    repeated ``weight`` times — a sampled denial's timing counts at the strength
-    of the serials it stands for — without materializing the expansion. Integer
-    weights, cumulative walk: deterministic.
-    """
-    total = sum(weight for _, weight in pairs)
-    rank = max(1, math.ceil(round(quantile * total, 9)))
-    cumulative = 0
-    for days, weight in pairs:
-        cumulative += weight
-        if cumulative >= rank:
-            return float(days)
-    return float(pairs[-1][0])
-
-
 def _decision_days(row: CorpusRow) -> int | None:
     """Days filed→decided for a resolved row with a usable date pair, else ``None``.
 
@@ -514,24 +496,6 @@ def _timing_from_days(day_values: list[int]) -> TimingStats:
         mean_days=round(sum(days) / len(days), 1),
         median_days=_nearest_rank(days, 0.5),
         p90_days=_nearest_rank(days, 0.9),
-    )
-
-
-def _timing_from_pairs(day_pairs: list[tuple[int, int]]) -> TimingStats:
-    """Roll accumulated ``(days, weight)`` pairs into weighted :class:`TimingStats`.
-
-    ``cases`` is the weighted count — the estimated population the timing
-    describes, matching the weighted resolved counts it sits beside.
-    """
-    pairs = sorted(day_pairs)
-    if not pairs:
-        return TimingStats()
-    total = sum(weight for _, weight in pairs)
-    return TimingStats(
-        cases=total,
-        mean_days=round(sum(days * weight for days, weight in pairs) / total, 1),
-        median_days=_weighted_nearest_rank(pairs, 0.5),
-        p90_days=_weighted_nearest_rank(pairs, 0.9),
     )
 
 
@@ -619,8 +583,9 @@ class _SectionSpec:
     ``live_slice`` restricts the section to rows the supremecourt.gov channel
     wrote (:func:`corpus.is_live_slice`) — the predictor-facing populations,
     whose dispositions come from parsed proceedings rather than the frozen bulk
-    import. ``weighted`` counts each row ``sample_weight`` times so the
-    historical walker's denial sampling does not bias the rates. ``key_fn``
+    import. ``weighted`` is the published section flag, kept by name: every
+    section counts each row once, and the flag only selects the ``est. n=``
+    spelling of the denominator in the render. ``key_fn``
     overrides the dimension's stock key function where a section wants richer
     keys under the same ``group_by``. ``row_filter`` narrows the population
     beyond the court/live/cert flags (the salience-band section restricts to the
@@ -648,19 +613,15 @@ class _SectionSpec:
 # is the *same* spec, not a copy that can drift.
 _BY_COURT = _SectionSpec("Cases by court", None, False, False, False, GroupBy.court)
 _SCOTUS_BY_ERA = _SectionSpec("SCOTUS cases by era", "scotus", False, False, False, GroupBy.era)
-# The same two cuts, reweighted, for the court-facing pack. Raw is defensible in
-# the statpack, whose reader is calibrating against a known frame; it is not
-# defensible in a citable artifact. Almost every labeled SCOTUS row is live
-# slice, where legacy walk rows keep one denial in ten (`sample_weight`
-# reconstructs the rest), so a raw disposition split
-# there overstates the grant family several-fold — while a bulk-import circuit
-# row carries weight 1 and is unaffected, which is why reweighting is the whole
-# fix rather than a trade.
+# The same two cuts for the court-facing pack, carrying the `weighted` section
+# flag. The counts are the same row counts the statpack's specs produce: every
+# stored row stands for one petition, so the flag changes the rendered
+# denominator label and nothing else.
 _BY_COURT_WEIGHTED = replace(_BY_COURT, weighted=True)
 _SCOTUS_BY_ERA_WEIGHTED = replace(_SCOTUS_BY_ERA, weighted=True)
 # The calibration anchor the predict prompts point at (and ops reads by its
 # cert_stage + disposition shape): modern Term-prefixed discretionary-cert
-# dockets, live slice, denial-reweighted — the trustworthy grant/deny split.
+# dockets, live slice, each row counted once — the trustworthy grant/deny split.
 _CERT_BY_DISPOSITION = _SectionSpec(
     "Modern discretionary-cert petitions by disposition",
     "scotus",
@@ -827,13 +788,10 @@ _PETITIONS_BY_ORIGINATING_COURT = _SectionSpec(
     GroupBy.originating_court,
     key_fn=_originating_court_or_name,
 )
-# The same reader cut, denial-reweighted, for the court-facing artifact. It is a
-# separate spec rather than a flag on the one above because the two answer
-# different questions: the statpack's raw version reports rows on hand, while a
-# published state-court grant rate has to estimate the population — over the
-# walker's frame an unweighted rate inflates the grant family several-fold,
-# since denials are sampled and every non-denial is kept. This is the only cut
-# in which a state court appears, so it is the one that must be reweighted.
+# The same reader cut for the court-facing artifact, carrying the `weighted`
+# section flag. The counts are the same row counts as the spec above; the flag
+# selects the docket pack's rendered denominator label. This is the only cut in
+# which a state court appears.
 _PETITIONS_BY_ORIGINATING_COURT_WEIGHTED = _SectionSpec(
     "Petitions by originating court (incl. state courts)",
     "scotus",
@@ -858,7 +816,7 @@ _CERT_BY_FEE_CLASS = _SectionSpec(
 # The breakdowns the statpack publishes. Two populations, deliberately side by
 # side: the full-corpus overview (court composition, era spread — includes the
 # frozen bulk import, labeled so in the render) for human context, and the
-# live-slice weighted cuts the predict/evaluate prompts anchor on. The per-Term
+# live-slice cert cuts the predict/evaluate prompts anchor on. The per-Term
 # detail is not a section — it is the richer `terms` array, built in
 # `build_statpack`.
 _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
@@ -877,8 +835,8 @@ _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
 # The breakdowns the court-facing docket pack publishes: the same docket
 # composition cuts, plus the fee-class split, minus the salience band — a band
 # is a statement about which petitions this project predicts, which is exactly
-# the kind of claim that artifact excludes. Every cert cut here is weighted, so
-# each published rate estimates the population rather than the walked sample.
+# the kind of claim that artifact excludes. Every cert cut here carries the
+# `weighted` flag; each published rate is over rows, every row counted once.
 _DOCKET_SECTIONS: tuple[_SectionSpec, ...] = (
     _BY_COURT_WEIGHTED,
     _SCOTUS_BY_ERA_WEIGHTED,
@@ -895,7 +853,7 @@ _DOCKET_SECTIONS: tuple[_SectionSpec, ...] = (
 # buckets come from a labeler's artifact rather than a corpus column: the spec
 # closes over that run's label map, so it can only be built once the map is read.
 # It rides beside the cert cuts above under the same scope and the same
-# reweighting, narrowed to the labeled rows — an unlabeled petition is out of the
+# section flags, narrowed to the labeled rows — an unlabeled petition is out of the
 # cut's population, not a `(none)` topic, because no one asked what it is about.
 _QP_TOPIC_TITLE = "Cert petitions by question-presented topic (`qp-topic-v0`)"
 
@@ -978,7 +936,7 @@ def _application_topic_specs(
 ) -> tuple[_SectionSpec, _SectionSpec, _SectionSpec]:
     """The application topic cut and two counters over the rows it matched.
 
-    Live slice, SCOTUS, reweighted like every section in the pack, over the
+    Live slice, SCOTUS, flagged ``weighted`` like every section in the pack, over the
     application frame, bucketed on the primary ``qp-topic-v1`` label. The second
     spec counts the reference-sourced rows the cut matched, per bucket, as the
     petition pair's does; the third the docket-only ones, so the scope note's
@@ -1073,13 +1031,14 @@ def _qp_topic_scope_note(
     The mandated string leads and stays contiguous, so it is quotable whole. Its
     two counts are labeled rows over the section's whole in-scope population, in
     ingested rows — rows on hand — not walked serials: this document reserves
-    *walked* for the discovery cursors' census, which runs several-fold above the
-    ingested count because the historical walk samples denials. That ratio is not
+    *walked* for the discovery cursors' census, which counts serials probed
+    rather than rows stored. That ratio is not
     the labeled share of the *labelable* frame, and the gap clause below is what
     keeps it from being read as one.
 
     The clauses after it carry what the flags and that string leave unsaid: which
-    counts are raw and which reweighted, that reweighting does not recover the
+    counts are raw rows and what the note says of the bucket counts (which
+    are row counts too), that no weighting recovers the
     docket, that a grant-enriched population makes this section's base-rate
     column incomparable to the cuts above it, **what the gap between the two
     counts is made of**, and **how the labeled subset was chosen** — which the
@@ -1309,9 +1268,8 @@ class _Slice:
     counters of every slice it belongs to, and the buckets/timing are rolled up
     from the counters afterwards, so no row list is materialized.
 
-    Every add records both raw and weighted counters (weight =
-    ``sample_weight`` or 1, so unweighted-capture rows count once); the caller
-    picks the view at roll-up. ``cert_timing`` keys the timing pairs on the
+    Every row counts once: each stored row is one petition or case standing for
+    itself. ``cert_timing`` keys the timing pairs on the
     cert-stage resolution date instead of docket termination — the per-Term
     slices use it because the two dates diverge on the grant side, where
     ``date_decided`` is the merits termination months after the petition was
@@ -1324,32 +1282,23 @@ class _Slice:
         "cases",
         "cert_timing",
         "dated_resolved",
-        "day_pairs",
+        "days",
         "labels",
         "machine_readable_resolved",
-        "weighted_cases",
-        "weighted_labels",
     )
 
     def __init__(self, *, cert_timing: bool = False) -> None:
         self.cert_timing = cert_timing
         self.cases = 0
-        self.weighted_cases = 0
         self.labels: Counter[str] = Counter()
-        self.weighted_labels: Counter[str] = Counter()
-        self.day_pairs: list[tuple[int, int]] = []
+        self.days: list[int] = []
         self.machine_readable_resolved = 0
         self.dated_resolved = 0
 
     def add(self, row: CorpusRow) -> None:
-        # Writers guarantee weights >= 1, but the blob is external input to this
-        # pure function — floor it so a corrupt 0 can never zero a denominator.
-        weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
         self.cases += 1
-        self.weighted_cases += weight
         if row.disposition is not None:
             self.labels[row.disposition] += 1
-            self.weighted_labels[row.disposition] += weight
             # The back-testable slice and its dated share: a machine-readable
             # disposition is scoreable, and a resolution date is what lets the
             # time-masked replay clock anchor the row.
@@ -1359,17 +1308,13 @@ class _Slice:
                     self.dated_resolved += 1
         days = _cert_days(row) if self.cert_timing else _decision_days(row)
         if days is not None:
-            self.day_pairs.append((days, weight))
+            self.days.append(days)
 
-    def bucket(self, key: str, *, weighted: bool = False) -> BaseRateBucket:
-        if weighted:
-            return _bucket_from_counts(key, self.weighted_cases, self.weighted_labels)
+    def bucket(self, key: str) -> BaseRateBucket:
         return _bucket_from_counts(key, self.cases, self.labels)
 
-    def timing(self, *, weighted: bool = False) -> TimingStats:
-        if weighted:
-            return _timing_from_pairs(self.day_pairs)
-        return _timing_from_days([days for days, _ in self.day_pairs])
+    def timing(self) -> TimingStats:
+        return _timing_from_days(self.days)
 
 
 class _TermAcc:
@@ -1505,11 +1450,9 @@ class _InterimAcc:
     """Streaming accumulator for one slice of the interim application docket.
 
     Counts are raw throughout — the live channel polls every application it
-    discovers, so no row stands in for another and nothing here is reweighted
-    (``sample_weight`` is deliberately unread; the denial-sampling frame covers
-    cert petitions only, and every application row is written at weight 1 — if
-    a sampling design ever reaches applications, this accumulator must learn
-    to weight). A count is of application **numbers**: a number the corpus
+    discovers, so no row stands in for another
+    (``sample_weight`` is unread; every row is written at weight 1). A count
+    is of application **numbers**: a number the corpus
     stores under two case ids is added once, and every row
     :func:`corpus.duplicate_application_case_ids` names is tallied in
     ``duplicate_rows`` instead of being added.
@@ -1868,9 +1811,8 @@ def _judgment_rode_its_grant_order(row: CorpusRow) -> bool:
 class _MeritsAcc:
     """Streaming accumulator for one slice of the granted-merits docket.
 
-    Counts are raw throughout — a grant is always ingested with certainty
-    (weight 1 under the denial-sampling frame), so no row stands in for
-    another and ``sample_weight`` is deliberately unread. ``granted`` counts
+    Counts are raw throughout — every stored row stands for itself, so no row
+    stands in for another and ``sample_weight`` is unread. ``granted`` counts
     the whole cohort and ``parsed`` the rows the merits backfill could read, so
     the published rate's coverage is visible beside it; the disturbed counter
     projects each judgment through
@@ -2037,7 +1979,7 @@ def _term_entry(
     """Assemble one Term's statpack entry from its accumulator and the census.
 
     ``acc`` is ``None`` for a cursor-only Term (probed, nothing ingested — e.g.
-    a Term whose walk has only served sampled-out denials so far): the entry
+    a Term whose walk has stored no row so far): the entry
     still appears, carrying its census with zero counts, so coverage is visible.
     """
     acc = acc or _TermAcc()
@@ -2045,7 +1987,7 @@ def _term_entry(
     for fee in (FeeClass.paid, FeeClass.ifp):
         entry = acc.classes[fee]
         filings_complete = census.get((year, fee))
-        weighted = entry.bucket("", weighted=True)
+        weighted = entry.bucket("")
         classes.append(
             StatPackTermClass(
                 fee_class=fee,
@@ -2056,7 +1998,7 @@ def _term_entry(
                 weighted_resolved=weighted.resolved,
                 est_grant_rate=_grant_family_share(weighted),
                 dispositions=weighted.dispositions,
-                timing=entry.timing(weighted=True),
+                timing=entry.timing(),
             )
         )
 
@@ -2064,9 +2006,9 @@ def _term_entry(
         built = []
         for band in scorer(version).bands:
             entry = acc.segments[version][band]
-            weighted = entry.bucket("", weighted=True)
+            weighted = entry.bucket("")
             prefix_acc = acc.prefixes[version][band]
-            prefix = prefix_acc.bucket("", weighted=True)
+            prefix = prefix_acc.bucket("")
             built.append(
                 StatPackTermSegment(
                     band=band,
@@ -2090,13 +2032,13 @@ def _term_entry(
         if version != SALIENCE_VERSION
     ]
     grant_days = sorted(acc.grant_days)
-    base_rates = acc.overall.bucket(str(year), weighted=True)
+    base_rates = acc.overall.bucket(str(year))
     return StatPackTerm(
         term=year,
         ingested=acc.overall.cases,
         base_rates=base_rates,
         est_grant_family_rate=_grant_family_share(base_rates),
-        timing=acc.overall.timing(weighted=True),
+        timing=acc.overall.timing(),
         classes=classes,
         grants=acc.grants,
         salience_version=SALIENCE_VERSION,
@@ -2109,11 +2051,11 @@ def _term_entry(
 class _SectionRows(NamedTuple):
     """Raw row counts behind one section: its population, and what its filter kept.
 
-    Both count rows on hand, never reweighted estimates, and both are lost once a
-    weighted bucket is rolled up. A section scoped to a subset of its population —
+    Both count rows on hand, and neither can be read back from a
+    rolled-up bucket. A section scoped to a subset of its population —
     the QP-topic cut, whose rows are the labeled ones — states its coverage as
     ``kept`` of ``scoped``, which is a claim about how many petitions were read
-    and so cannot be made from an estimate. ``kept == scoped`` for a spec with no
+    and so is stated from these counters. ``kept == scoped`` for a spec with no
     ``row_filter``.
     """
 
@@ -2137,7 +2079,7 @@ class _CorpusScan:
     granted-cohort accumulators (keyed by grant-Term year); only the statpack
     rolls either into a section — the docket pack ignores them by design.
     ``section_rows`` holds the raw row counts behind each spec, which the
-    weighted buckets cannot be read back to.
+    rolled-up buckets cannot be read back to.
     """
 
     specs: tuple[_SectionSpec, ...]
@@ -2295,7 +2237,7 @@ def _sections(
         specs = scan.specs
     sections = []
     for spec, slices in zip(specs, slice_maps, strict=True):
-        buckets = [entry.bucket(key, weighted=spec.weighted) for key, entry in slices.items()]
+        buckets = [entry.bucket(key) for key, entry in slices.items()]
         buckets.sort(key=lambda b: (-b.cases, b.key))
         sections.append(
             StatPackSection(
@@ -2346,7 +2288,7 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     (run before a corpus pull) yields the empty zero-count pack rather than an error.
 
     Two populations, kept apart by section flags: the full-corpus overview
-    (bulk import included) for composition context, and the live-slice weighted
+    (bulk import included) for composition context, and the live-slice cert
     cuts + per-Term entries the predict/evaluate prompts anchor on. The ``terms``
     array iterates the union of row-derived Terms and cursor-table Terms, so a
     Term the walkers have probed but not yet populated still shows its census.
@@ -2408,7 +2350,7 @@ def _docket_term_entry(
     probed = [census[(year, fee)] for fee in (FeeClass.paid, FeeClass.ifp) if (year, fee) in census]
     acc = acc or _TermAcc()
     raw = acc.overall.bucket("")
-    weighted = acc.overall.bucket("", weighted=True)
+    weighted = acc.overall.bucket("")
     grant_days = sorted(acc.grant_days)
     family_rate = _grant_family_share(weighted)
     return DocketPackTerm(
@@ -2431,9 +2373,8 @@ def _topic_support(scan: _CorpusScan, index: int) -> list[QpTopicSupport]:
     """Raw rows per bucket of the topic cut at ``index``, reference-sourced beside them.
 
     The cut's reference-only counter is the spec right after it. Raw rows come
-    from the same pass as the table: the reweighted `est. n=` the table prints is
-    a population estimate, and on a bucket built from a handful of sampled
-    denials the two differ by an order of magnitude. The reference-sourced share
+    from the same pass as the table, and the `est. n=` the table prints is the
+    same count of rows (the spelling is kept). The reference-sourced share
     rides along per bucket because it is not uniform across them.
     """
     reference_slices = scan.sections[index + 1]
@@ -2612,8 +2553,8 @@ def _topic_mix(
 
     ``qp_index`` and ``application_index`` are each cut's position in the scan,
     passed explicitly because a gate-passing artifact can still publish no cut.
-    Every count is the count its own section publishes — reweighted, as every
-    section here is — so a stage's share can be checked against the table it
+    Every count is the count its own section publishes — a count of rows, as
+    in every section here — so a stage's share can be checked against the table it
     summarizes, and each stage carries the raw rows beside it. Cert is every
     labeled petition; merits is the subset the Court granted plenary review;
     interim is every labeled application. Each stage carries its own section's
@@ -2624,12 +2565,10 @@ def _topic_mix(
     if qp_topics is not None and qp_index is not None:
         slices = scan.sections[qp_index]
         cert = {
-            key: (entry.weighted_cases, entry.cases)
-            for key, entry in slices.items()
-            if key != _NONE_KEY
+            key: (entry.cases, entry.cases) for key, entry in slices.items() if key != _NONE_KEY
         }
         merits = {
-            key: (entry.weighted_labels["granted"], entry.labels["granted"])
+            key: (entry.labels["granted"], entry.labels["granted"])
             for key, entry in slices.items()
             if key != _NONE_KEY
         }
@@ -2645,9 +2584,7 @@ def _topic_mix(
     if application_topics is not None and application_index is not None:
         slices = scan.sections[application_index]
         interim = {
-            key: (entry.weighted_cases, entry.cases)
-            for key, entry in slices.items()
-            if key != _NONE_KEY
+            key: (entry.cases, entry.cases) for key, entry in slices.items() if key != _NONE_KEY
         }
         interim_stage = _mix_stage(
             "interim", "qp-topic-v1", interim, application_topics.section.scope_note or ""
@@ -2811,11 +2748,9 @@ def _section_tables(sections: list[StatPackSection], *, sample_size: bool = Fals
     Shared by both published base-rate artifacts, so a section computed for each
     renders identically. ``sample_size`` appends the base rate's denominator to
     the cell, so a rate quoted out of the table keeps the count it was computed
-    over. On a weighted section that denominator is a denial-reweighted
-    *estimate* of the population, not a count of rows on hand, so it renders as
-    ``est. n=`` — the two are several-fold apart wherever the walker sampled, and
-    one ``n=`` spelling for both would misreport the weaker cells as far
-    better-evidenced than they are.
+    over. On a section flagged ``weighted`` that denominator renders as
+    ``est. n=``: the flag and the spelling are kept, and the value is a count of
+    rows, as it is on every other section.
     """
     lines: list[str] = []
     for section in sections:
@@ -3347,9 +3282,8 @@ def _term_row(entry: StatPackTerm) -> str:
     # and the Markdown must publish the same grant-family pool (a GVR is a grant),
     # and `_grant_family_share` is that pool's one definition.
     grant_rate = entry.est_grant_family_rate
-    # `ingested` is the raw row count; every `est.` column is the weighted
-    # estimate — mixing the two under one label would publish a false coverage
-    # claim on the exact surface the predict prompt points cells at.
+    # `ingested` is every row on hand; the `est.` columns keep their names and
+    # are counts of resolved rows, each row counted once.
     return (
         f"| {entry.term} | {_filings(paid)}/{_filings(ifp)} | {entry.ingested} "
         f"| {rates.resolved} | {_disposition_summary(rates)} "
@@ -3461,14 +3395,13 @@ def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
 
 
 def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
-    """The raw view a denial-reweighted bucket does not otherwise publish.
+    """The rows behind each bucket of the topic cut, stated beside the table.
 
-    Every count in the table is reweighted, so `est. n=` is a population estimate
-    and a bucket's real support is smaller — by up to the denial sampling
-    weight, which is where a two-row bucket renders a two-figure denominator. The
+    The table's `est. n=` keeps its spelling and is a count of resolved rows;
+    this block states each bucket's rows on hand. The
     counts are printed rather than the shares suppressed because suppression
     would need the shared bucket renderer to know about this section; naming the
-    rows beside the estimate answers the same question and leaves the table's
+    rows beside the table answers the same question and leaves the table's
     machinery alone.
 
     The thin buckets are then named outright, on the same floor the reference set
@@ -3572,8 +3505,8 @@ def _topic_mix_lines(mix: DocketPackTopicMix) -> list[str]:
             if share.label not in labels:
                 labels.append(share.label)
     by_stage = [{share.label: share for share in stage.shares} for stage in mix.stages]
-    # A stage whose counts are its rows states `n=`; one whose counts are
-    # reweighted states `est. n=` and the rows beside it, the pack's convention.
+    # A stage whose count equals its rows states `n=`; one where the two differ
+    # states `est. n=` and the rows beside it, the pack's convention.
     header = " | ".join(
         f"{stage.stage} (n={stage.cases})"
         if stage.cases == stage.rows
@@ -3639,7 +3572,7 @@ def render_docket_markdown(pack: DocketPack) -> str:
     Leads with what the document is and — as pointedly — what it is not: a
     reader who does not care how well this project's models forecast the Court
     should still be able to read and cite every figure in it. Then the coverage
-    denominators, a how-to-read note covering the denial reweighting, one table
+    denominators, a how-to-read note on the counts and their labels, one table
     per docket-composition breakdown, the question-presented topic cut where the
     pack carries one, the per-Term census, and the named gaps.
     Deterministic; safe on the empty pack (renders a one-line note).
@@ -3799,7 +3732,7 @@ def render_docket_markdown(pack: DocketPack) -> str:
 
 def _docket_term_row(entry: DocketPackTerm) -> str:
     """One Term's row in the docket-pack census table."""
-    # `est. n` on the weighted rate, plain `n` on the pace-to-grant subset: one
+    # `est. n` on the grant-rate column, plain `n` on the pace-to-grant subset: one
     # spelling rule across the document, and this row shows both side by side.
     # The rate reads the pooled-family field, as the statpack's Term row does.
     rate = (

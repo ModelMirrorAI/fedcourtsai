@@ -1239,7 +1239,7 @@ def rederive_distribution_counts_cmd(
     parseable Term), since a band label is only meaningful where the gate
     scores, while the write covers the whole live slice; every count carries its
     own denominator, unreadable residue included, and all of them are raw row
-    counts rather than denial-reweighted estimates. The matrix's `from` side is
+    counts. The matrix's `from` side is
     the **stored** column, not a second reading of the snapshot, so it carries
     whatever the max latch accumulated — which is what the gate is really
     reading today, and why it need not agree cell for cell with
@@ -2291,16 +2291,15 @@ def party_census_cmd(
 ) -> None:
     """The party census: federal/state parties by side, and by administration.
 
-    A deterministic, read-only cut of the live slice's **unweighted** rows
+    A deterministic, read-only cut of the live slice's rows, each counted once
     (every SCOTUS row the live channel has polled — IFP and interim-docket rows
-    included, since a caption is a caption — bar the legacy one-in-ten sampled
-    denial block, which is counted whole and annotated nowhere, so a stratum
-    stored at a tenth of its size never reads as a tenth of its cells) under
+    included, since a caption is a caption; the `sampled row(s) excluded` and
+    `sampled-excluded` figures keep their names and are always 0) under
     one registered annotation rule
     (`pipeline.party`), which reads both caption halves through the caption
     classifier and attributes an administration from dates rather than from the
     officer a caption names. Counts only: grant rates by government-party status
-    are `party-rates`, which carries its own population rules and reweighting,
+    are `party-rates`, which carries its own population rules,
     not a number this command may publish.
 
     `--as-of` is required and stamped on the output, because a petition filed
@@ -2448,8 +2447,7 @@ def party_rates_cmd(
     applications), keyed on administration x docket stratum x which side of the
     caption the federal government occupies — `none` being the comparison cell.
     Every rate is printed beside the numerator and denominator it divides — the
-    weighted pair, which restores the legacy one-in-ten sampled denial block to
-    full strength; a cell holding sampled rows prints the raw pair beside it.
+    `weighted_*` pair, whose names are kept and which count each row once.
     An analytics artifact: nothing a predict or evaluate cell reads comes
     from it. Prints a `PartyRates`; the human cut and the corpus vintage go to
     stderr. `pending` on the human line is a raw row count. With
@@ -2527,8 +2525,8 @@ def party_rates_cmd(
         )
     for cell in rates.cells:
         rate = f"{cell.grant_rate:.1%}" if cell.grant_rate is not None else "-"
-        # The printed pair is the one the rate divides — the weighted pair,
-        # equal to the raw one wherever the cell holds no sampled row — so the
+        # The printed pair is the one the rate divides — the `weighted_*` pair,
+        # equal to the raw one, since `sampled_rows` is always 0 — so the
         # quotient on the line is always the quotient of the numbers beside it.
         weighted = (
             f" (raw {cell.granted}/{cell.resolved}, {cell.sampled_rows} sampled row(s) "
@@ -2873,8 +2871,8 @@ def distribution_census_cmd(
     on a writer job, rebuilding the statpack, and re-measuring the tier rates.
     The selection question is read from `salience-replay` with the candidate
     version registered, never from this matrix (`docs/salience.md`). Prints a
-    `DistributionCensus`. Fails loud if the corpus is absent, a parse or version
-    label is unregistered, or the frame is subsampled.
+    `DistributionCensus`. Fails loud if the corpus is absent or a parse or version
+    label is unregistered.
     """
     for label in (baseline_parse, candidate_parse):
         if label not in DISTRIBUTION_PARSES:
@@ -8947,7 +8945,8 @@ def scope_manifest_cmd(
     Writes ``data/scope/scope.json`` — one row per docket that already has a
     committed directory under ``data/cases`` and a corpus row, carrying that
     case's ``predict_eligible`` / ``predict_excluded`` / exclusion reason /
-    sample weight from the corpus (a public docket absent from the corpus is
+    stored ``sample_weight`` (a constant 1) from the corpus (a public docket
+    absent from the corpus is
     omitted rather than guessed at). The transparency counterpart of ``reconcile-scope``:
     the reconcile decides scope in the corpus, this publishes the decision for
     the cases the repository already discloses. Enumerated from the committed
@@ -11952,7 +11951,7 @@ def segment_anchors_command(
     ``terminal`` is the fallback a cell with no frozen band takes. The anchor
     is keyed on the **docket-number** Term, so a petition docketed in OT2025
     and decided in OT2026 pools Terms before 2025, not before 2026. Each band
-    carries the weighted resolved denominator it pools, and each docket Term
+    carries the resolved denominator it pools (a count of rows), and each docket Term
     lists the pack Terms inside its window that contributed a resolved slice
     under the pinned version, so a shortened window is visible. JSON on stdout, a human
     table on stderr. Exit 1 if the statpack is unreadable.
@@ -14109,7 +14108,7 @@ def statpack(
     An independent published artifact, two populations side by side: the
     full-corpus overview (cases by court, SCOTUS by era — bulk import included,
     labeled so) and the live/historical-slice cert statistics the predict and
-    evaluate prompts anchor on — denial-reweighted disposition base rates, cuts
+    evaluate prompts anchor on — disposition base rates, cuts
     by originating circuit / relist count / CVSG status, and per-Term detail
     with a cursor-derived filings census, per-fee-class estimates, and
     walk-complete flags. Deterministic and offline: a pure function of the
@@ -14195,8 +14194,8 @@ def docket(
     fee split, and a per-Term census of docketed filings against grant rate.
     Carries **no claim about this project's predictions**: no accuracy, no
     leaderboard, no salience, so it is readable and citable by someone with no
-    interest in the models. Every cert cut is denial-reweighted, so its rates
-    estimate the population rather than the walked sample, and each states its
+    interest in the models. Every cert cut counts each stored row once, and
+    each states its
     own denominator. Deterministic and
     offline: a pure function of the corpus and, where one is on disk, the
     ``qp-topic-v0`` labels artifact — so reruns over unchanged inputs reproduce
@@ -22307,10 +22306,9 @@ def corpus_info(
         bool,
         typer.Option(
             "--legacy-sample",
-            help="Also count the SCOTUS rows still carrying a legacy sample weight "
-            "(above 1; the early walk's one-in-ten IFP denials), per October Term: "
-            "the effect check for completing a Term's sample by re-walking its IFP "
-            "stream. Opt-in: no index covers "
+            help="Also count the SCOTUS rows stored at a sample weight above 1, per "
+            "October Term. Every stored row stands for one petition, so the expected "
+            "count is zero. Opt-in: no index covers "
             "the weight, so it scans every case row (a few hundred MB under "
             "the ranged backend).",
         ),
@@ -22365,11 +22363,10 @@ def corpus_info(
     those reads: a blob-only run against a split corpus finds no documents at
     all, and must not be read as a corpus with none.
 
-    `--legacy-sample` counts the rows still standing for the early walk's
-    one-in-ten IFP denial sample, per Term. Re-walking a Term's IFP stream
-    from its numbering base serves each of them again and writes weight 1, so
-    the Term's count reaching zero, with its IFP cursor back where it stood
-    before the re-walk, is how that re-walk is checked.
+    `--legacy-sample` counts the rows stored at a sample weight above 1, per
+    Term. Every stored row stands for one petition and every writer stores
+    weight 1, so the expected count is zero; a row it finds is one
+    `validate-corpus` fails on.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -22416,7 +22413,7 @@ def corpus_info(
 
 
 def _echo_legacy_sample(counts: dict[int, int]) -> None:
-    """The `legacy sample:` line: weighted rows left, in all and per Term."""
+    """The `legacy sample:` line: rows stored above weight 1, in all and per Term."""
     if not counts:
         typer.echo("legacy sample: no weighted rows")
         return

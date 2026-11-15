@@ -84,9 +84,10 @@ def _pooled_band_rate(
     has to match how ``band`` was obtained — see the two callers,
     :func:`prediction_base_rate` here and
     :func:`fedcourtsai.pipeline.evaluate.segment_base_rate`. Pooled as a
-    resolved-weighted mean of the per-Term rates, which equals aggregate weighted
-    grants over aggregate weighted resolved, so a Term contributes at the weight
-    belonging to the rate being pooled.
+    resolved-weighted mean of the per-Term rates, which equals aggregate
+    grants over aggregate resolved rows (the pack's ``weighted_resolved`` or
+    ``prefix_weighted_resolved``, each a count of rows), so a Term contributes
+    in proportion to the rows behind the rate being pooled.
 
     ``band_version`` is the frozen salience version that produced ``band``, and
     the pool is **version-pinned**: only Terms whose ``salience_version`` matches
@@ -262,10 +263,10 @@ def freeze_cert_anchor(
 
 
 #: The smallest resolved sample a **realized-Term** band rate may rest on. It
-#: binds twice, on the leave-one-out **weighted** denominator that scores the
-#: case and on the **observed** row count behind it, because a Term walked under
-#: denial sampling can carry a weighted 31 over some fourteen real petitions and
-#: the standard error follows the rows. Below either, :func:`realized_band_rate`
+#: binds twice, on the leave-one-out denominator that scores the case (the
+#: pack's ``weighted_resolved`` field, a count of rows) and on the **observed**
+#: row count behind it. The two fields hold the same count, so the two readings
+#: agree. Below either, :func:`realized_band_rate`
 #: returns ``None`` and the cell carries no realized-Term skill — a visible
 #: omission (the aggregate's own ``*_scored`` count), never a zero folded into a
 #: mean.
@@ -319,9 +320,9 @@ def realized_band_rate(
 
     **Leave-one-out.** The scored case sits inside this rate, and in a thin band
     that bites — one case moves a band of seventy-odd by well over a point. The
-    pack publishes no grant count, but the rate is a ratio of integer weighted
+    pack publishes no grant count, but the rate is a ratio of integer row
     counts, so ``rate * weighted_resolved`` rounds back to the numerator
-    exactly; ``own_grant_family`` comes off it and one unit of weight off the
+    exactly; ``own_grant_family`` comes off it and one row off the
     denominator. The ``risk_set`` pairing is what makes that subtraction well
     defined: a band only ever strengthens, so a case frozen at a band ends at
     that band or a stronger one and is therefore in the band's **risk set**,
@@ -338,7 +339,7 @@ def realized_band_rate(
     **What the correction does to the scale**, exactly. Jackknifing moves the
     baseline away from the case's own outcome by a fixed factor, so
     ``skill = 1 - (1 - skill_uncorrected) * ((n - 1) / n)**2`` for a band of
-    weighted ``n`` (exactly, wherever ``own_grant_family`` equals the case's
+    ``n`` resolved rows (exactly, wherever ``own_grant_family`` equals the case's
     ``actual_granted``, i.e. everywhere but a ``granted-in-part`` cert
     disposition). Two readings follow. It is monotone in the uncorrected score,
     so it never reorders cells within a band. And the attainable level-only
@@ -352,12 +353,9 @@ def realized_band_rate(
     the null: Brier skill has no lower bound, so a badly negative cell shifts
     much further.
 
-    Three bounded approximations, stated rather than corrected. The subtraction
-    removes one unit of weight rather than the row's own ``sample_weight``,
-    which the pack does not publish per row; the two coincide on a Term walked
-    at weight 1 — every live Term, so every forward cell — while on a
-    reweighted historical Term, where the retrospective cells sit, the
-    correction falls short of a sampled denial's full weight. The case is
+    Two bounded approximations, stated rather than corrected. (The subtraction
+    removes one row, which is the case's whole contribution: every stored row
+    stands for one petition.) The case is
     assumed to be a row of the segment's population (the Term's live-slice paid
     modern-cert petitions), which the salience gate makes true of every cell it
     provisions but which an IFP or off-slice row would break — as would a caption
@@ -571,9 +569,9 @@ def summary_route_base_rate(
     resolved petitions would be a baseline conditioned differently from the
     claim.
 
-    **The published counts are denial-reweighted, and here that is harmless.**
-    Only denials were ever subsampled, so every row inside the grant family
-    carries weight 1 and this ratio is an unweighted count of grants either way.
+    **The published counts are row counts.** The ``weighted_*`` field names are
+    kept, each row is counted once, and this ratio is a count of grants over a
+    count of grants.
 
     **One residual bias remains, and it is not a safety margin.** A summary
     reversal is a cert-order disposition that no resolver mints — the

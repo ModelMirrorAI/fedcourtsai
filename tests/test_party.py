@@ -350,7 +350,7 @@ def _census_corpus(db: Path) -> None:
                     date_decided=date(2025, 7, 1),
                     disposition=Disposition.denied,
                 ),
-                _row(  # the legacy sampled block: counted, never annotated
+                _row(  # stored with a weight above 1: a frame row like any other
                     "scotus/5",
                     "John Roe v. United States",
                     docket_number="18-5010",
@@ -369,13 +369,12 @@ def _census_corpus(db: Path) -> None:
         )
 
 
-def test_the_census_counts_the_unweighted_live_slice(tmp_path: Path) -> None:
-    """The frame is the live slice's unweighted rows, with every gap counted.
+def test_the_census_counts_every_live_slice_row_once(tmp_path: Path) -> None:
+    """The frame is the whole live slice, each row counted once, with every gap counted.
 
-    The sampled block is excluded rather than mixed in — stored one row in ten,
-    it would understate its stratum tenfold in exactly the cells it fills — and
-    is reported whole, in the same window-and-stratum cells as the frame, so the
-    coverage gap is legible where the federal counts are read.
+    A row stored with a `sample_weight` above 1 is one petition standing for
+    itself: it is annotated and counted in its own window-and-stratum cell like
+    its neighbours, and `sampled_excluded` is 0 on the census and on every cell.
     """
     db = tmp_path / "corpus.db"
     _census_corpus(db)
@@ -383,10 +382,10 @@ def test_the_census_counts_the_unweighted_live_slice(tmp_path: Path) -> None:
         census = party_census(conn, as_of_field="filed")
     assert census.rule_version == "party-v1"
     assert census.as_of_field == "filed"
-    assert (census.rows, census.sampled_excluded) == (5, 1)
+    assert (census.rows, census.sampled_excluded) == (6, 0)
     assert (census.single_party, census.undated, census.pending) == (1, 1, 1)
     federal = {cell.side: cell.n for cell in census.federal_party}
-    assert federal == {"both": 0, "petitioner": 2, "respondent": 1, "none": 2}
+    assert federal == {"both": 0, "petitioner": 2, "respondent": 2, "none": 2}
     state = {cell.side: cell.n for cell in census.state_party}
     assert state["petitioner"] == 1
     by_admin = {
@@ -399,16 +398,18 @@ def test_the_census_counts_the_unweighted_live_slice(tmp_path: Path) -> None:
         ("petitioner", "trump-47", "paid-cert"): 1,
         ("petitioner", "trump-47", "application"): 1,
         ("respondent", "trump-45", "paid-cert"): 1,
+        ("respondent", "trump-45", "ifp-cert"): 1,
     }
     frame = {
         (cell.administration, cell.stratum): (cell.rows, cell.sampled_excluded)
         for cell in census.frame_by_administration
     }
-    # Every frame row is dated and stratified, federal party or not; the excluded
-    # block rides the same cells, and the undated row is its own.
+    # Every frame row is dated and stratified, federal party or not; the row
+    # stored with a weight fills the trump-45 IFP cell, and the undated row is
+    # its own.
     assert frame == {
         ("trump-45", "paid-cert"): (1, 0),
-        ("trump-45", "ifp-cert"): (0, 1),
+        ("trump-45", "ifp-cert"): (1, 0),
         ("biden-46", "paid-cert"): (1, 0),
         ("trump-47", "paid-cert"): (1, 0),
         ("trump-47", "application"): (1, 0),
@@ -430,6 +431,7 @@ def test_the_census_stamp_changes_with_the_date_convention(tmp_path: Path) -> No
         ("petitioner", "trump-47", "paid-cert"): 1,
         ("petitioner", "trump-47", "application"): 1,
         ("respondent", "trump-45", "paid-cert"): 1,
+        ("respondent", "trump-45", "ifp-cert"): 1,
     }
     # scotus/1 was filed under trump-45 and denied under biden-46; scotus/2 is
     # pending, so under `resolved` it leaves its window for the unattributed
@@ -441,8 +443,10 @@ def test_the_census_stamp_changes_with_the_date_convention(tmp_path: Path) -> No
         ("petitioner", None, "paid-cert"): 1,
         ("petitioner", "trump-47", "application"): 1,
         ("respondent", "biden-46", "paid-cert"): 1,
+        # scotus/5 is resolved with no resolution date stored, so it is undated.
+        ("respondent", None, "ifp-cert"): 1,
     }
-    assert (resolved.undated, resolved.pending) == (2, 1)
+    assert (resolved.undated, resolved.pending) == (3, 1)
     assert filed.pending == resolved.pending
     with pytest.raises(ValueError, match="unknown as-of field"), corpus.connect(db) as conn:
         party_census(conn, as_of_field="argued")
@@ -458,14 +462,14 @@ def test_the_command_prints_the_census_with_its_vintage(
     result = runner.invoke(app, ["party-census", "--as-of", "filed"])
     assert result.exit_code == 0, result.output
     assert (
-        "party census (party-v1 over caption-v2, as-of filed): 5 unweighted live-slice row(s)"
+        "party census (party-v1 over caption-v2, as-of filed): 6 unweighted live-slice row(s)"
         in result.stderr
     )
-    assert "1 sampled row(s) excluded" in result.stderr
+    assert "0 sampled row(s) excluded" in result.stderr
     # The vintage is on the banner, not only in the JSON: a count read off a
     # stale blob is a different number.
     assert "corpus latest pull never pulled" in result.stderr
-    assert "frame trump-45 ifp-cert: rows=0 sampled-excluded=1" in result.stderr
+    assert "frame trump-45 ifp-cert: rows=1 sampled-excluded=0" in result.stderr
     assert "federal_party respondent x trump-45 paid-cert: n=1" in result.stderr
     assert '"rule_version":"party-v1"' in result.stdout
     assert '"caption_rule_version":"caption-v2"' in result.stdout

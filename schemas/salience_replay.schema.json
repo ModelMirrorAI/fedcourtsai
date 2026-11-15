@@ -13,7 +13,7 @@
           "type": "object"
         },
         "capacity_bound_cohorts": {
-          "description": "Cohorts whose non-carve-out membership exceeded the capacity, so the rank fill actually cut (elsewhere N is inert). Counted over the walked sample's cohorts: under legacy denial weights a replayed cohort holds ~1/weight of the real cohort's non-carve-out members, so capacity that would have bound over the Term's real cohort can read as inert here \u2014 compare largest_weighted_cohort against the capacity before trusting the rank-fill figures",
+          "description": "Cohorts whose non-carve-out membership exceeded the capacity, so the rank fill actually cut (elsewhere N is inert). Counted over the replayed cohorts, each stored row one petition; compare largest_weighted_cohort against the capacity when reading the rank-fill figures",
           "minimum": 0,
           "title": "Capacity Bound Cohorts",
           "type": "integer"
@@ -38,7 +38,7 @@
         },
         "largest_weighted_cohort": {
           "default": 0.0,
-          "description": "The largest cohort's sample_weight-weighted non-carve-out mass \u2014 the reader's check on the rank fill: a value above the per-conference capacity where the raw cohort size sat below it means the real cohort could have been cut where the replayed sample was not, and the rank-fill and capacity figures are then sample statistics, not population estimates. 0 when the cell formed no cohort",
+          "description": "The largest cohort's count of non-carve-out rows, as a float (the name is kept) \u2014 the reader's check on the rank fill: a value above the per-conference capacity means the fill cut that cohort. 0 when the cell formed no cohort",
           "minimum": 0.0,
           "title": "Largest Weighted Cohort",
           "type": "number"
@@ -89,7 +89,7 @@
             }
           ],
           "default": null,
-          "description": "weighted_selected_granted / weighted_granted \u2014 the share of the Term's realized grants (among projected petitions) the selection would have covered; null when the projected petitions show no weighted grant. The denominator includes blind projections, which can never be selected \u2014 for a 'blind-untrusted-cutoff' row that is a reconstruction failure, not a gate miss, so read the provenance mix beside a low recall",
+          "description": "weighted_selected_granted / weighted_granted \u2014 the share of the Term's realized grants (among projected petitions) the selection would have covered; null when the projected petitions show no grant. The denominator includes blind projections, which can never be selected \u2014 for a 'blind-untrusted-cutoff' row that is a reconstruction failure, not a gate miss, so read the provenance mix beside a low recall",
           "title": "Recall"
         },
         "salience_version": {
@@ -134,25 +134,25 @@
           "type": "integer"
         },
         "weighted_granted": {
-          "description": "Grant-family outcomes over every projected petition, sample_weight-weighted \u2014 recall's weighted denominator",
+          "description": "Grant-family outcomes over every projected petition, each counted once \u2014 recall's denominator",
           "minimum": 0.0,
           "title": "Weighted Granted",
           "type": "number"
         },
         "weighted_population": {
-          "description": "Every projected petition, sample_weight-weighted",
+          "description": "Every projected petition, each counted once",
           "minimum": 0.0,
           "title": "Weighted Population",
           "type": "number"
         },
         "weighted_selected": {
-          "description": "Selected petitions weighted by sample_weight (inverse inclusion probability, 1 where unasserted), so the figure estimates the Term's population rather than counting the walked sample's rows",
+          "description": "Selected petitions, each counted once: the same count as `selected`, as a float. The name is kept",
           "minimum": 0.0,
           "title": "Weighted Selected",
           "type": "number"
         },
         "weighted_selected_granted": {
-          "description": "Grant-family selected petitions, sample_weight-weighted",
+          "description": "Grant-family selected petitions, each counted once",
           "minimum": 0.0,
           "title": "Weighted Selected Granted",
           "type": "number"

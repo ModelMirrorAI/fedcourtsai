@@ -183,7 +183,7 @@ era (OT2017+; see [live-sources.md](live-sources.md)). The channel charters:
 - **Historical loading is the historical Term walker**
   (`fedcourts historical-terms`, the `run-seed` workflow) — the
   same client, identity, and ingest seams as the forward poller, landing the
-  sampled decided set for the statpack's per-Term base rates and the cert
+  decided set for the statpack's per-Term base rates and the cert
   back-test set.
 - **Pull is targeted enrichment.** The live channel owns SCOTUS freshness;
   pull's REST budget keeps the tracked set's CourtListener records current.
@@ -1320,8 +1320,7 @@ shared with the ledger models.
 - **Base-rate aggregation** — `fedcourts stats` on demand, and the published
   **statpack** (`fedcourts statpack` → `metrics/statpack.{json,md}`, kept fresh
   by `run-analytics`'s weekly metrics-refresh job); its cert statistics count
-  each live/historical-slice row `sample_weight` times, so denials the earlier
-  sampled walk kept at a higher weight never bias a published rate, and the
+  each live/historical-slice row once, as the one petition it is, and the
   per-Term array carries the
   cursor-derived filings census and walk-complete flags. The **docket pack**
   (`fedcourts docket` → `metrics/docket.{json,md}`) is the court-facing cut of

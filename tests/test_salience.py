@@ -2506,8 +2506,8 @@ def test_the_distribution_census_counts_the_live_channel_only(tmp_path: Path) ->
     assert (rest_only.cases, rest_only.unobservable) == (0, 1)
 
 
-def test_the_distribution_census_refuses_a_subsampled_frame(tmp_path: Path) -> None:
-    """Every figure is a raw count, so a weighted row would silently stand for ten."""
+def test_the_distribution_census_counts_a_row_stored_with_a_weight_once(tmp_path: Path) -> None:
+    """Every figure is a raw count: a row with a `sample_weight` above 1 is one case."""
     db = tmp_path / "corpus.db"
     row = _census_row("scotus/1", "24-100").model_copy(update={"sample_weight": 10})
     with corpus.connect(db) as conn:
@@ -2518,8 +2518,9 @@ def test_the_distribution_census_refuses_a_subsampled_frame(tmp_path: Path) -> N
             date(2026, 8, 1),
             _census_payload("DISTRIBUTED for Conference of 3/24/2023."),
         )
-        with pytest.raises(ValueError, match="sample_weight"):
-            distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
+        census = distribution_census(conn, baseline_parse="dist-v1", candidate_parse="dist-v2")
+    assert (census.cases, census.unobservable) == (1, 0)
+    assert sum(band.cases for band in census.bands) == 1
 
 
 def test_the_distribution_census_per_band_cut_adds_up_to_the_totals(tmp_path: Path) -> None:

@@ -93,10 +93,11 @@ def test_the_fit_cuts_a_risk_set_on_the_stored_count() -> None:
     assert cell.unread_resolved == 1
 
 
-def test_the_fit_weights_as_the_band_rates_do() -> None:
+def test_the_fit_counts_a_row_stored_with_a_weight_once() -> None:
+    """As the band rates do: the weighted pair is the raw count, whatever weight is stored."""
     rows = [_row(1, weight=5), _row(2, weight=None, disposition=Disposition.granted)]
     cell = _cell(fit_rows(rows), 2024)
-    assert (cell.none_resolved, cell.none_weighted_resolved, cell.none_weighted_grants) == (2, 6, 1)
+    assert (cell.none_resolved, cell.none_weighted_resolved, cell.none_weighted_grants) == (2, 2, 1)
 
 
 def test_the_fit_sums_to_the_statpacks_risk_sets(fixture_corpus: FixtureCorpus) -> None:

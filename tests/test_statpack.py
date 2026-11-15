@@ -2,13 +2,15 @@
 
 Uses the deterministic synthetic corpus (``fixture_corpus``): seven cases across
 ca9 / ca1 / scotus, five resolved and two open. The two SCOTUS petitions are
-live-slice rows — ``scotus/304`` a walker-sampled denial at weight 5 (one
-relist), ``scotus/305`` a pending poller row at weight 1 (CVSG on file) — and
+live-slice rows — ``scotus/304`` a denial (one relist), ``scotus/305`` a
+pending poller row (CVSG on file) — and
 ``scotus/306`` is a resolved substantive stay application (the interim
 docket's row, outside every cert-stage cut). The
 fixture carries discovery cursors (OT22 paid complete at 850, OT22 IFP
-partial at 460, OT24 paid partial at 12), so the weighted sections, the census,
-and the completeness flags all have real material to aggregate.
+partial at 460, OT24 paid partial at 12), so the live-slice sections, the census,
+and the completeness flags all have real material to aggregate. Every row
+counts once in every figure, so a field named ``weighted_*`` or ``est_*`` equals
+the raw count beside it.
 """
 
 from __future__ import annotations
@@ -122,13 +124,13 @@ def test_build_statpack_overall_timing(fixture_corpus: FixtureCorpus) -> None:
 
 
 def test_build_statpack_weighted_cert_anchor(fixture_corpus: FixtureCorpus) -> None:
-    # The calibration anchor: live slice, denial-reweighted. scotus/304 (denied,
-    # weight 5) counts as five petitions; scotus/305 (open, weight 1) as one.
+    # The calibration anchor: live slice, each petition counted once.
+    # scotus/304 is the denial; scotus/305 is open.
     cert = _section(_pack(fixture_corpus), "Modern discretionary-cert petitions by disposition")
     assert cert.cert_stage is True and cert.court == "scotus"
     assert cert.live_slice is True and cert.weighted is True
     assert {(b.key, b.cases, b.resolved) for b in cert.buckets} == {
-        ("denied", 5, 5),
+        ("denied", 1, 1),
         ("(open)", 1, 0),
     }
 
@@ -136,19 +138,19 @@ def test_build_statpack_weighted_cert_anchor(fixture_corpus: FixtureCorpus) -> N
 def test_build_statpack_weighted_circuit_cut(fixture_corpus: FixtureCorpus) -> None:
     scorecard = _section(_pack(fixture_corpus), "Modern cert petitions by originating circuit")
     assert scorecard.weighted is True
-    # Both live petitions came up from ca9: 5 + 1 weighted cases, 5 resolved.
-    assert [(b.key, b.cases, b.resolved, b.open) for b in scorecard.buckets] == [("ca9", 6, 5, 1)]
+    # Both live petitions came up from ca9: two cases, one resolved.
+    assert [(b.key, b.cases, b.resolved, b.open) for b in scorecard.buckets] == [("ca9", 2, 1, 1)]
 
 
 def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> None:
     pack = _pack(fixture_corpus)
     relists = _section(pack, "Cert petitions by relist count (paid scored segment)")
-    # scotus/304: two distributions = one relist (weight 5); scotus/305: one
-    # distribution = zero relists (weight 1).
-    assert {(b.key, b.cases) for b in relists.buckets} == {("1", 5), ("0", 1)}
+    # scotus/304: two distributions = one relist; scotus/305: one
+    # distribution = zero relists.
+    assert {(b.key, b.cases) for b in relists.buckets} == {("1", 1), ("0", 1)}
     cvsg = _section(pack, "Cert petitions by CVSG status (paid scored segment)")
     # scotus/305 carries the SG invitation; scotus/304 was parsed and has none.
-    assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 5)}
+    assert {(b.key, b.cases) for b in cvsg.buckets} == {("cvsg", 1), ("none", 1)}
     # The relist cuts name the parse the stored count holds: a parse change
     # moves which entries count as a relist, so the label must travel with the
     # tiers wherever the section renders.
@@ -161,9 +163,9 @@ def test_build_statpack_relist_and_cvsg_cuts(fixture_corpus: FixtureCorpus) -> N
 
 def test_build_statpack_capital_case_cut(tmp_path: Path) -> None:
     # The measurable form of the population-correction reading: capital
-    # petitions are separated from the rest of the paid scored segment, both
-    # cuts denial-reweighted, so the base-rate difference can be read per pack
-    # instead of quoted from a one-off query.
+    # petitions are separated from the rest of the paid scored segment, so the
+    # base-rate difference can be read per pack instead of quoted from a
+    # one-off query. The unmarked denial stores a weight of 5 and counts once.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -207,8 +209,8 @@ def test_build_statpack_capital_case_cut(tmp_path: Path) -> None:
         True,
     )
     assert [(b.key, b.cases, b.resolved) for b in capital.buckets] == [
-        ("unmarked", 5, 5),
         ("capital", 1, 1),
+        ("unmarked", 1, 1),
     ]
     marked = next(b for b in capital.buckets if b.key == "capital")
     assert [(d.disposition, d.share) for d in marked.dispositions] == [("granted", 1.0)]
@@ -275,15 +277,15 @@ def test_capital_cut_never_reads_an_unpolled_row_as_unmarked(tmp_path: Path) -> 
 
 
 def test_build_statpack_salience_band_section(fixture_corpus: FixtureCorpus) -> None:
-    # The pack-wide segment board: paid scored segment, live slice, denial-weighted,
-    # split by sal-v1 band. scotus/304 (one relist → elevated, weight 5, denied) and
-    # scotus/305 (CVSG → high, weight 1, open).
+    # The pack-wide segment board: paid scored segment, live slice, split by
+    # salience band. scotus/304 (one relist → elevated, denied) and scotus/305
+    # (CVSG → high, open).
     band = _section(_pack(fixture_corpus), "Cert petitions by salience band")
     assert band.cert_stage is True and band.court == "scotus"
     assert band.live_slice is True and band.weighted is True
     assert band.group_by == "salience_band"
     assert [(b.key, b.cases, b.resolved) for b in band.buckets] == [
-        ("elevated", 5, 5),
+        ("elevated", 1, 1),
         ("high", 1, 0),
     ]
 
@@ -309,7 +311,7 @@ def test_salience_band_section_excludes_ifp(fixture_corpus: FixtureCorpus) -> No
     pack = analytics.build_statpack(corpus_db_path=fixture_corpus.db_path)
     band = _section(pack, "Cert petitions by salience band")
     # Still only the two paid petitions; the IFP row joins no band bucket.
-    assert sum(b.cases for b in band.buckets) == 6  # 5 (elevated) + 1 (high)
+    assert sum(b.cases for b in band.buckets) == 2  # 1 (elevated) + 1 (high)
     assert "(none)" not in {b.key for b in band.buckets}
     # And it never enters a Term's segment counts either.
     term = _term(pack, 2024)
@@ -400,7 +402,7 @@ def test_term_grant_family_rate_pools_the_split(tmp_path: Path) -> None:
     # `est_grant_family_rate` is the pooled granted+gvr series — the one per-Term
     # disposition figure comparable across Terms — and it must equal the sum of
     # the split's own shares, so the JSON's `dispositions` and the pooled field
-    # can never disagree.
+    # can never disagree. The denial stores a weight of 5 and counts once.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -437,13 +439,13 @@ def test_term_grant_family_rate_pools_the_split(tmp_path: Path) -> None:
         )
     pack = analytics.build_statpack(corpus_db_path=db)
     term = _term(pack, 2025)
-    # granted 1 + gvr 1 over a weighted resolved of 7 (the denial stands in for 5).
-    assert term.est_grant_family_rate == pytest.approx(2 / 7)
+    # granted 1 + gvr 1 over the three resolved rows.
+    assert term.est_grant_family_rate == pytest.approx(2 / 3)
     assert term.est_grant_family_rate == sum(
         d.share for d in term.base_rates.dispositions if d.disposition in ("granted", "gvr")
     )
     # And the rendered Term row prints the field itself, not a recomputation.
-    assert "28.6%" in analytics.render_statpack_markdown(pack)
+    assert "66.7%" in analytics.render_statpack_markdown(pack)
 
 
 def test_unparsed_rows_land_in_the_unknown_buckets(tmp_path: Path) -> None:
@@ -502,19 +504,19 @@ def test_per_term_entries_carry_census_classes_and_estimates(
     assert [t.term for t in pack.terms] == [2024, 2022]
 
     resolved_term = _term(pack, 2022)
-    # One raw row ingested; weighted base rates count its sampled denial as five.
+    # One row ingested, and the base rates count its denial once.
     assert resolved_term.ingested == 1
-    assert (resolved_term.base_rates.cases, resolved_term.base_rates.resolved) == (5, 5)
+    assert (resolved_term.base_rates.cases, resolved_term.base_rates.resolved) == (1, 1)
     assert {d.disposition for d in resolved_term.base_rates.dispositions} == {"denied"}
-    # Cert timing keys on date_cert_denied (168 days), weighted.
-    assert resolved_term.timing.cases == 5
+    # Cert timing keys on date_cert_denied (168 days).
+    assert resolved_term.timing.cases == 1
     assert resolved_term.timing.median_days == 168.0
     assert resolved_term.grants == 0 and resolved_term.median_days_to_grant is None
     # All resolved rows are denials, so the pooled grant-family series is a real 0%.
     assert resolved_term.est_grant_family_rate == 0.0
     paid, ifp = resolved_term.classes
     assert (paid.fee_class, paid.filings, paid.complete) == (FeeClass.paid, 850, True)
-    assert (paid.ingested, paid.resolved, paid.weighted_resolved) == (1, 1, 5)
+    assert (paid.ingested, paid.resolved, paid.weighted_resolved) == (1, 1, 1)
     assert paid.est_grant_rate == 0.0  # resolved petitions, none granted
     assert (ifp.fee_class, ifp.filings, ifp.complete) == (FeeClass.ifp, 460, False)
     assert (ifp.ingested, ifp.weighted_resolved, ifp.est_grant_rate) == (0, 0, None)
@@ -539,10 +541,10 @@ def test_per_term_segments_carry_the_salience_band_base_rate(
     assert resolved_term.salience_version == "sal-v8"
     assert [s.band for s in resolved_term.segments] == list(_BANDS)
     by_band = {s.band: s for s in resolved_term.segments}
-    # scotus/304 is one relist -> elevated; its sampled denial weights the rate 5x.
+    # scotus/304 is one relist -> elevated; its denial counts once in the rate.
     elevated = by_band["elevated"]
-    assert (elevated.ingested, elevated.weighted_resolved) == (1, 5)
-    assert elevated.est_grant_rate == 0.0  # weight-5 denial, none granted
+    assert (elevated.ingested, elevated.weighted_resolved) == (1, 1)
+    assert elevated.est_grant_rate == 0.0  # one denial, none granted
     # The other bands hold no rows this Term: zero counts, no rate.
     assert by_band["high"].ingested == 0 and by_band["high"].est_grant_rate is None
     assert by_band["baseline"].ingested == 0 and by_band["baseline"].est_grant_rate is None
@@ -675,9 +677,10 @@ def test_a_grant_records_pace_to_grant(tmp_path: Path) -> None:
     assert entry.timing.cases == 1 and entry.timing.median_days == 70.0
 
 
-def test_weighted_timing_repeats_the_sampled_denials(tmp_path: Path) -> None:
-    # One weight-9 denial at 30 days and one weight-1 grant at 300 days: the
-    # weighted median must sit at the denial (rank 5 of 10), not between them.
+def test_term_timing_and_rates_count_a_row_stored_with_a_weight_once(tmp_path: Path) -> None:
+    # One grant at 30 days and one denial at 300 days stored with a weight of 9.
+    # Each row counts once: the timing is the two-row nearest-rank reading, which
+    # a denial repeated nine times would pull to 300 days at the median.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -689,7 +692,7 @@ def test_weighted_timing_repeats_the_sampled_denials(tmp_path: Path) -> None:
                     docket_number="24-10",
                     disposition=Disposition.denied,
                     date_filed=date(2025, 1, 1),
-                    date_cert_denied=date(2025, 1, 31),
+                    date_cert_denied=date(2025, 10, 28),
                     last_live_polled=date(2026, 7, 1),
                     sample_weight=9,
                     distribution_count=1,
@@ -700,7 +703,7 @@ def test_weighted_timing_repeats_the_sampled_denials(tmp_path: Path) -> None:
                     docket_number="24-11",
                     disposition=Disposition.granted,
                     date_filed=date(2025, 1, 1),
-                    date_cert_granted=date(2025, 10, 28),
+                    date_cert_granted=date(2025, 1, 31),
                     last_live_polled=date(2026, 7, 1),
                     sample_weight=1,
                     distribution_count=2,
@@ -708,14 +711,17 @@ def test_weighted_timing_repeats_the_sampled_denials(tmp_path: Path) -> None:
             ],
         )
     entry = _term(analytics.build_statpack(corpus_db_path=db), 2024)
-    assert entry.timing.cases == 10
-    assert entry.timing.median_days == 30.0  # rank 5 of the 10-strong expansion
-    assert entry.timing.p90_days == 30.0  # rank 9 still lands on the denials
-    assert entry.timing.mean_days == pytest.approx(57.0)  # (30 x 9 + 300) / 10
-    # And the weighted grant rate is 1/10, not 1/2.
-    assert entry.base_rates.resolved == 10
+    assert entry.timing.cases == 2
+    assert entry.timing.median_days == 30.0  # nearest-rank: ceil(0.5 x 2) = rank 1
+    assert entry.timing.p90_days == 300.0  # nearest-rank: ceil(0.9 x 2) = rank 2
+    assert entry.timing.mean_days == pytest.approx(165.0)  # (30 + 300) / 2
+    # And the grant rate is 1/2: the weighted fields equal the raw counts.
+    assert (entry.ingested, entry.base_rates.cases, entry.base_rates.resolved) == (2, 2, 2)
     grant = next(d for d in entry.base_rates.dispositions if d.disposition == "granted")
-    assert grant.share == pytest.approx(0.1)
+    assert grant.share == pytest.approx(0.5)
+    assert entry.est_grant_family_rate == pytest.approx(0.5)
+    paid = entry.classes[0]
+    assert (paid.resolved, paid.weighted_resolved, paid.timing.cases) == (2, 2, 2)
 
 
 def test_build_statpack_absent_corpus_is_empty_with_scaffolding(tmp_path: Path) -> None:
@@ -799,7 +805,7 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert f"`{DEFAULT_DISTRIBUTION_PARSE}` reading" in md
     assert "upper bound on true relists" in md
     assert "**Dated share:** 5 of 5 machine-readable resolved case(s)" in md
-    # Full-corpus sections say so; live-slice sections state slice + weighting.
+    # Full-corpus sections say so; live-slice sections state their slice.
     assert "## Cases by court" in md
     assert "_Scope: all courts; includes the frozen bulk import._" in md
     assert (
@@ -807,11 +813,11 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
         "counts are denial-reweighted estimates._" in md
     )
     assert "median 319d, p90 546d (mean 316.0d over 5 dated case(s))" in md
-    # The per-Term table: filings census, raw ingested count, weighted
-    # estimates, completeness. OT22 ingested exactly one live row; the weighted
-    # columns count its sampled denial as five.
+    # The per-Term table: filings census, ingested count, resolved count and
+    # rates, completeness. OT22 ingested exactly one live row, a denial counted
+    # once in every column.
     assert "## SCOTUS cert petitions by Term" in md
-    assert "| 2022 | 850/460 | 1 | 5 | denied 100.0% | 0.0% | 0 | 168 | ✓/partial |" in md
+    assert "| 2022 | 850/460 | 1 | 1 | denied 100.0% | 0.0% | 0 | 168 | ✓/partial |" in md
     assert "| 2024 | 12/— | 1 | 0 | — | — | 0 | — | partial/partial |" in md
     # The replay self-selection rule rides under the Term table, and names the
     # clock: the record's docket Term. These rows are keyed on the docket Term,
@@ -837,12 +843,12 @@ def test_render_statpack_markdown_renders_the_segment_base_rate(
     assert "## Cert petitions by salience band" in md
     assert "### Segment base rate by salience band (sal-v8)" in md
     assert "| Term | federal | high | state | elevated | baseline |" in md
-    # OT22's lone scored petition is a weight-5 elevated denial. A cell leads with
+    # OT22's lone scored petition is an elevated denial. A cell leads with
     # the scored (terminal) rate and brackets the risk-set one. `high` is empty —
     # nothing reached it. `baseline` carries ONLY a bracket: no row ended there,
     # but this petition passed through it, so it is in that band's risk set. That
     # asymmetry is the whole point of publishing both.
-    assert "| 2022 | — | — | — | 0.0% (n=5) [reached 0.0%, n=5] | [reached 0.0%, n=5] |" in md
+    assert "| 2022 | — | — | — | 0.0% (n=1) [reached 0.0%, n=1] | [reached 0.0%, n=1] |" in md
     # The band table states its own rendered window. The predict/evaluate prompts
     # tell agents that this caption is how they detect truncation, so the count has
     # to sit on THIS table — the parent Term table's caption is a different section.
@@ -991,12 +997,12 @@ def test_the_risk_set_rate_lifts_a_weak_band_that_a_stronger_grant_passed_throug
     terminal cut drops it, which is what understated that band several-fold."""
     term = _term(_pack(fixture_corpus), 2022)
     by_band = {s.band: s for s in term.segments}
-    # OT2022's only scored row is the weight-5 elevated denial (see the segment
+    # OT2022's only scored row is the elevated denial (see the segment
     # test above). It ended `elevated`, so `baseline` holds no row that ended
     # there — but the petition passed through `baseline`, so the risk set has it.
     assert by_band["baseline"].weighted_resolved == 0
     assert by_band["baseline"].est_grant_rate is None
-    assert by_band["baseline"].prefix_weighted_resolved == 5
+    assert by_band["baseline"].prefix_weighted_resolved == 1
     assert by_band["baseline"].prefix_est_grant_rate == 0.0
 
 
