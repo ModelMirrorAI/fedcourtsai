@@ -2073,8 +2073,8 @@ def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
     """The block exists for every non-active registered version — today, sal-v1,
-    sal-v2, the superseded sal-v3, sal-v4, sal-v6 and sal-v7 and the
-    never-activated sal-v5, beside the active sal-v8 — and never
+    sal-v2, the superseded sal-v3, sal-v4, sal-v6 and sal-v7, the
+    never-activated sal-v5 and the registered sal-v9, beside the active sal-v8 — and never
     repeats the active one, so a prediction frozen at any registered version
     keeps a published base rate."""
     pack = _pack(fixture_corpus)
@@ -2088,6 +2088,7 @@ def test_alt_segments_carry_exactly_the_non_active_versions(
             "sal-v5",
             "sal-v6",
             "sal-v7",
+            "sal-v9",
         }, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
@@ -2113,6 +2114,7 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
             "sal-v5",
             "sal-v6",
             "sal-v7",
+            "sal-v9",
         }
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
@@ -2130,9 +2132,14 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         # caption-v5 reads every stored row as caption-v4 does, so the active
         # sal-v8 pools exactly the superseded sal-v7's segments.
         assert alts["sal-v7"].segments == term.segments
+        # caption-v6 moves a row only where the office is the petitioner side's
+        # sole counsel of record under a party label the caption does not
+        # carry; the fixture corpus holds none, so sal-v9 pools sal-v8's segments.
+        assert [s.band for s in alts["sal-v9"].segments] == list(_BANDS)
+        assert alts["sal-v9"].segments == term.segments
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 8 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 9 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(

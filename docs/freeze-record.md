@@ -20584,3 +20584,101 @@ freeze commit is recorded here.
   "code_mode_computed_call" or .tool == "tool_search")] | length'` over them
   says whether the index form is in use: zero on every cell means the surface
   held nothing back, and the dotted counts are as complete as before.
+
+- **`caption-v6` and `sal-v9` registered, inactive; recorded 2026-11-15.** No
+  freeze commit belongs to this entry, on the `sal-v8` registration's pattern:
+  the salience version sits outside the process digest, carries its own
+  data-visible boundary (`context.salience_version`), and a registration
+  re-blesses nothing. `uv run fedcourts process-digest --all` prints the same
+  digests before and after this change, and no harness boundary is
+  registered: the third counsel reading rides the cell's projected row beside
+  the other two and adds no field to `context.json`. `SALIENCE_VERSION` stays
+  `sal-v8`, so nothing the live pass selects, latches or stamps moves;
+  `statpack.json` and `salience-replay.json` carry a further version's bands
+  from their next render. No prompt text or other digest input changes.
+
+  **What `caption-v6` is.** `caption-v5`, with one more reading where its
+  check does not fire: a petition whose petitioner side has no counsel of
+  record but the Solicitor General's office reads `federal`
+  (`caption.sg_office_petition`). Every petitioner-side entry of record must
+  be the office's under the filing-date roster test `caption-v4` applies, and
+  one must name a party that is neither empty nor the bare sovereign. The
+  party need not name the captioned petitioner. On a frozen cell band the
+  reading is made on a forward cell only
+  (`caption.sg_office_petition_on_forward_cut`); on a replay or back-test
+  cell it is `caption-v4`'s fact. `caption-v1` to `caption-v5` are unchanged.
+
+  **What `sal-v9` is.** `sal-v8`'s score, writ scope, `dist-v2` pin,
+  cutpoints, band vocabulary and arrival draw, as the same callables, with the
+  band, the carve-in and the reachable ladder read through `caption-v6`.
+
+  **Why.** `caption-v4`'s party match has a declared recall gap, an office
+  entry under a label the caption does not carry. The daily
+  `federal-label-check` raised 26-630 on 2026-11-14: captioned "Antone Moniz,
+  et al.", its one petitioner-side entry the Solicitor General as counsel of
+  record for "Federal Respondents", band `baseline`, not selected. The
+  maintainer decided on 2026-11-15 that the office as counsel is to be read
+  as a federal signal.
+
+  **Why the two post-outcome shapes stay out.** A supporting amicus and a
+  government petition consolidated at the grant both add the office to a
+  block that already holds the private petitioner's own counsel of record, so
+  the sole-counsel test fails on both. Of the five rows the 2026-10-30 entry
+  names, the two that carry an office entry of record at filing (18-1587,
+  25-840) share the block with another party's counsel of record and stay
+  `private`.
+
+  **What it moves.** On the blob
+  `524ad09557a1b036a48f1611dc0cdc50e687bc4ff5a9a4b9156b36ceb34ecc46` (newest
+  pull 2026-11-15, newest stored snapshot row 2026-07-13), read on
+  2026-11-15: of the 13,993 live-slice scored-segment rows `sal-v8` admits
+  (13,553 resolved, 440 pending), `uv run python
+  scripts/checks/caption_v6_band_census.py` finds one band move, pending
+  26-630 from `baseline` to `federal`, and no resolved one. 26 rows carry an
+  office entry of record at filing on the petitioner side that `caption-v4`'s
+  match does not read; the office is the only counsel of record on 23, of
+  which 22 already read `federal` by their caption. `caption-census
+  --rule-version caption-v6` equals `caption-v5`'s output in every Term and
+  class. A statpack rendered on that blob carries a `sal-v9` block equal to
+  its `sal-v8` segments in every Term apart from `ingested` (OT2026:
+  `federal` 23 against 22, `baseline` 563 against 564). `federal-label-check
+  --salience-version sal-v9` reads 20 of 433 pending paid petitions `federal`
+  and flags none, against 19 and one alarm under `sal-v8`. The activation dry
+  run (`scripts/checks/salience_activation_dry_run.py` with each version
+  active) plans 1 new latch under `sal-v9`, an arrival, against 0 under
+  `sal-v8`, and refuses the same 257 rows under both. No frozen band changes:
+  26-630 has no cell.
+
+  **What a replay reading can and cannot say.** A `sal-v9` replay cell reads
+  `caption-v4`'s fact, so its replay readings equal `sal-v8`'s. The move has
+  no outcome-clean reading at registration: the one moved row is pending, and
+  no resolved row moves. The bar an activation clears is the one `sal-v7`'s
+  did, the rule's outcome-free precision, here over one row whose caption and
+  counsel entry were read. The declared residual is `caption-v4`'s
+  substitution residual under a wider party label (`docs/salience.md`, the
+  `sal-v9` section).
+
+  **Not owed by this registration, owed by an activation.** The first
+  metrics refresh after the promotion carrying this entry, so the committed
+  pack holds a `sal-v9` block; that block equal to the `sal-v8` segments
+  apart from `ingested`; the band census and the activation dry run re-run on
+  the activation's blob (`docs/salience.md`, the `sal-v9` section). Until the
+  activation, 26-630 stays `baseline` and unselected, and the
+  `federal-label-check` alarm on it stands.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION, SCORERS; from fedcourtsai.pipeline.caption import
+    CAPTION_RULES; print(SALIENCE_VERSION, 'sal-v9' in SCORERS, 'caption-v6'
+    in CAPTION_RULES)"` prints `sal-v8 True True`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '[.terms[].alt_segments[].salience_version] | unique | join(" ")'
+    metrics/statpack.json` includes `sal-v9`, `.terms[].salience_version`
+    stays `sal-v8`, and `jq '[.terms[] | (.segments | map(del(.ingested))) ==
+    (.alt_segments[] | select(.salience_version == "sal-v9") | .segments |
+    map(del(.ingested)))] | all' metrics/statpack.json` prints `true`;
+  - where the corpus is pulled, `uv run fedcourts federal-label-check
+    --salience-version sal-v9` raises no alarm on 26-630.

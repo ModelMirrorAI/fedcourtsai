@@ -209,6 +209,8 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         "sal-v7": ("federal", "high"),
         # sal-v8 is sal-v7 with the carve-in read through caption-v5.
         "sal-v8": ("federal", "high"),
+        # sal-v9 is sal-v8 with the carve-in read through caption-v6.
+        "sal-v9": ("federal", "high"),
         # Indexed, never `.get` with a self-satisfying fallback: a prefix
         # compared against a prefix of its own length passes for any version,
         # so a new registration must state its carve prefix here or KeyError.
@@ -1946,6 +1948,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v5",
         "sal-v6",
         "sal-v7",
+        "sal-v9",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
@@ -2280,6 +2283,7 @@ def test_every_registered_scorer_pins_a_registered_distribution_parse(version: s
         "sal-v6": "dist-v2",
         "sal-v7": "dist-v2",
         "sal-v8": "dist-v2",
+        "sal-v9": "dist-v2",
     }
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
     assert SCORERS[version].distribution_parse == expected[version]
@@ -3375,4 +3379,235 @@ def test_the_projection_carries_both_readings_and_refuses_the_forward_one_alone(
             provenance="dated",
             sg_counsel_of_record_for_petitioner=True,
             sg_counsel_of_record_forward=False,
+        )
+
+
+# --- caption-v6: the office as the petitioner side's only counsel of record -------
+
+
+def _moniz_payload(**overrides: object) -> dict[str, object]:
+    """A live-shaped petition the office files for officers captioned under personal
+    names, its counsel entry listed under the parties' role below."""
+    return {
+        **_warden_payload(sg=False),
+        "PetitionerTitle": "Antone Moniz, et al., Petitioners",
+        "Petitioner": [
+            {
+                "PartyName": "Federal Respondents",
+                "Attorney": "D. John Sauer",
+                "IsCounselofRecord": True,
+            }
+        ],
+        **overrides,
+    }
+
+
+def _office_entry(party: str, *, of_record: bool = True) -> dict[str, object]:
+    return {"PartyName": party, "Attorney": "D. John Sauer", "IsCounselofRecord": of_record}
+
+
+_PRIVATE_OF_RECORD: dict[str, object] = {
+    "PartyName": "Antone Moniz",
+    "Attorney": "Jane Private",
+    "IsCounselofRecord": True,
+}
+
+
+def test_sal_v9_bands_and_carves_an_office_petition_under_a_generic_party_label() -> None:
+    """The office as the petitioner side's only counsel of record, its entry under
+    a party label the caption does not carry, moves the band, the carve-in and the
+    ladder to `federal` under sal-v9, where sal-v8 reads the caption's `private`."""
+    v8, v9 = scorer("sal-v8"), scorer("sal-v9")
+    floor = load_salience_config(Path("config")).floor
+    row = _v5_row(
+        distribution_count=None,
+        petitioner_title="Antone Moniz, et al.",
+        counsel=[_sg_for_petitioner("Federal Respondents")],
+    )
+    assert caption.petitioner_class_v5(row) == "private"
+    assert caption.petitioner_class_v6(row) == "federal"
+    assert v8.band(row) != "federal"
+    assert v9.band(row) == "federal"
+    assert v9.reachable_bands(row) == ("federal",)
+    assert v9.carve_out(row, v9.score(row), floor)
+    assert not v8.carve_out(row, v8.score(row), floor)
+    assert v9.score(row) == v8.score(row)
+
+
+def test_sal_v9_reads_every_other_stored_row_as_sal_v8() -> None:
+    """caption-v6 adds one shape. A private petitioner's own counsel of record
+    beside the office (the supporting amicus and the consolidation), the office not
+    of record, a block whose only entry is the bare sovereign's, an entry with no
+    party, the office on the respondent side, and an undated docket all read as
+    under caption-v5; so does every row caption-v5 already reads federal."""
+    v8, v9 = scorer("sal-v8"), scorer("sal-v9")
+    floor = load_salience_config(Path("config")).floor
+    private = corpus.CounselEntry(
+        party="Antone Moniz",
+        attorney="Jane Private",
+        role=corpus.CounselRole.petitioner,
+        counsel_of_record=True,
+    )
+    respondent = corpus.CounselEntry(
+        party="Federal Respondents",
+        attorney="D. John Sauer",
+        role=corpus.CounselRole.respondent,
+        counsel_of_record=True,
+    )
+    for counsel in (
+        [],
+        [private],
+        [private, _sg_for_petitioner("United States")],
+        [private, _sg_for_petitioner("Department of Homeland Security, et al.")],
+        [_sg_for_petitioner("Federal Respondents", of_record=False)],
+        [_sg_for_petitioner("United States")],
+        [_sg_for_petitioner("United States of America")],
+        [_sg_for_petitioner("")],
+        [respondent],
+        [_sg_for_petitioner("Moniz, et al.")],  # caption-v4's own match
+    ):
+        row = _v5_row(
+            distribution_count=1, petitioner_title="Antone Moniz, et al.", counsel=counsel
+        )
+        assert caption.petitioner_class_v6(row) == caption.petitioner_class_v5(row), counsel
+        assert v9.band(row) == v8.band(row)
+        assert v9.reachable_bands(row) == v8.reachable_bands(row)
+        assert v9.carve_out(row, v9.score(row), floor) == v8.carve_out(row, v8.score(row), floor)
+    undated = _v5_row(counsel=[_sg_for_petitioner("Federal Respondents")]).model_copy(
+        update={"date_filed": None}
+    )
+    assert caption.petitioner_class_v6(undated) == "private"
+    before_office = _v5_row(counsel=[_sg_for_petitioner("Federal Respondents")]).model_copy(
+        update={"date_filed": date(2024, 9, 16)}
+    )
+    assert caption.petitioner_class_v6(before_office) == "private"
+
+
+@pytest.mark.parametrize("provenance", ["as-stored", "dated", "truncated"])
+def test_a_forward_office_petition_cell_bands_federal_under_sal_v9_only(
+    monkeypatch: pytest.MonkeyPatch, provenance: Literal["as-stored", "dated", "truncated"]
+) -> None:
+    """A forward cell reads the office as its `Petitioner` block's only counsel of
+    record on every provenance it is placed on: sal-v9 freezes `federal`, where
+    sal-v8 freezes the caption's band."""
+    _activate(monkeypatch, "sal-v8")
+    assert _forward_context(_moniz_payload(), provenance=provenance).band != "federal"
+    _activate(monkeypatch, "sal-v9")
+    built = _forward_context(_moniz_payload(), provenance=provenance)
+    assert built.band == "federal" and built.salience_version == "sal-v9"
+
+
+def test_a_forward_cell_without_a_sole_office_block_is_unchanged_under_sal_v9(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The sole-counsel test fails, and the band is sal-v8's, where a private
+    petitioner's counsel of record shares the block, the office is not of record,
+    the only entry is the bare sovereign's, the docket predates the attorney's
+    time in the office, or it carries no docketing date."""
+    undated = {key: value for key, value in _moniz_payload().items() if key != "DocketedDate"}
+    for payload in (
+        _moniz_payload(Petitioner=[_PRIVATE_OF_RECORD, _office_entry("United States")]),
+        _moniz_payload(Petitioner=[_PRIVATE_OF_RECORD, _office_entry("Federal Respondents")]),
+        _moniz_payload(Petitioner=[_office_entry("Federal Respondents", of_record=False)]),
+        _moniz_payload(Petitioner=[_office_entry("United States")]),
+        _moniz_payload(DocketedDate="September 16, 2024"),
+        undated,
+    ):
+        bands = {}
+        for version in ("sal-v8", "sal-v9"):
+            _activate(monkeypatch, version)
+            bands[version] = _forward_context(payload, provenance="truncated").band
+        assert bands["sal-v9"] == bands["sal-v8"] != "federal", payload
+
+
+@pytest.mark.parametrize("provenance", ["dated", "truncated"])
+def test_a_replay_cell_bands_under_sal_v9_as_under_sal_v8(
+    monkeypatch: pytest.MonkeyPatch, provenance: Literal["dated", "truncated"]
+) -> None:
+    """The sole-counsel reading is a forward cell's: a replay cell freezes the
+    same band under both versions, whether its provisioner passes the caption-v4
+    fact in or it reads its own unredacted payload."""
+    for payload in (_moniz_payload(), _warden_payload()):
+        bands = {}
+        own = {}
+        for version in ("sal-v8", "sal-v9"):
+            _activate(monkeypatch, version)
+            bands[version] = _replay_context(payload, provenance=provenance).band
+            own[version] = cell_context.build(
+                "scotus/100", _CUT, payload, "replay", provenance=provenance, cutoff=_CUT
+            ).band
+        assert bands["sal-v9"] == bands["sal-v8"]
+        assert own["sal-v9"] == own["sal-v8"]
+
+
+def test_the_office_petition_reading_is_the_forward_fact_or_the_sole_office_block() -> None:
+    """`sg_office_petition_on_forward_cut` is true wherever caption-v5's fact is,
+    reads the sole-counsel block on a forward cell only, never reads a `blind`
+    payload, and off a forward cell is caption-v4's fact."""
+
+    def office_petition(payload: dict[str, object], provenance: str, mode: str) -> bool:
+        return caption.sg_office_petition_on_forward_cut(
+            payload,
+            caption_text=str(payload["PetitionerTitle"]),
+            cut=_CUT,
+            provenance=provenance,
+            mode=mode,
+        )
+
+    for provenance in ("as-stored", "dated", "truncated"):
+        assert office_petition(_moniz_payload(), provenance, "forward"), provenance
+        assert office_petition(_warden_payload(), provenance, "forward"), provenance
+    assert not office_petition(_moniz_payload(), "blind", "forward")
+    for payload in (_moniz_payload(), _warden_payload()):
+        for provenance in ("as-stored", "dated", "truncated", "blind"):
+            at_cut = caption.sg_counsel_of_record_at_cut(
+                payload,
+                caption_text=str(payload["PetitionerTitle"]),
+                cut=_CUT,
+                provenance=provenance,
+            )
+            assert office_petition(payload, provenance, "replay") is at_cut, provenance
+    assert not office_petition(_moniz_payload(), "dated", "replay")
+    late = _moniz_payload(DocketedDate="October 3, 2025")
+    assert not office_petition(late, "truncated", "forward")
+
+
+def test_the_projection_carries_the_caption_v6_reading_and_refuses_a_narrower_one() -> None:
+    """A cut row carries caption-v6's reading beside the other two: it takes the
+    forward reading's value when not given, and is refused without the caption-v4
+    fact or narrower than the forward reading."""
+    base = corpus.CorpusRow(case_id="scotus/100", court="scotus", docket_number="25-100")
+
+    def project(
+        *,
+        sg_counsel_of_record_for_petitioner: bool | None = None,
+        sg_counsel_of_record_forward: bool | None = None,
+        sg_office_petition: bool | None = None,
+    ) -> corpus.CorpusRow:
+        return asof.project_row(
+            base,
+            _moniz_payload(),
+            cutoff=_CUT,
+            provenance="truncated",
+            sg_counsel_of_record_for_petitioner=sg_counsel_of_record_for_petitioner,
+            sg_counsel_of_record_forward=sg_counsel_of_record_forward,
+            sg_office_petition=sg_office_petition,
+        ).row
+
+    defaulted = project(sg_counsel_of_record_for_petitioner=False)
+    assert isinstance(defaulted, caption.CutRow) and defaulted.sg_office_petition is False
+    follows_forward = project(
+        sg_counsel_of_record_for_petitioner=False, sg_counsel_of_record_forward=True
+    )
+    assert isinstance(follows_forward, caption.CutRow) and follows_forward.sg_office_petition
+    sole = project(sg_counsel_of_record_for_petitioner=False, sg_office_petition=True)
+    assert caption.petitioner_class_v5(sole) != "federal"
+    assert caption.petitioner_class_v6(sole) == "federal"
+    with pytest.raises(ValueError, match="caption-v6 reading needs the caption-v4 fact"):
+        project(sg_office_petition=True)
+    with pytest.raises(ValueError, match="must include the forward counsel fact"):
+        project(
+            sg_counsel_of_record_for_petitioner=True,
+            sg_counsel_of_record_forward=True,
+            sg_office_petition=False,
         )

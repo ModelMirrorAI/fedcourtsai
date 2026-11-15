@@ -2929,8 +2929,8 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The superseded `sal-v6` and `sal-v7`, the never-activated `sal-v5` and
-  the active `sal-v8`.** Their cells and their statpack blocks cover a narrower population
+  **The superseded `sal-v6` and `sal-v7`, the never-activated `sal-v5`,
+  the active `sal-v8` and the registered `sal-v9`.** Their cells and their statpack blocks cover a narrower population
   than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
@@ -2955,12 +2955,18 @@ the rendered table) and
   row and every replay cell exactly as `caption-v4` does, so its statpack
   block and its replay cells equal `sal-v7`'s; it differs only on a forward
   cell rebuilt by truncation, which no replay cell is. `sal-v8` is the
-  active scorer. Any of these blocks over past Terms is
+  active scorer. `sal-v9` is `sal-v8` with the class read through
+  `caption-v6`, which also reads `federal` a petition whose petitioner side
+  has no counsel of record but the Solicitor General's office. Its replay
+  cells read `caption-v4`'s fact, so they equal `sal-v8`'s and say nothing
+  about that reading; its statpack block bands stored rows, and differs from
+  `sal-v8`'s only where such a row exists, which at its registration was one
+  pending row and no resolved one. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
   rows the live poll has re-read, and no figure from the block may be quoted
-  (`docs/salience.md`, the `sal-v5`, `sal-v6`, `sal-v7` and `sal-v8` sections).
+  (`docs/salience.md`, the `sal-v5`, `sal-v6`, `sal-v7`, `sal-v8` and `sal-v9` sections).
 
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before
