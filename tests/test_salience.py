@@ -3432,6 +3432,14 @@ def test_sal_v9_bands_and_carves_an_office_petition_under_a_generic_party_label(
     assert v9.carve_out(row, v9.score(row), floor)
     assert not v8.carve_out(row, v8.score(row), floor)
     assert v9.score(row) == v8.score(row)
+    # The check precedes the sub-national officer fallback, as caption-v4's does.
+    warden = _v5_row(
+        distribution_count=1,
+        petitioner_title="Juan Baltazar, Warden, et al.",
+        counsel=[_sg_for_petitioner("Federal Parties")],
+    )
+    assert v8.band(warden) == "state"
+    assert v9.band(warden) == "federal"
 
 
 def test_sal_v9_reads_every_other_stored_row_as_sal_v8() -> None:
@@ -3462,6 +3470,9 @@ def test_sal_v9_reads_every_other_stored_row_as_sal_v8() -> None:
         [_sg_for_petitioner("Federal Respondents", of_record=False)],
         [_sg_for_petitioner("United States")],
         [_sg_for_petitioner("United States of America")],
+        [_sg_for_petitioner("The United States")],
+        [_sg_for_petitioner("United States as amicus curiae")],
+        [_sg_for_petitioner("United States (amicus curiae)")],
         [_sg_for_petitioner("")],
         [respondent],
         [_sg_for_petitioner("Moniz, et al.")],  # caption-v4's own match
@@ -3603,6 +3614,8 @@ def test_the_projection_carries_the_caption_v6_reading_and_refuses_a_narrower_on
     sole = project(sg_counsel_of_record_for_petitioner=False, sg_office_petition=True)
     assert caption.petitioner_class_v5(sole) != "federal"
     assert caption.petitioner_class_v6(sole) == "federal"
+    with pytest.raises(ValueError, match="must include the forward counsel fact"):
+        caption.CutRow(case_id="scotus/100", court="scotus", sg_counsel_of_record_forward=True)
     with pytest.raises(ValueError, match="caption-v6 reading needs the caption-v4 fact"):
         project(sg_office_petition=True)
     with pytest.raises(ValueError, match="must include the forward counsel fact"):

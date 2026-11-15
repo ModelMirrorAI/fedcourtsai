@@ -55,8 +55,7 @@ other than the captioned petitioner. ``caption-v5`` reads that fact on a
 forward cell's reconstructed payload too, and ``caption-v6`` adds the petition
 the office files under a party label the caption does not carry: the office
 as the petitioner side's *only* counsel of record. Every rule is therefore
-registered as a
-predicate on a **row**
+registered as a predicate on a **row**
 (:data:`CAPTION_RULES`); v1 and v2 read only the row's caption
 (:func:`petitioner_caption`) through their string predicates, which are
 unchanged.
@@ -802,15 +801,19 @@ def sg_counsel_of_record_for_petitioner_v5(row: corpus.CorpusRow) -> bool:
 # the grant both join a petitioner block that already holds the private
 # petitioner's own counsel of record. So caption-v6 reads `federal` where every
 # counsel-of-record entry on the petitioner side is the office's — the same
-# filing-date roster test — and at least one of them names a party that is not
-# the bare sovereign. The sovereign exclusion keeps out a block whose only
-# listed entry is the amicus's ("United States") because the index never held
-# the petitioner's own counsel; a petition the sovereign itself files is
-# captioned for the sovereign, which caption-v4's match already reads.
+# filing-date roster test — and at least one of them names a party whose label
+# does not open on the sovereign's name. The sovereign exclusion keeps out a
+# block whose only listed entry is the amicus's ("United States", however the
+# label goes on) because the index never held the petitioner's own counsel; a
+# petition the sovereign itself files is captioned for the sovereign, which
+# caption-v4's match already reads.
 #
 # The residual is caption-v4's: the office substituting for a privately
 # represented petitioner after the grant, by an attorney already in office at
 # the filing, where the substitution also drops the earlier counsel's entry.
+# The test turns on what the block does not hold, so it also passes wherever
+# the private petitioner's entry of record is absent for another reason and
+# the office's entry names a party other than the sovereign.
 
 
 def _office_is_sole_counsel_of_record(
@@ -821,8 +824,9 @@ def _office_is_sole_counsel_of_record(
     True where ``entries`` has at least one petitioner-side entry marked
     counsel of record, ``sg-office-v1``'s roster places every such entry's
     attorney in the office on ``filed`` (:func:`.counsel.office_entries_at_filing`),
-    and one of them names a party whose lead is neither empty nor the bare
-    sovereign. False on an undated docket. Pure and total.
+    and one of them names a party whose lead is neither empty nor opens on the
+    sovereign (:func:`_names_a_party_other_than_the_sovereign`). False on an
+    undated docket. Pure and total.
     """
     from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
 
@@ -836,8 +840,26 @@ def _office_is_sole_counsel_of_record(
     office = office_entries_at_filing(of_record, filed=filed)
     if len(office) != len(of_record):
         return False
-    leads = [_party_lead(entry.party) for entry in office]
-    return any(lead and lead not in _SOVEREIGN_LEADS for lead in leads)
+    return any(_names_a_party_other_than_the_sovereign(entry.party) for entry in office)
+
+
+def _names_a_party_other_than_the_sovereign(party: str) -> bool:
+    """Whether a counsel entry's ``party`` label has a lead that does not open on the sovereign.
+
+    False for an empty lead and for any lead that, past a leading "the", opens
+    with a sovereign lead (:data:`_SOVEREIGN_LEADS`): "United States", "The
+    United States", "United States as amicus curiae". Wider than an equality
+    test on purpose, so an amicus entry's label never counts however the Clerk
+    words it; the cost is a label that opens with the sovereign's name and
+    goes on to name an agency ("United States Department of Labor"), which
+    does not count either.
+    """
+    lead = _party_lead(party)
+    if lead[:1] == ("the",):
+        lead = lead[1:]
+    if not lead:
+        return False
+    return not any(lead[: len(sovereign)] == sovereign for sovereign in _SOVEREIGN_LEADS)
 
 
 def sg_office_petition_on_forward_cut(

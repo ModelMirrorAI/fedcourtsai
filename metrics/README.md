@@ -2960,8 +2960,8 @@ the rendered table) and
   has no counsel of record but the Solicitor General's office. Its replay
   cells read `caption-v4`'s fact, so they equal `sal-v8`'s and say nothing
   about that reading; its statpack block bands stored rows, and differs from
-  `sal-v8`'s only where such a row exists, which at its registration was one
-  pending row and no resolved one. Any of these blocks over past Terms is
+  `sal-v8`'s only where such a row exists, which is one pending row and no
+  resolved one on the blob `docs/salience.md`'s `sal-v9` section names. Any of these blocks over past Terms is
   **not that version's pool** on a pack rendered before the run-repair
   back-fill filled `distributed_after_call` and `opening_writ` on the decided
   rows: on such a pack those rows read as `sal-v4` reads them, mixed with the

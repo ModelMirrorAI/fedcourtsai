@@ -20602,7 +20602,8 @@ freeze commit is recorded here.
   record but the Solicitor General's office reads `federal`
   (`caption.sg_office_petition`). Every petitioner-side entry of record must
   be the office's under the filing-date roster test `caption-v4` applies, and
-  one must name a party that is neither empty nor the bare sovereign. The
+  one must name a party whose label is neither empty nor opens on the
+  sovereign's name. The
   party need not name the captioned petitioner. On a frozen cell band the
   reading is made on a forward cell only
   (`caption.sg_office_petition_on_forward_cut`); on a replay or back-test
@@ -20620,13 +20621,17 @@ freeze commit is recorded here.
   maintainer decided on 2026-11-15 that the office as counsel is to be read
   as a federal signal.
 
-  **Why the two post-outcome shapes stay out.** A supporting amicus and a
+  **Why the two post-outcome shapes fail the test.** A supporting amicus and a
   government petition consolidated at the grant both add the office to a
   block that already holds the private petitioner's own counsel of record, so
   the sole-counsel test fails on both. Of the five rows the 2026-10-30 entry
   names, the two that carry an office entry of record at filing (18-1587,
   25-840) share the block with another party's counsel of record and stay
-  `private`.
+  `private`. That is what this frame shows, not a proof: the test turns on
+  what the block does not hold, so a block that lacks the private
+  petitioner's entry of record for any other reason, beside an office entry
+  under a non-sovereign label, would pass it. No resolved row in this frame
+  does without already reading `federal` by its caption.
 
   **What it moves.** On the blob
   `524ad09557a1b036a48f1611dc0cdc50e687bc4ff5a9a4b9156b36ceb34ecc46` (newest
@@ -20634,7 +20639,9 @@ freeze commit is recorded here.
   2026-11-15: of the 13,993 live-slice scored-segment rows `sal-v8` admits
   (13,553 resolved, 440 pending), `uv run python
   scripts/checks/caption_v6_band_census.py` finds one band move, pending
-  26-630 from `baseline` to `federal`, and no resolved one. 26 rows carry an
+  26-630 from `baseline` to `federal` (that row last polled 2026-11-13, its
+  docketing day), and no resolved one. The same script counts the entries:
+  26 rows carry an
   office entry of record at filing on the petitioner side that `caption-v4`'s
   match does not read; the office is the only counsel of record on 23, of
   which 22 already read `federal` by their caption. `caption-census
@@ -20642,7 +20649,8 @@ freeze commit is recorded here.
   class. A statpack rendered on that blob carries a `sal-v9` block equal to
   its `sal-v8` segments in every Term apart from `ingested` (OT2026:
   `federal` 23 against 22, `baseline` 563 against 564). `federal-label-check
-  --salience-version sal-v9` reads 20 of 433 pending paid petitions `federal`
+  --salience-version sal-v9` reads 20 of the 433 pending paid petitions in
+  predict scope `federal`
   and flags none, against 19 and one alarm under `sal-v8`. The activation dry
   run (`scripts/checks/salience_activation_dry_run.py` with each version
   active) plans 1 new latch under `sal-v9`, an arrival, against 0 under

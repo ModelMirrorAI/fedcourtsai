@@ -1191,7 +1191,8 @@ federal petition does not move the class either.
 The rule's recall gaps, declared: an office entry whose party is generic
 ("Federal Parties") names no captioned petitioner, so it moves nothing (the
 caption-v2 patterns read 26-104, whose office entry is listed so, and
-`caption-v6` reads the shape, the `sal-v9` section); and
+`caption-v6` reads it where the office is the block's only counsel of
+record, the `sal-v9` section); and
 `sg-office-v1`'s roster names the office's leadership and one career deputy,
 so a petition whose counsel of record is another Assistant to the Solicitor
 General is missed without trace.
@@ -1360,8 +1361,8 @@ tests to the same `Petitioner` block and differs from
 `caption.sg_counsel_of_record_at_cut` in one place: on a cell whose mode is
 `forward`, a `truncated` payload is read too. On a replay or back-test cell it
 is `caption-v4`'s fact, and a `blind` payload, a replay provenance, is never
-read. The projected row (`caption.CutRow`) carries the two readings as two
-booleans and still refuses every counsel entry, party and attorney, so the
+read. The projected row (`caption.CutRow`) carries each reading as its own
+boolean (`caption-v6`'s is a third, the `sal-v9` section) and still refuses every counsel entry, party and attorney, so the
 cell's `context.json` gains no field.
 
 **Why a forward truncated payload is read.** `caption-v4` refuses a
@@ -1464,8 +1465,9 @@ takes every petitioner-side entry marked counsel of record and holds where
 there is at least one, `sg-office-v1`'s roster places every one's attorney in
 the office on the docket's filing date
 (`pipeline.counsel.office_entries_at_filing`, the roster test `caption-v4`
-applies), and at least one names a party that is neither empty nor the bare
-sovereign ("United States"). The party need not name the captioned petitioner.
+applies), and at least one names a party whose label is neither empty nor
+opens on the sovereign's name ("United States", "The United States", "United
+States as amicus curiae"). The party need not name the captioned petitioner.
 A row neither check fires on reads its `caption-v2` class, so the rule can only
 move a `private` or `state` read to `federal`, and it moves every row
 `caption-v5` moves.
@@ -1476,10 +1478,10 @@ carry. 26-630 is captioned for officers under personal names ("Antone Moniz,
 et al."), with nothing federal in the lead, and its one petitioner-side entry
 is the Solicitor General as counsel of record for "Federal Respondents", the
 parties' role in the court below. That label names no captioned petitioner, so
-`caption-v5` reads the caption alone, as `private`. The daily
-`federal-label-check` raised it under the loose office reading.
+`caption-v5` reads the caption alone, as `private`, and
+`federal-label-check` flags it under `sal-v8`.
 
-**Why the leak `caption-v4` closed stays closed.** Both post-outcome shapes
+**Why the two post-outcome shapes fail the test.** Both post-outcome shapes
 that set `sal-v5` aside add the office to a petitioner block that already holds
 the private petitioner's own counsel of record: a supporting amicus, and a
 government petition consolidated at the grant. The sole-counsel test fails on
@@ -1495,7 +1497,10 @@ and the 23rd is 26-630. The other 3 share the block with another party's
 counsel of record: 24-416, `federal` by its caption, and 18-1587 and 25-840,
 two of the five rows the 2026-10-30 entry of
 [freeze-record.md](freeze-record.md) names as carrying post-outcome
-information, which stay `private`.
+information, which stay `private`. In this frame no resolved row passes the
+test without already reading `federal` by its caption; that is an absence in
+13,553 resolved rows, not a proof for later ones. The band census script
+prints these counts beside the moves.
 
 **What `sal-v9` moves.** One stored row, pending: 26-630, from `baseline` to
 `federal`, not selected under `sal-v8`. No resolved row moves, so
@@ -1506,8 +1511,11 @@ counts pending rows (OT2026: `federal` 23 against 22, `baseline` 563 against
 564).
 `uv run python scripts/checks/caption_v6_band_census.py` lists the moves with
 the corpus vintage. Under `sal-v9`, `federal-label-check` reads 20 of the 433
-pending paid petitions `federal` and flags none, against 19 and one alarm under
-`sal-v8`. These figures are on blob `524ad095…ecc46` (newest pull 2026-11-15,
+pending paid petitions in predict scope `federal` (that check's frame, not
+the scored segment's 440) and flags none, against 19 and one alarm under
+`sal-v8`. The move has no outcome-clean reading: no resolved row is read
+`federal` by the sole-counsel test alone, so the `federal` anchor a cell
+banded by it is scored against is the caption-read pool's. These figures are on blob `524ad095…ecc46` (newest pull 2026-11-15,
 newest stored snapshot row 2026-07-13); 26-630's own row was last polled
 2026-11-13, its docketing day.
 
@@ -1518,10 +1526,15 @@ filing can pass it where the block at filing would not have: the office
 substituting for a privately represented petitioner after a grant, by an
 attorney already in the office at the filing, with the earlier counsel's entry
 dropped. That is `caption-v4`'s substitution residual with a wider party
-label, and no stored record of a historical row can date it. No resolved row
+label, and no stored record of a historical row can date it. The same holds
+wherever the block lacks the private petitioner's entry of record for any
+other reason (a petitioner with no counsel of record, an entry the index never
+held) and the office's entry names a party other than the sovereign, such as
+a consolidated government petition listed under an agency's name; the
+sovereign exclusion covers only the amicus's label. No resolved row
 in the frame moves, so no pool carries it today; a resolved row that later
-passes the test enters the `federal` pool with that residual, and the band
-census names it.
+passes the test enters the `federal` pool with that residual, and a re-run of
+the band census names it.
 
 **Frozen cell bands and the replay.** The projected row (`caption.CutRow`)
 carries the reading as a third boolean, `sg_office_petition`
