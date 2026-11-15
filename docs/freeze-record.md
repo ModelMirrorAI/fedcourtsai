@@ -20693,8 +20693,8 @@ freeze commit is recorded here.
   `distribution-census --candidate-parse dist-v2` and `amicus-line-fit`. The
   party census prints `sampled-excluded=0` on every frame line. `uv run
   fedcourts process-digest --all` prints the same six digests before and
-  after. `salience-replay` over the committed Term set was not run to
-  completion.
+  after. `salience-replay --terms 2023 --policies resolution` is byte-identical
+  too; the replay over the committed Term set was not run to completion.
 
   **What is given up.** A census run over a corpus that fails
   `sample_weights_are_unit` prints figures that count the offending row once,
