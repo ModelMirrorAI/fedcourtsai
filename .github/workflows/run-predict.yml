@@ -1249,6 +1249,9 @@ jobs:
         # everything. The watchdog armed above fires a margin earlier, and is
         # what ends a step whose tree will not die on the runner's own timeout.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
+        # Tolerated here and judged by "Conclude the cell" at the foot of the
+        # job, which fails the job for every ending of this step but a reap.
+        continue-on-error: true
         uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
         env:
           COURT_ID: ${{ matrix.court }}
@@ -1398,6 +1401,9 @@ jobs:
         if: matrix.engine == 'codex' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # The same engine deadline as the Claude and Gemini steps.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
+        # Tolerated here and judged by "Conclude the cell" at the foot of the
+        # job, which fails the job for every ending of this step but a reap.
+        continue-on-error: true
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           COURT_ID: ${{ matrix.court }}
@@ -1548,6 +1554,9 @@ jobs:
         if: matrix.engine == 'gemini' && steps.provision.outputs.refused != 'true' && steps.record.outputs.refused != 'true'
         # The same engine deadline as the Claude and Codex steps.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
+        # Tolerated here and judged by "Conclude the cell" at the foot of the
+        # job, which fails the job for every ending of this step but a reap.
+        continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
@@ -1619,7 +1628,7 @@ jobs:
       # It also publishes the watchdog's verdict, and one of the markers is a
       # *success*: `REAPED` says the cell's outputs were complete, parsing and
       # quiescent, and the step was ended because it would not end itself. The
-      # engine step's own conclusion on that path is a failure — the watchdog
+      # engine step's own outcome on that path is a failure — the watchdog
       # made it one — so this step's `reaped` output is what the tail below
       # reads instead, and a cell whose work finished is not demoted to a draft
       # for the manner of its step's death. `SUSPENDED` is the neutral one: the
@@ -1693,7 +1702,8 @@ jobs:
           # to have its own step counted clean. A codex cell cannot — its agent
           # is a separate account that cannot write the runner-owned bundle dir.
           # What contains a forged reap on the engines that can is not this path:
-          # it only promotes a cell that must still pass `produced`, `validate`,
+          # it only promotes a cell — to the ready PR, and its job to a green
+          # conclusion — that must still pass `produced`, `validate`,
           # the collect job's secret scan and the `data/` path jail — and an
           # agent that controls its own outputs faces exactly those anyway.
           # SECURITY.md carries this residual rather than leaving it implied
@@ -1838,7 +1848,7 @@ jobs:
       # ended before the served docket showed a decision.
       - name: Poll the docket after the run
         id: post_poll
-        if: ${{ !cancelled() && steps.provision.outputs.pre_mint_poll != '' && (steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success' || steps.predict_gemini.conclusion == 'success' || steps.disarm.outputs.reaped == 'true') }}
+        if: ${{ !cancelled() && steps.provision.outputs.pre_mint_poll != '' && (steps.predict_claude.outcome == 'success' || steps.predict_codex.outcome == 'success' || steps.predict_gemini.outcome == 'success' || steps.disarm.outputs.reaped == 'true') }}
         continue-on-error: true
         timeout-minutes: 2
         env:
@@ -1862,13 +1872,14 @@ jobs:
       # fail the prediction — hence continue-on-error.
       # A reaped cell is included: the watchdog failed its step *after* the agent
       # finished, so the engine log it reads is a complete one and the tokens it
-      # measures were really spent. The explicit `!cancelled()` is what lets that
-      # clause reach anything — a reap ends the engine step as a failure, and
-      # without a status function here GitHub ANDs an implicit `success()`, which
-      # a failed step has already made false. It is the shape the evaluate cell's
-      # usage capture already carries.
+      # measures were really spent. The explicit `!cancelled()` is what keeps the
+      # agent-outcome test the only gate — without a status function here GitHub
+      # ANDs an implicit `success()`, and a failed step earlier in the tail
+      # would silently drop the usage record of a cell that had already spent
+      # its whole agent budget. It is the shape the evaluate cell's usage
+      # capture carries.
       - name: Capture model usage
-        if: ${{ !cancelled() && (steps.predict_claude.conclusion == 'success' || steps.predict_codex.conclusion == 'success' || steps.predict_gemini.conclusion == 'success' || steps.disarm.outputs.reaped == 'true') }}
+        if: ${{ !cancelled() && (steps.predict_claude.outcome == 'success' || steps.predict_codex.outcome == 'success' || steps.predict_gemini.outcome == 'success' || steps.disarm.outputs.reaped == 'true') }}
         continue-on-error: true
         env:
           COURT_ID: ${{ matrix.court }}
@@ -2101,6 +2112,48 @@ jobs:
             engine-watchdog
           if-no-files-found: error
           retention-days: 7
+
+      # The job's verdict on its engine step. Every engine step is
+      # `continue-on-error`, so the step's own ending does not decide the
+      # job's conclusion; this step does, and it fails the job for every ending
+      # but two: the step succeeded, or the watchdog reaped it. A reap is the
+      # watchdog ending a step whose required outputs were complete, parsing
+      # and quiescent, so the agent finished and "Record cell status"
+      # has already counted it as one that did — a red job there would report
+      # a lane failure the run's own record denies. Whether the output is
+      # valid is that step's question, answered into `status.json` as it is
+      # for a step that succeeded, and never this one's. A turn that ran out of turns, a
+      # step the runner timed out, and a step the watchdog ended at its
+      # deadline all still fail the job, after the tail has salvaged what they
+      # left. `outcome` and not `conclusion`: a tolerated step's conclusion is
+      # always success. A skipped step is not judged — the other engines'
+      # steps on every cell, and all three on a refused one. Last before the
+      # log replay, so nothing in the tail is gated on it.
+      - name: Conclude the cell
+        if: ${{ !cancelled() }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          ENGINE_OUTCOMES: ${{ steps.predict_claude.outcome }} ${{ steps.predict_codex.outcome }} ${{ steps.predict_gemini.outcome }}
+          REAPED: ${{ steps.disarm.outputs.reaped == 'true' }}
+        run: |
+          set -euo pipefail
+          # Unquoted on purpose: three words, each one of GitHub's four step
+          # outcomes or empty for a step the job never reached.
+          for outcome in $ENGINE_OUTCOMES; do
+            case "$outcome" in
+              success|skipped) ;;
+              *)
+                if [ "$REAPED" = "true" ]; then
+                  echo "::notice::cell ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}: the engine step was reaped with its output complete; the job concludes on the cell's work"
+                else
+                  echo "::error::cell ${COURT_ID}/${DOCKET_ID} ${EVENT_ID}: the engine step ended ${outcome} and was not reaped"
+                  exit 1
+                fi
+                ;;
+            esac
+          done
 
       # The sidecars' logs carry their startup lines and per-request records
       # (server noise, no secrets — GitHub masks the credentials regardless):
