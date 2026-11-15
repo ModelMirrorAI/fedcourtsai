@@ -50,6 +50,13 @@ whose stated ``Retry-After`` is short (the per-minute window) and sends the
 request again, since a whole read that fails keeps none of its pages; a longer
 stated wait fails the docket at once. A failed docket's reason quotes what
 upstream said, which names the limit that refused.
+
+A failed docket's reason also says where its read stopped: the request it was
+on (the entry count, the docket, or a numbered page of the entries with that
+page's cursor), how long ago that request was first sent, and how long the
+docket's read had run. A failed read keeps none of its pages, so two failures
+of one long docket are compared by those: the same page each time is one slow
+page upstream, a different one each time is the read's length.
 """
 
 from __future__ import annotations
@@ -71,6 +78,7 @@ from ..courtlistener import (
     CourtListenerClient,
     EntryPageCapExceeded,
     RateBudgetExceeded,
+    failed_cursor,
     is_transient,
     refusal_detail,
 )
@@ -230,6 +238,35 @@ def _fits(share_left: int | None, need: int) -> bool:
     return share_left is None or share_left >= need
 
 
+class _Requests:
+    """One refresh's requests: counted, and each named to the caller before it is sent."""
+
+    def __init__(
+        self, on_request: Callable[[], None] | None, on_step: Callable[[str], None] | None
+    ) -> None:
+        self.sent = 0
+        self._pages = 0
+        self._on_request = on_request
+        self._on_step = on_step
+
+    def send(self, step: str) -> None:
+        self.sent += 1
+        if self._on_request is not None:
+            self._on_request()
+        if self._on_step is not None:
+            self._on_step(step)
+
+    def size(self) -> None:
+        self.send("the entry count")
+
+    def page(self, since: date | None) -> None:
+        """The next page of the entries, of those changed since ``since`` when narrowed."""
+        self._pages += 1
+        self.send(
+            f"page {self._pages} of the entries" + (f" changed since {since}" if since else "")
+        )
+
+
 @dataclass(frozen=True)
 class Refreshed:
     case_id: str
@@ -261,6 +298,7 @@ def refresh_docket(
     today: date,
     share_left: int | None = None,
     on_request: Callable[[], None] | None = None,
+    on_step: Callable[[str], None] | None = None,
 ) -> Refreshed:
     """Read one docket, store its snapshot if it changed, and stamp its row.
 
@@ -271,18 +309,16 @@ def refresh_docket(
     read. Raises :class:`EntryPageCapExceeded` before writing anything when the
     count puts a docket past ``max_entry_pages`` or a read does not finish
     within it, so a truncated docket is never stored as if whole.
+
+    ``on_request`` is called before each request is sent, and ``on_step`` with
+    what that request asks for (the entry count, the docket, or a numbered page
+    of the entries), so a caller can say where a read that raised had got to.
     """
     case_id = planned.case_id
-    sent = 0
-
-    def count() -> None:
-        nonlocal sent
-        sent += 1
-        if on_request is not None:
-            on_request()
+    asked = _Requests(on_request, on_step)
 
     def left() -> int | None:
-        return None if share_left is None else share_left - sent
+        return None if share_left is None else share_left - asked.sent
 
     # The fewest pages a counted onboard is sized at.
     least = min(max_entry_pages, 1 + COUNT_SLACK_PAGES)
@@ -295,13 +331,13 @@ def refresh_docket(
                 f"{2 + least}",
                 requests=0,
             )
-        pages = _onboard_pages(client, planned.docket_id, max_entry_pages, count)
+        pages = _onboard_pages(client, planned.docket_id, max_entry_pages, asked.size)
         if not _fits(left(), 1 + pages):
             raise OnboardDoesNotFit(
                 f"{case_id}: {left()} of the share left, under this onboard's {1 + pages}",
-                requests=sent,
+                requests=asked.sent,
             )
-    count()
+    asked.send("the docket")
     docket = client.get_docket(planned.docket_id)
     with corpus.connect(corpus_db_path) as conn:
         prior = corpus.latest_snapshot(conn, case_id)
@@ -313,13 +349,13 @@ def refresh_docket(
         if not _fits(left(), 1 + least):
             raise OnboardDoesNotFit(
                 f"{case_id}: no stored snapshot, and the share left cannot cover an onboard",
-                requests=sent,
+                requests=asked.sent,
             )
-        pages = _onboard_pages(client, planned.docket_id, max_entry_pages, count)
+        pages = _onboard_pages(client, planned.docket_id, max_entry_pages, asked.size)
         if not _fits(left(), pages):
             raise OnboardDoesNotFit(
                 f"{case_id}: no stored snapshot, and the share left cannot cover an onboard",
-                requests=sent,
+                requests=asked.sent,
             )
     elif (
         mode is ReadMode.full
@@ -333,7 +369,7 @@ def refresh_docket(
         planned.docket_id,
         max_pages=max_entry_pages,
         date_modified_gte=since,
-        on_request=count,
+        on_request=lambda: asked.page(since),
     )
     if not read.complete:
         what = f"changed since {since}" if since else "in all"
@@ -355,7 +391,7 @@ def refresh_docket(
         mode=mode,
         changed=changed,
         entries=len(entries),
-        requests=sent,
+        requests=asked.sent,
         docket=docket,
         added=added,
         gained=gained,
@@ -390,6 +426,37 @@ class WatchlistRefreshReport:
         }
 
 
+class _ReadProgress:
+    """Where one docket's read has got to, and since when, for a failure's reason."""
+
+    def __init__(self, clock: Callable[[], float]) -> None:
+        self._clock = clock
+        self._began = clock()
+        self._step: str | None = None
+        self._step_at = self._began
+
+    def at(self, step: str) -> None:
+        self._step, self._step_at = step, self._clock()
+
+    def where(self, exc: BaseException) -> str:
+        """The request the read was on when ``exc`` was raised, and the time it had taken.
+
+        The first time is from when that request was first sent, so it covers
+        every resend the client made of it; the second is the docket's whole
+        read. ``""`` for a read that raised before sending anything.
+        """
+        if self._step is None:
+            return ""
+        now = self._clock()
+        cursor = failed_cursor(exc)
+        return (
+            f"at {self._step}"
+            + (f", cursor {cursor}" if cursor else "")
+            + f"; {now - self._step_at:.0f}s since that request was first sent, "
+            + f"{now - self._began:.0f}s into this docket's read"
+        )
+
+
 def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     client: CourtListenerClient,
     corpus_db_path: Path,
@@ -410,7 +477,8 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     back to an incremental one rather than stopping the run, and an onboard it
     cannot cover is deferred while the run goes on. A docket that
     fails (an HTTP error, a malformed entry, or a read past ``max_entry_pages``)
-    is recorded and skipped. The share running out, the ``deadline`` (a
+    is recorded, with the request its read was on and the time that took, and
+    skipped. The share running out, the ``deadline`` (a
     ``clock`` reading) passing, or ``max_consecutive_transient_failures``
     transient errors in a row stop the run, and the dockets not reached are
     deferred. None of these writes anything for the docket, which keeps its
@@ -441,6 +509,7 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
             report.stop_reason = "the run's wall-clock budget is spent"
             report.deferred.extend(p.case_id for p in plan[index:])
             break
+        progress = _ReadProgress(clock)
         try:
             done = refresh_docket(
                 client,
@@ -450,6 +519,7 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
                 today=today,
                 share_left=share - spent,
                 on_request=count,
+                on_step=progress.at,
             )
         except RateBudgetExceeded as exc:
             report.stop_reason = str(exc)
@@ -461,10 +531,11 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
             continue
         except (httpx.HTTPError, EntryPageCapExceeded, KeyError, ValueError) as exc:
             # What upstream said about a refusal rides the reason: for a 429,
-            # the limit that refused and the wait it asked for.
-            said = refusal_detail(exc)
-            report.failed[planned.case_id] = f"{type(exc).__name__}: {exc}" + (
-                f" [{said}]" if said else ""
+            # the limit that refused and the wait it asked for. So does where
+            # the read stopped, since a failed read keeps no page to show it.
+            notes = [note for note in (refusal_detail(exc), progress.where(exc)) if note]
+            report.failed[planned.case_id] = f"{type(exc).__name__}: {exc}" + "".join(
+                f" [{note}]" for note in notes
             )
             transient_run = transient_run + 1 if is_transient(exc) else 0
             if transient_run >= max_consecutive_transient_failures:

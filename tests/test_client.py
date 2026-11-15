@@ -11,6 +11,7 @@ from fedcourtsai.courtlistener import (
     ThrottleOutlastsWait,
     classify_error,
     default_rate_limiter,
+    failed_cursor,
     is_throttled,
     is_transient,
     refusal_detail,
@@ -578,6 +579,21 @@ def test_a_budget_under_one_wait_is_refused() -> None:
 def _refused(response: httpx.Response) -> httpx.HTTPStatusError:
     response.request = httpx.Request("GET", "https://www.courtlistener.com/api/rest/v4/x/")
     return httpx.HTTPStatusError("refused", request=response.request, response=response)
+
+
+def test_failed_cursor_is_the_failed_request_s_own_in_bounded_safe_characters() -> None:
+    def timed_out(url: str) -> httpx.ReadTimeout:
+        return httpx.ReadTimeout("timed out", request=httpx.Request("GET", url))
+
+    base = "https://www.courtlistener.com/api/rest/v4/docket-entries/"
+    assert failed_cursor(timed_out(f"{base}?cursor=cD0yMDI0LTAx%3D&docket=7")) == "cD0yMDI0LTAx="
+    assert failed_cursor(_refused(httpx.Response(502, request=httpx.Request("GET", base)))) == ""
+    # A first page has no cursor, and neither has a failure with no request.
+    assert failed_cursor(timed_out(f"{base}?docket=7")) == ""
+    assert failed_cursor(httpx.ReadTimeout("timed out")) == ""
+    assert failed_cursor(KeyError("id")) == ""
+    hostile = failed_cursor(timed_out(f"{base}?cursor=a%0A%3A%3Aerror%3A%3Ab%1B%5B31m" + "x" * 300))
+    assert hostile.startswith("aerrorb31mxxx") and hostile.endswith("…") and len(hostile) == 121
 
 
 def test_refusal_detail_names_the_limit_and_the_wait() -> None:
