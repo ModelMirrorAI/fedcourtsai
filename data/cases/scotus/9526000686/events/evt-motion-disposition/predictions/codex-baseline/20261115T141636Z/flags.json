@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000686",
+  "run_id": "20261115T141636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "The provisioned application leaves the date of the Florida Supreme Court denial as the literal placeholder [date]. No decision date was inferred. The complete four-page application was readable, so this source defect did not block the forecast."
+    }
+  ]
+}
