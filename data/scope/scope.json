@@ -1,6 +1,6 @@
 {
-  "cases": 14400,
-  "eligible": 14400,
+  "cases": 14404,
+  "eligible": 14404,
   "entries": [
     {
       "case_id": "scotus/1119228",
@@ -142383,6 +142383,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000413",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0337,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000414",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -142593,6 +142603,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000446",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.053700000000000005,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000455",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -142739,6 +142759,16 @@
       "predict_excluded": false,
       "salience_score": 0.0235,
       "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000503",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.024800000000000003,
+      "salience_selected": false,
       "salience_version": "sal-v8",
       "sample_weight": 1
     },
@@ -143998,6 +144028,16 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.0334,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000686",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
