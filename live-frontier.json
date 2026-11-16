@@ -710,7 +710,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 170
+      "petitions": 172
     }
   ],
   "discovery": {
@@ -718,7 +718,7 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-15",
+        "checked_on": "2026-11-16",
         "cursor": 633,
         "frontier": 633,
         "holes": 0,
@@ -735,7 +735,7 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-15",
+        "checked_on": "2026-11-16",
         "cursor": 6154,
         "frontier": 6154,
         "holes": 1,
@@ -752,7 +752,7 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-15",
+        "checked_on": "2026-11-16",
         "cursor": 686,
         "frontier": 686,
         "holes": 2,
@@ -771,10 +771,10 @@
     "term": 26
   },
   "documents_provisioned": 174,
-  "generated_on": "2026-11-15",
+  "generated_on": "2026-11-16",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 170,
+  "next_conference_petitions": 172,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 849
+  "watchlist": 851
 }
