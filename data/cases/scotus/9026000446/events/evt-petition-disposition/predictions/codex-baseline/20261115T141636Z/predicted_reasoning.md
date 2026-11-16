@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will deny the petition, most likely in an ordinary orders list following the December 4, 2026 conference, without explaining its reasons. The snapshot has one distribution and no relist; the modal forecast is **zero additional distributions**. The probability of at least one more distribution is 18%. If the petition does survive its first consideration, one additional distribution is more likely than a prolonged sequence, although a requested response could postpone resolution.
+
+The Court will not formally invite the Solicitor General's views. The federal government is already defending the judgment; if the Court wants adversarial briefing after the waiver, the relevant step is an ordinary response request, not a CVSG. The probability of a new CVSG is 0.1%.
+
+If review is granted, the Court will most likely take the petition's single preservation question, potentially narrowing it to a plaintiff who submitted evidence of discrimination but did not expressly identify motivating-factor causation at summary judgment. It will not use this petition to reopen the separate retaliation, disability, or hostile-work-environment claims. Any merits reasoning in that scenario will distinguish notice of a legal theory from a requirement to use particular terminology, while addressing ordinary preservation principles. This is conditional, not a prediction that a merits opinion will issue.
+
+Conditional on a grant, plenary briefing and argument is the favored route, at 85%, rather than a disposition in the cert order, at 15%. No particular intervening decision or companion case in the record supplies a concrete GVR basis. A summary correction remains possible if the Court treats the preservation ruling as a straightforward legal-label error.
+
+Conditional on denial, the probability of a noted dissent or statement is 2.5%; the forecast is **no separate writing**. No particular Justice is expected to write. Sotomayor and Jackson have the largest, still very small, individual writing probabilities in the order-writers distribution. A denial will leave the lower judgment intact without resolving the asserted disagreement among circuits or endorsing the reasoning below.

@@ -1,0 +1,37 @@
+# Rationale
+
+## Target and information state
+
+I assign **3%** to a grant of the requested stay in whole or in part, conditional on the application not being dismissed or denied as moot. The predicted disposition is **denied**. This is the interim arrival event, not a forecast of the linked certiorari petition or the eventual execution itself.
+
+The common baseline is `record/snapshots/2026-11-14.json`, read with `record/context.json`, `event.yaml`, `record/documents/documents.json`, and the complete four-page `record/documents/application.txt`. The record shows one entry: the November 14 application submitted to Justice Thomas. It shows **no response request, no referral to the full Court, and zero amicus entries**. Submission to the Circuit Justice is not referral to the full Court. The cert distribution count is zero and no CVSG appears; those cert signals do not anchor this interim forecast. The frozen band is null, appropriately.
+
+The mode is forward. The arrival-position baseline stops at the opening entry; the context's November 15 cutoff is not evidence that subsequent activity occurred. I did not retrieve this application's live docket, disposition, subsequent history, or anyone else's forecast. I have no independently recalled outcome for this application. Research outside the record concerned aggregate historical rates, unrelated corpus priors, and an established clemency precedent only.
+
+## Base rate and adjustment
+
+I read the interim and applicant-class sections of `metrics/statpack.md` and independently pooled the machine-readable `metrics/statpack.json` counts. Application Term 2026 uses the ten strictly prior Terms **2016–2025**, not the own-Term row, not the older `substantive_*` reading, and not the widened OT2027 estimator. The `finer_granted` counts total **156**, and `finer_resolved` total **1,337**, giving the scored anchor **11.6679%**. Every included Term has `finer_unread = 0`; the sample exceeds the 50-resolution floor. Partial grants enter the numerator and moot dispositions are excluded. The published markdown's broad substantive headline uses an older reading; the operative finer-count pool is the one used here.
+
+Coverage is not uniform: OT2016 has 15 unparsed applications and OT2017 has one; the other included Terms have zero. Terminal escalation counts are not probabilities conditional on this arrival state. The prediction reserve's signal-based selection also means this unconditioned anchor is not a perfectly matched prior.
+
+The applicant is **private** under both the caption rule and my substantive reading, despite Florida being the respondent. The docket explicitly marks the case capital. The matching private/capital cell is **10 grants / 288 resolutions = 3.4722%**, above the applicant-cut floor of 30. This is descriptive conditioning, not a replacement scoring benchmark. I weigh it more heavily than either the private row margin, **73/1,194 = 6.1139%**, or the capital column margin, **30/316 = 9.4937%**, which mix in materially different applicants or applications. The joint cell moves my assessment about 8.20 percentage points below the overall anchor; the case-specific record moves it a further 0.47 points to **3%**. I do not round the observed minority of grants down to impossibility.
+
+The required structured corpus query returned three unrelated denied cert petitions, not matched execution-stay comparators. I did not use those selected denials as a grant-rate estimate or infer a denominator from them.
+
+## Application and governing obstacle
+
+The application seeks a stay under Rule 23 and 28 U.S.C. § 2101(f), pending a concurrently filed certiorari petition. It states that execution is scheduled for **November 19, 2026, at 6:00 p.m.** It identifies challenges to Florida's warrant and clemency processes based on separation of powers, due process, and equal protection, with broader Eighth Amendment arguments. These are the applicant's characterizations, not independently verified findings about Florida's procedures.
+
+The strongest factor is irreparable harm. The application invokes the capital stay standard requiring a reasonable probability of certiorari, a significant possibility of reversal, and irreparable harm, citing *Barefoot v. Estelle*, 463 U.S. 880, 895 (1983). Irreversibility alone does not establish the other requirements. The supplied text does not identify a developed conflict, explain the particular clemency procedure denied to this applicant, substantiate discriminatory treatment, or distinguish federal constitutional defects from a state-law separation-of-powers disagreement. Its assertion that no legitimate procedural impediment exists does not establish preservation or eliminate independent state grounds.
+
+As general legal context, I retrieved Justice O'Connor's concurrence in *Ohio Adult Parole Authority v. Woodard*, **523 U.S. 272, 288–290 (1998)**, CourtListener opinion **9433600**. That opinion recognizes minimal procedural protection in capital clemency, with extreme arbitrariness or denial of access as possible grounds for intervention, while rejecting the procedural objections presented there. It does not make every flaw in clemency a federal constitutional violation. The application supplied here does not develop comparable concrete allegations sufficient to establish a strong federal claim. This supports a modest downward adjustment rather than an assumption that clemency is categorically unreviewable.
+
+The underlying certiorari petition and Florida decisions were not provisioned. The application incorporates the petition rather than reproducing its detailed arguments. I therefore cannot conclude that the full litigation lacks stronger facts, a preserved federal question, or a substantial procedural objection. This missing detail is a material uncertainty, not proof against the applicant. The application also leaves the state court's decision date as the literal placeholder `[date]`; I flag that source defect and infer no date from it.
+
+## Procedural and writing probabilities
+
+The future-response probability is **80%**: an imminent execution makes a prompt answer useful even if the eventual stay is denied. The future-referral probability is **95%**: I expect full-Court consideration of this capital application despite weak relief prospects. These are judgments about the next procedural acts, not terminal frequencies borrowed from the pack. Neither rung has fired in the baseline. Further amicus activity is **12%**, reflecting the short remaining window and the absence of any support entry so far. That claim counts submissions and accepted entries under the contract's deduplicated lifecycle rule.
+
+The modal disposition is a short order without a separate writing. Individual writing probabilities are independent, not shares summing to one, and count authorship rather than a Justice merely joining another's writing. The somewhat higher Sotomayor and Jackson probabilities reflect uncertainty about possible concerns over execution procedures, not any observed position in this case. No vote lineup is forecast.
+
+The stakes score, **0.60**, reflects an irreversible individual consequence and a potentially broader process challenge; it does not express grant likelihood. Tooling limitations were minor: the default uv cache was read-only, resolved with `UV_CACHE_DIR=/tmp/uv-cache`; two web calls yielded no usable material. The provisioned application and MCP precedent remained readable.
