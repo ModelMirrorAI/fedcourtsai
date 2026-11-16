@@ -706,7 +706,7 @@
     },
     {
       "conference": "2026-11-13",
-      "petitions": 152
+      "petitions": 37
     },
     {
       "conference": "2026-12-04",
@@ -753,13 +753,13 @@
       {
         "alarms": [],
         "checked_on": "2026-11-16",
-        "cursor": 686,
-        "frontier": 686,
+        "cursor": 687,
+        "frontier": 687,
         "holes": 2,
         "holes_reprobed": 2,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-14",
+        "newest_filed": "2026-11-16",
         "outside_serial": 661,
         "outside_source": "miscellaneous-order 2026-11-12",
         "problems": [],
@@ -770,11 +770,11 @@
     ],
     "term": 26
   },
-  "documents_provisioned": 175,
+  "documents_provisioned": 157,
   "generated_on": "2026-11-16",
   "next_conference": "2026-12-04",
   "next_conference_petitions": 185,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 864
+  "watchlist": 749
 }
