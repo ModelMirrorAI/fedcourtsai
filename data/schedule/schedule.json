@@ -5,11 +5,22 @@
     {
       "argument": null,
       "case_id": "scotus/72460218",
-      "conferences": null,
+      "conferences": [
+        {
+          "conference": "2018-02-16",
+          "distributed": "2018-01-31",
+          "transition": "first"
+        },
+        {
+          "conference": "2018-02-23",
+          "distributed": "2018-02-20",
+          "transition": "relist"
+        }
+      ],
       "distributed_for_conference": "2018-02-23",
-      "last_live_polled": "2026-11-08",
+      "last_live_polled": "2026-11-16",
       "next_conference": null,
-      "relists": null,
+      "relists": 1,
       "response_due": null,
       "stale_reason": "conference_passed"
     },
