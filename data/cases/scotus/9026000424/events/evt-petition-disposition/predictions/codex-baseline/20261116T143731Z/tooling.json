@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000424",
+  "run_id": "20261116T143731Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP search_document", "web.run", "jq", "apply_patch", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor and amicus reference preserve the intended conditioning population.", "Provisioned appellate opinion and petition expose procedural vehicle problems.", "CourtListener opinion snippets allow targeted verification of cited precedents."],
+  "gaps": ["Default uv cache path is read-only; UV_NO_CACHE=1 is needed.", "General web calls returned no readable output.", "Corpus query has no originating-court filter and sparse reporter-citation coverage.", "The non-SG amicus brief's text is not provisioned."],
+  "notes": "The nine-page appendix includes only the first two listed appendices and refers readers to the Clerk's Office for the rest, despite being fully extracted. Remaining underlying orders were assessed through the petition's descriptions. No package installation or own-case outcome lookup was needed."
+}

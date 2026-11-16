@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000424",
+  "run_id": "20261116T143731Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_analyze_citations"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, appendix.txt, decision-below.txt, and context.json anchors",
+    "CourtListener RECAP docket and Fourth Circuit opinions in FTC v. Pukke and FTC v. Yu Lin",
+    "metrics/statpack.md salience-band, relist, and amicus cuts",
+    "fedcourts query open granted docket check for potential GVR holds",
+    "mcp_courtlistener_analyze_citations verification"
+  ],
+  "gaps": [
+    "Cert-stage amicus curiae brief PDF text (Oct. 28, 2026 Sanctuary Belize Lot Purchasers brief) was not staged in record/documents/, though docket metadata and the full underlying D. Md. and CA4 records were sufficient"
+  ],
+  "notes": "Having both cert_anchor and cert_amicus_line pre-frozen in record/context.json alongside full text of the petition and Fourth Circuit per curiam opinion made vehicle and base-rate calibration straightforward."
+}
