@@ -492,7 +492,8 @@ def _baseline_relist_increment(
     state: among prior-Term petitions that reached the prediction-time count
     ``k``, the rate that reached ``k + 1`` — and the hazard moves steeply in
     ``k`` (roughly 26% at one distribution, 27% at two, 47% at three, 71% at
-    four, denial-reweighted), so a coarser conditioning would misprice exactly
+    four, measured on a corpus that stored one unpaid denial in ten at weight
+    10), so a coarser conditioning would misprice exactly
     the petitions the gate selects. The committed pack publishes no cut that
     supports it strictly-prior: its relist-bucket section pools every Term —
     the case's own included, which the leakage guard forbids — and its

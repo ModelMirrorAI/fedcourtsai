@@ -1269,7 +1269,8 @@ def test_render_substance_shows_the_segment_base_rate_line() -> None:
     )
     md = ops.render_substance(digest)
     assert "Salience-scored segment base grant rate **30%**" in md
-    assert "resolved paid-segment petitions" in md
+    assert "(over 100 resolved paid-segment petitions)" in md
+    assert "reweighted" not in md  # the denominators are row counts
     assert "replay Brier skill vs baseline **+0.250**" in md
 
 
