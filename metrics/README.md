@@ -457,10 +457,16 @@ stays outside the gate:
   labels must match, with `granted-in-part` and `granted` read as one label:
   the cert resolver records a grant limited to some of the questions as
   `granted`, so a forecast of that grant under either label is a right call.
-  `gvr` and `summary-reversal` stay labels of their own, each naming a route
-  out of the cert order that a plenary grant is not; no resolver records
-  `summary-reversal`, so a call under that label is right on no recorded
-  outcome. A cell whose `correct`
+  `gvr` stays a label of its own, naming a route out of the cert order that a
+  plenary grant is not. No resolver records `summary-reversal`: a judgment
+  that rides the grant order resolves as `granted` with `disposition_route`
+  `summary-merits` beside it, so a call under that label is read against the
+  route and is right there, and wrong on a plenary grant, an outcome labelled
+  `gvr`, or a grant whose route was not assessed (a 0, not a cell left out of
+  the fraction). The route does not record which judgment rode the order, so
+  the call is right on any of them, and a `granted` call is right on the same
+  outcome: on this column `granted` never scores below `summary-reversal`,
+  which predictors use at different rates. A cell whose `correct`
   the stamp could not compute (no readable prediction, or no committed outcome)
   leaves both halves of the fraction rather than entering as a wrong call, which
   is what `accuracy_scored` beside the column records; read accuracy against

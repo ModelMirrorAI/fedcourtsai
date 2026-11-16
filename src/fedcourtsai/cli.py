@@ -16239,8 +16239,8 @@ def _skill_record_for(
     is about the *baseline*: which band population a pooled rate is taken over
     is a judgment about the scored prediction's frozen band, and that judgment
     reaches the Brier skill through ``segment_base_rate``. ``correct`` has no
-    baseline and no band — it is a label comparison between the scored
-    prediction and the outcome (:func:`fedcourtsai.pipeline.evaluate.is_correct`,
+    baseline and no band — it is a comparison of the scored prediction's label
+    with the outcome's label and route (:func:`fedcourtsai.pipeline.evaluate.is_correct`,
     routed on the outcome's own axis) — so there is nothing on a cert cell for
     an evaluator to exercise judgment over, and no reason for the exemption to
     carry across. It is also the leaderboard's first rank key, so leaving it as

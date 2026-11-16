@@ -1046,6 +1046,71 @@ def test_a_limited_grant_call_matches_no_other_cert_label(outcome: Disposition) 
     assert is_correct(*_labelled(Disposition.granted, outcome)) == 0
 
 
+def _routed(
+    prediction: Disposition, outcome: Disposition, route: str | None
+) -> tuple[Prediction, Outcome]:
+    said, recorded = _labelled(prediction, outcome)
+    routed = recorded.model_copy(update={"disposition_route": route})
+    return said, Outcome.model_validate_json(routed.model_dump_json())
+
+
+def test_a_summary_reversal_call_is_right_where_the_judgment_rode_the_grant_order() -> None:
+    # The resolver records a summary merits disposition as `granted` and writes
+    # the route beside it, so the route is what the call is read against.
+    said, recorded = _routed(Disposition.summary_reversal, Disposition.granted, "summary-merits")
+    assert is_correct(said, recorded) == 1
+    assert stage_correct(said, recorded, interim=False) == 1
+
+
+@pytest.mark.parametrize(
+    ("outcome", "route"),
+    [
+        (Disposition.granted, "plenary"),
+        (Disposition.granted, None),
+        (Disposition.granted_in_part, "plenary"),
+        (Disposition.gvr, "gvr"),
+        (Disposition.gvr, None),
+        (Disposition.denied, None),
+        (Disposition.dismissed, None),
+    ],
+)
+def test_a_summary_reversal_call_is_wrong_on_every_other_cert_outcome(
+    outcome: Disposition, route: str | None
+) -> None:
+    # A plenary grant and a GVR are other routes, and a grant whose route was
+    # not assessed does not say the call was right.
+    said, recorded = _routed(Disposition.summary_reversal, outcome, route)
+    assert is_correct(said, recorded) == 0
+
+
+def test_a_summary_reversal_outcome_label_matches_the_call_whatever_its_route() -> None:
+    said, recorded = _routed(Disposition.summary_reversal, Disposition.summary_reversal, None)
+    assert is_correct(said, recorded) == 1
+
+
+@pytest.mark.parametrize(
+    ("prediction", "expected"),
+    [
+        (Disposition.granted, 1),
+        (Disposition.granted_in_part, 1),
+        (Disposition.gvr, 0),
+        (Disposition.denied, 0),
+    ],
+)
+def test_the_route_moves_no_other_call_on_a_summary_merits_outcome(
+    prediction: Disposition, expected: int
+) -> None:
+    # Only the `summary-reversal` call reads the route: every other call keeps
+    # the label comparison against the recorded `granted`.
+    said, recorded = _routed(prediction, Disposition.granted, "summary-merits")
+    assert is_correct(said, recorded) == expected
+
+
+def test_an_interim_cell_never_reads_the_route_for_a_summary_reversal_call() -> None:
+    said, recorded = _routed(Disposition.summary_reversal, Disposition.granted, "summary-merits")
+    assert is_correct(said, recorded, interim=True) == 0
+
+
 def test_an_interim_cell_on_the_registered_reading_keeps_the_labels_apart() -> None:
     # The one-label rule is the cert stage's: an interim cell scored on the
     # registered reading compares the labels as written.
