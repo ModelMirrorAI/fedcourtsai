@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000292",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP get_endpoint_item",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "web search/open/find attempts",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen sal-v8 band and amicus anchors prevented double-counting the CVSG signal.",
+    "CourtListener supplied pre-petition panel and en banc text missing from the truncated bound appendix.",
+    "Literal document search verified the older Eleventh Circuit temporal rule."
+  ],
+  "gaps": [
+    "The provisioned petition's bound judicial appendix has substantial marked cuts.",
+    "Citation-only retrieval was sparse in both the corpus and one CourtListener lookup; case-name lookup recovered the latter.",
+    "Web tool calls produced no usable returned output in this session."
+  ],
+  "notes": "Initial uv invocation failed on its read-only default cache. UV_CACHE_DIR=/tmp/uv-cache with uv run --offline used the existing environment successfully; no package installation was performed. The invited SG brief does not yet exist in this moment's record, and its unknown recommendation is forecast uncertainty rather than an upstream failure."
+}

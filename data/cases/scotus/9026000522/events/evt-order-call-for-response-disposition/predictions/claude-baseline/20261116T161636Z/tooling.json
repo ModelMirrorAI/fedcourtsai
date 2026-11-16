@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000522",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "provisioned petition and decision below"],
+  "helpful": ["frozen cert_anchor in context.json", "docket-number lookup for the petition's cited prior denials", "decision-below.txt"],
+  "gaps": ["no base rate conditioned on a called-for response", "docket-number rows do not say whether a Justice wrote on the denial order"],
+  "notes": "The --era flag takes decade tokens only; one query failed on that."
+}

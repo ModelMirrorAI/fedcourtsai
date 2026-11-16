@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000292",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "record/context.json cert_anchor"],
+  "helpful": ["Frozen cert_anchor and the statpack CVSG cut", "Staged related dockets showing the companions drew the same CVSG"],
+  "gaps": ["No cut of CVSG outcomes by the Solicitor General's recommendation", "Corpus query has no way to find prior TRIA or CVSG petitions by subject", "decision-below.txt was not staged; the lower-court-docket file missed the en banc dissents the petition describes"],
+  "notes": "The structured corpus query returned nothing relevant; the forecast rests on provisioned documents and the statpack."
+}

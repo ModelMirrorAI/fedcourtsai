@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000293",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "lower-court-docket.txt reports no en banc petition found and no opinion on CourtListener for ca2 No. 23-444, but the petition states rehearing en banc was denied over dissents (Sullivan, joined by three; Menashi). The en banc reading looks like a miss on a consolidated appeal; I relied on the petition's account."
+    }
+  ]
+}

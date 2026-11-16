@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "record/documents/lower-court-docket.txt (matched to member Second Circuit docket 23-354, CourtListener docket 67110566) reports 'dissent noted: no' on the 2026-03-19 rehearing-denial order and no decision-below.txt was staged. On lead consolidated Second Circuit docket 23-258 (Havlish v. Taliban; Aliganga v. Taliban, CourtListener opinion_id 11277807, 170 F.4th 100), five judges published two dissents from the denial of rehearing en banc (Sullivan, J., joined by Livingston, C.J., and Bianco and Park, JJ.; and Menashi, J.)."
+    }
+  ]
+}

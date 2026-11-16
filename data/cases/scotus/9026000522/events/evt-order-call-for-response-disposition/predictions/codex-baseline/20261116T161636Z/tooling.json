@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000522",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP search_document", "web search and primary-opinion retrieval", "fedcourts validate"],
+  "helpful": ["Frozen reached-rate and amicus reference", "Provisioned petition and matching lower-court opinion", "CourtListener document snippets", "Structured corpus transfer accounting"],
+  "gaps": ["No measured response-requested conditional grant rate", "Broad precedent searches can surface the project's own forecasts"],
+  "notes": "The read-only default uv cache required UV_CACHE_DIR=/tmp/uv-cache. The first corpus query used an invalid era token; the corrected decade query succeeded. A stray numerical forecast in a search result is durably disclosed. A guessed Supreme Court PDF URL returned 404; no install or direct CourtListener REST fallback was used."
+}

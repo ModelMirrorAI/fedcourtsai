@@ -1,0 +1,8 @@
+# Forecast — No. 26-292, Havlish v. Taliban (with 26-293 and 26-294)
+
+- **State forecast from:** two distributions (Nov 6 and Nov 13, 2026 conferences) and a CVSG issued Nov 16, 2026. Justice Kagan is recused.
+- **Solicitor General's brief:** filed in roughly May 2027, possibly later given the State/Treasury interests involved. The petition will then be distributed once more and decided before the end of June 2027 if the brief arrives by late May; otherwise at the start of OT2027. One further distribution is near certain; more than two further distributions are unlikely unless the Court relists after the brief on the way to a grant.
+- **No further CVSG.**
+- **Disposition:** the three petitions are decided together. Slightly more likely than not (about 58%) the Court denies all three, most plausibly because the Solicitor General recommends against review on the ground that the blocking-date question is novel, lacks a square circuit conflict, and touches Executive control over blocked sovereign assets. If the Solicitor General recommends a grant, the Court grants (about three in four).
+- **If granted:** plenary review on the question presented as written (whether TRIA § 201(a) execution turns on agency-or-instrumentality status at the time of blocking), with one petition as lead and the others consolidated or held; the Court would appoint an amicus to defend the judgment if no party does. Argument in OT2027. A summary disposition or GVR is unlikely; nothing intervening bears on the question.
+- **If denied:** most likely no separate writing; if any Justice writes, Alito, Gorsuch or Thomas is the likeliest author of a dissent or statement. The order will note Justice Kagan took no part.
