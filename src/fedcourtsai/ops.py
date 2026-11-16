@@ -609,8 +609,8 @@ def render_substance(digest: SubstanceDigest) -> str:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
         cal_lines.append(
             f"Always-deny base rate **{cal.deny_base_rate:.0%}** "
-            f"(est. over {cal.base_rate_cases:,} resolved modern-cert petitions, "
-            "live/historical slice, denial-reweighted) · "
+            f"(over {cal.base_rate_cases:,} resolved modern-cert petitions, "
+            "live/historical slice) · "
             f"lift **{lift}** — a difference of rates over different "
             "populations (the accuracy's scored cells vs the whole modern-cert "
             "slice), so an orientation rather than an effect size"
@@ -619,8 +619,8 @@ def render_substance(digest: SubstanceDigest) -> str:
         skill = "—" if cal.mean_brier_skill is None else f"{cal.mean_brier_skill:+.3f}"
         cal_lines.append(
             f"Salience-scored segment base grant rate **{cal.segment_grant_rate:.0%}** "
-            f"(est. over {cal.segment_base_rate_cases:,} resolved paid-segment petitions, "
-            "denial-reweighted) · replay Brier skill vs baseline "
+            f"(over {cal.segment_base_rate_cases:,} resolved paid-segment petitions) "
+            "· replay Brier skill vs baseline "
             f"**{skill}**"
         )
     if cal_lines:
