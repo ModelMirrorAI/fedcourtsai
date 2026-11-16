@@ -4222,9 +4222,9 @@
       "next_conference": null,
       "relists": 0,
       "response_due": {
-        "set_for": "2026-12-02",
+        "set_for": "2027-01-04",
         "stale_reason": null,
-        "upcoming": "2026-12-02"
+        "upcoming": "2027-01-04"
       },
       "stale_reason": "conference_passed"
     },
