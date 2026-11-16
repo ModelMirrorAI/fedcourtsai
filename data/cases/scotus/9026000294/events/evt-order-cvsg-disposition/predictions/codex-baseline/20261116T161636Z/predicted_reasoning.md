@@ -1,0 +1,9 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition after receiving the Solicitor General's invited brief. The denial will most likely be an unexplained order, without a separate writing. If a Justice writes to question the treatment of the victims' claims or the allocation of judicial authority, Thomas, Alito, and Gorsuch are the likelier candidates; no particular writer is more likely than silence.
+
+The docket already records two distributions and the November 16, 2026 CVSG. The next step will be the government's brief, most likely after a wait of several months, followed by redistribution. I expect roughly one to three additional distributions before disposition, with at least one additional distribution very likely. These include the ordinary return to conference after the government files, not just extra conferences after that return. I do not predict a second invitation for the same views.
+
+If the Court grants review in this petition, it will likely address the narrower statutory and constitutional boundary: whether executive recognition of Afghanistan conclusively establishes DAB's entitlement to FSIA immunity, or whether courts must separately determine instrumentality status under the Act. A reformulated question separating state recognition from the bank's statutory status is more likely than wholesale adoption of the petition's contrast between independent judging and deference to websites.
+
+Conditional on a grant, plenary briefing and argument are substantially more likely than summary disposition: 80% versus 20%. The related petitions could instead provide the principal vehicle, leaving Owens held for consequential action, including a later grant/vacate/remand. No identified intervening decision presently makes a summary reversal or GVR the leading route. If the Court denies review, that order will leave the lower-court result intact without adopting its reasoning.

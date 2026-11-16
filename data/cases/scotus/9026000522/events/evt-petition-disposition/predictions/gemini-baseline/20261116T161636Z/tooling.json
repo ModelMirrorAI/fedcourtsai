@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000522",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP (search, call_endpoint, get_endpoint_schema, read_document)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and decision-below.txt surfaced the waived Monell claim and preserved qualified-immunity defense",
+    "context.json frozen cert_anchor and cert_amicus_line beside metrics/statpack.md cuts",
+    "fedcourts query --docket-number lookups for recent Pickering cert denials (Hedgepeth 25-819 and MacRae 24-355)",
+    "CourtListener MCP read_document on Melton v. City of Forrest City and Hedgepeth v. Britton, plus CA1 clusters check on Hussey en banc"
+  ],
+  "gaps": [
+    "Provisioning cert-stage amicus brief text (here the Nov 6 Illinois Council of Police amicus brief) alongside petition.txt would allow direct inspection of amicus arguments",
+    "A committed statpack cut separating post-waiver Call-for-Response (CFR) petitions from non-CFR 1-relist petitions would sharpen calibration on CFR dockets"
+  ],
+  "notes": "One transient HTTP 502 from CourtListener MCP search resolved cleanly on immediate retry."
+}

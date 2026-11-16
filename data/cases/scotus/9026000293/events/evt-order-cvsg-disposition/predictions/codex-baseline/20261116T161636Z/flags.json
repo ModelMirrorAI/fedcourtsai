@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000293",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The provisioned lower-court-docket.txt reports no rehearing petition, no disposition found, and no dissent found among its searched entries. The petition's retained Appendix D, 149a–150a, contains the April 3, 2026 amended order expressly denying panel rehearing with Judge Sullivan dissenting, and identifies the Calabresi/Cabranes/Sullivan panel. Treat the docket extract's negatives as incomplete retrieval, not proof that rehearing or dissent did not occur. Forecast relies on the primary appended order; full en banc writings are outside the retained appendix excerpt."
+    }
+  ]
+}

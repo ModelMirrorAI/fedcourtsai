@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-cvsg-disposition",
+      "message": "The provisioned lower-court-docket.txt says no en banc dissent was noted, while petition.txt pp. 12-13 describes five dissenting judges and two writings on denial of rehearing. The summary is entry-text-derived and lacks the full opinion; I treated its negative reading as a coverage limitation, credited the petition's specific account provisionally, and did not treat the discrepancy as a blocker."
+    }
+  ]
+}

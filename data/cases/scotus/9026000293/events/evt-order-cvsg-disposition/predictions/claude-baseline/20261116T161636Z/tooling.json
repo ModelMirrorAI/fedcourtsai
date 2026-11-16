@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000293",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/related"
+  ],
+  "helpful": [
+    "The staged companion dockets under record/related showed the CVSG covered all three petitions.",
+    "cert_anchor and the statpack CVSG cut agreed."
+  ],
+  "gaps": [
+    "No decision-below text was staged, so the holdings came only from the petition.",
+    "No table splits CVSG outcomes by the SG's recommendation or by GVR-only petitions.",
+    "The corpus query has no way to find petitions held for a companion."
+  ],
+  "notes": "The --disposition gvr query returns arbitrary recent rows; not useful as a prior for this posture."
+}
