@@ -461,8 +461,12 @@ stays outside the gate:
   plenary grant is not. No resolver records `summary-reversal`: a judgment
   that rides the grant order resolves as `granted` with `disposition_route`
   `summary-merits` beside it, so a call under that label is read against the
-  route and is right only there, and wrong on a plenary grant, a GVR, or a
-  grant whose route was not assessed. A cell whose `correct`
+  route and is right there, and wrong on a plenary grant, an outcome labelled
+  `gvr`, or a grant whose route was not assessed (a 0, not a cell left out of
+  the fraction). The route does not record which judgment rode the order, so
+  the call is right on any of them, and a `granted` call is right on the same
+  outcome: on this column `granted` never scores below `summary-reversal`,
+  which predictors use at different rates. A cell whose `correct`
   the stamp could not compute (no readable prediction, or no committed outcome)
   leaves both halves of the fraction rather than entering as a wrong call, which
   is what `accuracy_scored` beside the column records; read accuracy against

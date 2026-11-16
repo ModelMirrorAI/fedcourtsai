@@ -123,11 +123,13 @@ def summary_reversal_matched(outcome: Outcome) -> bool:
     label comparison could never credit the call. An outcome recorded under
     the ``summary-reversal`` label itself matches too, whatever its marker.
 
-    False on a plenary grant, a GVR, a denial or a dismissal, and on a grant
-    whose route was not assessed: the record does not say the call was right,
-    and a forward cert outcome is resolved from the order text that carries
-    the route. The marker does not record which way the summary judgment went,
-    so the call is credited on any merits judgment that rode the grant order.
+    False on a plenary grant, an outcome labelled ``gvr``, a denial or a
+    dismissal, and on a grant whose route was not assessed: the record does
+    not say the call was right. The marker does not record which judgment rode
+    the grant order, so the call is credited on any of them, a vacatur and
+    remand recorded as ``granted`` included; where
+    :mod:`fedcourtsai.disposition_convergence` later relabels that outcome
+    ``gvr`` the route moves with it and the bit recomputes to 0.
     """
     return (
         outcome.disposition_route == "summary-merits"

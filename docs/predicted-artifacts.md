@@ -195,7 +195,9 @@ kinds resolve on the cert standard by construction.
   it), so a call under that label is read against the route: it is a right
   call where the route is `summary-merits`
   (`pipeline.evaluate.summary_reversal_matched`), and a wrong one on a plenary
-  grant, a GVR, a denial, or a grant whose route was not assessed.
+  grant, an outcome labelled `gvr`, a denial or dismissal, or a grant whose
+  route was not assessed. The route does not say which judgment rode the
+  order, so the call is right on any of them.
 - The declared set is **`cert-v3`**: `cert-v2`'s five binary claims and the
   `order-writers` distribution claim, collected and never scored. The five
   claims are `disposition` — which must
