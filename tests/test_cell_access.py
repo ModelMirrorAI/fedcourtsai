@@ -286,6 +286,13 @@ _DISCLAIMER = (
             ],
         ),
         ("Write", json.dumps({"file_path": f"/w/{OWN}/retrieval.md", "content": _DISCLAIMER})),
+        ("write_file", json.dumps({"file_path": f"{OWN}/flags.json", "content": _DISCLAIMER})),
+        # a slice cut inside a predictions path the content names
+        (
+            "write_file",
+            json.dumps({"file_path": f"{OWN}/retrieval.md", "content": "x" * 600})[:480]
+            + " predictions/claude",
+        ),
         (
             "Edit",
             json.dumps(
@@ -328,6 +335,48 @@ def test_what_a_cell_writes_into_its_own_run_directory_is_not_read_for_hidden_pa
             f"*** Add File: {OWN}/retrieval.md\n+data/qp-topics/ unread\n"
             + "*** Add File: /tmp/b.md\n+x\n",
             [AccessKind.oracle],
+        ),
+        # a path that carries the run directory's tail and is not it
+        (
+            "write_file",
+            json.dumps(
+                {"file_path": f"/tmp/predictions/{ACTOR}/{RUN}/x.md", "content": "data/qp-topics/"}
+            ),
+            [AccessKind.oracle],
+        ),
+        # a script is not one of the cell's documents
+        (
+            "Write",
+            json.dumps({"file_path": f"{OWN}/s.py", "content": "open('data/qp-topics/q.json')"}),
+            [AccessKind.oracle],
+        ),
+        # a patch header inside what a file tool wrote names no target
+        (
+            "write_file",
+            json.dumps({"content": f"*** Add File: {OWN}/x.md\n data/qp-topics/ "}),
+            [AccessKind.oracle],
+        ),
+        # a rename out of the run directory
+        (
+            "apply_patch",
+            f"*** Update File: {OWN}/a.md\n*** Move to: data/qp-topics/a.md\n",
+            [AccessKind.oracle, AccessKind.write],
+        ),
+        (
+            "apply_patch",
+            f"*** Update File: {OWN}/prediction.json\n"
+            + f"*** Move to: {CASE_DIR}/events/{EVENT}/predictions/claude-baseline/1/p.json\n",
+            [AccessKind.cell_record, AccessKind.write],
+        ),
+        # a wrapped patch, its newlines escaped, touching a second file
+        (
+            "apply_patch",
+            '{input:"*** Begin Patch\\n*** Add File: '
+            + f"{OWN}/retrieval.md"
+            + "\\n+x\\n*** Delete File: "
+            + f"{CASE_DIR}/events/{EVENT}/predictions/claude-baseline/1/p.json"
+            + '\\n"}',
+            [AccessKind.cell_record, AccessKind.write],
         ),
         # a write whose target the slice does not show
         ("write_file", json.dumps({"content": "data/qp-topics/ unread"}), [AccessKind.oracle]),
