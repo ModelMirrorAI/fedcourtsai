@@ -7,7 +7,8 @@ is allowlisted there. On an unattended round — every scheduled `run-predict` a
 `run-evaluate` round — there is no requester at all, and the actor is whatever
 GitHub attributes the cron to, which on a repo whose deterministic writers push
 to the default branch can be that same login; a chained predict round's actor
-is the dispatch App's login, which the run gate admits for `run-predict` alone.
+is the dispatch App's login, which the run gate admits for `run-predict`,
+`run-pull` and `integration-test` and for no other workflow.
 Either way the allowance stays pinned to those logins and is never `*`; the spend gate is the
 `review` hold, not this setting. These tests lock the allowlist in — a
 regression here breaks the whole automated pipeline while every other check

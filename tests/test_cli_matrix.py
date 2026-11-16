@@ -2478,6 +2478,23 @@ def test_the_planning_rate_table_matches_the_per_event_totals() -> None:
     assert round(18.07 / 6, 2) == planning_rates.PLANNING_USD_PER_CELL
 
 
+def test_the_backtest_hold_summary_restates_the_predict_rates() -> None:
+    """The hold summary a maintainer reads before releasing spend prices at the table.
+
+    ``run-backtest.yml`` restates the predict rows in prose and multiplies the
+    limit by their sum, because no command its plan step runs prices a fan-out.
+    A re-anchor of the table that left the restated line behind would show the
+    maintainer a release priced at rates the project no longer plans on.
+    """
+    rates = planning_rates.PLANNING_RATES_USD_PER_CELL["predict"]
+    workflow = Path(__file__).resolve().parent.parent / ".github/workflows/run-backtest.yml"
+    text = workflow.read_text(encoding="utf-8")
+    total = sum(rates.values())
+    stated = " + ".join(f"${rate:.2f} {engine}" for engine, rate in rates.items())
+    assert f"({stated}, about ${total:.2f} an event" in text
+    assert f"n * {total:.2f} " in text
+
+
 def test_predict_plan_prices_an_unknown_engine_at_the_stated_fallback(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
