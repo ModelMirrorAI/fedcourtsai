@@ -189,9 +189,13 @@ kinds resolve on the cert standard by construction.
   axis, so they travel with `granted: 1`. For `correct`, `granted-in-part` and
   `granted` are one label on a cert cell (`pipeline.evaluate.cert_label`): a
   grant limited to some of the questions resolves as `granted`, and a forecast
-  of it under either label is a right call. `gvr` and `summary-reversal` each
-  match only themselves, and since no resolver records `summary-reversal`, a
-  call under that label matches no recorded cert outcome.
+  of it under either label is a right call. `gvr` matches only itself. No
+  resolver records `summary-reversal` (a judgment that rides the grant order
+  resolves as `granted`, with `disposition_route` `summary-merits` beside
+  it), so a call under that label is read against the route: it is a right
+  call where the route is `summary-merits`
+  (`pipeline.evaluate.summary_reversal_matched`), and a wrong one on a plenary
+  grant, a GVR, a denial, or a grant whose route was not assessed.
 - The declared set is **`cert-v3`**: `cert-v2`'s five binary claims and the
   `order-writers` distribution claim, collected and never scored. The five
   claims are `disposition` — which must

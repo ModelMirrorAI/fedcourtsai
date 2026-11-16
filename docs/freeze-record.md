@@ -20924,3 +20924,80 @@ freeze commit is recorded here.
   promotion carrying this entry: `jq '[.terms[].classes[] |
   select(.weighted_resolved != .resolved)] | length' metrics/statpack.json`
   prints 0.
+
+- **On a cert cell `correct` reads a `summary-reversal` call against the
+  outcome's route; recorded 2026-11-16.** A scoring-baseline change to the
+  accuracy bit. No prompt changes, no process digest, constant or window
+  moves (`uv run fedcourts process-digest --all` prints the same six digests
+  before and after), and no harness boundary is registered: the rule is keyed
+  on no label, and it re-scores no committed grading, so no cell sits on an
+  earlier side of it.
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **The rule.** On a cert cell whose `predicted_disposition` is
+  `summary-reversal`, `pipeline.evaluate.is_correct` returns 1 where the
+  outcome's `disposition_route` is `summary-merits`, or where its
+  `actual_disposition` is itself `summary-reversal`, and 0 otherwise
+  (`pipeline.evaluate.summary_reversal_matched`). So the call is wrong on a
+  plenary grant, on a GVR, on a denial or dismissal, and on a grant whose
+  route was not assessed. This replaces, for that one predicted label, the
+  sentence of the 2026-11-15 entry that says `summary-reversal` matches only
+  itself. Every other call is scored as before: a `granted` or
+  `granted-in-part` call still matches a `granted` outcome whatever its route,
+  and a `gvr` call still matches only `gvr`. An interim cell and a merits cell
+  are untouched, and so are `brier_score`, `actual_granted`, the claim block,
+  the skill record and the always-deny floor. The back-test boards compute
+  their own disposition match and are not reached.
+
+  **Why.** The predict prompt offers `summary-reversal` on cert cells for an
+  order in which the Court decides the merits itself, without argument. No
+  resolver records that label: such an order resolves as `granted`, and
+  `pipeline.outcome.disposition_route` writes `summary-merits` beside it
+  where the judgment carries the grant's own date. Under the label
+  comparison a correct forecast of a summary disposition therefore scored 0
+  against the outcome it forecast. The route marker is the committed field
+  that separates that order from a plenary grant, so the call is read against
+  it. Recording the label in the resolver instead was declined, because a
+  relabel moves the case out of the merits population and shifts the
+  committed disposition figures, which is why the route was made a separate
+  marker. Folding the label into `granted` was declined, because the call
+  would then be right against a plenary grant, which names a different route.
+
+  **This rule was chosen before any outcome it scores.** It was chosen on
+  2026-11-16 with the affected predictions and their labels in view and no
+  outcome for them recorded. Measured on `main` at `3b177c051` by applying
+  the rule to every committed prediction on an event with a committed
+  non-merits outcome (1,098 predictions): none changes. 15 committed
+  predictions carry the label. One is on a resolved event
+  (`scotus/73281386`, `gemini-baseline`, outcome `granted`, route `plenary`),
+  and it scores 0 under the earlier rule and under this one. The other 14
+  are on ten events of eight cases with no outcome yet (`codex-baseline` 8,
+  `claude-baseline` 4, `gemini-baseline` 2), and each now scores 1 if its
+  event resolves as a grant routed `summary-merits` and 0 otherwise. Among
+  the committed outcomes, `granted` carries the route `summary-merits` on 17,
+  `plenary` on 257 and no route on 391; no committed prediction sits on any
+  of the 17.
+
+  **Limits that travel with the figure.** The marker does not record which
+  way the summary judgment went, so a `summary-reversal` call is credited on
+  any merits judgment that rode the grant order, a summary affirmance
+  included. A grant whose route was not assessed scores the call 0, so on
+  such an outcome a right call and a wrong one cannot be told apart; a
+  forward cert outcome is resolved from the order text the route is read
+  from, and the 391 grants without a route carry no prediction under the
+  label. The rule is one-sided: a `granted` call against a `summary-merits`
+  outcome still scores 1, since the outcome's label is `granted`, while a
+  `summary-reversal` call against a plenary grant scores 0. The predict
+  prompt still offers the label without saying how it is scored, and the
+  evaluate prompt still describes cert `correct` as an exact match on the
+  label; rewording either is a prompt change that would be registered as
+  one. A judge following that prompt writes 0 on such a cell, and the stamp
+  writes 1 over it and warns of the difference in the run log.
+
+  **Effect check.** Nothing committed moves at the carrying promotion, and no
+  re-grade is owed. The rule first acts when one of the ten pending events
+  resolves and is graded: on `main`, each `evaluation.json` whose scored
+  prediction carries `summary-reversal` has `correct` 1 exactly where the
+  event's `outcome.json` carries `disposition_route` `summary-merits`, and 0
+  otherwise.
