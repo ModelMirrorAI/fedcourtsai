@@ -1414,11 +1414,37 @@
         "upcoming": "2027-01-13"
       },
       "case_id": "scotus/73282277",
-      "conferences": null,
+      "conferences": [
+        {
+          "conference": "2026-02-20",
+          "distributed": "2026-01-29",
+          "transition": "first"
+        },
+        {
+          "conference": "2026-05-21",
+          "distributed": "2026-05-06",
+          "transition": "reschedule"
+        },
+        {
+          "conference": "2026-05-28",
+          "distributed": "2026-05-26",
+          "transition": "reschedule"
+        },
+        {
+          "conference": "2026-06-04",
+          "distributed": "2026-06-01",
+          "transition": "relist"
+        },
+        {
+          "conference": "2026-06-11",
+          "distributed": "2026-06-08",
+          "transition": "relist"
+        }
+      ],
       "distributed_for_conference": null,
-      "last_live_polled": "2026-11-08",
+      "last_live_polled": "2026-11-16",
       "next_conference": null,
-      "relists": null,
+      "relists": 2,
       "response_due": null,
       "stale_reason": null
     },
