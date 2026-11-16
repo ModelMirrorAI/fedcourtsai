@@ -1033,9 +1033,9 @@ outcome has been stamped); the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 coverage — the operator-run channel that fills it (`fedcourts
-enrich-opinions`) has set the `has_opinion` bit an ingested body carries on 35
-of the 1,232 rows carrying a cert-grant date, on the corpus blob pulled
-2026-09-14 — the body itself living in the content store, since the index is
+enrich-opinions`) has set the `has_opinion` bit an ingested body carries on 37
+of the 1,282 rows carrying a cert-grant date, on the corpus blob pulled
+2026-11-16 — the body itself living in the content store, since the index is
 payload-free. Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
 engine channel's tool *names* — the staged retrieval log respells each call's
@@ -1977,9 +1977,9 @@ grade needs. In dependency order, most binding first, what is still owed:
    the 93 committed merits events, none of them on a resolved event. Nothing is owed
    here but the Court's own calendar; it is listed because it binds ahead of
    everything below it.
-2. **Opinion coverage.** 35 rows carry the `has_opinion` bit an ingested body
-   sets, against the 1,232 rows carrying a cert-grant date on the corpus blob
-   pulled 2026-09-14. The
+2. **Opinion coverage.** 37 rows carry the `has_opinion` bit an ingested body
+   sets, against the 1,282 rows carrying a cert-grant date on the corpus blob
+   pulled 2026-11-16. The
    channel that fills them —
    `fedcourts enrich-opinions`, operator-run over that slice
    (`docs/data-pipeline.md`) — has run, so what is missing is neither a design

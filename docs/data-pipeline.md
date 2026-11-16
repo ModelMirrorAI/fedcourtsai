@@ -934,7 +934,7 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,230 all-time (1,232 on the corpus blob pulled 2026-09-14) and
+together: ≈1,280 all-time (1,282 on the corpus blob pulled 2026-11-16) and
 ≈120–130 a Term — at up to four REST requests a
 case resolved by docket number (docket, cluster list, the docket that cluster
 names, opinion) and three by the docket route (docket, cluster, opinion),

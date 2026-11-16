@@ -228,8 +228,8 @@ clear the rest, and the gaps are specific: a per-Justice baseline would have to
 be conditioned on what the predictor is shown rather than pooled unconditionally,
 it would be a count of rows, each one petition, writings
 respecting denial are censored in an open Term, and an ingested opinion body has
-set the `has_opinion` bit on 35 of the 1,232 cert-granted rows on the corpus
-blob pulled 2026-09-14 (the
+set the `has_opinion` bit on 37 of the 1,282 cert-granted rows on the corpus
+blob pulled 2026-11-16 (the
 operator-run channel that fills them, `fedcourts enrich-opinions`, is scoped to
 the cert-granted slice and converges only the
 grants whose opinion cluster it can resolve — by the docket's own links or by

@@ -194,8 +194,12 @@ the leaderboard keeps every `stage@moment` population apart.
 The write-up also states which grants each engine covered and which it did
 not.
 
-**Owed:** the command that prints merits calibration and the paired
-equal-coverage comparison. Until it exists, this section states its absence.
+The paired comparison is read from each leaderboard stage block's `paired`
+figure, the events every ranked engine forecast
+([metrics/README.md](../metrics/README.md)).
+
+**Owed:** the command that prints merits calibration. Until it exists, this
+section states its absence.
 
 ## 5. The baseline and the smoothing rule
 
@@ -284,9 +288,12 @@ reported in its own section, stratified apart (`classify_stratum`), and never
 pooled with forward skill. The models may already know those outcomes, so a
 replay score bounds nothing about forward skill.
 
-**Owed:** either a merits replay arm on `run-backtest`, covering OT2025's
-argued cases first and priced in [budget.md](budget.md) before its first run,
-or a statement here that none ran.
+The replay arm is `run-backtest` in `replay: merits` mode (`fedcourts
+merits-backtest`), priced in [budget.md](budget.md), and its report is
+`metrics/merits-backtest.json`.
+
+**Owed:** a run of that arm covering OT2025's argued cases, reported here with
+the models it ran, or a statement here that none ran.
 
 ## 8. Cost
 
@@ -329,8 +336,8 @@ long-conference public page.
 | Per-argued-case aggregation for consolidated dockets | 1 |
 | Per-window census within a leaderboard stage block | 2 |
 | Merits stage reading rule, accuracy floor and merits claim-score coverage | 3 |
-| Merits calibration and the paired equal-coverage comparison (or a stated absence) | 4 |
+| Merits calibration (or a stated absence) | 4 |
 | Smoothing rule, only if a cut is published | 5 |
 | Terminal record for terminated merits events | 6 |
-| Merits replay arm (or a stated absence) | 7 |
+| A merits replay run covering OT2025 (or a stated absence) | 7 |
 | Public summary | 10 |
