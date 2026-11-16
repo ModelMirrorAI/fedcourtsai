@@ -1,12 +1,12 @@
 {
-  "cases": 409,
-  "cases_at_court_next_conference": 25,
+  "cases": 411,
+  "cases_at_court_next_conference": 27,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 372,
+      "cases": 374,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1225,
+  "current_reads": 1231,
   "declared_no_view": 28,
   "frozen_process": {
     "digests": [
@@ -42011,6 +42011,124 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Overton",
+      "caption": "Thomas M. Overton v. Florida, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000686",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A life is at stake, but this is a routine end-stage Florida death-warrant stay application raising clemency/warrant-process claims with no broader doctrinal reach.",
+          "big_case_score": 0.15,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        },
+        {
+          "big_case_rationale": "An imminent execution creates irreversible individual stakes, and the application challenges Florida's clemency and warrant processes, but the supplied filing develops no clear nationwide conflict.",
+          "big_case_score": 0.6,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        },
+        {
+          "big_case_rationale": "Active capital execution-warrant stay application raising broad Woodard clemency-sham and warrant-secrecy claims that would reshape state clemency review if ever reached, but presented in a routine, procedurally barred post-warrant posture with no circuit split or amicus participation.",
+          "big_case_score": 0.22,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        }
+      ],
+      "docket_id": 9526000686,
+      "docket_number": "26A686",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a686.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A life is at stake, but this is a routine end-stage Florida death-warrant stay application raising clemency/warrant-process claims with no broader doctrinal reach.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/claude-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/claude-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "An imminent execution creates irreversible individual stakes, and the application challenges Florida's clemency and warrant processes, but the supplied filing develops no clear nationwide conflict.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/codex-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/codex-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "Active capital execution-warrant stay application raising broad Woodard clemency-sham and warrant-secrecy claims that would reshape state clemency review if ever reached, but presented in a routine, procedurally barred post-warrant posture with no circuit split or amicus participation.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261115T141636Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Thomas M. Overton v. Florida, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3233,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-14",
+      "n": 3,
+      "other_party": "Florida",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Overton gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Overton does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.6,
+      "score_min": 0.15,
+      "score_range": 0.45,
+      "short_caption": "Overton v. Florida",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Erik Charles Maund",
       "caption": "Erik Charles Maund, aka Erik Moore v. United States",
       "caption_event_id": "evt-petition-disposition",
@@ -43284,6 +43402,132 @@
       "score_min": 0.2,
       "score_range": 0.2,
       "short_caption": "FS Medical Supplies v. Tanner Pharma UK Limited",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Tarquinii",
+      "caption": "Jawan N. Tarquinii v. Hung Cao, Acting Secretary of the Navy",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000446",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring but narrow Title VII summary-judgment preservation question; matters to employment litigators, little public salience.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        },
+        {
+          "big_case_rationale": "A recurring employment-discrimination preservation question with nationwide procedural consequences, but not a challenge to Title VII's substantive coverage.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, resolving party-presentation and preservation rules for Title VII motivating-factor claims at summary judgment would meaningfully shape federal employment-discrimination litigation practice nationwide, though without major constitutional or public-policy salience.",
+          "big_case_score": 0.32,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        }
+      ],
+      "docket_id": 9026000446,
+      "docket_number": "26-446",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-446.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring but narrow Title VII summary-judgment preservation question; matters to employment litigators, little public salience.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000446/events/evt-petition-disposition/predictions/claude-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000446/events/evt-petition-disposition/predictions/claude-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "A recurring employment-discrimination preservation question with nationwide procedural consequences, but not a challenge to Title VII's substantive coverage.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000446/events/evt-petition-disposition/predictions/codex-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000446/events/evt-petition-disposition/predictions/codex-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, resolving party-presentation and preservation rules for Title VII motivating-factor claims at summary judgment would meaningfully shape federal employment-discrimination litigation practice nationwide, though without major constitutional or public-policy salience.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000446/events/evt-petition-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000446/events/evt-petition-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261115T141636Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jawan N. Tarquinii v. Hung Cao, Acting Secretary of the Navy"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2967,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-02",
+      "n": 3,
+      "other_party": "Cao",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Tarquinii's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Tarquinii's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.35,
+      "score_min": 0.22,
+      "score_range": 0.13,
+      "short_caption": "Tarquinii v. Cao",
       "status": "pending"
     },
     {
@@ -53079,132 +53323,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Hamp's Construction",
-      "caption": "Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000464",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A single contractor's $3.9M Type I differing-site-condition claim under FAR 52.236-2, decided on forfeiture and substantial-evidence grounds with no circuit split possible (Federal Circuit exclusive jurisdiction). Routine government-contracts dispute; recurring clause, but no public or doctrinal stakes beyond the parties.",
-          "big_case_score": 0.06,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261008T143010Z"
-        },
-        {
-          "big_case_rationale": "Potentially consequential for allocation of latent-site risk in federal construction contracts, but the petition presents a specialized, contract-specific dispute with a preservation obstacle rather than a broad constitutional or institutional controversy.",
-          "big_case_score": 0.23,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261008T143010Z"
-        },
-        {
-          "big_case_rationale": "Highly fact-bound contract interpretation dispute lacking broad legal significance.",
-          "big_case_score": 0.05,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261008T143010Z"
-        }
-      ],
-      "docket_id": 9026000464,
-      "docket_number": "26-464",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-464.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A single contractor's $3.9M Type I differing-site-condition claim under FAR 52.236-2, decided on forfeiture and substantial-evidence grounds with no circuit split possible (Federal Circuit exclusive jurisdiction). Routine government-contracts dispute; recurring clause, but no public or doctrinal stakes beyond the parties.",
-              "big_case_score": 0.06,
-              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261008T143010Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261008T143010Z",
-              "confidence": 0.8,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.008,
-              "run_id": "20261008T143010Z"
-            },
-            {
-              "big_case_rationale": "Potentially consequential for allocation of latent-site risk in federal construction contracts, but the petition presents a specialized, contract-specific dispute with a preservation obstacle rather than a broad constitutional or institutional controversy.",
-              "big_case_score": 0.23,
-              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261008T143010Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261008T143010Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.015,
-              "run_id": "20261008T143010Z"
-            },
-            {
-              "big_case_rationale": "Highly fact-bound contract interpretation dispute lacking broad legal significance.",
-              "big_case_score": 0.05,
-              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261008T143010Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261008T143010Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.01,
-              "run_id": "20261008T143010Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.1133,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-10-07",
-      "n": 3,
-      "other_party": "Telle",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Hamp's Construction's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Hamp's Construction's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-12-04",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-12-04",
-        "kind": "conference"
-      },
-      "score_max": 0.23,
-      "score_min": 0.05,
-      "score_range": 0.18,
-      "short_caption": "Hamp's Construction v. Telle",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Ekladyous",
       "caption": "Albert Ekladyous v. National Highway Traffic Safety Administration, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -53438,6 +53556,182 @@
       "score_range": 0.2,
       "short_caption": "Chaganti v. Cincinnati Insurance",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Hamp's Construction",
+      "caption": "Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000464",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A single contractor's $3.9M differing-site-conditions claim turning on the reading of one contract's boring logs and drawings; limited interest beyond the government-construction bar.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        },
+        {
+          "big_case_rationale": "Recurring federal construction-contract risk allocation, but a roughly $4 million dispute with substantial factual and preservation limitations rather than a demonstrated systemwide doctrinal conflict.",
+          "big_case_score": 0.14,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        },
+        {
+          "big_case_rationale": "Routine Contract Disputes Act dispute over Type I differing site conditions under FAR 52.236-2; a merits decision on implied subsurface representations from partial boring logs would matter to federal construction procurement specialists but carries limited broader legal or public salience.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261115T141636Z"
+        }
+      ],
+      "docket_id": 9026000464,
+      "docket_number": "26-464",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-464.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A single contractor's $3.9M Type I differing-site-condition claim under FAR 52.236-2, decided on forfeiture and substantial-evidence grounds with no circuit split possible (Federal Circuit exclusive jurisdiction). Routine government-contracts dispute; recurring clause, but no public or doctrinal stakes beyond the parties.",
+              "big_case_score": 0.06,
+              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261008T143010Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261008T143010Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.008,
+              "run_id": "20261008T143010Z"
+            },
+            {
+              "big_case_rationale": "Potentially consequential for allocation of latent-site risk in federal construction contracts, but the petition presents a specialized, contract-specific dispute with a preservation obstacle rather than a broad constitutional or institutional controversy.",
+              "big_case_score": 0.23,
+              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261008T143010Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261008T143010Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.015,
+              "run_id": "20261008T143010Z"
+            },
+            {
+              "big_case_rationale": "Highly fact-bound contract interpretation dispute lacking broad legal significance.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261008T143010Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261008T143010Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261008T143010Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A single contractor's $3.9M differing-site-conditions claim turning on the reading of one contract's boring logs and drawings; limited interest beyond the government-construction bar.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-disposition/predictions/claude-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-disposition/predictions/claude-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "Recurring federal construction-contract risk allocation, but a roughly $4 million dispute with substantial factual and preservation limitations rather than a demonstrated systemwide doctrinal conflict.",
+              "big_case_score": 0.14,
+              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-disposition/predictions/codex-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-disposition/predictions/codex-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.006,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "Routine Contract Disputes Act dispute over Type I differing site conditions under FAR 52.236-2; a merits decision on implied subsurface representations from partial boring logs would matter to federal construction procurement specialists but carries limited broader legal or public salience.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000464/events/evt-petition-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000464/events/evt-petition-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261115T141636Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.11,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-07",
+      "n": 3,
+      "other_party": "Telle",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hamp's Construction's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hamp's Construction's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.15,
+      "score_min": 0.04,
+      "score_range": 0.11,
+      "short_caption": "Hamp's Construction v. Telle",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -58945,8 +59239,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.03,
       "score_min": 0.0,
       "score_range": 0.03,
@@ -59540,5 +59842,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.5",
-  "scored_reads": 1188
+  "scored_reads": 1194
 }
