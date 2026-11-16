@@ -20574,8 +20574,8 @@ freeze commit is recorded here.
   2026-10-15 entry: no digest moves, and no predict cell reads anything
   different because of the lift, which runs after the engine, on its own log.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-16` (merge
+  commit `464f263695670a47aacc388fee2986129b394714`, merged `2026-11-16T18:41:21Z`).
 
   **Effect check.** On `main`, once a run-predict round after the carrying
   merge has landed codex cells, `jq -r .engine_version` over those cells'
@@ -20668,8 +20668,8 @@ freeze commit is recorded here.
   harness boundary is registered: the rule is keyed on no label, and every
   grading it reaches is recomputed in place by the re-grade named below, so no
   cell is left on the earlier side of it.
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-16` (merge
+  commit `464f263695670a47aacc388fee2986129b394714`, merged `2026-11-16T18:41:21Z`).
 
   **The rule.** `pipeline.evaluate.is_correct` compares a cert cell's
   `predicted_disposition` with the outcome's `actual_disposition` after
@@ -20862,8 +20862,8 @@ freeze commit is recorded here.
   activation, 26-630 stays `baseline` and unselected, and the
   `federal-label-check` alarm on it stands.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-16` (merge
+  commit `464f263695670a47aacc388fee2986129b394714`, merged `2026-11-16T18:41:21Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -20932,8 +20932,8 @@ freeze commit is recorded here.
   before and after), and no harness boundary is registered: the rule is keyed
   on no label, and it re-scores no committed grading, so no cell sits on an
   earlier side of it.
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-16` (merge
+  commit `464f263695670a47aacc388fee2986129b394714`, merged `2026-11-16T18:41:21Z`).
 
   **The rule.** On a cert cell whose `predicted_disposition` is
   `summary-reversal`, `pipeline.evaluate.is_correct` returns 1 where the
