@@ -573,7 +573,11 @@ the cert-outcome oracle removed from the agent's tree; a call naming a committed
 (another predictor's output, an earlier run, a glob over them, or the whole
 directory read from git history); and a file tool, shell redirection or `tee`
 writing under `data/` or a case `record/` outside that directory, which a path
-naming another case or event is, even under the same run id. A fourth kind is
+naming another case or event is, even under the same run id. A file tool's
+write into the cell's own run directory is read for the first two kinds by its
+target path alone, so the cell's own notes saying that no `data/qp-topics/`
+path was read are not a hit; a write anywhere else, and every shell call, are
+read whole. A fourth kind is
 filed under `forecast-exposure` rather than `other`, so its occurrences count
 on their own: a call naming where the project's forecasts are published, which
 is the public site (`fedcourts.ai`) or this repository by its owner and name,

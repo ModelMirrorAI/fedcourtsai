@@ -34,6 +34,16 @@ where a search can find them:
   carry no address. The project's own User-Agent string, which cites the
   repository's address, is no access and is stripped first.
 
+A file tool's write into the cell's own run directory is read by its target
+alone. What it wrote there is the cell's own output, where a sentence saying
+that no ``data/qp-topics/`` path was read names the path without any call
+having opened it; so the oracle and cell-record patterns are matched over the
+target path and not over the written content. That holds only when every
+target the slice shows is the cell's own: a file tool writing anywhere else,
+one whose target the slice does not show, and every shell call, a heredoc into
+the run directory included, are read whole. The published-forecast patterns
+read the whole slice either way.
+
 A path named only to exclude it — ``find … -not -path 'data/qp-topics/*'``,
 ``--exclude``, a ``!`` glob, a ``:(exclude)`` pathspec, a ``-prune`` — is no
 access, and is stripped before matching. An inverted ``grep -v`` is not an
@@ -57,7 +67,9 @@ event, so a write into another case of the same run is caught only when its
 path is written out in full. A published-forecast hit is read from what the
 call asked for, never from what came back: a search worded for something else
 whose results carry a forecast names nothing here, and only the cell's own
-disclosure shows it; a hosted search whose query the engine did not log shows
+disclosure shows it; what a file tool wrote into the cell's own run directory
+is not read for a hidden path, so content copied there from one shows only in
+the call that read it; a hosted search whose query the engine did not log shows
 nothing either; a forecast published anywhere but the project's own hosts
 is outside the patterns; and an exclusion is not read as one here, so a search
 that names the site only to leave it out (``-site:``) still counts. A hit is
@@ -256,6 +268,23 @@ def _write_targets(call: RetrievalCall) -> list[str]:
     return [*_REDIRECT.findall(text), *_TEE.findall(text)]
 
 
+def _lane_text(call: RetrievalCall, targets: Sequence[str], own: _OwnRun) -> str:
+    """The part of a call's slice the hidden-path patterns read.
+
+    The whole slice, but for a file tool whose every shown target is inside the
+    cell's own run directory: there the targets alone, since the rest is the
+    cell's own output rather than a path the call reached for.
+    """
+    text = call.query or ""
+    if (
+        targets
+        and neutral_tool_class(call.tool) == "file-write"
+        and all(_is_own_run(posixpath.normpath(path), own) for path in targets)
+    ):
+        return " ".join(targets)
+    return text
+
+
 def _guarded_write(path: str, own: _OwnRun) -> bool:
     path = posixpath.normpath(path)
     if path.startswith(("/dev/", "/tmp/")):
@@ -281,11 +310,13 @@ def audit_cell_access(
             continue
         found: list[tuple[AccessKind, str]] = []
         if _touches_tree(call):
-            text = _strip_exclusions(call.query)
-            found += [(AccessKind.oracle, path) for path in _ORACLE.findall(text)]
-            cut = len(call.query) >= QUERY_CAP
-            found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
             targets = [path.strip("'\"`") for path in _write_targets(call)]
+            lane_text = _lane_text(call, targets, own)
+            text = _strip_exclusions(lane_text)
+            found += [(AccessKind.oracle, path) for path in _ORACLE.findall(text)]
+            # Only a slice read whole can end mid-path where the capture cut it.
+            cut = lane_text is call.query and len(call.query) >= QUERY_CAP
+            found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
             found += [(AccessKind.write, path) for path in targets if _guarded_write(path, own)]
         found += [(AccessKind.published_forecast, host) for host in _forecast_hosts(call)]
         hits += [
