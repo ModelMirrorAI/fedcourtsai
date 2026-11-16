@@ -195,8 +195,8 @@ The write-up also states which grants each engine covered and which it did
 not.
 
 The paired comparison is read from each leaderboard stage block's `paired`
-figure, the events every ranked engine forecast
-([metrics/README.md](../metrics/README.md)).
+figure, the events on which every paired engine holds a counted, graded
+forward cell ([metrics/README.md](../metrics/README.md)).
 
 **Owed:** the command that prints merits calibration. Until it exists, this
 section states its absence.
@@ -290,10 +290,11 @@ replay score bounds nothing about forward skill.
 
 The replay arm is `run-backtest` in `replay: merits` mode (`fedcourts
 merits-backtest`), priced in [budget.md](budget.md), and its report is
-`metrics/merits-backtest.json`.
+`metrics/merits-backtest.json`, which holds one run drawn from OT2024 and
+OT2025.
 
-**Owed:** a run of that arm covering OT2025's argued cases, reported here with
-the models it ran, or a statement here that none ran.
+**Owed:** this section's report of a replay, with the models it ran: the
+committed run, or a fuller draw of OT2025's argued cases.
 
 ## 8. Cost
 
@@ -339,5 +340,5 @@ long-conference public page.
 | Merits calibration (or a stated absence) | 4 |
 | Smoothing rule, only if a cut is published | 5 |
 | Terminal record for terminated merits events | 6 |
-| A merits replay run covering OT2025 (or a stated absence) | 7 |
+| The report of a merits replay run | 7 |
 | Public summary | 10 |
