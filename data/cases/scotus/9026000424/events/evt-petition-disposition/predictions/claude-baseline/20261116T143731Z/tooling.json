@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000424",
+  "run_id": "20261116T143731Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "provisioned record documents"
+  ],
+  "helpful": [
+    "decision-below.txt and lower-court-docket.txt made the vehicle problem clear quickly",
+    "frozen cert_anchor and cert_amicus_line in context.json"
+  ],
+  "gaps": [
+    "The amicus brief text was not staged",
+    "No base-rate cut for pro se paid petitions",
+    "No docket entry shows whether the respondent waived a response"
+  ],
+  "notes": "The corpus query's structured filters could not surface similar pro se or nonparty-appeal petitions, so its rows did not inform the forecast."
+}
