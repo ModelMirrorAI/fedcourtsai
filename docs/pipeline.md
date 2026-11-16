@@ -3292,9 +3292,9 @@ in-flight, so a fortnight left parked blocks every promotion until it is
 released or rejected. Reject it rather than leaving it pending when a batch is
 waiting.
 
-What a release costs is a campaign's worth of paid cells — roughly $70–90 at the
+What a release costs is a campaign's worth of paid cells — roughly $90 at the
 cron's pinned `--limit` of ten petitions across three engines, on the order of
-$2K a year at 26 releases. The ex-post spend backstop sees none of it: the
+$2.3K a year at 26 releases. The ex-post spend backstop sees none of it: the
 back-test's **scratch-tree** replay writes no `usage.json`, so the ledger the
 ceiling reads stays flat while the campaign spends — unlike a committed replay
 cell, which lands on that ledger like any other. What bounds this lane is the
