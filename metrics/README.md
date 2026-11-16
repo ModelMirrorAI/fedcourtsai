@@ -348,7 +348,9 @@ and are committed. Others land here without being gate-checked:
 `amicus-line.json`, the amicus-adjusted reference line's fit, which the
 statpack command writes beside the pack and the weekly refresh commits,
 `cert-backtest.json`, which only a released replay writes, `docket.{json,md}`,
-which the weekly metrics refresh regenerates beside the statpack, `big-cases.{json,md}`,
+which the weekly metrics refresh regenerates beside the statpack,
+`miss-review.json` and `forecast-document-grades.json`, which the same refresh
+regenerates with the leaderboard, `big-cases.{json,md}`,
 which the daily `big-cases` lane keeps current on its own cadence,
 `updates/<YYYY-Www>.md`, to which the weekly `public-updates` lane adds each
 missing week, and
@@ -1443,9 +1445,9 @@ do.** No artifact here carries a semantic claim grade. The merits moments
 declare `semantic-v1`, both prompts ask for it — a merits cell for the
 propositions, a grader for the grades — and the evaluate cell is handed its
 case's majority opinion wherever the corpus holds one. But **opinion coverage is
-a rounding error** — 35 rows carry the `has_opinion` bit an ingested body sets,
-against the 1,232 rows carrying a cert-grant date on the corpus blob pulled
-2026-09-14, the figure
+a rounding error** — 37 rows carry the `has_opinion` bit an ingested body sets,
+against the 1,282 rows carrying a cert-grant date on the corpus blob pulled
+2026-11-16, the figure
 [outcome-decomposition.md](../docs/outcome-decomposition.md) states and
 maintains under *What remains unbuilt* — and both declared claims require a
 majority opinion, so on essentially every cell there is no staged body and the

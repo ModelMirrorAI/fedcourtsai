@@ -934,13 +934,13 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,230 all-time (1,232 on the corpus blob pulled 2026-09-14) and
+together: ≈1,280 all-time (1,282 on the corpus blob pulled 2026-11-16) and
 ≈120–130 a Term — at up to four REST requests a
 case resolved by docket number (docket, cluster list, the docket that cluster
 names, opinion) and three by the docket route (docket, cluster, opinion),
 dropping to two on the rare row whose newest snapshot is REST-shaped rather
 than the live channel's, and to two on a case neither route resolves. So
-≈5,000 requests bounds a sweep of the standing backlog in which every case
+≈5,100 requests bounds a sweep of the standing backlog in which every case
 reaches its opinion, and ≈520 a Term bounds a
 Term's new grants, against the held
 Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360

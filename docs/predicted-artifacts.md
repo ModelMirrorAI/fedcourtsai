@@ -172,8 +172,8 @@ fields that mean the same thing at every stage:
   the block to the declaration, so a claim the harness never asked for fails
   the cell rather than travelling unread. Every grade the block earns today is
   the availability mask: both claims require a majority opinion body, and the
-  corpus holds one for a rounding error of the granted slice — 35 of the 1,232
-  rows carrying a cert-grant date on the corpus blob pulled 2026-09-14.
+  corpus holds one for a rounding error of the granted slice — 37 of the 1,282
+  rows carrying a cert-grant date on the corpus blob pulled 2026-11-16.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -385,8 +385,8 @@ and a summary reversal, which terminate at the cert order, mint nothing.
   `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
   each on its declared axis and each carrying no probability. They are graded
   by a reader against the majority opinion, never scored, and mask on every
-  case the opinion coverage has not reached — which is all but 35 of the 1,232
-  cert-granted rows on the corpus blob pulled 2026-09-14.
+  case the opinion coverage has not reached — which is all but 37 of the 1,282
+  cert-granted rows on the corpus blob pulled 2026-11-16.
 
 ```json
 {
