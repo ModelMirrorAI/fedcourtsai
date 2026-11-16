@@ -172,8 +172,8 @@ fields that mean the same thing at every stage:
   the block to the declaration, so a claim the harness never asked for fails
   the cell rather than travelling unread. Every grade the block earns today is
   the availability mask: both claims require a majority opinion body, and the
-  corpus holds one for a rounding error of the granted slice — 35 of the 1,232
-  rows carrying a cert-grant date on the corpus blob pulled 2026-09-14.
+  corpus holds one for a rounding error of the granted slice — 37 of the 1,282
+  rows carrying a cert-grant date on the corpus blob pulled 2026-11-16.
 - **`process_version` / `context`** — harness-written, never the agent's; see
   *What the cell does not write*.
 
@@ -186,7 +186,18 @@ kinds resolve on the cert standard by construction.
 - `probability` is P(any grant), and `granted` its 1/0 form.
 - `predicted_disposition` may take any label in the vocabulary. `gvr`,
   `summary-reversal`, and `granted-in-part` all count as grants on the binary
-  axis, so they travel with `granted: 1`.
+  axis, so they travel with `granted: 1`. For `correct`, `granted-in-part` and
+  `granted` are one label on a cert cell (`pipeline.evaluate.cert_label`): a
+  grant limited to some of the questions resolves as `granted`, and a forecast
+  of it under either label is a right call. `gvr` matches only itself. No
+  resolver records `summary-reversal` (a judgment that rides the grant order
+  resolves as `granted`, with `disposition_route` `summary-merits` beside
+  it), so a call under that label is read against the route: it is a right
+  call where the route is `summary-merits`
+  (`pipeline.evaluate.summary_reversal_matched`), and a wrong one on a plenary
+  grant, an outcome labelled `gvr`, a denial or dismissal, or a grant whose
+  route was not assessed. The route does not say which judgment rode the
+  order, so the call is right on any of them.
 - The declared set is **`cert-v3`**: `cert-v2`'s five binary claims and the
   `order-writers` distribution claim, collected and never scored. The five
   claims are `disposition` — which must
@@ -374,8 +385,8 @@ and a summary reversal, which terminate at the cert order, mint nothing.
   `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
   each on its declared axis and each carrying no probability. They are graded
   by a reader against the majority opinion, never scored, and mask on every
-  case the opinion coverage has not reached — which is all but 35 of the 1,232
-  cert-granted rows on the corpus blob pulled 2026-09-14.
+  case the opinion coverage has not reached — which is all but 37 of the 1,282
+  cert-granted rows on the corpus blob pulled 2026-11-16.
 
 ```json
 {
@@ -568,7 +579,11 @@ the cert-outcome oracle removed from the agent's tree; a call naming a committed
 (another predictor's output, an earlier run, a glob over them, or the whole
 directory read from git history); and a file tool, shell redirection or `tee`
 writing under `data/` or a case `record/` outside that directory, which a path
-naming another case or event is, even under the same run id. A fourth kind is
+naming another case or event is, even under the same run id. A file tool's
+write of a `.md` or `.json` document into the cell's own run directory is read
+for the first two kinds by its target path alone, so the cell's own notes
+saying that no `data/qp-topics/` path was read are not a hit; a write anywhere
+else or of any other kind of file, and every shell call, are read whole. A fourth kind is
 filed under `forecast-exposure` rather than `other`, so its occurrences count
 on their own: a call naming where the project's forecasts are published, which
 is the public site (`fedcourts.ai`) or this repository by its owner and name,
@@ -590,7 +605,9 @@ subagent's prompt or a message sent to one (claude's `Agent`/`Task`, codex's
 count, as the evaluate prompt grades it. The log records that a call *named* a
 path, not what it returned, and it sees only the captured query slice: a path
 past the capture cut, a relative path after a `cd`, a path reached through a
-variable or a glob over the hidden name itself (`qp-top*`), a write made by
+variable or a glob over the hidden name itself (`qp-top*`), a hidden path
+named only inside a document a file tool wrote into the cell's own run
+directory, a write made by
 `cp`, `mv`, `sed -i` or an interpreter, and, on a log captured before the
 path-first slice rule the freeze record dates, a file tool's write whose target
 sorted behind a long `content` and past the cut, are all missed. Read the note
@@ -786,7 +803,13 @@ directory without knowing which part is which invites trusting the wrong half.
   of the source into rows marked `code_mode_source`, in source order: a
   manifest one named in the same `mcp__<server>__<tool>` spelling a direct item
   would carry, a builtin one under the name the code-mode surface exposes it
-  as. A `codex-baseline` log whose rows all carry a null `call_source` is
+  as. A call written by index is lifted the same way: a quoted name
+  (`tools["mcp__<server>__<tool>"](`) under that name, and a computed one
+  (`tools[result.name](`, how a program calls a tool it discovered through
+  `tool_search`) under the fixed name `code_mode_computed_call`, which says a
+  tool was called and not which, so it stays outside the manifest counts,
+  which are incomplete for that cell by an amount the row does not bound. A
+  `codex-baseline` log whose rows all carry a null `call_source` is
   row-blind — the calls its program made have no rows of their own — and a
   leakage grading formed on it is read as unassessed rather than clean (*The
   leakage exclusion* in `metrics/README.md`).
@@ -801,7 +824,7 @@ directory without knowing which part is which invites trusting the wrong half.
   **call sites in program text**, which is neither a floor nor a bound on
   invocations: a site inside a loop counts once however many times it ran, a
   site in an untaken branch or a comment counts though it never ran, and a call
-  reached through an alias or a computed name is not counted at all. The claim
+  reached through an alias is not counted at all. The claim
   it supports is *the program asked for these tools* — enough for
   offered-vs-called, and not an execution trace. The freeform call keeps
   its own row beside them, so a count over all rows counts both the wrapping

@@ -1450,7 +1450,7 @@
             }
           ],
           "default": null,
-          "description": "Estimated resolved petitions behind the base rate (weighted)",
+          "description": "Resolved petitions behind the base rate, each counted once",
           "title": "Base Rate Cases"
         },
         "deny_base_rate": {
@@ -1465,7 +1465,7 @@
             }
           ],
           "default": null,
-          "description": "Denied share of resolved modern discretionary-cert petitions (from the committed statpack's live-slice, denial-reweighted section), when present",
+          "description": "Denied share of resolved modern discretionary-cert petitions (from the committed statpack's live-slice section), when present",
           "title": "Deny Base Rate"
         },
         "lift_over_always_deny": {
@@ -1526,7 +1526,7 @@
             }
           ],
           "default": null,
-          "description": "Estimated resolved petitions behind segment_grant_rate (weighted)",
+          "description": "Resolved petitions behind segment_grant_rate, each counted once",
           "title": "Segment Base Rate Cases"
         },
         "segment_grant_rate": {
@@ -1541,7 +1541,7 @@
             }
           ],
           "default": null,
-          "description": "Grant share of the paid salience-scored segment \u2014 the base rate the predicted slice is judged against (from the statpack's salience-band section, denial-reweighted); null when that section is absent. With a salience gate the predicted slice grants far above the whole-docket rate, so this, not deny_base_rate, is the honest anchor",
+          "description": "Grant share of the paid salience-scored segment \u2014 the base rate the predicted slice is judged against (from the statpack's salience-band section); null when that section is absent. With a salience gate the predicted slice grants far above the whole-docket rate, so this, not deny_base_rate, is the honest anchor",
           "title": "Segment Grant Rate"
         },
         "windows": {

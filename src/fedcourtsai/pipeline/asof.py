@@ -61,6 +61,7 @@ def project_row(
     parse: str = cert_signals.DEFAULT_DISTRIBUTION_PARSE,
     sg_counsel_of_record_for_petitioner: bool | None = None,
     sg_counsel_of_record_forward: bool | None = None,
+    sg_office_petition: bool | None = None,
 ) -> AsOfRow:
     """Project ``base`` to what ``payload`` disclosed, as an :class:`AsOfRow`.
 
@@ -70,8 +71,8 @@ def project_row(
       number (which fixes the Term and the paid/IFP fee class — assigned at
       filing, never changed), caption and structured petitioner title, filing
       date, originating-court linkage, the writ the opening petition entry
-      names (``opening_writ``, fixed at filing), and the sampling
-      ``sample_weight`` (a property of how the corpus was built, not of the
+      names (``opening_writ``, fixed at filing), and
+      ``sample_weight`` (a constant 1 on every stored row, not a fact of the
       docket's progress).
       The caption invariance is measured, not assumed, at the *class* grain
       (the two measurements and their vintages: ``pipeline.caption``'s module
@@ -138,6 +139,12 @@ def project_row(
       and ``caption-v5`` read it as ``caption-v2``. The forward reading alone,
       without the caption-v4 fact, is refused, and so is a forward reading
       narrower than the caption-v4 fact (:class:`.caption.CutRow`).
+      ``sg_office_petition`` is ``caption-v6``'s fact
+      (:func:`.caption.sg_office_petition_on_forward_cut`, which on a forward
+      cell also reads the office as the block's only counsel of record); left
+      ``None``, it takes the forward reading's value, which is what it equals
+      on every replay and back-test cell. Given without the caption-v4 fact,
+      or narrower than the forward reading, it is refused the same way.
 
     ``parse`` names the registered DISTRIBUTED reading
     (:data:`~fedcourtsai.pipeline.cert_signals.DISTRIBUTION_PARSES`) the
@@ -161,6 +168,8 @@ def project_row(
     row_type: type[corpus.CorpusRow] = corpus.CorpusRow
     if sg_counsel_of_record_for_petitioner is None and sg_counsel_of_record_forward is not None:
         raise ValueError("the forward counsel reading needs the caption-v4 fact beside it")
+    if sg_counsel_of_record_for_petitioner is None and sg_office_petition is not None:
+        raise ValueError("the caption-v6 reading needs the caption-v4 fact beside it")
     if sg_counsel_of_record_for_petitioner is not None:
         row_type = caption.CutRow
         fields["sg_counsel_of_record_for_petitioner"] = sg_counsel_of_record_for_petitioner
@@ -168,6 +177,11 @@ def project_row(
             sg_counsel_of_record_for_petitioner
             if sg_counsel_of_record_forward is None
             else sg_counsel_of_record_forward
+        )
+        fields["sg_office_petition"] = (
+            fields["sg_counsel_of_record_forward"]
+            if sg_office_petition is None
+            else sg_office_petition
         )
     return AsOfRow(
         row=row_type(

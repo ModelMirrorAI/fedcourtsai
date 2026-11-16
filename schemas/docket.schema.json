@@ -312,7 +312,7 @@
           "description": "The distribution: labeled cases bucketed by primary `qp-topic-v0` label"
         },
         "support": {
-          "description": "The raw, unweighted rows behind each bucket, with the reference-sourced share of them \u2014 the view a denial-reweighted `est. n=` does not give, and the one a small bucket's disposition split cannot be read without",
+          "description": "The rows on hand behind each bucket, with the reference-sourced share of them \u2014 the view a small bucket's disposition split cannot be read without",
           "items": {
             "$ref": "#/$defs/QpTopicSupport"
           },
@@ -380,7 +380,7 @@
           "type": "integer"
         },
         "dispositions": {
-          "description": "Denial-reweighted disposition estimates over the resolved petitions",
+          "description": "Disposition counts over the resolved petitions, each counted once",
           "items": {
             "$ref": "#/$defs/DispositionShare"
           },
@@ -399,7 +399,7 @@
             }
           ],
           "default": null,
-          "description": "Denial-reweighted grant-family share of the resolved petitions \u2014 granted + gvr today, and the vocabulary's `summary-reversal` label pools in too if a resolver ever produces it. The only disposition series comparable across Terms, under the one field name both packs' per-Term entries share. The `gvr` label is a forward convention: a Term resolved into the corpus before it existed carries its GVRs as plain `granted` (OT2023-24 carry zero), so the split inside `dispositions` is safe within a Term and meaningless between them \u2014 anchor any cross-Term comparison here. None when nothing resolved",
+          "description": "Grant-family share of the resolved petitions, each counted once \u2014 granted + gvr today, and the vocabulary's `summary-reversal` label pools in too if a resolver ever produces it. The only disposition series comparable across Terms, under the one field name both packs' per-Term entries share. The `gvr` label is a forward convention: a Term resolved into the corpus before it existed carries its GVRs as plain `granted` (OT2023-24 carry zero), so the split inside `dispositions` is safe within a Term and meaningless between them \u2014 anchor any cross-Term comparison here. None when nothing resolved",
           "title": "Est Grant Family Rate"
         },
         "est_grant_rate": {
@@ -414,7 +414,7 @@
             }
           ],
           "default": null,
-          "description": "Denial-reweighted grant-family (granted + gvr pooled) share of the resolved petitions \u2014 always equal to `est_grant_family_rate`, which carries the same series under the name the statpack's per-Term entries share; None when nothing resolved",
+          "description": "Grant-family (granted + gvr pooled) share of the resolved petitions, each counted once \u2014 always equal to `est_grant_family_rate`, which carries the same series under the name the statpack's per-Term entries share; None when nothing resolved",
           "title": "Est Grant Rate"
         },
         "filings": {
@@ -433,7 +433,7 @@
         },
         "grants": {
           "default": 0,
-          "description": "Cert grants observed this Term (raw, not reweighted)",
+          "description": "Cert grants observed this Term (a count of rows)",
           "minimum": 0,
           "title": "Grants",
           "type": "integer"
@@ -473,7 +473,7 @@
         },
         "weighted_resolved": {
           "default": 0,
-          "description": "Denial-reweighted resolved estimate \u2014 the sample size behind `est_grant_rate` and `dispositions`",
+          "description": "Resolved petitions, equal to `resolved` (the name is kept) \u2014 the sample size behind `est_grant_rate` and `dispositions`",
           "minimum": 0,
           "title": "Weighted Resolved",
           "type": "integer"
@@ -524,7 +524,7 @@
     },
     "QpTopicSupport": {
       "additionalProperties": false,
-      "description": "The raw rows behind one bucket of the published topic distribution.\n\nEvery count in the topic table is denial-reweighted, so a bucket's `est. n=`\nis a population estimate and not the number of petitions anyone read. On a\nframe that is still accruing, the gap between the two can be an order of\nmagnitude \u2014 one sampled denial stands for ten \u2014 so the smallest buckets\npublish a disposition split over a handful of rows. This is the raw view a\nreweighted bucket otherwise has none of, and the reason it is per label\nrather than pooled: the thin buckets are not the ones a reader would guess.\n\n``reference_rows`` is carried beside it because the two populations enter on\ndifferent terms: a reference-set member rides in every batch, so a bucket\nthat is mostly reference rows is the block's mix rather than the frame's.",
+      "description": "The raw rows behind one bucket of the published topic distribution.\n\nA bucket's `est. n=` in the topic table keeps its spelling and counts the\nbucket's resolved rows; this is the bucket's rows on hand, resolved or not.\nOn a frame that is still accruing the smallest buckets\npublish a disposition split over a handful of rows, and the view is per label\nrather than pooled because the thin buckets are not the ones a reader would\nguess.\n\n``reference_rows`` is carried beside it because the two populations enter on\ndifferent terms: a reference-set member rides in every batch, so a bucket\nthat is mostly reference rows is the block's mix rather than the frame's.",
       "properties": {
         "label": {
           "description": "The primary `qp-topic-v0` label this bucket counts",
@@ -666,7 +666,7 @@
         },
         "weighted": {
           "default": false,
-          "description": "True when the section's counts are sample-weighted estimates (each row counted `sample_weight` times, so the historical walker's denial sampling does not bias the base rates); raw ingested counts otherwise",
+          "description": "A section flag whose name is kept. Every section counts each row once, whatever the flag; where it is true the rendered tables label the denominator `est. n=`",
           "title": "Weighted",
           "type": "boolean"
         }
@@ -683,7 +683,7 @@
       "description": "One topic's share of one stage's labeled cases.",
       "properties": {
         "cases": {
-          "description": "Labeled cases at this stage under the label, as the stage's own section counts them (denial-reweighted where that section is)",
+          "description": "Labeled cases at this stage under the label, as the stage's own section counts them (a count of rows)",
           "minimum": 0,
           "title": "Cases",
           "type": "integer"
@@ -811,7 +811,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``metrics/docket.json`` \u2014 court-facing docket statistics (an independent artifact).\n\nFacts about the dockets themselves: what the Supreme Court is asked to take,\nfrom which court below, on what fee stream, after how many relists, and how it\ndisposes of the petitions. Deliberately **free of any claim about this\nproject's predictions** \u2014 no accuracy, no leaderboard, no salience \u2014 so it is\nreadable and citable by someone with no interest in whether the models are any\ngood. That exclusion is the artifact's contract, not a coincidence of what has\nbeen built.\n\nA pure function of the corpus (no clock, no network), so reruns over an\nunchanged corpus reproduce it byte for byte; git-tracked and rendered to a\ncompanion Markdown document. Every rate carries its scope and its denominator,\nand each section states whether its counts are denial-reweighted: the\nhistorical walk samples denials on a committed frame, so every cert cut is\nreweighted and its counts are population *estimates* rather than rows on\nhand. That distinction is why a reweighted denominator is not a sample size:\nthe observed row count behind it is smaller. A breakdown bucket carries no\nraw view of its own; the per-Term entries carry both, so the gap between the\ntwo is legible there. Starts empty (zero counts, scaffolded sections) until a\ncorpus is present.",
+  "description": "``metrics/docket.json`` \u2014 court-facing docket statistics (an independent artifact).\n\nFacts about the dockets themselves: what the Supreme Court is asked to take,\nfrom which court below, on what fee stream, after how many relists, and how it\ndisposes of the petitions. Deliberately **free of any claim about this\nproject's predictions** \u2014 no accuracy, no leaderboard, no salience \u2014 so it is\nreadable and citable by someone with no interest in whether the models are any\ngood. That exclusion is the artifact's contract, not a coincidence of what has\nbeen built.\n\nA pure function of the corpus (no clock, no network), so reruns over an\nunchanged corpus reproduce it byte for byte; git-tracked and rendered to a\ncompanion Markdown document. Every rate carries its scope and its denominator,\nand each section carries the ``weighted`` flag, whose name is kept: every\ncert cut sets it, and its counts are counts of rows, each stored row\nstanding for one petition. The per-Term entries carry ``resolved`` and\n``weighted_resolved`` side by side, and the two are equal. Starts empty\n(zero counts, scaffolded sections) until a\ncorpus is present.",
   "properties": {
     "application_topics": {
       "anyOf": [

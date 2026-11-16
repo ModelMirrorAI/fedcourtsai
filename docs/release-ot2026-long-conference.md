@@ -6,6 +6,11 @@ It is the definition of done for the publication, written before its data
 exists so the claims are bounded by the process rather than by what the numbers
 turn out to be.
 
+**The published copy.** Release 1 is this document as it stood at the
+`results/ot2026-longconf` tag, which is the copy the public site shows. The
+commands below track the artifacts' current field names and read today's
+boards, so reproducing a published figure means running them at that tag.
+
 **Written by AI.** This document was written by AI agents: Claude (Anthropic),
 working in Claude Code under the maintainer's direction. They drafted the
 skeleton before the conference, then filled every figure from the commands

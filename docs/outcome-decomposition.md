@@ -531,8 +531,9 @@ underlying point survives either way: for a petition already relisted, "will be
 relisted at least once" is trivially true.
 
 Measured over the population the gate actually predicts on — paid modern-cert
-petitions, live/historical slice, resolved, denial-reweighted, conditioned on
-sitting at a single distribution — a petition faces about a **26%** chance of
+petitions, live/historical slice, resolved, denial-reweighted (measured on a
+blob that stored one IFP denial in ten at weight 10, and not re-measured),
+conditioned on sitting at a single distribution — a petition faces about a **26%** chance of
 being relisted at all (est. n≈13,100). Over the whole live-parsed slice with IFP
 included the same rate is **19%** (est. n≈43,300).
 
@@ -562,16 +563,9 @@ A base rate far enough from 0 to be worth forecasting leaves room for a forecast
 to move it; whether the docket and the briefs support *skill* over that base rate
 is unmeasured, because nothing here has ever scored a predictor on relist.
 
-The weighting is not optional bookkeeping. The walk's legacy sampled rows keep
-one denial in ten (`sample_weight` reconstructs the rest; freshly walked rows
-carry weight 1), and relists correlate with non-denial, so a raw count runs high
-while legacy rows remain in the pool — measured at 26.2% unweighted against
-19.0% reweighted over the same rows. Worse, the frame is not uniform, and the
-axis it splits on is the **fee class** rather than the Term: every paid cell is
-walked row by row at weight 1, while the sampled design survives only in the IFP
-stream of the earlier Terms — so a row-count pool that spans fee classes
-silently mixes two sampling designs, and one that spans Terms within the paid
-stream does not. `metrics/README.md` states the rule this paragraph is obeying.
+Each stored row is one petition, so a rate over the corpus's rows is a rate
+over petitions. The frame is still not uniform across fee classes, so a pool
+that spans them mixes two populations; `metrics/README.md` states the rule.
 
 **The floor priced none of it.** The control was to report a recent-window rate
 while the baseline pooled every prior Term, and the gap between the two windows
@@ -618,12 +612,13 @@ Drawn from the above, and cheaper to apply than to rediscover:
    agreement figures: it covers a calibration bin scored against a band-derived
    baseline, or a leakage grade computed from the parser that produced the log.
 7. **Is the rate weighted the way the frame demands, and is the frame uniform?**
-   The corpus's legacy denial-subsampled rows mean a raw count over the walker's
-   rows overstates anything that correlates with non-denial. Pooling Terms drawn under
-   different sampling designs compounds it. A reweighted rate prints `est. n=`
-   and a raw one plain `n`; `metrics/README.md` is the governing statement. The
-   docket pack reweights every cert cut; the statpack keeps one raw reader cut on
-   purpose, so read the scope line rather than assuming.
+   Each stored corpus row is one petition, so a count over the walker's rows
+   is a count of petitions and the weighting half is met by construction; the
+   frame half still has to be checked for the pool being quoted. A rate printed
+   with `est. n=` and one printed with plain `n` are both over row counts;
+   `metrics/README.md` is the governing statement. The packs' cert cuts carry
+   the scope phrase "denial-reweighted estimates" over those same counts, so
+   read the scope line for the population rather than for a weighting.
 8. **Is the baseline far enough from 0 (or 1) that a correct call is worth more
    than a season of honest reporting?** The rule pays `(b − y)² − (p − y)²` per
    claim, so at a baseline of half a percent an honest confident negative
@@ -693,8 +688,7 @@ the grant family is what moves it to a coin-flip-scale question. Over the
 committed pack, under the configured ten-Term window that a cell's strictly-prior
 slice does not fill, the pooled prior-Term rate for a cell in OT2025 is **0.354**
 (288 cert-order dispositions over 814 paid grant-family rows, OT2017–OT2024 — a raw
-`n`, not an estimate, because only denials were ever subsampled and every
-grant-family row carries weight 1).
+`n`, each row one petition).
 
 It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
 the paid class is the scored population: IFP petitions are Tier-0-excluded by
@@ -815,9 +809,8 @@ that grants it, so an open Term's still-pending petitions are absent from
 numerator and denominator alike rather than from one of them. (6) Neither side
 derives from the other: the marker is parsed from order text at resolution, the
 baseline from prior Terms' published counts. (7) Weighting is a non-issue here
-for a stateable reason — only denials were ever subsampled, so every row inside
-the grant family carries weight 1 and the ratio is an unweighted count of
-grants; the fee-class cut is what makes the *frame* uniform, since the pooled
+for a stateable reason — every stored row is one petition, so the ratio is a
+count of grants; the fee-class cut is what makes the *frame* uniform, since the pooled
 cut mixes two populations of which only one is ever predicted. (8) **This is
 the test the conditioning exists for.** Unconditionally the class runs near one
 percent of resolved petitions, inside the band test 8 rejects; conditioned on
@@ -840,8 +833,8 @@ whole-corpus rate: a noted dissent is recorded in the denial order itself, so
 resolved-only is the right frame here, but the *coverage* gap is real and
 separate — the marker fills only as dockets refresh, so the first cuts will
 price a coverage-limited population and must say so. (6) Neither side derives
-from the other. (7) Denials are exactly the rows the walker subsampled, so any
-future baseline over them must be reweighted and print `est. n=`;
+from the other. (7) Each stored denial is one petition, so any
+future baseline over them counts rows;
 `metrics/README.md` governs. (8) **Aggregated existence is the whole design, and
 the test is not yet passed — only survivable.** Per-Justice notings sit near one
 percent of petitions and concentrate in two Justices (from the public record;
@@ -965,8 +958,8 @@ to bound a free score against.
 machine-matchable resolution text, and the escalation columns beside it are
 right-censored by the pending tail — a second, independent reason the increment
 baselines stay `None`. Both caveats travel with the number wherever it is quoted
-rather than being corrected away. **Test 7** is clean on weighting — the
-application stream carries no denial sampling, so every row stands for itself
+rather than being corrected away. **Test 7** is clean on weighting — every
+application row stands for itself
 and the counts are raw — but **not** on frame uniformity: parse coverage differs
 sharply between application-Terms, so a pooled rate blends a Term the poller
 covered fully with one it reached only in part, and that unevenness is the
@@ -1040,9 +1033,9 @@ outcome has been stamped); the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 coverage — the operator-run channel that fills it (`fedcourts
-enrich-opinions`) has set the `has_opinion` bit an ingested body carries on 35
-of the 1,232 rows carrying a cert-grant date, on the corpus blob pulled
-2026-09-14 — the body itself living in the content store, since the index is
+enrich-opinions`) has set the `has_opinion` bit an ingested body carries on 37
+of the 1,282 rows carrying a cert-grant date, on the corpus blob pulled
+2026-11-16 — the body itself living in the content store, since the index is
 payload-free. Their blind-grading
 precondition above is met on the explicit-identifier channel and on the
 engine channel's tool *names* — the staged retrieval log respells each call's
@@ -1070,8 +1063,8 @@ its vintage are given.
 | Disposition | Corpus label | Outcome written | Claims | Pools | Pinned by |
 | --- | --- | --- | --- | --- | --- |
 | GVR in the cert order | cert `disposition` `gvr` | Cert outcome, `actual_granted` 1 (`gvr` is in the grant family), `disposition_route` `gvr` from the label | `disposition` grades 1; `summary-disposition-route` grades 1; `dissent-from-denial` vacuous. No merits event is minted (`opens_merits_proceeding` is false) | Grant family in the cert pools and the summary-route numerator; never the merits pool | `test_gvr_and_summary_reversal_mint_no_merits_event`, `test_convergence_reads_a_munsingwear_gvr_from_the_stored_snapshot` |
-| Summary reversal or GVR recorded as `granted` | `granted`, with a merits judgment dated the grant's own day (`summary-order` or `summary-opinion`) | Cert outcome, `actual_granted` 1, `disposition_route` `summary-merits` through the same-day guard, whichever of vacatur or reversal rode the order | `summary-disposition-route` grades 1 (a binary claim, so the marker's name moves no grade); no merits event is minted on a case whose judgment has latched | Out of the merits pool's `parsed` slice: the same-day guard counts it in `cert_order_excluded`. The label is not rewritten, so the cert grant-family counts keep it as a grant. 25 such rows granted since 2025, all with a gap of 0 days (production corpus, origin/main pointer, latest pull 2026-10-28) | `test_merits_population_excludes_judgments_that_rode_the_grant_order`, `test_minting_never_reopens_a_resolved_merits_event`, `test_a_lost_grant_on_a_decided_or_stale_merits_case_records_without_minting` |
-| Partial grant | `granted-in-part` | Cert outcome, `actual_granted` 1; it opens a merits proceeding, so the merits event mints | `disposition` grades 1; `summary-disposition-route` resolves on it, while its baseline counts the grant family only, which leaves `granted-in-part` out of the denominator (a small population mismatch, unmeasured) | Merits pool once a judgment parses | `test_granted_flag_maps_partial_grant_to_granted` |
+| Summary reversal or GVR recorded as `granted` | `granted`, with a merits judgment dated the grant's own day (`summary-order` or `summary-opinion`) | Cert outcome, `actual_granted` 1, `disposition_route` `summary-merits` through the same-day guard, whichever of vacatur or reversal rode the order | `summary-disposition-route` grades 1 (a binary claim, so the marker's name moves no grade); `correct` is 1 for a `summary-reversal` call and for a `granted` one (`pipeline.evaluate.summary_reversal_matched`); no merits event is minted on a case whose judgment has latched | Out of the merits pool's `parsed` slice: the same-day guard counts it in `cert_order_excluded`. The label is not rewritten, so the cert grant-family counts keep it as a grant. 25 such rows granted since 2025, all with a gap of 0 days (production corpus, origin/main pointer, latest pull 2026-10-28) | `test_merits_population_excludes_judgments_that_rode_the_grant_order`, `test_minting_never_reopens_a_resolved_merits_event`, `test_a_lost_grant_on_a_decided_or_stale_merits_case_records_without_minting` |
+| Partial grant | `granted-in-part` | Cert outcome, `actual_granted` 1; it opens a merits proceeding, so the merits event mints | `disposition` grades 1; `correct` reads `granted-in-part` and `granted` as one label on either side (`pipeline.evaluate.cert_label`), and the cert resolver records a question-limited grant as `granted`; `summary-disposition-route` resolves on it, while its baseline counts the grant family only, which leaves `granted-in-part` out of the denominator (a small population mismatch, unmeasured) | Merits pool once a judgment parses | `test_granted_flag_maps_partial_grant_to_granted` |
 | Dismissed as improvidently granted | merits `Judgment` `dig` | Merits outcome, `actual_granted` 0 | `judgment-disturbed` grades 0 (the judgment below stands); `judgment_correct` is an exact match on `dig`; `majority-author` masked | In `parsed`, counted undisturbed | `test_judgment_disturbed_resolves_through_the_shared_projection`, `test_a_dig_and_an_equally_divided_court_stay_in_as_undisturbed` |
 | Affirmed by an equally divided Court | merits `Judgment` `equally-divided` | Merits outcome, `actual_granted` 0 | As a DIG: `judgment-disturbed` 0, `judgment_correct` exact, `majority-author` masked | In `parsed`, counted undisturbed | The same two tests |
 | Merits case ended with nothing decided (a Rule 46 dismissal, a dismissal as moot, an abatement, a vacated grant) | `merits_terminated`, `merits_judgment` null | No outcome. The merits backfill closes each open merits event as `resolved_without_outcome` with the reason `merits-terminated`, and a committed prediction on it is never graded | None: there is no outcome to grade against, and a termination never reads as undisturbed | Out of `parsed` and of the disturbed rate | `test_backfill_closes_a_terminated_rows_open_merits_events`, `test_a_merits_moment_closed_by_its_termination_is_no_gap_until_a_judgment_parses` |
@@ -1918,8 +1911,7 @@ reader's opinion. Three evaluators grade each cell, so it is measurable.
   claim type is easy, that one is hard — can carry a tau-b near +1 while
   within-claim agreement is exactly zero. A caveat in prose does not bound
   that, so the **number of claims pooled** publishes beside the coefficient,
-  the way `pair_events` publishes beside `pairs` and a reweighted denominator
-  prints `est. n=`. At one claim the contrast is unavailable and cannot be
+  the way `pair_events` publishes beside `pairs`. At one claim the contrast is unavailable and cannot be
   doing the work; the higher it runs, the more of the coefficient it could be.
   Splitting the coefficient per claim is a job for a version with the per-claim
   sample to spend on it.
@@ -1981,14 +1973,13 @@ grade needs. In dependency order, most binding first, what is still owed:
 
 1. **A decided merits case.** A grade lives in an evaluation, and the evaluate
    backlog mints a cell only for a resolved event, so a merits cell carries no
-   grade until its judgment resolves — 90 committed merits predictions, on 30 of
-   the 44 committed merits events, sit against no resolved merits event at
-   all. Nothing is owed
+   grade until its judgment resolves — 225 committed merits predictions, on 73 of
+   the 93 committed merits events, none of them on a resolved event. Nothing is owed
    here but the Court's own calendar; it is listed because it binds ahead of
    everything below it.
-2. **Opinion coverage.** 35 rows carry the `has_opinion` bit an ingested body
-   sets, against the 1,232 rows carrying a cert-grant date on the corpus blob
-   pulled 2026-09-14. The
+2. **Opinion coverage.** 37 rows carry the `has_opinion` bit an ingested body
+   sets, against the 1,282 rows carrying a cert-grant date on the corpus blob
+   pulled 2026-11-16. The
    channel that fills them —
    `fedcourts enrich-opinions`, operator-run over that slice
    (`docs/data-pipeline.md`) — has run, so what is missing is neither a design

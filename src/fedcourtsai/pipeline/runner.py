@@ -462,6 +462,7 @@ class StubRunner:
             # "if there is no outcome.json, there is nothing to evaluate".
             return []
         outcome = read_model(events.outcome, Outcome)
+        interim = _event_stage(events) == Stage.interim
         written: list[Path] = []
         for predictor_id, prediction in self._latest_predictions(events):
             evaluation = Evaluation(
@@ -472,7 +473,7 @@ class StubRunner:
                 engine=self.engine,
                 run_id=request.run_id,
                 created_at=_created_at(request.run_id),
-                correct=is_correct(prediction, outcome),
+                correct=is_correct(prediction, outcome, interim=interim),
                 brier_score=brier_score(prediction, outcome),
                 judgment_correct=judgment_correct(prediction, outcome),
                 vote_accuracy=vote_accuracy(prediction, outcome),
@@ -1002,7 +1003,7 @@ def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
         # stdio is inherited (like the agent spawn) so a login failure explains
         # itself in the run log; the success message is one line of noise, and
         # the CLI masks the key in its own output — verified at the pinned
-        # 0.144.1, so a version bump re-checks that log-safety claim.
+        # 0.167.2, so a version bump re-checks that log-safety claim.
         return subprocess.run(
             ["codex", "login", "--with-api-key"],
             env=dict(env),

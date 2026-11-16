@@ -20487,3 +20487,532 @@ freeze commit is recorded here.
   digest. No prompt names these fields, and pointing a predictor at them is a
   prompt change that would be registered as one. The rendered
   `metrics/statpack.md` is unchanged.
+
+- **Readings the `proc-v23` entry owes, recorded 2026-11-15.** No rule moves
+  here. The `proc-v23` entry (dated 2026-11-13), carried to `main` by
+  `promotion/2026-11-14` (merge `049afb2f5`, registry stamped by `f1ee9b5cd`)
+  and tagged `prereg/proc-v23`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v21` window is quoted
+  outside the committed board. That entry is not otherwise edited.
+
+  The run reads the stamped registry and the ledger at `origin/main`'s
+  `330ad5d5e` (`2026-11-15T07:22:43Z`).
+
+  **`proc-v23` closes `proc-v21`.** `uv run fedcourts successor-disclosures
+  --closed proc-v21 --successor proc-v23` prints:
+
+  ```
+  successor proc-v23 closes proc-v21 at 2026-11-14T15:51:37+00:00
+    closed proc-v21 codex-baseline: 18 counted event(s) — 0 resolved, 18 pending at close
+    closed proc-v21 claude-baseline: 18 counted event(s) — 0 resolved, 18 pending at close
+    closed proc-v21 gemini-baseline: 18 counted event(s) — 0 resolved, 18 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The provisional run, at an instant of `2026-11-14T00:00:00Z` over the
+  ledger at `94b3cd8e2`, printed 9 counted events per engine with none
+  resolved. At the stamped instant, `2026-11-14T15:51:37Z`, each engine
+  holds 18 counted events in its window, and none carries an outcome dated
+  on or before the close's day. The 9 events added are the ones whose cells
+  landed on `main` after the provisional ledger and before the carrying
+  merge, from the predict runs `20261113T190337Z`, `20261113T214525Z`,
+  `20261114T011216Z` and `20261114T033825Z`; the earlier 9 came from the
+  runs `20261112T230820Z`, `20261113T010844Z` and `20261113T042228Z`. So
+  the close was taken with no outcome visible on any of the 18 counted
+  events. No split event prints, no successor-counted line prints because
+  no prediction under a `proc-v23` digest is on `main` at this read, and no
+  `graded by` line prints.
+
+- **The code-mode lift reads a call written by index, and the Codex CLI pin
+  moves to 0.167.2; recorded 2026-11-15.** A **capture** change of the
+  masking-surface class, like the 2026-11-08 document-date entry, which is not
+  otherwise edited. No digest, constant, window or membership moves, and `uv
+  run fedcourts process-digest --all` prints the same `proc-v23` digests
+  before and after.
+
+  **Why.** The Codex CLI's own tool guidance at 0.167.2 has a code-mode
+  program discover a tool the surface holds back with `tools.tool_search` and
+  then call it as `tools[result.name](arguments)`. The lift read only the
+  dotted form, `tools.<name>(`, so a manifest call made that way minted no
+  row. This is read from the strings embedded in the 0.144.1 and 0.167.2
+  binaries of the published npm package, compared on 2026-11-15: the freeform
+  tool is `exec` and a `custom_tool_call` in both, the dotted calling form and
+  the five builtins the lift enumerates are in both, and the tool-search
+  guidance is in 0.167.2 only. Whether the surface holds back any tool a cell
+  is offered is not readable from the binary, and no rollout at 0.167.2 has
+  been read.
+
+  **What moved.** `fedcourtsai.retrieval` lifts `tools[<index>](` beside the
+  dotted forms. A quoted index that is a manifest spelling or an enumerated
+  builtin lands under that name. A computed index lands under the fixed name
+  `code_mode_computed_call`, with the index expression leading its query
+  slice. `tool_search` joins the enumerated builtins. The lift runs at
+  capture, so no committed log changes. The pin in `engines/codex` moves from
+  0.144.1 to 0.167.2 in the same change; each cell's `usage.json` records the
+  version it ran under as `engine_version`.
+
+  **What it reaches.** A grader reading a codex candidate's log captured
+  after the carrying merge can see two kinds of row no earlier log carries: a
+  `tool_search` row and a `code_mode_computed_call` row, both lifted, both
+  `unobserved`, both in the blinding mask's `other` class, the second's query
+  carrying the index expression. So `codex-baseline` logs under one digest
+  span a further lifted regime, with no marker on the log beyond the rows
+  themselves.
+
+  **The reading rule** (`metrics/README.md`). A `code_mode_computed_call` row
+  marks a call site whose tool the source does not name. It may be a manifest
+  tool, a builtin, or the program's own function, and one site can reach
+  several tools. It is in no manifest figure, and a cell carrying such rows
+  has manifest counts and a called-tool set that are incomplete by an unknown
+  amount. A codex log captured before the carrying merge at a pin that offers
+  the index form would have missed those calls without a row to say so; no
+  committed log is known to be one, since every committed codex log predates
+  the pin.
+
+  **Why no label bump and no harness-boundary row.** The same as the
+  2026-10-15 entry: no digest moves, and no predict cell reads anything
+  different because of the lift, which runs after the engine, on its own log.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **Effect check.** On `main`, once a run-predict round after the carrying
+  merge has landed codex cells, `jq -r .engine_version` over those cells'
+  `usage.json` prints `0.167.2`, their `retrieval_log.json` still carries
+  `code_mode_source` rows, and `jq '[.calls[] | select(.tool ==
+  "code_mode_computed_call" or .tool == "tool_search")] | length'` over them
+  says whether the index form is in use: zero on every cell means the surface
+  held nothing back, and the dotted counts are as complete as before.
+
+- **Every write stores `sample_weight` 1, and the rule that derived or kept
+  another weight is removed; recorded 2026-11-15.** A supersession of the
+  durability half of the 2026-09-01 entry (*The sampled-frame weight repair is
+  registered, and its durability half lands*), which is not otherwise edited.
+  No digest, constant, window or membership moves, and no figure moves on the
+  blob read below, because it holds no weighted row.
+
+  **What the landed entry registered.** Three statements about the live-ingest
+  seam, `pipeline.live.ingest_live_payload`: that it derives an asserted
+  weight of 1 through `legacy_denial_sample_weight`, so a grid denial whose
+  block is stored one row in ten keeps its sampling weight however often it is
+  re-served; that a caller asserting any weight other than 1 "is written as
+  given"; and that, as the invariant, "a later repair's 10 survives every
+  re-serve". None of the three holds any longer.
+
+  **What holds instead, in two changes.** The first is commit `7b4d6c521`
+  (2026-11-14), which refuses the write the landed entry kept:
+  `require_unit_weight` raises on any weight other than 1 at
+  `ingest_live_payload`, `upsert_to_corpus` and `backfill_live_signals`, before
+  anything is stored, and `validate-corpus` fails on a stored one
+  (`sample_weights_are_unit`). From that commit an asserted weight other than 1
+  is refused, not written as given, and a derived 10 is refused, not kept
+  (over a row already stored at 1 the write went ahead and stored 1). The
+  second is the change this entry lands with, which removes the derivation:
+  `legacy_denial_sample_weight`, its density guard
+  (`sampled_block_is_enumerated`) and the sampling interval are deleted,
+  `ingest_live_payload` takes no weight from its caller and writes 1, and the
+  walker's start-of-run back-fill writes 1 on a live-slice row that carries no
+  weight. `upsert_to_corpus` keeps its refusal and `validate-corpus` keeps its
+  check.
+
+  **Why.** The 2026-11-13 entry (*The legacy one-in-ten IFP denial sample is
+  complete in every Term*) records that every sampled block was re-walked and
+  stored row by row, and it left `sample_weight` and its guards as they were,
+  to be retired separately. This is the write half of that retirement. With
+  every decided petition its own row, a weight of 10 on any row would claim
+  nine petitions the corpus counts one by one, so the frame the landed entry
+  protected no longer exists to protect. The readers are unchanged here: every
+  weighted aggregate still multiplies by the stored column, which is 1 or
+  unset on every row.
+
+  **Readings**, from the blob `staging`'s corpus pointer names (sha256
+  `0ff3e908…`; latest pull 2026-11-15, latest snapshot 2026-07-13). The live
+  slice holds 59,770 rows, all SCOTUS, every one stored at weight 1 and none
+  unset, so the back-fill has nothing to write. No row in the corpus stores a
+  weight other than 1 (2,094,420 rows carry none), and `uv run fedcourts
+  corpus-info --legacy-sample` prints `legacy sample: no weighted rows`. The
+  removed rule, run from `staging`'s tree before this change over the same
+  59,770 rows, derives 1 on every one, so on this blob it refuses nothing and
+  the removal changes no write. `uv run fedcourts process-digest --all` prints
+  the same six digests before and after. `main`'s corpus pointer has since
+  moved to `524ad095…`; these are readings of `staging`'s blob, not of `main`'s
+  current one.
+
+  **The apply half of the landed entry** is not superseded here and is not
+  restated. Its membership predicate reads the density guard, which is
+  removed, so that registration licenses no further write.
+
+  **What is given up, stated so it is not discovered later.** The removed rule
+  refused one kind of write on a corpus with rows missing, at ingest and in
+  the back-fill: a denial on the old sample grid, under a walker cursor, in a
+  block holding fewer than seven stored neighbours. That refusal was a side effect that named a gap in a walked
+  range, and it is gone; such a denial now lands at weight 1 like any other
+  row. A stored weight above 1, should one arrive by a route other than these
+  writers, is no longer held in place or refused on its re-serve: the upsert
+  keeps the smaller of the stored and the incoming weight, so serving that
+  docket again takes it to 1, and until then `validate-corpus` fails on it.
+
+  **The landed entry's effect check** names `tests/test_legacy_denial_weight.py`,
+  which this change deletes with the rule it pinned. The tests that pin what
+  holds now are in `tests/test_unit_sample_weight.py`.
+
+  **Effect check.** On `main`, after the promotion carrying this entry and the
+  first `run-seed` window on it: the window's `validate-corpus` verdict shows
+  `sample_weights_are_unit` passed, and `uv run fedcourts corpus-info
+  --legacy-sample` still prints `legacy sample: no weighted rows`.
+
+- **On a cert cell `correct` reads `granted-in-part` and `granted` as one
+  label; recorded 2026-11-15.** A scoring-baseline change to the accuracy
+  bit. No prompt changes, no process digest, constant or window moves, and no
+  harness boundary is registered: the rule is keyed on no label, and every
+  grading it reaches is recomputed in place by the re-grade named below, so no
+  cell is left on the earlier side of it.
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **The rule.** `pipeline.evaluate.is_correct` compares a cert cell's
+  `predicted_disposition` with the outcome's `actual_disposition` after
+  reading `granted-in-part` as `granted` on both sides
+  (`pipeline.evaluate.cert_label`). Every other label is compared as written:
+  `gvr` and `summary-reversal` match only themselves, each naming a route out
+  of the cert order that a plenary grant is not. An interim cell is
+  untouched on either reading. A cell on the registered reading still compares
+  the labels as written, and a cell on the finer reading keeps the rule
+  `stage_correct` gave it at `proc-v17`, which side of the granted line the
+  label falls on. A merits cell keeps the judgment match. `brier_score`,
+  `actual_granted`, the claim block, the skill record and the always-deny
+  floor (a `denied` call matches only `denied`) are unchanged for every cell.
+  The back-test boards (`backtest.py`, `cert_backtest.py`) compute their own
+  disposition match and are not reached: they keep comparing the labels as
+  written.
+
+  **Why.** The predict prompt offers `granted-in-part` among the cert labels
+  and says only that it counts as a grant. The cert resolver records a grant
+  limited to some of the questions presented as `granted`
+  (`pipeline/cert_signals.py`), so on a cert event the label is one a
+  predictor may write and no outcome carries: across the committed outcomes on
+  `main` at `2f4cb140b`, `actual_disposition` is `denied` 12,963, `granted`
+  665, `gvr` 318, `dismissed` 314, `other` 8, `withdrawn` 4, and never
+  `granted-in-part`. Under the exact match a forecast of a limited grant,
+  written under the label that names it, scored 0 against the grant it
+  forecast. The interim stage already scores the two labels alike from
+  `proc-v17`.
+
+  **This rule was chosen after the outcome it re-scores.** It was raised by
+  the judges' flags on evaluate run `20261114T154330Z` and chosen on
+  2026-11-15 with the affected cells, their labels and their stamped bits in
+  view. The reach, measured on `main` at `2f4cb140b` by applying the rule to
+  every committed prediction on an event with a committed non-merits outcome
+  (1,098 predictions): seven predictions change, all on `scotus/73280982`,
+  whose petition was granted on 2026-11-13 limited to one question. They are
+  `claude-baseline` and `codex-baseline` on `evt-petition-disposition`,
+  `evt-brief-sg-disposition` and `evt-order-relist-disposition`
+  (stamped `proc-v12` on the first two events and `proc-v20` on the third),
+  with a superseded `claude-baseline` run on `evt-brief-sg-disposition` the
+  seventh. Six are the scored predictions of their cells, each graded by
+  three judges on run `20261114T154330Z` under `proc-v22`, so 18 committed
+  gradings carry a stamped `correct` of 0 that the rule computes as 1.
+  `gemini-baseline` wrote `granted` on all three events and stays at 1. No
+  other committed prediction uses the label on a resolved event, so no other
+  cell moves. The change raises the accuracy of two predictors on one petition
+  and lowers none.
+
+  **What it does to the board.** Rendered by `fedcourts leaderboard` over the
+  committed gradings on `staging` at `12b61815c`, before and after a local run
+  of the re-grade named below. The effect is one petition. The pooled forward
+  cert block holds one of its three events, so there the per-petition
+  accuracy (`event_accuracy`) of `claude-baseline` and of `codex-baseline`
+  goes from 142 to 143 of 150 petitions (0.9467 to 0.9533), against a floor of
+  0.9 that does not move, so each lift goes from 0.0467 to 0.0533;
+  `gemini-baseline` stays at 0.92 and a lift of 0.02. The per-grading figures
+  are the same ratios over 450 gradings, three judges to a petition, and are
+  not 450 independent observations. On the common record (108 petitions) the
+  two go from 0.9722 to 0.9815, which is `gemini-baseline`'s unchanged figure:
+  before, it led that paired reading by this one petition, and after, the
+  three are level. The entry order of the board does not change. The other two
+  events sit in their moment blocks (`cert@sg-brief`, `cert@relist`), where
+  each of the two predictors' three gradings goes from 0 to 1. All three
+  judges' bits on a cell move together, so their agreement on `correct` is
+  unchanged.
+
+  **A label this rule leaves alone.** `summary-reversal` is offered to
+  predictors and minted by no resolver (a summary reversal is recorded as
+  `granted`), so a call under it matches no recorded cert outcome under the
+  earlier rule or this one. It is not folded: against a plenary grant it names
+  the wrong route, and the record cannot say when it named the right one. On
+  `main` at `2f4cb140b`, 15 committed predictions carry it: one on a resolved
+  event (`scotus/73281386`, `gemini-baseline`, outcome `granted`, `correct`
+  0) and 14 on ten events with no outcome yet. Those 14 score 0 on `correct`
+  however their events resolve, unless a later entry changes the resolver or
+  the rule before they do.
+
+  **What the carrying promotion owes.** The 18 gradings keep their stamped 0
+  until `run-repair`'s `regrade-stale` pass recomputes them, over every judge
+  on the three events (nine `court/docket/event/run_id/actor` lines, run id
+  `20261114T154330Z`). It is an in-place recompute that preserves each
+  record's `proc-v22` stamp and leaves `superseded_gradings` where it was, so
+  this entry and the commit that pass writes are the record that the bits
+  moved: the `proc-v22` stamp on these 18 records does not say which rule
+  computed their `correct`. Between the carrying merge and that pass, a board
+  rendered from `main` reads the stamped 0 and leaves the always-deny floor and lift null on
+  every block holding those cells, the two predictors' pooled forward blocks
+  among them, as for any grading whose stamped `correct` no longer reproduces
+  (observed in the render above before the local re-grade). The pass is owed
+  before the next metrics refresh.
+
+  **Limits that travel with the figure.** `correct` on a cert cell no longer
+  separates a forecast of a limited grant from a forecast of a full one, on
+  either side; the resolver does not record the difference, so no committed
+  figure could have measured it. The predict prompt still offers the label on
+  cert cells without saying how it is scored, and the evaluate prompt still
+  describes cert `correct` as an exact match on the label; rewording either is
+  a prompt change that would be registered as one. A judge following that
+  prompt writes 0 on such a cell, the stamp writes 1 over it and warns of the
+  difference in the run log, and the judge's `evaluation.md` may still call
+  the label a miss. Any release document that describes cert
+  `correct` as an exact match of labels predates this entry.
+
+- **`caption-v6` and `sal-v9` registered, inactive; recorded 2026-11-15.** No
+  freeze commit belongs to this entry, on the `sal-v8` registration's pattern:
+  the salience version sits outside the process digest, carries its own
+  data-visible boundary (`context.salience_version`), and a registration
+  re-blesses nothing. `uv run fedcourts process-digest --all` prints the same
+  digests before and after this change, and no harness boundary is
+  registered: the third counsel reading rides the cell's projected row beside
+  the other two and adds no field to `context.json`. `SALIENCE_VERSION` stays
+  `sal-v8`, so nothing the live pass selects, latches or stamps moves;
+  `statpack.json` and `salience-replay.json` carry a further version's bands
+  from their next render. No prompt text or other digest input changes.
+
+  **What `caption-v6` is.** `caption-v5`, with one more reading where its
+  check does not fire: a petition whose petitioner side has no counsel of
+  record but the Solicitor General's office reads `federal`
+  (`caption.sg_office_petition`). Every petitioner-side entry of record must
+  be the office's under the filing-date roster test `caption-v4` applies, and
+  one must name a party whose label is neither empty nor opens on the
+  sovereign's name. The
+  party need not name the captioned petitioner. On a frozen cell band the
+  reading is made on a forward cell only
+  (`caption.sg_office_petition_on_forward_cut`); on a replay or back-test
+  cell it is `caption-v4`'s fact. `caption-v1` to `caption-v5` are unchanged.
+
+  **What `sal-v9` is.** `sal-v8`'s score, writ scope, `dist-v2` pin,
+  cutpoints, band vocabulary and arrival draw, as the same callables, with the
+  band, the carve-in and the reachable ladder read through `caption-v6`.
+
+  **Why.** `caption-v4`'s party match has a declared recall gap, an office
+  entry under a label the caption does not carry. The daily
+  `federal-label-check` raised 26-630 on 2026-11-14: captioned "Antone Moniz,
+  et al.", its one petitioner-side entry the Solicitor General as counsel of
+  record for "Federal Respondents", band `baseline`, not selected. The
+  maintainer decided on 2026-11-15 that the office as counsel is to be read
+  as a federal signal.
+
+  **Why the two post-outcome shapes fail the test.** A supporting amicus and a
+  government petition consolidated at the grant both add the office to a
+  block that already holds the private petitioner's own counsel of record, so
+  the sole-counsel test fails on both. Of the five rows the 2026-10-30 entry
+  names, the two that carry an office entry of record at filing (18-1587,
+  25-840) share the block with another party's counsel of record and stay
+  `private`. That is what this frame shows, not a proof: the test turns on
+  what the block does not hold, so a block that lacks the private
+  petitioner's entry of record for any other reason, beside an office entry
+  under a non-sovereign label, would pass it. No resolved row in this frame
+  does without already reading `federal` by its caption.
+
+  **What it moves.** On the blob
+  `524ad09557a1b036a48f1611dc0cdc50e687bc4ff5a9a4b9156b36ceb34ecc46` (newest
+  pull 2026-11-15, newest stored snapshot row 2026-07-13), read on
+  2026-11-15: of the 13,993 live-slice scored-segment rows `sal-v8` admits
+  (13,553 resolved, 440 pending), `uv run python
+  scripts/checks/caption_v6_band_census.py` finds one band move, pending
+  26-630 from `baseline` to `federal` (that row last polled 2026-11-13, its
+  docketing day), and no resolved one. The same script counts the entries:
+  26 rows carry an
+  office entry of record at filing on the petitioner side that `caption-v4`'s
+  match does not read; the office is the only counsel of record on 23, of
+  which 22 already read `federal` by their caption. `caption-census
+  --rule-version caption-v6` equals `caption-v5`'s output in every Term and
+  class. A statpack rendered on that blob carries a `sal-v9` block equal to
+  its `sal-v8` segments in every Term apart from `ingested` (OT2026:
+  `federal` 23 against 22, `baseline` 563 against 564). `federal-label-check
+  --salience-version sal-v9` reads 20 of the 433 pending paid petitions in
+  predict scope `federal`
+  and flags none, against 19 and one alarm under `sal-v8`. The activation dry
+  run (`scripts/checks/salience_activation_dry_run.py` with each version
+  active) plans 1 new latch under `sal-v9`, an arrival, against 0 under
+  `sal-v8`, and refuses the same 257 rows under both. No frozen band changes:
+  26-630 has no cell.
+
+  **What a replay reading can and cannot say.** A `sal-v9` replay cell reads
+  `caption-v4`'s fact, so its replay readings equal `sal-v8`'s. The move has
+  no outcome-clean reading at registration: the one moved row is pending, and
+  no resolved row moves. The bar an activation clears is the one `sal-v7`'s
+  did, the rule's outcome-free precision, here over one row whose caption and
+  counsel entry were read. The declared residual is `caption-v4`'s
+  substitution residual under a wider party label (`docs/salience.md`, the
+  `sal-v9` section).
+
+  **Not owed by this registration, owed by an activation.** The first
+  metrics refresh after the promotion carrying this entry, so the committed
+  pack holds a `sal-v9` block; that block equal to the `sal-v8` segments
+  apart from `ingested`; the band census and the activation dry run re-run on
+  the activation's blob (`docs/salience.md`, the `sal-v9` section). Until the
+  activation, 26-630 stays `baseline` and unselected, and the
+  `federal-label-check` alarm on it stands.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION, SCORERS; from fedcourtsai.pipeline.caption import
+    CAPTION_RULES; print(SALIENCE_VERSION, 'sal-v9' in SCORERS, 'caption-v6'
+    in CAPTION_RULES)"` prints `sal-v8 True True`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '[.terms[].alt_segments[].salience_version] | unique | join(" ")'
+    metrics/statpack.json` includes `sal-v9`, `.terms[].salience_version`
+    stays `sal-v8`, and `jq '[.terms[] | (.segments | map(del(.ingested))) ==
+    (.alt_segments[] | select(.salience_version == "sal-v9") | .segments |
+    map(del(.ingested)))] | all' metrics/statpack.json` prints `true`;
+  - where the corpus is pulled, `uv run fedcourts federal-label-check
+    --salience-version sal-v9` raises no alarm on 26-630.
+
+- **Every reader counts a stored row once, and the censuses' refusal to run
+  over a weighted frame is removed; recorded 2026-11-15.** The read half of the
+  retirement whose write half is the 2026-11-15 entry "Every write stores
+  `sample_weight` 1, and the rule that derived or kept another weight is
+  removed", which says "The readers are unchanged here" and is not otherwise
+  edited. No digest, constant, window or
+  membership moves, and no figure moves on the blob read below.
+
+  **What moved.** The statpack and docket-pack accumulator, the amicus-line
+  fit, `party-rates` and the salience replay stop reading `sample_weight` and
+  count each row once. The caption census, the salience census and the
+  distribution band cut drop their refusal to run over a row stored at a
+  weight other than 1, which the 2026-09-01 entry names ("the three census
+  cuts' refusal to run over a `sample_weight != 1` frame"), and the party
+  census sets no sampled block aside. The published field names are kept:
+  `weighted_resolved`, `prefix_weighted_resolved`, `weighted_granted`, the
+  `weighted` section flag, the amicus-line and salience-replay `weighted_*`
+  fields, `sampled_rows` and `sampled_excluded`. Each `weighted_*` figure
+  equals the row count beside it, and the two `sampled_*` fields are 0. The
+  text the code renders into `metrics/statpack.md`, `metrics/docket.md` and
+  the ops report is unchanged, "denial-reweighted estimates" included, and so
+  are the prompts.
+
+  **Readings**, from the blob `staging`'s corpus pointer names (sha256
+  `0ff3e908…`; latest pull 2026-11-15, latest snapshot 2026-07-13), which
+  stores no weight other than 1. Built from `staging`'s tree before the change
+  and from the tree with it, these are byte-identical: `statpack` (JSON and
+  markdown), `docket` (JSON and markdown), `scope-manifest`, `backtest` (2
+  predictors over 65,274 resolved events), `party-rates` and `party-census`
+  under each of `--as-of filed` and `--as-of resolved`, `caption-census`,
+  `distribution-census --candidate-parse dist-v2` and `amicus-line-fit`. The
+  party census prints `sampled-excluded=0` on every frame line. `uv run
+  fedcourts process-digest --all` prints the same six digests before and
+  after. `salience-replay --terms 2023 --policies resolution` is byte-identical
+  too; the replay over the committed Term set was not run to completion.
+
+  **What is given up.** A census run over a corpus that fails
+  `sample_weights_are_unit` prints figures that count the offending row once,
+  where it raised before. The check that names such a row is the
+  `validate-corpus` verdict the corpus-writer runs carry.
+
+  **Effect check.** On `main`, in the first metrics refresh after the
+  promotion carrying this entry: `jq '[.terms[].classes[] |
+  select(.weighted_resolved != .resolved)] | length' metrics/statpack.json`
+  prints 0.
+
+- **On a cert cell `correct` reads a `summary-reversal` call against the
+  outcome's route; recorded 2026-11-16.** A scoring-baseline change to the
+  accuracy bit. No prompt changes, no process digest, constant or window
+  moves (`uv run fedcourts process-digest --all` prints the same six digests
+  before and after), and no harness boundary is registered: the rule is keyed
+  on no label, and it re-scores no committed grading, so no cell sits on an
+  earlier side of it.
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **The rule.** On a cert cell whose `predicted_disposition` is
+  `summary-reversal`, `pipeline.evaluate.is_correct` returns 1 where the
+  outcome's `disposition_route` is `summary-merits`, or where its
+  `actual_disposition` is itself `summary-reversal`, and 0 otherwise
+  (`pipeline.evaluate.summary_reversal_matched`). So the call is wrong on a
+  plenary grant, on an outcome labelled `gvr`, on a denial or dismissal, and
+  on a grant whose route was not assessed. This replaces, for that one predicted label, the
+  sentence of the 2026-11-15 entry that says `summary-reversal` matches only
+  itself. Every other call is scored as before: a `granted` or
+  `granted-in-part` call still matches a `granted` outcome whatever its route,
+  and a `gvr` call still matches only `gvr`. An interim cell and a merits cell
+  are untouched, and so are `brier_score`, `actual_granted`, the claim block,
+  the skill record and the always-deny floor. The back-test boards compute
+  their own disposition match and are not reached.
+
+  **Why.** The predict prompt offers `summary-reversal` on cert cells for an
+  order in which the Court decides the merits itself, without argument. No
+  resolver records that label: such an order resolves as `granted`, and
+  `pipeline.outcome.disposition_route` writes `summary-merits` beside it
+  where the judgment carries the grant's own date. Under the label
+  comparison a correct forecast of a summary disposition therefore scored 0
+  against the outcome it forecast. The route marker is the committed field
+  that separates that order from a plenary grant, so the call is read against
+  it. Recording the label in the resolver instead was declined, because a
+  relabel moves the case out of the merits population and shifts the
+  committed disposition figures, which is why the route was made a separate
+  marker. Folding the label into `granted` was declined, because the call
+  would then be right against a plenary grant, which names a different route.
+
+  **This rule was chosen before any outcome it scores.** It was chosen on
+  2026-11-16 with the affected predictions and their labels in view and no
+  outcome for them recorded. Measured on `main` at `3b177c051` by applying
+  the rule to every committed prediction on an event with a committed
+  non-merits outcome (1,098 predictions): none changes. 15 committed
+  predictions carry the label. One is on a resolved event
+  (`scotus/73281386`, `gemini-baseline`, outcome `granted`, route `plenary`),
+  and it scores 0 under the earlier rule and under this one. The other 14
+  are on ten events of eight cases with no outcome yet (`codex-baseline` 8,
+  `claude-baseline` 4, `gemini-baseline` 2), and each now scores 1 if its
+  event resolves as a grant routed `summary-merits` and 0 otherwise. Among
+  the committed outcomes, `granted` carries the route `summary-merits` on 17,
+  `plenary` on 257 and no route on 391; no committed prediction sits on any
+  of the 17.
+
+  **Limits that travel with the figure.** The marker does not record which
+  way the summary judgment went, so a `summary-reversal` call is credited on
+  any judgment that rode the grant order, a summary affirmance included. That
+  reaches a vacatur and remand the resolver recorded as `granted` rather than
+  `gvr`: its judgment carries the grant's date, so its route reads
+  `summary-merits` and the call scores 1, while a `gvr` call on the same
+  outcome scores 0. `disposition_convergence` relabels such an outcome to
+  `gvr` and advances its route to `gvr`, which moves a stamped 1 to a
+  recomputed 0; the board then leaves the floor and lift null on the blocks
+  holding that cell until `regrade-stale` recomputes it, as for any grading
+  whose stamped `correct` no longer reproduces. How many of the 17
+  `summary-merits` outcomes are of that kind is not readable from the
+  committed outcomes. A grant whose route was not assessed scores the call 0,
+  not null, so on such an outcome a right call and a wrong one cannot be told
+  apart. Route coverage on forward grants is not complete: of the committed
+  `granted` outcomes on petition dockets that carry a prediction, 15 are
+  routed `plenary` and two carry no route (`scotus/73129750`,
+  `scotus/73275187`); none of the 391 grants without a route carries a
+  prediction under the label. The rule is one-sided: a `granted` call against
+  a `summary-merits` outcome still scores 1, since the outcome's label is
+  `granted`, while a `summary-reversal` call against a plenary grant scores
+  0. On `correct`, then, `granted` never scores below `summary-reversal`, and
+  the prompt does not say so; the predictors use the label at different
+  rates (8, 4 and 2 of the 14 pending), so the accuracy column carries that
+  difference between engines. The predict
+  prompt still offers the label without saying how it is scored, and the
+  evaluate prompt still describes cert `correct` as an exact match on the
+  label; rewording either is a prompt change that would be registered as
+  one. A judge following that prompt writes 0 on such a cell, and the stamp
+  writes 1 over it and warns of the difference in the run log.
+
+  **Effect check.** Nothing committed moves at the carrying promotion, and no
+  re-grade is owed. The rule first acts when one of the ten pending events
+  resolves and is graded: on `main`, each `evaluation.json` whose scored
+  prediction carries `summary-reversal` has `correct` 1 exactly where the
+  event's `outcome.json` carries `disposition_route` `summary-merits`, and 0
+  otherwise.

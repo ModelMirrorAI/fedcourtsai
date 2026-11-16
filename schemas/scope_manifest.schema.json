@@ -2,7 +2,7 @@
   "$defs": {
     "ScopeManifestEntry": {
       "additionalProperties": false,
-      "description": "The published prediction-scope decision for one already-public case.\n\nOne row per docket that has a committed directory under ``data/cases`` *and*\na corpus row \u2014 a subset of the git-visible public set (a public docket absent\nfrom the corpus is omitted), and never anything outside it. The fields mirror\nthe corpus's\nscope columns for the case: whether it is in the prediction gate\n(``predict_eligible`` \u2261 court is SCOTUS), whether the reconcile has latched it\nout (``predict_excluded``), the shared exclusion reason when it has, the\ninclusion weight the sampling channel asserted, and the salience gate's score /\nversion / selection latch. ``sample_weight`` is null when no channel asserted\none; ``out_of_scope_reason`` is null for an in-scope case; the salience fields\nare null / False until a salience pass has scored the row.",
+      "description": "The published prediction-scope decision for one already-public case.\n\nOne row per docket that has a committed directory under ``data/cases`` *and*\na corpus row \u2014 a subset of the git-visible public set (a public docket absent\nfrom the corpus is omitted), and never anything outside it. The fields mirror\nthe corpus's\nscope columns for the case: whether it is in the prediction gate\n(``predict_eligible`` \u2261 court is SCOTUS), whether the reconcile has latched it\nout (``predict_excluded``), the shared exclusion reason when it has, the\nstored ``sample_weight`` (1 on every row a writer has weighted), and the\nsalience gate's score /\nversion / selection latch. ``sample_weight`` is null when no channel asserted\none; ``out_of_scope_reason`` is null for an in-scope case; the salience fields\nare null / False until a salience pass has scored the row.",
       "properties": {
         "case_id": {
           "description": "``<court>/<docket>`` of an already-public case",
@@ -74,7 +74,7 @@
             }
           ],
           "default": null,
-          "description": "Inverse inclusion probability the corpus derives for this row; null if none",
+          "description": "The corpus row's stored weight: 1 where a writer set it; null if none",
           "title": "Sample Weight"
         }
       },

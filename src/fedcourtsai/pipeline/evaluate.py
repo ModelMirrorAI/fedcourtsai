@@ -28,7 +28,14 @@ from typing import Final
 
 from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
 from ..process_version import scores_finer_interim_reading
-from ..schemas import GRANTED_DISPOSITIONS, Outcome, Prediction, StatPack, VoteValue
+from ..schemas import (
+    GRANTED_DISPOSITIONS,
+    Disposition,
+    Outcome,
+    Prediction,
+    StatPack,
+    VoteValue,
+)
 
 # `merits_base_rate` is re-exported, not used here — see the module docstring
 # and `__all__`, which is what states the re-export to both linters.
@@ -50,6 +57,7 @@ __all__ = [
     "brier_score",
     "brier_skill",
     "brier_skill_score",
+    "cert_label",
     "interim_base_rate",
     "is_correct",
     "judgment_correct",
@@ -59,11 +67,12 @@ __all__ = [
     "segment_base_rate",
     "stage_brier_score",
     "stage_correct",
+    "summary_reversal_matched",
     "vote_accuracy",
 ]
 
 
-def is_correct(prediction: Prediction, outcome: Outcome) -> int:
+def is_correct(prediction: Prediction, outcome: Outcome, *, interim: bool = False) -> int:
     """Did the prediction name the right outcome label — on the stage's own axis?
 
     The cert/interim axis is the disposition label. The **merits** axis is the
@@ -79,10 +88,73 @@ def is_correct(prediction: Prediction, outcome: Outcome) -> int:
     prediction, but ``correct`` is computed before validate runs.) This keeps
     the leaderboard's accuracy column meaningful at every stage instead of
     publishing a constant for one of them.
+
+    On a **cert** cell ``granted-in-part`` and ``granted`` are one label
+    (:func:`cert_label`): the cert resolver records a grant limited in scope as
+    ``granted``, so a forecast of that grant under either label names the
+    outcome that was recorded. A ``summary-reversal`` call is read against the
+    outcome's route marker instead of its label
+    (:func:`summary_reversal_matched`), because the resolver records a summary
+    merits disposition as ``granted`` and writes the route beside it. Every
+    other pair of labels is compared as written, and so is every label on an
+    interim cell (``interim=True``, the caller's word, since neither artifact
+    records the stage), whose own rule is :func:`stage_correct`'s.
     """
     if outcome.judgment is not None:
         return int(prediction.judgment == outcome.judgment)
-    return int(prediction.predicted_disposition == outcome.actual_disposition)
+    if interim:
+        return int(prediction.predicted_disposition == outcome.actual_disposition)
+    if prediction.predicted_disposition == Disposition.summary_reversal:
+        return int(summary_reversal_matched(outcome))
+    return int(
+        cert_label(prediction.predicted_disposition) == cert_label(outcome.actual_disposition)
+    )
+
+
+def summary_reversal_matched(outcome: Outcome) -> bool:
+    """Whether a cert outcome is the one a ``summary-reversal`` call names.
+
+    True where the outcome's route marker reads ``summary-merits``: the
+    judgment rode the grant order, so the Court granted review and decided the
+    merits without briefing or argument. The cert resolver records such an
+    order under the ``granted`` label and writes the route beside it
+    (:func:`fedcourtsai.pipeline.outcome.disposition_route`), so the marker is
+    the only committed field that separates it from a plenary grant, and the
+    label comparison could never credit the call. An outcome recorded under
+    the ``summary-reversal`` label itself matches too, whatever its marker.
+
+    False on a plenary grant, an outcome labelled ``gvr``, a denial or a
+    dismissal, and on a grant whose route was not assessed: the record does
+    not say the call was right. The marker does not record which judgment rode
+    the grant order, so the call is credited on any of them, a vacatur and
+    remand recorded as ``granted`` included; where
+    :mod:`fedcourtsai.disposition_convergence` later relabels that outcome
+    ``gvr`` the route moves with it and the bit recomputes to 0.
+    """
+    return (
+        outcome.disposition_route == "summary-merits"
+        or outcome.actual_disposition == Disposition.summary_reversal
+    )
+
+
+def cert_label(disposition: Disposition) -> Disposition:
+    """The label a cert disposition is compared under for ``correct``.
+
+    ``granted-in-part`` reads as ``granted``; every other label is itself. A
+    question-limited grant opens the same merits proceeding as a full one
+    (:data:`fedcourtsai.schemas.MERITS_PROCEEDING_DISPOSITIONS`) and the cert
+    resolver records both as ``granted``, so the two labels cannot tell a
+    right call from a wrong one. ``gvr`` stays distinct, because it names a
+    different route out of the cert order from the plenary grant ``granted``
+    records, and the resolver mints it. A ``summary-reversal`` call never
+    reaches this comparison: no resolver mints that label, so
+    :func:`is_correct` reads the call against the outcome's route marker
+    (:func:`summary_reversal_matched`).
+    """
+    # Compared by value: a parsed record carries its label as the plain string.
+    if disposition == Disposition.granted_in_part:
+        return Disposition.granted
+    return disposition
 
 
 def scores_finer_reading(prediction: Prediction | None) -> bool:
@@ -126,7 +198,7 @@ def stage_correct(prediction: Prediction, outcome: Outcome, *, interim: bool) ->
     score the same event. ``None`` where the cell is unscored.
     """
     if not (interim and scores_finer_reading(prediction)):
-        return is_correct(prediction, outcome)
+        return is_correct(prediction, outcome, interim=interim)
     target = outcome.interim_granted
     if target is None:
         return None

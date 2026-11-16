@@ -40,6 +40,7 @@ The corpus has two halves:
     case.json                                    # the CorpusRow
     events.json                                  # the case's events
     snapshots/<YYYY-MM-DD>.json                  # dated point-in-time docket payload
+    onboard/partial.json                         # an unfinished first read's pages (not a snapshot)
     documents/documents.json                     # manifest: kind -> current text leaf
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
   scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
@@ -58,7 +59,11 @@ The corpus has two halves:
   reads it: where the live channel and a CourtListener refresh both read a
   SCOTUS docket on one day, the day's key holds the Court's own docket, because
   the refresh leaves a stored live snapshot in place and a live poll replaces a
-  refresh's. The small manifests are
+  refresh's. `onboard/partial.json` is working
+  state: the pages a watchlist docket's first whole read fetched before it
+  stopped, which its next onboard goes on from; it sits outside `snapshots/`,
+  so no snapshot read finds it, and it is emptied when the docket's first
+  snapshot is stored. The small manifests are
   versioned by the bucket rather than deleted. The `questions-presented` leaf is
   *derived* from the stored petition text rather than fetched, so a fixed
   extractor can be carried onto rows already stored (`fedcourts
@@ -124,7 +129,7 @@ source.
 | `conference_history` | text | every conference a cert petition was distributed for, in docket order, as a JSON list of `{conference, distributed, transition}` (`pipeline.cert_signals.conference_history`): one step per distinct conference date named by a petition distribution (the `dist-v2` reading `distribution_count` holds), with the filing date of the entry that first named it and how the petition got there — `first`, `relist` (the conference before sat on it, and this entry followed within 14 days), `reschedule` (moved before the conference before sat, or taken off it by a call for response or a "Rescheduled" entry), `redistributed` (more than 14 days after a conference that sat), `after_decision` or `unknown`; its `relist` steps are the exact relist count, where `distribution_count - 1` is an upper bound; published on the schedule (`data/schedule/schedule.json`); written by the live poll's cert branch at ingest, latched so a longer reading wins; withheld from the `query` retrieval rows; null = an application, a row with no live proceedings, or not live-parsed since the column existed; `[]` = parsed and never distributed |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
-| `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row; a stored value other than 1 fails `validate-corpus` |
+| `sample_weight`       | integer         | how many petitions the row stands for: 1 on every row a channel has weighted, since each decided petition is its own row; null = no channel weighted the row; a stored value other than 1 fails `validate-corpus` |
 | `has_opinion`         | integer (0/1)   | presence bit for a linked published opinion — kept in the index so the scope classifiers still work when the split moves the `opinion_text` body to the content store |
 | `salience_score`      | real            | the salience gate's deterministic score ([docs/salience.md](../docs/salience.md)); owned by the selection pass, never an ingestion channel |
 | `salience_version`    | text            | the frozen scorer version the score was written under; null = unscored row |
@@ -132,6 +137,8 @@ source.
 | `predict_queued_at`   | date            | the last date the live channel queued predict for this case (routing or selection sweep); the sweep's daily-retry debounce reads it |
 | `evaluate_queued_at`  | date            | the last date any caller stamped the case at the evaluate seam; the deriver's daily debounce reads it — no standing lane writes it |
 | `application_kind`    | text            | what an interim application asks for (`extension` / `substantive` / `unknown`); null = never application-parsed |
+| `application_kind_wide` | text          | the application's ask under the widened ask vocabulary (`pipeline.interim_signals.application_kind_wide`: `extension` / `substantive` / `unknown`), stored beside `application_kind`; from the OT2027 application Term the two agree, and before it this column is what the OT2027 interim pool counts prior Terms on. Written by the live channel's application branch and filled for stored rows by the `reread-applications` pass; null = never read |
+| `interim_reading`     | text            | the finer reading of an application's disposing entry (`pipeline.interim_signals.read_interim_disposition`: `granted` / `granted-in-part` / `denied` / `dismissed-moot` / `withdrawn` / `dismissed`), stored beside `disposition` and never replacing it. Written by the live channel's application branch and filled for stored rows by the `reread-applications` pass; null = no reading taken (a pending application, a cert-form row, or a row the pass has not reached) |
 | `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
 | `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket — one per accepted-form entry, plus each distinct lead filer whose brief is still docketed as submitted; on a resolved application the *derivation* stops at the end of the disposition day, but the column max-latches, so a row polled before that date was readable keeps its unbounded value until a re-derivation; null = never application-parsed |
@@ -147,6 +154,7 @@ source.
 | `capital_case`        | integer (0/1)   | the Court's `*** CAPITAL CASE ***` marking, read from the annotation upstream appends to the case number and latched here as ingest strips the number to its canonical spelling; max-latched, since only one channel serves the annotation — 0 = not marked by any channel that wrote the row, which on a CourtListener-only row is silence rather than a denial |
 | `opinion_enrich_attempted_at` | date    | tracking state: when the opinion-enrichment walk (`enrich-opinions`) last reached a verdict about this case (a body, no cluster, a refusal, a 4xx) — the walk's rotation key, read never-attempted-first then stalest-stamp-first, so the grants that can never converge (a GVR or DIG that publishes no opinion; a decided grant neither of the walk's two routes resolves) cannot hold the head of every run; null = never attempted. The rotation orders *within* the walk's priority groups: a case the git ledger holds a committed merits event for, whose `merits_judgment` has latched, comes first — grading a merits forecast is what the body is an input to, and the latch is what says the body exists (a pending case stays in the rotation, since promoting it would spend the run's cap on opinions that have not published) |
 | `document_floor_probed_at` | date    | tracking state: when the document back-fill (`backfill-documents`) last read this case at one of its fetch floors — it fetched the docket and the selector found nothing fetchable behind any kind the case is missing; null = never floored. It is that pass's exclusion key, not a rotation key: a floored candidate is held out of the gap class while the stamp is no older than `last_live_polled`, so a floor costs one paced docket GET per poll of that docket rather than one per dispatch. The next poll releases it; a docket that has left the live rotation (decided, or below its Term floor) is never re-polled, which is the terminal reading for a closed docket the Court served no PDF on. Written on an apply only, never for a floor the pass's own modern-docket alarm fired on, and through a direct `UPDATE` rather than the row upsert — under the corpus split a row read off the payload-free index carries no opinion body, and re-mirroring it would delete the body from the store's `case.json` |
+| `decision_below_attempted_at` | date    | tracking state: when the decision-below fill (`enrich-decision-below`) last joined this case's lower-court docket on CourtListener and got an answer about it (a stored opinion, a docket with no opinion on the judgment date, no docket at all) — the fill's rotation key, never-attempted rows first; null until first attempted, and left alone where the walk stopped at a throttle or a refused credential |
 
 `judges` and `panel` describe the same bench from different angles: `judges` is the
 flat name list retrieval matches on, while `panel` carries the structured detail.
@@ -187,7 +195,7 @@ The upsert therefore latches it: an empty incoming list keeps the stored one,
 and a non-empty reading (the live channel's re-read) replaces it, so a
 corrected parse still lands. A row last written before the column existed
 stays empty until a live re-poll, a re-walk or `refresh-dockets` re-serves it —
-the same legacy-row shape as `sample_weight` below. A decided docket leaves the
+the same shape as a null `sample_weight` below. A decided docket leaves the
 live rotation (a granted docket stays in it until its judgment), so on a
 decided row that re-serve does not come on its own.
 
@@ -233,17 +241,11 @@ fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live
 channel stamped — which on `response_requested_at` would leave the max-latched
 `response_requested` flag standing beside a null date, the shape reserved for a
-genuinely undated request. `sample_weight` is
-min-latched — an inclusion probability is only ever learned toward certainty —
-so a weighted aggregate can multiply by it and count a denial the earlier
-sampled walk kept at full strength; null means no channel asserted a weight. The
-walk keeps every decided petition, but what it writes is a reading of the corpus
-rather than its own certainty: `ingest_live_payload` re-derives an asserted
-weight of 1 through `legacy_denial_sample_weight`, which reads a denial on the
-earlier walk's sample grid as certain only where the block around it is stored
-row by row. A write
-that would store any weight other than 1 is refused at ingest, and
-`validate-corpus` fails on a stored one (`sample_weights_are_unit`). The
+genuinely undated request. `sample_weight` is 1 on every row a channel has
+weighted, and null where no channel asserted one: `ingest_live_payload` writes
+1, the upsert keeps the smaller of the stored and the incoming weight, a write
+that would store any other weight is refused at ingest, and `validate-corpus`
+fails on a stored one (`sample_weights_are_unit`). The
 response deadline (`response_due`, `response_due_state`) is a pair on the same
 terms, keyed on the incoming state: a writer with no reading keeps both, and a
 fresh reading takes both, because the reading that matters most is the one that
@@ -316,6 +318,8 @@ is a motion under the interim standard, not a cert petition.
 | `decision_target` | text        | what is predicted (default `disposition`)   |
 | `opened_at`       | date        | when the event became predictable           |
 | `resolved`        | integer     | 0 while open, 1 once resolved               |
+| `resolved_without_outcome` | integer | 1 where the event is closed with no ledger `outcome.json` behind it, on purpose: first minted on a row already decided, or the outcome pass could not attribute the row's disposition to it. Set only beside `resolved`; cleared when an outcome is recorded |
+| `resolved_without_outcome_reason` | text | why, from the fixed `NO_OUTCOME_REASONS` vocabulary; null unless `resolved_without_outcome` is set |
 
 ## Cursors and watermarks
 

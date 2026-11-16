@@ -26,12 +26,12 @@ cell also carries its raw per-label counts, so a reader who wants plenary
 grants only, or withdrawals dropped from the denominator, recomputes from the
 cell rather than trusting one convention.
 
-**Reweighting.** The live slice stores a legacy block of IFP denials one row in
-ten (``sample_weight`` 10). The census excludes that block because it counts
-rows; a rate cannot, because dropping nine-tenths of a stratum's denials
-inflates its grant rate roughly tenfold. So every cell carries two pairs —
-raw rows, and rows counted ``sample_weight`` times — and ``grant_rate`` is the
-weighted pair's quotient. Where a cell holds no sampled row the pairs are equal.
+**Counting.** Every stored row stands for one petition and is counted once.
+Every cell carries two pairs of counts, ``resolved`` / ``granted`` and
+``weighted_resolved`` / ``weighted_granted``: the ``weighted_*`` names are
+kept, each value is the same count of rows as its plain twin, and
+``grant_rate`` is their quotient. ``sampled_rows`` keeps its name and is
+always 0.
 
 **The application population is the substantive asks.** An extension of time
 is granted as a matter of course and would swamp an emergency-docket rate, so
@@ -180,11 +180,9 @@ class _Acc:
         else:
             self.excluded_unknown_ask += 1
 
-    def add(self, disposition: str | None, weight: int) -> bool:
+    def add(self, disposition: str | None) -> bool:
         """Count one population row; ``True`` where it entered the rate as resolved."""
         self.rows += 1
-        if weight > 1:
-            self.sampled_rows += 1
         if disposition is None:
             self.pending += 1
             return False
@@ -195,8 +193,8 @@ class _Acc:
         flag = granted_flag(label)
         self.resolved += 1
         self.granted += flag
-        self.weighted_resolved += weight
-        self.weighted_granted += weight * flag
+        self.weighted_resolved += 1
+        self.weighted_granted += flag
         self.dispositions[label.value] += 1
         return True
 
@@ -315,8 +313,7 @@ def _rates(  # noqa: PLR0913 - one keyword per stamp the cut carries
         counted += 1
         private_practice += bool(counsel and counsel.private_practice)
         undated += as_of is None
-        weight = max(1, row.sample_weight if row.sample_weight is not None else 1)
-        if acc.add(disposition, weight) and resolution is None:
+        if acc.add(disposition) and resolution is None:
             resolution_undated += 1
     windows: list[str | None] = [*(admin.label for admin in ADMINISTRATIONS), None]
     counsel_sides: tuple[CounselSide | None, ...] = COUNSEL_SIDES if counsel_annotator else (None,)

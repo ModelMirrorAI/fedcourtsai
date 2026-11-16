@@ -51,8 +51,11 @@ federal rather than state. ``caption-v4`` narrows that check to the entry a
 petition's own filing writes — the office as counsel of record *for the party
 the caption names* — which drops the supporting amicus and the consolidation
 the v3 reading admits, since both enter the petitioner block under a party
-other than the captioned petitioner. Every rule is therefore registered as a
-predicate on a **row**
+other than the captioned petitioner. ``caption-v5`` reads that fact on a
+forward cell's reconstructed payload too, and ``caption-v6`` adds the petition
+the office files under a party label the caption does not carry: the office
+as the petitioner side's *only* counsel of record. Every rule is therefore
+registered as a predicate on a **row**
 (:data:`CAPTION_RULES`); v1 and v2 read only the row's caption
 (:func:`petitioner_caption`) through their string predicates, which are
 unchanged.
@@ -108,6 +111,10 @@ CAPTION_RULE_VERSION_V4 = "caption-v4"
 #: caption-v4 with its counsel fact read on a forward cell's reconstructed
 #: payload too: the same stored-row rule, a wider cut reading.
 CAPTION_RULE_VERSION_V5 = "caption-v5"
+
+#: caption-v5 with one more counsel fact: the office as the petitioner side's
+#: only counsel of record, whatever party label its entry carries.
+CAPTION_RULE_VERSION_V6 = "caption-v6"
 
 #: Class labels in reporting order (strongest measured grant rate first).
 PETITIONER_CLASSES: Final[tuple[PetitionerClass, ...]] = ("federal", "state", "private")
@@ -565,7 +572,7 @@ def names_captioned_petitioner(party: str, caption_text: str) -> bool:
 
 
 class CutRow(corpus.CorpusRow):
-    """A row projected to a cell's cut, carrying one counsel fact in two readings and no counsel.
+    """A row projected to a cell's cut, carrying its counsel facts as booleans and no counsel.
 
     The base row a frozen cell band and the gate replay's projection read
     (:func:`.asof.project_row`) holds no counsel entry: a replay or back-test
@@ -575,10 +582,12 @@ class CutRow(corpus.CorpusRow):
     caption-v4 admits payloads (:func:`sg_counsel_of_record_at_cut`, the same
     rule for forward and replay cells) and as caption-v5 does
     (:func:`sg_counsel_of_record_on_forward_cut`, which also reads a forward
-    cell's ``truncated`` payload). Every other counsel field must stay empty,
-    and the validator refuses a row that carries one, so nothing else about
-    counsel reaches a band through this type. Never written to the corpus: a
-    projection, not a stored row.
+    cell's ``truncated`` payload). caption-v6's fact rides beside them as a
+    third boolean (:func:`sg_office_petition_on_forward_cut`): caption-v5's
+    reading, or the office as the petitioner side's only counsel of record.
+    Every other counsel field must stay empty, and the validator refuses a row
+    that carries one, so nothing else about counsel reaches a band through
+    this type. Never written to the corpus: a projection, not a stored row.
     """
 
     sg_counsel_of_record_for_petitioner: bool = Field(
@@ -594,11 +603,22 @@ class CutRow(corpus.CorpusRow):
         "`truncated` payload is read too; on any other cell it equals "
         "`sg_counsel_of_record_for_petitioner`.",
     )
+    sg_office_petition: bool = Field(
+        default=False,
+        description="caption-v6's fact (`sg_office_petition_on_forward_cut`): "
+        "`sg_counsel_of_record_forward`, or, on a forward cell, the office as "
+        "the only counsel of record in the payload's `Petitioner` block; on "
+        "any other cell it equals `sg_counsel_of_record_for_petitioner`.",
+    )
 
     @model_validator(mode="after")
     def _carries_no_other_counsel(self) -> CutRow:
         if self.counsel or self.parties or self.attorneys:
             raise ValueError("a cut row carries one counsel fact and no counsel entry")
+        if self.sg_counsel_of_record_forward and not self.sg_office_petition:
+            # caption-v6 reads caption-v5's fact first, so its reading can
+            # never be the narrower one.
+            raise ValueError("the caption-v6 reading must include the forward counsel fact")
         if self.sg_counsel_of_record_for_petitioner and not self.sg_counsel_of_record_forward:
             # caption-v5 admits every payload caption-v4 does, under the same
             # tests, so its reading can never be the narrower one.
@@ -691,8 +711,16 @@ def _office_counsel_of_record(payload: Mapping[str, Any], *, caption_text: str, 
     if filed is None or filed > cut:
         return False
 
+    return any(
+        entry.counsel_of_record and names_captioned_petitioner(entry.party, caption_text)
+        for entry in office_entries_at_filing(_petitioner_block(payload), filed=filed)
+    )
+
+
+def _petitioner_block(payload: Mapping[str, Any]) -> list[corpus.CounselEntry]:
+    """A live payload's ``Petitioner`` block as counsel entries, in served order."""
     blocks = payload.get("Petitioner")
-    entries = [
+    return [
         corpus.CounselEntry(
             party=str(block.get("PartyName") or "").strip(),
             attorney=str(block.get("Attorney") or "").strip() or None,
@@ -702,10 +730,6 @@ def _office_counsel_of_record(payload: Mapping[str, Any], *, caption_text: str, 
         for block in (blocks if isinstance(blocks, list) else [])
         if isinstance(block, Mapping)
     ]
-    return any(
-        entry.counsel_of_record and names_captioned_petitioner(entry.party, caption_text)
-        for entry in office_entries_at_filing(entries, filed=filed)
-    )
 
 
 #: The provenances a forward cell's payload can carry, every one of them read
@@ -762,6 +786,129 @@ def sg_counsel_of_record_for_petitioner_v5(row: corpus.CorpusRow) -> bool:
     return sg_counsel_of_record_for_petitioner(row)
 
 
+# --- caption-v6: the office as the petitioner side's only counsel of record ----
+#
+# caption-v4's party match has a declared recall gap: the Clerk sometimes lists
+# the office's entry under a party label the caption does not carry. A petition
+# the government files for officers captioned under personal names, whose
+# counsel block reads "Federal Respondents" (the parties' role below), names no
+# captioned petitioner, so caption-v4 and caption-v5 read the caption alone and
+# a caption with no federal marker reads `private`.
+#
+# The entry is still the one the petition's own filing writes, and what tells
+# it from the two post-outcome shapes caption-v4 exists to keep out is the rest
+# of the block. A supporting amicus and a government petition consolidated at
+# the grant both join a petitioner block that already holds the private
+# petitioner's own counsel of record. So caption-v6 reads `federal` where every
+# counsel-of-record entry on the petitioner side is the office's — the same
+# filing-date roster test — and at least one of them names a party whose label
+# does not open on the sovereign's name. The sovereign exclusion keeps out a
+# block whose only listed entry is the amicus's ("United States", however the
+# label goes on) because the index never held the petitioner's own counsel; a
+# petition the sovereign itself files is captioned for the sovereign, which
+# caption-v4's match already reads.
+#
+# The residual is caption-v4's: the office substituting for a privately
+# represented petitioner after the grant, by an attorney already in office at
+# the filing, where the substitution also drops the earlier counsel's entry.
+# The test turns on what the block does not hold, so it also passes wherever
+# the private petitioner's entry of record is absent for another reason and
+# the office's entry names a party other than the sovereign.
+
+
+def _office_is_sole_counsel_of_record(
+    entries: list[corpus.CounselEntry], *, filed: date | None
+) -> bool:
+    """Whether the office holds every petitioner-side counsel-of-record entry.
+
+    True where ``entries`` has at least one petitioner-side entry marked
+    counsel of record, ``sg-office-v1``'s roster places every such entry's
+    attorney in the office on ``filed`` (:func:`.counsel.office_entries_at_filing`),
+    and one of them names a party whose lead is neither empty nor opens on the
+    sovereign (:func:`_names_a_party_other_than_the_sovereign`). False on an
+    undated docket. Pure and total.
+    """
+    from .counsel import office_entries_at_filing  # noqa: PLC0415 - counsel<-party<-caption cycle
+
+    of_record = [
+        entry
+        for entry in entries
+        if entry.role == corpus.CounselRole.petitioner and entry.counsel_of_record
+    ]
+    if not of_record:
+        return False
+    office = office_entries_at_filing(of_record, filed=filed)
+    if len(office) != len(of_record):
+        return False
+    return any(_names_a_party_other_than_the_sovereign(entry.party) for entry in office)
+
+
+def _names_a_party_other_than_the_sovereign(party: str) -> bool:
+    """Whether a counsel entry's ``party`` label has a lead that does not open on the sovereign.
+
+    False for an empty lead and for any lead that, past a leading "the", opens
+    with a sovereign lead (:data:`_SOVEREIGN_LEADS`): "United States", "The
+    United States", "United States as amicus curiae". Wider than an equality
+    test on purpose, so an amicus entry's label never counts however the Clerk
+    words it; the cost is a label that opens with the sovereign's name and
+    goes on to name an agency ("United States Department of Labor"), which
+    does not count either.
+    """
+    lead = _party_lead(party)
+    if lead[:1] == ("the",):
+        lead = lead[1:]
+    if not lead:
+        return False
+    return not any(lead[: len(sovereign)] == sovereign for sovereign in _SOVEREIGN_LEADS)
+
+
+def sg_office_petition_on_forward_cut(
+    payload: Mapping[str, Any], *, caption_text: str, cut: date, provenance: str, mode: str
+) -> bool:
+    """caption-v6's counsel fact, read off a payload before any redaction.
+
+    caption-v5's fact (:func:`sg_counsel_of_record_on_forward_cut`), or, on a
+    ``forward`` cell whose payload's provenance is one a forward cell is placed
+    on (:data:`_SERVED_TO_A_FORWARD_CELL`), the office as the only counsel of
+    record in the payload's ``Petitioner`` block
+    (:func:`_office_is_sole_counsel_of_record`), under the roster test on the
+    payload's ``DocketedDate``, itself on or before ``cut``. On any other mode
+    it is :func:`sg_counsel_of_record_at_cut` exactly, so a replay or back-test
+    cell bands as under caption-v4.
+
+    The sole-counsel test turns on what the block does not hold, so it is read
+    where the block is the cell's own record: a forward cell keeps its counsel
+    blocks and its case is pending. Pure and total.
+    """
+    if sg_counsel_of_record_on_forward_cut(
+        payload, caption_text=caption_text, cut=cut, provenance=provenance, mode=mode
+    ):
+        return True
+    if mode != "forward" or provenance not in _SERVED_TO_A_FORWARD_CELL:
+        return False
+    filed = _docketed(payload.get("DocketedDate"))
+    if filed is None or filed > cut:
+        return False
+    return _office_is_sole_counsel_of_record(_petitioner_block(payload), filed=filed)
+
+
+def sg_office_petition(row: corpus.CorpusRow) -> bool:
+    """caption-v6's counsel fact: the office files the petition.
+
+    On a stored row: caption-v4's fact
+    (:func:`sg_counsel_of_record_for_petitioner`), or the office as the
+    petitioner side's only counsel of record on the row's filing date
+    (:func:`_office_is_sole_counsel_of_record`) over the row's whole counsel
+    list. On a :class:`CutRow`: the fact
+    :func:`sg_office_petition_on_forward_cut` produced (``sg_office_petition``).
+    """
+    if isinstance(row, CutRow):
+        return row.sg_office_petition
+    return sg_counsel_of_record_for_petitioner(row) or _office_is_sole_counsel_of_record(
+        list(row.counsel), filed=row.date_filed
+    )
+
+
 def petitioner_class_v4(row: corpus.CorpusRow) -> PetitionerClass:
     """The row's ``caption-v4`` petitioner class: the office for the captioned party, then v2.
 
@@ -791,6 +938,21 @@ def petitioner_class_v5(row: corpus.CorpusRow) -> PetitionerClass:
     return petitioner_class_v2(row)
 
 
+def petitioner_class_v6(row: corpus.CorpusRow) -> PetitionerClass:
+    """The row's ``caption-v6`` petitioner class: the office files the petition, then v2.
+
+    A petition whose captioned petitioner has the Solicitor General's office as
+    counsel of record, or whose petitioner side has no counsel of record but
+    the office (:func:`sg_office_petition`), reads ``federal`` before any
+    caption pattern runs. Every other row reads its ``caption-v2`` class, so
+    v6 can only move a v2 ``private`` or ``state`` read to ``federal``, and it
+    moves every row caption-v5 moves.
+    """
+    if sg_office_petition(row):
+        return "federal"
+    return petitioner_class_v2(row)
+
+
 #: Every registered caption rule, keyed by version label, as a predicate on a
 #: corpus row. A rule is only ever added here — never edited and never removed —
 #: because a frozen selection constant names the census it came from, and that
@@ -805,6 +967,7 @@ CAPTION_RULES: Final[Mapping[str, Callable[[corpus.CorpusRow], PetitionerClass]]
             CAPTION_RULE_VERSION_V3: petitioner_class_v3,
             CAPTION_RULE_VERSION_V4: petitioner_class_v4,
             CAPTION_RULE_VERSION_V5: petitioner_class_v5,
+            CAPTION_RULE_VERSION_V6: petitioner_class_v6,
         }
     )
 )
@@ -863,9 +1026,8 @@ def caption_census(
     the reverse.) ``pooled`` spans only the Terms whose frame carries no
     unresolved row — an in-progress Term is right-censored and its
     resolved-so-far rate is outcome-correlated, so it reports per-Term but
-    never pools. Every row's ``sample_weight`` must be 1: the census counts
-    raw, and a subsampled frame (a future re-walk vintage) must fail loud
-    here rather than overstate the grant family. Deterministic and
+    never pools. Every row is counted once: each stored row stands for one
+    petition, which the corpus validator enforces. Deterministic and
     read-only: two runs over one corpus pointer agree byte for byte, which
     is what lets a statistical review of this artifact license a frozen
     constant (``docs/salience.md``).
@@ -884,11 +1046,6 @@ def caption_census(
         if row.disposition is None:
             unresolved[term] += 1
             continue
-        if (row.sample_weight or 1) != 1:
-            raise ValueError(
-                f"{row.case_id}: sample_weight {row.sample_weight} — the census "
-                "counts raw and must not run over a subsampled frame"
-            )
         cell = counts[term][classify(row)]
         cell[0] += 1
         if row.disposition in GRANT_FAMILY_DISPOSITIONS:

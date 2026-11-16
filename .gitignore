@@ -255,3 +255,7 @@ __marimo__/
 # Subagent worktrees parked inside the repo by the harness — full checkouts,
 # never content to commit.
 /.claude/worktrees/
+
+# A local `fedcourts validate-corpus` writes its verdict here by default; the
+# published verdict lives on the ops-metrics branch, never in this tree.
+metrics/corpus-validation.json

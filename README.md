@@ -17,8 +17,9 @@ of each justice, and the court's reasoning.
 > pending cases belongs to the supremecourt.gov live channel, SCOTUS-only,
 > which tracks pending cert petitions in production. The forward record begins
 > with the OT2026 cert cycle: the open ledger under `data/` holds SCOTUS
-> events and realized outcomes, with predictions and evaluations accumulating
-> toward the OT2026 long-conference cert release ([milestones](docs/milestones.md)).
+> events and realized outcomes, with predictions and evaluations accumulating;
+> the published results releases are listed in
+> [`docs/releases.json`](docs/releases.json) ([milestones](docs/milestones.md)).
 
 > **Not legal advice.** Outputs are experimental model predictions — they may
 > be wrong, carry no affiliation with or endorsement by any court, and are not
@@ -42,7 +43,7 @@ requests.
 |----------------|-----------------|----------------------------------------------------------------------|--------|
 | Schedule + dispatch (`mode`) | `run-pull`      | Two scheduled forward writer jobs: targeted CourtListener enrichment, and the **supremecourt.gov live poll** (every two hours: discovers pending petitions, tracks conference distribution, records outcomes, provisions filed-document text, and fetches the opinion of a just-decided merits case) — plus a third, **dispatch-only** job that enriches the cert-granted backlog with its opinion text | Script |
 | Schedule       | `run-seed`      | The **historical Term walker** (supremecourt.gov, budget-free) backfilling past Terms for base rates and back-testing — four windows a day, sharing the corpus-write lock with run-pull's writers. Its trailing sweeps converge the corpus toward what a window can reach on its own; each is idempotent and non-blocking | Script |
-| Dispatch only  | `run-repair`    | The **corpus-maintenance bench**: twenty-four dispatch-gated passes that rewrite stored corpus fields, back-fill corpus rows, remove ledger records, re-freeze frozen signal blocks, re-grade committed cells, or stamp vote records onto committed outcomes — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
+| Dispatch only  | `run-repair`    | The **corpus-maintenance bench**: twenty-five dispatch-gated passes that rewrite stored corpus fields, back-fill corpus rows, remove ledger records, re-freeze frozen signal blocks, re-grade committed cells, or stamp vote records onto committed outcomes — one pass per dispatch, dry-run by default, and an apply only once a maintainer has read that dry run's ledger. Never scheduled; shares the corpus-write lock | Script |
 | Schedule ×2 + dispatch | `run-predict`   | Predict open events with **multiple competing predictors** (fan-out), over the cases the predict backlog still owes a forecast | Claude Code + Codex + Gemini |
 | Schedule + dispatch | `run-evaluate`  | Score past predictions against realized outcomes, over the gradings the evaluate backlog still owes — fan-out is one cell per evaluator, and each judge grades **every** predictor for its event | Claude Code + Codex + Gemini |
 | Schedule + dispatch (`limit`) | `summarize`     | Write a **plain-language summary** of each predicted case whose record changed — what happened, what the Court is being asked, where it stands — for site readers; one tool-less model call per case (a second when a rejected response is retried), every run behind the `review` release or auto-released within the trailing spend budget, landed as a PR that merges itself once its required checks pass ([`docs/case-summaries.md`](docs/case-summaries.md)) | Messages API (no agent) |
@@ -57,8 +58,9 @@ predictor side by side — on an issue the maintainer closes once read) and
 document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly
 public update history, the
-qp-topic labeler (the only one that runs an agent, weekly per frame behind
-the `review` hold), the adverse-order scan
+labeling lane (the only modes that run an agent: the qp-topic labeler per
+frame and the merits side coder weekly behind the `review` hold, the
+replicates dispatch-only), the adverse-order scan
 of CourtListener's RECAP index, the weekly AI-watchlist candidate and
 follow-on docket checks, the weekly merits coverage check against the
 Court's Granted & Noted list, the daily order-list reconciliation, and the
@@ -411,7 +413,8 @@ docs/               design & operations references (see Documentation below)
 - [QP topics](docs/qp-topic.md) (`qp-topic-v0`: what petitions ask about, the hand-labeled reference set, and the labeling run)
 - [Decision model](docs/decision-model.md) (vote thresholds by stage and what is observable; vote accuracy scored on merits moments against complete vote records, margins pre-registered only)
 - [Budget](docs/budget.md) · [Milestones](docs/milestones.md)
-- [OT2026 long-conference release write-up](docs/release-ot2026-long-conference.md) (what the first release must state, and the command behind each number) · [public summary](docs/release-ot2026-public-summary.md) (the reader-facing page it feeds)
+- [OT2026 long-conference release write-up](docs/release-ot2026-long-conference.md) (what the first release states, and the command behind each number) · [public summary](docs/release-ot2026-public-summary.md) (the reader-facing page it feeds)
+- [Emergency-docket replication release write-up](docs/release-ot2026-interim-exec.md) (the second release: an analysis of the executive branch's emergency applications that scores no forecast) · [public summary](docs/release-ot2026-interim-exec-public-summary.md)
 - [Security](SECURITY.md) · [setup runbook](docs/security.md)
 - [Testing](docs/testing.md) · [Contributing](CONTRIBUTING.md)
 
@@ -457,6 +460,8 @@ The software record's concept DOI,
 [10.5281/zenodo.22966596](https://doi.org/10.5281/zenodo.22966596), always
 resolves to the newest archived version; `prereg/proc-v8` is archived as
 [10.5281/zenodo.22966597](https://doi.org/10.5281/zenodo.22966597).
-A results release also deposits its dataset export — the data only — as a
+A forecast release also deposits its dataset export — the data only — as a
 separate Zenodo dataset record linked to that version, built by
-`fedcourts export`; no release has published one yet.
+`fedcourts export`; the long-conference release's is
+[10.5281/zenodo.23263986](https://doi.org/10.5281/zenodo.23263986). An
+analysis release that scores no forecast deposits none.

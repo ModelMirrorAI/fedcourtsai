@@ -2,9 +2,9 @@
 
 Uses the same deterministic synthetic corpus as the statpack tests
 (``fixture_corpus``): seven cases across ca9 / ca1 / scotus, five resolved and
-two open, with two live-slice SCOTUS petitions — ``scotus/304`` a walker-sampled
-paid denial at weight 5 (OT22, one relist) and ``scotus/305`` a pending paid
-poller row at weight 1 (OT24, CVSG on file) — plus discovery cursors (OT22 paid
+two open, with two live-slice SCOTUS petitions — ``scotus/304`` a paid denial
+(OT22, one relist) and ``scotus/305`` a pending paid poller row (OT24, CVSG on
+file), each counted once in every figure — plus discovery cursors (OT22 paid
 complete at 850, OT22 IFP partial at 460, OT24 paid partial at 12), so the
 pooled per-Term census and the fee-class cut both have real material. The
 ``scotus/306`` stay application is a live-slice row too, so it counts in the
@@ -70,13 +70,11 @@ def test_docket_sections_are_court_facing_only() -> None:
     # `_SectionSpec` is frozen, so a cut published by both artifacts compares equal
     # only while every scope flag agrees — the drift this catches.
     assert set(_DOCKET_SECTIONS) & set(_STATPACK_SECTIONS)
-    # EVERY section is reweighted, not merely the cert-stage ones. Scoping this to
-    # `cert_stage` was the earlier mistake, and it left the two overview cuts —
-    # where nearly every labeled SCOTUS row is a sampled one — publishing a raw
-    # split that overstated the grant family several-fold. This artifact exists to
-    # be quoted, so an unweighted section anywhere in it is the bug.
+    # EVERY section carries the `weighted` flag, not merely the cert-stage ones,
+    # so the whole artifact renders its denominators one way (`est. n=`). Every
+    # row counts once, so the flag selects the rendering and not the arithmetic.
     unweighted = [spec.title for spec in _DOCKET_SECTIONS if not spec.weighted]
-    assert not unweighted, f"court-facing sections must be reweighted: {unweighted}"
+    assert not unweighted, f"court-facing sections must carry the weighted flag: {unweighted}"
 
 
 def test_build_docket_pack_headline_and_sections(fixture_corpus: FixtureCorpus) -> None:
@@ -92,8 +90,8 @@ def test_build_docket_pack_headline_and_sections(fixture_corpus: FixtureCorpus) 
 
 def test_fee_class_section_splits_the_numbering_streams(tmp_path: Path) -> None:
     # Paid petitions number from 1 and IFP from 5001, so the class is exact from
-    # the docket number; the section is denial-reweighted like the other cert
-    # cuts, so a sampled denial counts for the serials it stands in for.
+    # the docket number. The IFP denial stores a weight of 4 and counts once,
+    # as every row does in every cert cut.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -121,7 +119,7 @@ def test_fee_class_section_splits_the_numbering_streams(tmp_path: Path) -> None:
         )
     fees = _section(_pack(db), "Cert petitions by fee class (paid vs IFP)")
     assert (fees.group_by, fees.weighted, fees.cert_stage) == (GroupBy.fee_class, True, True)
-    assert [(b.key, b.cases, b.resolved) for b in fees.buckets] == [("ifp", 4, 4), ("paid", 1, 1)]
+    assert [(b.key, b.cases, b.resolved) for b in fees.buckets] == [("ifp", 1, 1), ("paid", 1, 1)]
     paid = next(b for b in fees.buckets if b.key == "paid")
     assert [(d.disposition, d.share) for d in paid.dispositions] == [("granted", 1.0)]
 
@@ -130,8 +128,7 @@ def test_capital_case_section_pools_both_fee_streams(tmp_path: Path) -> None:
     # The court-facing cut is the whole cert docket, IFP included — capital
     # petitions arrive on both numbering streams, and a capital share taken over
     # the paid stream alone would not describe the docket this artifact is about.
-    # Reweighted like every other section here, so the share estimates the
-    # population rather than the walked sample.
+    # The unmarked denial stores a weight of 4 and counts once.
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -172,8 +169,8 @@ def test_capital_case_section_pools_both_fee_streams(tmp_path: Path) -> None:
         True,
     )
     assert [(b.key, b.cases, b.resolved) for b in capital.buckets] == [
-        ("unmarked", 4, 4),
         ("capital", 2, 2),
+        ("unmarked", 1, 1),
     ]
     # What the `unmarked` bucket can and cannot assert renders with the numbers.
     # Pinned against the note's own text, not against words like "coverage" or
@@ -234,8 +231,8 @@ def test_per_term_census_pools_the_fee_streams(fixture_corpus: FixtureCorpus) ->
     # partial, so the Term as a whole is not complete.
     assert ot22.filings == 1310
     assert ot22.complete is False
-    assert (ot22.ingested, ot22.resolved, ot22.weighted_resolved) == (1, 1, 5)
-    assert ot22.est_grant_rate == 0.0  # a resolved denial, reweighted to five
+    assert (ot22.ingested, ot22.resolved, ot22.weighted_resolved) == (1, 1, 1)
+    assert ot22.est_grant_rate == 0.0  # one resolved denial, counted once
     # The pooled cross-Term series carries the same value under the shared name.
     assert ot22.est_grant_family_rate == 0.0
     assert ot22.grants == 0 and ot22.median_days_to_grant is None
@@ -338,17 +335,16 @@ def test_render_docket_markdown_carries_scope_and_sample_size(
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
         "counts are denial-reweighted estimates._" in md
     )
-    assert "| paid | 6 | 5 | 1 | denied 100.0% (est. n=5) |" in md
+    assert "| paid | 2 | 1 | 1 | denied 100.0% (est. n=1) |" in md
     # The relist cut's scope note travels here too: this pack shares the
     # section spec with the statpack, so the parse label renders on both.
     assert "upper bound on true relists" in md
     # The per-Term census pools the streams and states the sample size inline.
     assert "## SCOTUS cert petitions by Term" in md
-    assert "| 2022 | 1310 | 1 | 0.0% (est. n=5) | 0 | — | partial |" in md
+    assert "| 2022 | 1310 | 1 | 0.0% (est. n=1) | 0 | — | partial |" in md
     assert "| 2024 | 12 | 1 | — | 0 | — | partial |" in md
-    # The overview cuts are reweighted too, so they say `est. n=` like the rest.
-    # A plain `n=` anywhere in a breakdown would mean a raw rate had reappeared
-    # over the sampled frame, which is what this artifact must never publish.
+    # The overview cuts carry the weighted flag too, so they say `est. n=` like
+    # the rest: one denominator rendering across the whole artifact.
     overview = md.split("## Cases by court")[1].split("##")[0]
     assert "est. n=" in overview
     assert "(n=" not in overview
@@ -428,19 +424,19 @@ def test_cli_docket_absent_corpus_writes_empty(
     assert "Empty — no corpus present" in (tmp_path / "metrics/docket.md").read_text()
 
 
-def test_the_reader_cut_names_state_courts_and_reweights_them(tmp_path: Path) -> None:
+def test_the_reader_cut_names_state_courts_and_counts_each_row_once(tmp_path: Path) -> None:
     """The docket pack's by-originating-court cut is a *separate* spec from the
     statpack's, not the same one with a flag: it keys on the raw lower-court name
-    so state courts appear by name, and it reweights so the rate is a population
-    estimate. Both halves matter, and both are asserted here — dropping either
-    was previously invisible to every test in this file.
+    so state courts appear by name, and it carries the weighted flag. A row stored
+    with a `sample_weight` above 1 counts once under it, so the cut's counts are
+    the raw rows, the same as the statpack's sibling cut over them.
     """
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
             conn,
             [
-                # A sampled denial: weight 10 in the pack, one row on hand.
+                # A denial stored with a weight of 10: one row, one case.
                 corpus.CorpusRow(
                     case_id="scotus/1",
                     court="scotus",
@@ -467,12 +463,12 @@ def test_the_reader_cut_names_state_courts_and_reweights_them(tmp_path: Path) ->
     reader = _section(docket, "Petitions by originating court (incl. state courts)")
     # Named, not collapsed into `(none)` — the key_fn is doing its work.
     (nevada,) = [b for b in reader.buckets if b.key == "Supreme Court of Nevada"]
-    # Reweighted: the sampled denial stands in for ten, so 11 cases not 2.
-    assert nevada.cases == 11
+    # The stored weight multiplies nothing: two rows, two cases, an even split.
+    assert reader.weighted is True
+    assert (nevada.cases, nevada.resolved) == (2, 2)
     shares = {str(d.disposition): d.share for d in nevada.dispositions}
-    assert shares[Disposition.denied.value] > shares[Disposition.granted.value]
-    # The statpack's sibling cut is raw over the same rows — that contrast is the
-    # reason the two specs exist separately.
+    assert shares == {Disposition.denied.value: 0.5, Disposition.granted.value: 0.5}
+    # The statpack's sibling cut, without the flag, counts the same rows.
     statpack = analytics.build_statpack(corpus_db_path=db)
     raw = next(
         s
@@ -480,7 +476,8 @@ def test_the_reader_cut_names_state_courts_and_reweights_them(tmp_path: Path) ->
         if s.title == "Petitions by originating court (incl. state courts)"
     )
     (raw_nevada,) = [b for b in raw.buckets if b.key == "Supreme Court of Nevada"]
-    assert raw_nevada.cases == 2
+    assert raw.weighted is False
+    assert raw_nevada.cases == nevada.cases == 2
 
 
 def _qp_corpus(db: Path) -> None:
@@ -597,9 +594,8 @@ def test_qp_topic_cut_buckets_primaries_over_the_labeled_rows_only(tmp_path: Pat
     pack = _pack(db, labels)
     assert pack.qp_topics is not None
     section = pack.qp_topics.section
-    # Same scope as the neighbouring cert cuts, and reweighted like every other
-    # section in this artifact — a raw share over the walker's sampled frame would
-    # misreport the topic mix exactly where denials dominate it.
+    # Same scope as the neighbouring cert cuts, and flagged weighted like every
+    # other section in this artifact.
     assert (section.court, section.cert_stage, section.live_slice, section.weighted) == (
         "scotus",
         True,
@@ -612,8 +608,8 @@ def test_qp_topic_cut_buckets_primaries_over_the_labeled_rows_only(tmp_path: Pat
     # `unclassifiable` is a bucket like any other — dropping it would inflate every
     # other share.
     assert [(b.key, b.cases) for b in section.buckets] == [
-        ("unclassifiable", 4),  # a sampled denial, reweighted
         ("criminal-law", 1),
+        ("unclassifiable", 1),  # stored with a weight of 4, counted once
     ]
     # The provenance a quoted share needs travels with it: who labeled, how well
     # they agreed with the reference rater, the rate a constant labeler would
@@ -724,8 +720,8 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
         "A naive share partly counts coordinated filing campaigns rather than subjects; "
         "no de-duplicated companion is published._" in md
     )
-    # Reweighted like every other section, so its denominators are estimates.
-    assert "| unclassifiable | 4 | 4 | 0 | denied 100.0% (est. n=4) |" in md
+    # Flagged weighted like every other section, so its denominators render `est. n=`.
+    assert "| unclassifiable | 1 | 1 | 0 | denied 100.0% (est. n=1) |" in md
     # Agreement, never accuracy, and never without the constant-labeler floor: on a
     # sixteen-label vocabulary most of any rate is the floor, and only the distance
     # from it is skill.
@@ -755,12 +751,11 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
 
 
 def test_qp_topic_cut_publishes_the_raw_rows_behind_every_bucket(tmp_path: Path) -> None:
-    # Every count in the table is denial-reweighted, so `est. n=` estimates the
-    # population a bucket's rows stand for and runs above the rows anyone read —
-    # here a single sampled denial at weight 4 renders as four cases. A bucket
-    # whose disposition split rests on one petition must not read as a rate, so
-    # the raw rows are published beside the estimate and the thin buckets are
-    # named. `scotus/101` is the reference-sourced row, so its bracket is 1.
+    # Every count in the table is the rows on hand — the single denial stored
+    # with a weight of 4 renders as one case. A bucket whose disposition split
+    # rests on one petition must not read as a rate, so the rows are published
+    # beside the table, reference-sourced ones bracketed, and the thin buckets
+    # are named. `scotus/101` is the reference-sourced row, so its bracket is 1.
     db = tmp_path / "corpus.db"
     _qp_corpus(db)
     labels = _qp_labels(
@@ -780,8 +775,8 @@ def test_qp_topic_cut_publishes_the_raw_rows_behind_every_bucket(tmp_path: Path)
         "rather than by the table's reweighted count — the raw view the reweighted "
         "`est. n=` above does not give: `criminal-law` 1 [1], `unclassifiable` 1 [0]." in md
     )
-    # The reweighted denominator the table prints for that one row, beside it.
-    assert "| unclassifiable | 4 | 4 | 0 | denied 100.0% (est. n=4) |" in md
+    # The denominator the table prints for that one row equals its support count.
+    assert "| unclassifiable | 1 | 1 | 0 | denied 100.0% (est. n=1) |" in md
     assert (
         "_Read the disposition split of `criminal-law`, `unclassifiable` as the rows "
         "themselves, not as a rate: under 10 rows on hand one petition moves it by tens of "
@@ -1317,9 +1312,9 @@ def test_topic_mix_splits_cert_merits_and_interim(tmp_path: Path) -> None:
     petitions = _qp_labels(
         tmp_path / "qp-topics.json",
         {
-            "scotus/101": "criminal-law",  # granted, weight 1
-            "scotus/102": "tax",  # sampled denial, weight 4
-            "scotus/103": "criminal-law",  # sampled denial, weight 4
+            "scotus/101": "criminal-law",  # granted
+            "scotus/102": "tax",  # denied, stored with a weight of 4
+            "scotus/103": "criminal-law",  # denied, stored with a weight of 4
         },
     )
     applications = _application_labels(
@@ -1337,14 +1332,15 @@ def test_topic_mix_splits_cert_merits_and_interim(tmp_path: Path) -> None:
     assert pack.topic_mix is not None
     stages = {stage.stage: stage for stage in pack.topic_mix.stages}
     assert list(stages) == ["cert", "merits", "interim"]
-    # Cert: every labeled petition, on the section's own reweighted counts.
+    # Cert: every labeled petition, on the section's own counts — each row
+    # once, so `cases` equals `rows` whatever weight a row stores.
     cert = stages["cert"]
-    assert (cert.cases, cert.rows, cert.vocabulary) == (9, 3, "qp-topic-v0")
+    assert (cert.cases, cert.rows, cert.vocabulary) == (3, 3, "qp-topic-v0")
     assert [(s.label, s.cases, s.rows) for s in cert.shares] == [
-        ("criminal-law", 5, 2),
-        ("tax", 4, 1),
+        ("criminal-law", 2, 2),
+        ("tax", 1, 1),
     ]
-    assert cert.shares[0].share == pytest.approx(5 / 9)
+    assert cert.shares[0].share == pytest.approx(2 / 3)
     # Merits: the granted subset only; a label with no grant does not appear.
     merits = stages["merits"]
     assert [(s.label, s.cases, s.share) for s in merits.shares] == [("criminal-law", 1, 1.0)]
@@ -1358,14 +1354,14 @@ def test_topic_mix_splits_cert_merits_and_interim(tmp_path: Path) -> None:
         ("immigration", 0.5),
         ("unclassifiable", 0.5),
     ]
-    # Every stage's scope string travels into the document with it.
+    # Every stage's scope string travels into the document with it, and a stage
+    # whose counts are its rows heads its column `n=`.
     rendered = analytics.render_docket_markdown(pack)
     assert "## Topic mix by stage" in rendered
     assert (
-        "| topic | cert (est. n=9; 3 rows) | merits (n=1) | interim (n=2) "
-        + "| interim, subject-bearing only |"
+        "| topic | cert (n=3) | merits (n=1) | interim (n=2) " + "| interim, subject-bearing only |"
     ) in rendered
-    assert "| tax | 44.4% (1) | — | — | — |" in rendered
+    assert "| tax | 33.3% (1) | — | — | — |" in rendered
     assert "| immigration | — | — | 50.0% (1) | 100.0% |" in rendered
     for stage in pack.topic_mix.stages:
         assert stage.scope_note in rendered

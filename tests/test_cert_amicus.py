@@ -239,6 +239,7 @@ def _segment_row(case_id: str, number: str, **kw: object) -> corpus.CorpusRow:
 
 
 def test_the_amicus_cut_buckets_the_paid_scored_segment(tmp_path: Path) -> None:
+    """Each row lands in one bucket and counts once, whatever `sample_weight` it stores."""
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -287,7 +288,7 @@ def test_the_amicus_cut_buckets_the_paid_scored_segment(tmp_path: Path) -> None:
         True,
     )
     assert {(b.key, b.cases, b.resolved) for b in section.buckets} == {
-        ("0", 5, 5),
+        ("0", 1, 1),  # stored with weight 5, counted once
         ("1", 1, 1),
         ("2+", 2, 1),
         ("(unknown)", 1, 1),

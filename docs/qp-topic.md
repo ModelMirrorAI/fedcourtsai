@@ -466,8 +466,8 @@ application inputs in place of the petition ones:
   seeded-hash draw of the applications not yet labeled, stratified on Term
   alone (an application has no fee class). It refuses a converged frame and a
   frame holding under the coverage floor of the block, as the petition extract
-  does. The frame fits under the row ceiling, so the first batch is the whole
-  frame.
+  does. The frame (about 2,200 rows) exceeds the row ceiling, so it accrues over
+  several batches.
 - `qp-topics --frame applications` measures the batch against the application
   block under the same agreement gate and coverage floor. A block member
   publishes its adjudicated label, never the labeler's, and every other row is
@@ -845,9 +845,9 @@ Three consequences bind every use of the set:
   is the thing to revisit if the extract ever carries more than this. The
   application extract (`qp-corpus --frame applications`) carries more, and the
   `qp-topic-label-applications` mode uploads it the same way. It is batched by
-  the petition extract's rule, but the frame fits under the row ceiling, so its
-  first batch carries the whole application frame (about 850 rows) and every
-  kept application text, a gate-refusing dispatch included, and it names the
+  the petition extract's rule, and the frame (about 2,200 rows) exceeds the row ceiling, so a batch carries
+  up to the ceiling's worth of the application frame and its
+  kept application texts, a gate-refusing dispatch included, and it names the
   full frame before any committed labels file does. It is accepted on the same
   footing for the same two reasons. The frame it names is the one the
   application labels file names. And what it carries is
@@ -1033,11 +1033,11 @@ the corpus is a **document-fetch artifact, not a sample**:
   (2026-08-08) — a fetch-state fact a later walk will change. Term-over-Term
   topic comparisons are unsafe.
 - QP-bearing rows are **grant-enriched by roughly an order of magnitude**
-  (the exact ratio varies by Term and by raw vs reweighted framing, and the
+  (the exact ratio varies by Term, and the
   newest Term's ratio is censored by still-pending petitions), and coverage
-  is far higher on paid dockets than IFP. Denial-reweighting therefore shifts
-  the observed mix toward the in-forma-pauperis stream and concentrates
-  `criminal-law`, `firearms`, `constitutional-rights`, and `unclassifiable`.
+  is far higher on paid dockets than IFP, so the labeled mix under-represents
+  the in-forma-pauperis stream, where `criminal-law`, `firearms`,
+  `constitutional-rights`, and `unclassifiable` concentrate.
 - **The labeled rows are the QP-bearing part of one frame, and it is the
   published cut's own frame.** `qp-corpus` selects the live/historical slice's
   modern discretionary-cert petitions — the same frame the docket pack's topic
@@ -1065,7 +1065,7 @@ the corpus is a **document-fetch artifact, not a sample**:
   than a statistical one.
 - **No reweighting recovers the docket.** Topics exist only for QP-bearing
   rows, and QP presence is itself outcome- and stream-correlated, so a
-  denial-reweighted topic share is still a share of *QP-bearing rows only* —
+  topic share over every stored row is still a share of *QP-bearing rows only* —
   the missingness is non-ignorable, and nothing in this repository turns the
   figure into a share of the docket.
 - Coordinated filing campaigns (near-identical petitions filed in clusters)
@@ -1093,8 +1093,8 @@ are quoted in. A **pooled** cut — the docket pack's, computed over the whole
 modern discretionary-cert live slice — states `<n> of <N> in-scope ingested rows
 labeled`: counts, because a pooled percentage against a census that spans Terms
 of 0% and 16% coverage reads as a coverage level no Term has, and *ingested*
-rather than *walked*, because the denial sampling puts the walked serial count
-several-fold above the rows on hand. A pooled cut must also say that coverage is
+rather than *walked*, because the cut counts the rows on hand and the walked
+serial count is a census of docket numbers. A pooled cut must also say that coverage is
 uneven across Terms, since its own ratio cannot show it.
 
 The word *labeled* is load-bearing, and the scope string carries two further
@@ -1152,17 +1152,16 @@ larger count overstates the factor — the direction a caveat may err in — so 
 publishes **as an upper bound** rather than as arithmetic over a population the
 draw never ran on. Either way it says outright that this mix is
 not the frame's while any of the frame is unlabeled. No reweighting in the pack
-corrects it: the denial reweighting corrects the *walker's* sampling, not the
-force-include. The unlabeled remainder is outstanding rather than excluded, and
+corrects it: each row counts once, the force-included rows among them.
+The unlabeled remainder is outstanding rather than excluded, and
 the distortion closes on its own as the frame clears. The measured factor closes
 with it, to 1.0x; the bound does not, since its denominator keeps counting rows
 no batch could reach, and a cut publishing the bound says so.
 
 Beside the table, each bucket publishes the **rows on hand** behind it and the
-reference-sourced share of them. Every count in the cut is denial-reweighted, so
-a bucket's `est. n=` estimates the population its rows stand for and runs above
-what anyone read — one sampled denial for ten — and on a frame this thin the
-smallest buckets are a handful of petitions rendering a two-figure denominator.
+reference-sourced share of them. Every count in the cut is a count of rows,
+each one petition, so a bucket's `est. n=` equals its rows on hand, and on a
+frame this thin the smallest buckets are a handful of petitions.
 A bucket under the same support floor the reference set uses per label is named
 outright as a split to read row by row rather than as a rate. The reference
 share is per bucket because it is not uniform across them: the block holds every
@@ -1263,8 +1262,8 @@ argument for leaving the ceiling where it is rather than for raising it: the
 clock cannot rise without the step cap rising first, the turn count varies by
 nearly two to one across two runs of the same size, and the next complete run's
 minutes are the number that would re-derive the headroom. The default,
-`claude-opus-5-5`, has not run a batch yet, so its first run, complete or
-cut off by the clock, is the one that measures its pace. The labeling
+`claude-opus-5-5`, has run complete batches on both frames, and a run's own
+minutes are what measure its pace. The labeling
 prompt states its budget as "whatever the extract holds" for the same reason —
 one number, in one place, and no second copy to drift.
 

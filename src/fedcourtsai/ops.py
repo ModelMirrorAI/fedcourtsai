@@ -274,9 +274,8 @@ def _deny_base_rate(statpack: StatPack | None) -> tuple[float | None, int | None
     The calibration anchor: the disposition breakdown restricted to modern
     Term-prefixed discretionary-cert dockets — matched by its **shape**
     (``cert_stage`` + disposition grouping), never its title, and computed
-    upstream over the live/historical slice with denial-reweighted counts, so
-    both numbers are estimates of the true population rather than raw ingested
-    rows. ``(None, None)`` when the statpack or its cert-stage disposition
+    upstream over the live/historical slice, each row counted once.
+    ``(None, None)`` when the statpack or its cert-stage disposition
     section is absent — the render shows an explicit absence rather than
     anchoring against the wrong population.
     """
@@ -298,7 +297,7 @@ def _segment_base_rate(statpack: StatPack | None) -> tuple[float | None, int | N
 
     The base rate for the population the salience gate actually predicts on —
     read from the statpack's pack-wide salience-band section (matched by its
-    ``salience_band`` grouping, denial-reweighted), grant family pooled across
+    ``salience_band`` grouping), grant family pooled across
     every band. This is the anchor a selected-segment prediction should beat, not
     the whole-docket rate: with a salience gate the predicted slice grants far
     more often than the ~few-percent full docket. ``(None, None)`` when the
@@ -610,8 +609,8 @@ def render_substance(digest: SubstanceDigest) -> str:
         lift = "—" if cal.lift_over_always_deny is None else f"{cal.lift_over_always_deny:+.1%}"
         cal_lines.append(
             f"Always-deny base rate **{cal.deny_base_rate:.0%}** "
-            f"(est. over {cal.base_rate_cases:,} resolved modern-cert petitions, "
-            "live/historical slice, denial-reweighted) · "
+            f"(over {cal.base_rate_cases:,} resolved modern-cert petitions, "
+            "live/historical slice) · "
             f"lift **{lift}** — a difference of rates over different "
             "populations (the accuracy's scored cells vs the whole modern-cert "
             "slice), so an orientation rather than an effect size"
@@ -620,8 +619,8 @@ def render_substance(digest: SubstanceDigest) -> str:
         skill = "—" if cal.mean_brier_skill is None else f"{cal.mean_brier_skill:+.3f}"
         cal_lines.append(
             f"Salience-scored segment base grant rate **{cal.segment_grant_rate:.0%}** "
-            f"(est. over {cal.segment_base_rate_cases:,} resolved paid-segment petitions, "
-            "denial-reweighted) · replay Brier skill vs baseline "
+            f"(over {cal.segment_base_rate_cases:,} resolved paid-segment petitions) "
+            "· replay Brier skill vs baseline "
             f"**{skill}**"
         )
     if cal_lines:

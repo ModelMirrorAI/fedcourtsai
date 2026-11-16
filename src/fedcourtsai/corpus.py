@@ -671,15 +671,13 @@ class CorpusRow(BaseModel):
     )
     sample_weight: int | None = Field(
         default=None,
-        description="Inverse inclusion probability of this row under the corpus's "
-        "construction: 1 where the corpus can show the row stands only for itself, "
-        "the legacy sampling interval for a denial the earlier historical walker kept by its "
-        "systematic serial sample whose block is still stored one row in ten — so a "
-        "weighted aggregate can multiply by it and count sampled denials at full "
-        "strength. A writing channel asserts certainty but does not decide the value: "
-        "the live-ingest seam re-derives it against the block. None means no channel "
-        "weighted the row: permanent on rows the live channel never wrote, "
-        "pre-capture within the live slice (backfilled by rule).",
+        description="How many petitions this row stands for under the corpus's "
+        "construction, which a weighted aggregate multiplies by: 1 on every row a "
+        "channel has weighted, since each decided petition is stored as its own row. "
+        "The live-ingest seam writes 1, a write at any other weight is refused, and "
+        "`validate-corpus` fails on a stored one. None means no channel weighted the "
+        "row: permanent on rows the live channel never wrote, pre-capture within the "
+        "live slice (back-filled to 1).",
     )
     predict_eligible: bool = Field(
         default=False,
@@ -1458,19 +1456,15 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
         "ELSE date_decided END) DESC, "
         "case_id)"
     )
-    # The sampling-weight rule reads every live-slice SCOTUS docket number to
-    # decide whether one grid denial's block is stored row by row
-    # (`pipeline.ingest.live_slice_serials`). The live slice is a small,
-    # slowly-growing minority of the SCOTUS rows, which are themselves a minority
-    # of the table — but the predicate is a NULL test on a column no index
-    # covered, so serving it meant visiting every SCOTUS row and pulling its full
-    # payload (opinion text included) to read one field. Holding exactly the live
-    # slice, in (court, docket_number) order, makes the read an ordered walk of a
-    # small covering index instead: the query never touches the table, which is
-    # the difference between tens of milliseconds and tens of seconds — and the
-    # rule runs per row at the live-ingest seam, not only in the back-fill's
-    # once-per-batch reading. Created here rather than in the base schema for the
-    # same reason as the index above: its partial predicate names a migrated
+    # The docket-number lookup reads the live slice's SCOTUS docket numbers
+    # before it pays for a scope walk (`LIVE_DOCKET_INDEX`). The live slice is a
+    # small, slowly-growing minority of the SCOTUS rows, but the predicate is a
+    # NULL test on a column no other index covers, so serving it from the table
+    # means visiting every SCOTUS row and pulling its full payload (opinion text
+    # included) to read one field. Holding exactly the live slice, in
+    # (court, docket_number) order, makes the read an ordered walk of a small
+    # covering index instead. Created here rather than in the base schema for
+    # the same reason as the index above: its partial predicate names a migrated
     # column, which a legacy table gains only in the loop above.
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_cases_live_docket ON cases(court, docket_number) "
@@ -2469,8 +2463,9 @@ def _update_clause(column: str) -> str:
     with ``'[]'`` in the role of ``unknown`` — an empty list only fills a gap,
     so a channel that maps no counsel keeps the live channel's per-side
     reading, while a non-empty one replaces it; ``sample_weight`` is a
-    min-latch (an inclusion probability is only ever learned upward, toward
-    weight 1); ``predict_excluded`` is owned by the scope reconcile (not an
+    min-latch (the smaller of the stored and the incoming weight is kept, and
+    a writer asserting none keeps the stored one); ``predict_excluded`` is
+    owned by the scope reconcile (not an
     ingestion fact), so an upsert keeps the stored value rather than resetting
     it to the model default; the ``salience_*`` columns (the salience
     selection pass) are owned on the same keep-stored rationale; and the
@@ -2606,10 +2601,9 @@ def _update_clause(column: str) -> str:
             f"ELSE excluded.{column} END"
         )
     if column == "sample_weight":
-        # An inclusion probability can only be learned upward (toward certainty):
-        # once any channel knows the row is included with P=1 (weight 1), a later
-        # walker re-serve of its sampled serial must not regress it to N — and a
-        # writer with no weight to assert (NULL) preserves the stored value.
+        # The smaller of the stored and the incoming weight is kept, so a row
+        # stored at 1 stays there, and a writer with no weight to assert (NULL)
+        # preserves the stored value.
         return (
             f"{column}=MIN("
             f"COALESCE(excluded.{column}, cases.{column}), "
@@ -7249,13 +7243,13 @@ def latest_snapshot_date(conn: ReadConnection) -> date | None:
 
 
 def legacy_sample_rows(conn: ReadConnection) -> dict[int, int]:
-    """SCOTUS rows still carrying a legacy sample weight, by October-Term year.
+    """SCOTUS rows stored at a ``sample_weight`` above 1, by October-Term year.
 
-    An early historical walk kept one IFP denial in ten and stored each at
-    ``sample_weight`` 10; a row returns to 1 only when a walk serves it again
-    with its neighbours stored. Re-walking a Term from its numbering base is
-    what completes it, so a Term's count reaching zero is the effect check that
-    its sample is complete. A row whose docket number parses to no Term is
+    Every stored row stands for one petition, so every writer stores weight 1,
+    a write at another weight is refused, and ``validate-corpus`` fails on a
+    stored one: the expected result is empty. A non-empty result names the
+    Terms holding the rows the validator fails on. A row whose docket number
+    parses to no Term is
     counted under ``0``. It reads every ``cases`` row, since no index covers
     the weight: over a ranged connection that is a full scan of the table.
     """

@@ -32,6 +32,7 @@ from fedcourtsai.pipeline.caption import (
     petitioner_class_v3,
     petitioner_class_v4,
     petitioner_class_v5,
+    petitioner_class_v6,
 )
 from fedcourtsai.schemas import Disposition
 
@@ -233,12 +234,14 @@ def test_the_registry_serves_each_rule_and_raises_on_an_unregistered_one() -> No
     assert caption_rule("caption-v3") is petitioner_class_v3
     assert caption_rule("caption-v4") is petitioner_class_v4
     assert caption_rule("caption-v5") is petitioner_class_v5
+    assert caption_rule("caption-v6") is petitioner_class_v6
     assert set(CAPTION_RULES) == {
         "caption-v1",
         "caption-v2",
         "caption-v3",
         "caption-v4",
         "caption-v5",
+        "caption-v6",
     }
     with pytest.raises(KeyError):
         caption_rule("caption-v0")

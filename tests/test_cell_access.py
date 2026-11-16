@@ -266,3 +266,141 @@ def test_a_published_forecast_hit_quotes_the_address_once_per_call() -> None:
     assert _audit(("WebFetch", f"{url} {url}")) == [
         AccessHit(kind=AccessKind.published_forecast, tool="WebFetch", path=url)
     ]
+
+
+_DISCLAIMER = (
+    "# Retrieval\n\nNo `data/qp-topics/` paths were queried or read, and no other "
+    + "predictor's output under predictions/claude-baseline/ or any evaluations/ tree."
+)
+
+
+@pytest.mark.parametrize(
+    ("tool", "query"),
+    [
+        # gemini's write_file, whole and cut at capture as a long content is
+        ("write_file", json.dumps({"file_path": f"{OWN}/retrieval.md", "content": _DISCLAIMER})),
+        (
+            "write_file",
+            json.dumps({"file_path": f"{OWN}/retrieval.md", "content": _DISCLAIMER + "x" * 500})[
+                :500
+            ],
+        ),
+        ("Write", json.dumps({"file_path": f"/w/{OWN}/retrieval.md", "content": _DISCLAIMER})),
+        ("write_file", json.dumps({"file_path": f"{OWN}/flags.json", "content": _DISCLAIMER})),
+        # a slice cut inside a predictions path the content names
+        (
+            "write_file",
+            json.dumps({"file_path": f"{OWN}/retrieval.md", "content": "x" * 600})[:480]
+            + " predictions/claude",
+        ),
+        (
+            "Edit",
+            json.dumps(
+                {"file_path": f"{OWN}/reasoning.md", "new_string": _DISCLAIMER, "old_string": "x"}
+            ),
+        ),
+        ("apply_patch", f"*** Begin Patch\n*** Add File: {OWN}/retrieval.md\n+{_DISCLAIMER}\n"),
+    ],
+)
+def test_what_a_cell_writes_into_its_own_run_directory_is_not_read_for_hidden_paths(
+    tool: str, query: str
+) -> None:
+    """A cell's own notes saying it read no hidden path name the path and reach nothing."""
+    assert _audit((tool, query)) == []
+
+
+@pytest.mark.parametrize(
+    ("tool", "query", "kinds"),
+    [
+        # the same content written anywhere but the cell's own run directory
+        (
+            "write_file",
+            json.dumps({"file_path": "/tmp/notes.md", "content": _DISCLAIMER}),
+            [AccessKind.oracle, AccessKind.cell_record, AccessKind.cell_record],
+        ),
+        (
+            "write_file",
+            json.dumps({"file_path": f"{CASE_DIR}/notes.md", "content": "data/qp-topics/ unread"}),
+            [AccessKind.oracle, AccessKind.write],
+        ),
+        # a path that only passes through the run directory
+        (
+            "write_file",
+            json.dumps({"file_path": f"{OWN}/../../x/1/a.md", "content": "data/qp-topics/ unread"}),
+            [AccessKind.oracle, AccessKind.write],
+        ),
+        # a patch touching one file outside the run directory is read whole
+        (
+            "apply_patch",
+            f"*** Add File: {OWN}/retrieval.md\n+data/qp-topics/ unread\n"
+            + "*** Add File: /tmp/b.md\n+x\n",
+            [AccessKind.oracle],
+        ),
+        # a path that carries the run directory's tail and is not it
+        (
+            "write_file",
+            json.dumps(
+                {"file_path": f"/tmp/predictions/{ACTOR}/{RUN}/x.md", "content": "data/qp-topics/"}
+            ),
+            [AccessKind.oracle],
+        ),
+        # a script is not one of the cell's documents
+        (
+            "Write",
+            json.dumps({"file_path": f"{OWN}/s.py", "content": "open('data/qp-topics/q.json')"}),
+            [AccessKind.oracle],
+        ),
+        # a patch header inside what a file tool wrote names no target
+        (
+            "write_file",
+            json.dumps({"content": f"*** Add File: {OWN}/x.md\n data/qp-topics/ "}),
+            [AccessKind.oracle],
+        ),
+        # a rename out of the run directory
+        (
+            "apply_patch",
+            f"*** Update File: {OWN}/a.md\n*** Move to: data/qp-topics/a.md\n",
+            [AccessKind.oracle, AccessKind.write],
+        ),
+        (
+            "apply_patch",
+            f"*** Update File: {OWN}/prediction.json\n"
+            + f"*** Move to: {CASE_DIR}/events/{EVENT}/predictions/claude-baseline/1/p.json\n",
+            [AccessKind.cell_record, AccessKind.write],
+        ),
+        # a wrapped patch, its newlines escaped, touching a second file
+        (
+            "apply_patch",
+            '{input:"*** Begin Patch\\n*** Add File: '
+            + f"{OWN}/retrieval.md"
+            + "\\n+x\\n*** Delete File: "
+            + f"{CASE_DIR}/events/{EVENT}/predictions/claude-baseline/1/p.json"
+            + '\\n"}',
+            [AccessKind.cell_record, AccessKind.write],
+        ),
+        # a write whose target the slice does not show
+        ("write_file", json.dumps({"content": "data/qp-topics/ unread"}), [AccessKind.oracle]),
+        # a shell is read whole wherever it writes
+        (
+            "run_shell_command",
+            f"cat > {OWN}/retrieval.md <<EOF\nNo data/qp-topics/ paths were read\nEOF",
+            [AccessKind.oracle],
+        ),
+        ("run_shell_command", "cat data/qp-topics/qp-topics.json", [AccessKind.oracle]),
+        # the target itself still counts
+        (
+            "write_file",
+            json.dumps({"file_path": f"{OWN}/qp-topics.json", "content": "x"}),
+            [AccessKind.oracle],
+        ),
+    ],
+)
+def test_only_an_own_run_file_write_is_read_by_its_target_alone(
+    tool: str, query: str, kinds: list[AccessKind]
+) -> None:
+    assert _kinds((tool, query)) == kinds
+
+
+def test_a_published_address_in_a_cells_own_notes_still_counts() -> None:
+    query = json.dumps({"file_path": f"{OWN}/retrieval.md", "content": "see https://fedcourts.ai/"})
+    assert _kinds(("write_file", query)) == [AccessKind.published_forecast]

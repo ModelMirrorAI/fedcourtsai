@@ -10,7 +10,8 @@ distribution, resolution-adjacent), reproduces the as-of conference cohorts,
 and runs the same selection core the live pass runs
 (:func:`fedcourtsai.pipeline.salience.plan_cohorts`). The report says what the
 gate *would have* selected then, and scores that selection against the
-realized grant-family outcomes with sample-weighted precision and recall.
+realized grant-family outcomes with precision and recall over rows, each
+counted once (the ``weighted_*`` field names are kept).
 
 Cells span **(Term x policy x salience version)**: every version in
 :data:`~fedcourtsai.pipeline.salience.SCORERS` scores a reconstruction built at
@@ -269,15 +270,13 @@ def _replay_cell(
         )
         > _capacity(conference, config)
     )
-    # The rank fill is a functional of the realized sample's cohort, so under
-    # legacy denial weights (a thinned cohort) it is not reweightable into a
-    # population estimate. This figure is the reader's check: the largest
-    # cohort's weighted non-carve-out mass against the capacity says whether
-    # the real cohort could have been cut where the sample was not.
+    # The reader's check on the rank fill: the largest cohort's count of
+    # non-carve-out rows, to set against the capacity. The field name is kept;
+    # each row counts once.
     largest_weighted_cohort = max(
         (
             sum(
-                float(member.sample_weight or 1)
+                1.0
                 for member in members
                 if not version.carve_out(member, scores[member.case_id], config.floor)
             )
@@ -293,7 +292,7 @@ def _replay_cell(
     raw_selected_granted = raw_granted = 0
     weighted_selected = weighted_selected_granted = weighted_granted = weighted_population = 0.0
     for real, _ in projected:
-        weight = float(real.sample_weight or 1)
+        weight = 1.0
         granted = granted_flag(Disposition(str(real.disposition))) == 1
         weighted_population += weight
         if granted:

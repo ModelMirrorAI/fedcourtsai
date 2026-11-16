@@ -797,6 +797,8 @@ kill, whose completion sentinel is pinned to this cell's own role, to a bounded
 resolution and to reaching the watchdog as environment rather than as a file the
 agent could rewrite, whose reaped cell must reach `AGENT_OK` (or the fix would
 convert destroyed work into demoted work) off a flag read from runner temp,
+whose tolerated engine steps are judged by one last step that fails the job for
+every ending but a success or a reap,
 whose deadline is one job-env value every engine step's `timeout-minutes`
 reads and the arm step derives the fire time from (held equal across both cell
 workflows and the repro leg, with the escalation inside the margin and the

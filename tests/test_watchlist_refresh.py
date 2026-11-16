@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from contextlib import nullcontext
 from datetime import UTC, date, datetime, timedelta
@@ -8,7 +9,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import casestore, corpus
 from fedcourtsai.ai_activity import activity_path
 from fedcourtsai.ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist
 from fedcourtsai.cli import app
@@ -22,6 +23,7 @@ from fedcourtsai.courtlistener import (
 from fedcourtsai.pipeline.ingest import from_api_docket, upsert_to_corpus
 from fedcourtsai.pipeline.watchlist_refresh import (
     OnboardDoesNotFit,
+    OnboardResume,
     PlannedRefresh,
     ReadMode,
     WatchlistRefreshReport,
@@ -419,7 +421,6 @@ def test_the_share_left_shrinks_by_what_each_refresh_spent(tmp_path: Path) -> No
 
 def test_a_run_stops_at_its_deadline_and_defers_the_rest(tmp_path: Path) -> None:
     db = _db(tmp_path)
-    ticks = iter([0.0, 5.0, 11.0])
     fake = FakeClient({n: [{"id": n}] for n in (1, 2, 3)})
     plan = [_planned(n, ReadMode.onboard) for n in (1, 2, 3)]
     report = refresh_watchlist(
@@ -430,7 +431,8 @@ def test_a_run_stops_at_its_deadline_and_defers_the_rest(tmp_path: Path) -> None
         today=TODAY,
         share=160,
         deadline=10.0,
-        clock=lambda: next(ticks),
+        # Six seconds a docket read: the third would start past the deadline.
+        clock=lambda: 6.0 * len(fake.counted),
     )
     assert [r.case_id for r in report.refreshed] == ["cand/1", "cand/2"]
     assert report.deferred == ["cand/3"]
@@ -487,7 +489,9 @@ def test_a_refused_docket_s_reason_names_the_limit_that_refused(tmp_path: Path) 
     assert report.failed["cand/1"] == (
         "HTTPStatusError: 429 Too Many Requests "
         + "[Retry-After 1800s; upstream said: Request was throttled. "
-        + "Rate limit exceeded: 300/hour.]"
+        + "Rate limit exceeded: 300/hour.] "
+        + "[last request: the docket; 0s since it was asked for, waits and resends included, "
+        + "0s into this docket's read]"
     )
     assert [r.case_id for r in report.refreshed] == ["cand/2"]
 
@@ -562,12 +566,463 @@ def test_a_long_onboard_refused_mid_read_waits_and_lands_whole(
     assert "Retry-After 51s" in unheld.failed["cand/7"]
 
 
+def test_a_read_that_times_out_says_which_page_and_how_long_it_took(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The real client under the refresh: one page of a long onboard never answers.
+
+    Upstream serves the count, the docket and two pages in a second each, then
+    times out on the third page however often the client sends it. The reason
+    names that page and its cursor, the time since it was first sent (every
+    resend's timeout) and the time the whole read had run.
+    """
+    get: Any = CourtListenerClient._get  # tenacity attaches the Retrying as `.retry`
+    monkeypatch.setattr(get.retry, "sleep", lambda _seconds: None)
+    now = 0.0
+    timed_out = 0
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal now, timed_out
+        params = dict(request.url.params)
+        if request.url.path.endswith("/dockets/7/"):
+            now += 1
+            return httpx.Response(200, json=_docket(7))
+        if params.get("count") == "on":
+            now += 1
+            return httpx.Response(200, json={"count": 100})
+        page = int(params.get("cursor", "1"))
+        if page == 3:
+            now += 30
+            timed_out += 1
+            raise httpx.ReadTimeout("The read operation timed out")
+        now += 1
+        entries = [{"id": page * 100 + n} for n in range(20)]
+        return httpx.Response(
+            200,
+            json={"results": entries, "next": f"{_API}docket-entries/?cursor={page + 1}&docket=7"},
+        )
+
+    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+    client._client = httpx.Client(base_url=_API, transport=httpx.MockTransport(handle))
+    db = _db(tmp_path)
+    with client:
+        report = refresh_watchlist(
+            client,
+            db,
+            [_planned(7, ReadMode.onboard)],
+            max_entry_pages=150,
+            today=TODAY,
+            share=160,
+            clock=lambda: now,
+        )
+    assert timed_out == 4
+    assert report.failed == {
+        "cand/7": "ReadTimeout: The read operation timed out "
+        + "[last request: page 3 of the entries, cursor 3; 120s since it was asked for, "
+        + "waits and resends included, 124s into this docket's read]"
+    }
+    with corpus.connect(db) as conn:
+        assert corpus.latest_snapshot(conn, "cand/7") is None
+
+
+class PagedUpstream:
+    """A mock upstream for one docket of ``pages`` pages, entries newest id first.
+
+    ``slow`` names pages that time out however often they are asked for;
+    ``added`` is entries the date-narrowed read serves; ``refuse_cursor`` makes
+    upstream answer any cursor with ``refusal``. Every request is recorded.
+    """
+
+    def __init__(self, docket_id: int, pages: int) -> None:
+        self.docket_id = docket_id
+        self.pages = pages
+        self.slow: set[int] = set()
+        self.added: list[dict[str, Any]] = []
+        self.refuse_cursor = False
+        self.refusal = 404
+        self.asked: list[str] = []
+
+    def entries(self, page: int) -> list[dict[str, Any]]:
+        top = (self.pages - page + 1) * 100
+        return [{"id": top - n, "description": f"entry {top - n}"} for n in range(20)]
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        if request.url.path.endswith(f"/dockets/{self.docket_id}/"):
+            self.asked.append("docket")
+            return httpx.Response(200, json=_docket(self.docket_id))
+        if params.get("count") == "on":
+            self.asked.append("count")
+            return httpx.Response(200, json={"count": self.pages * 20})
+        if "date_modified__gte" in params:
+            self.asked.append(f"since {params['date_modified__gte']}")
+            return httpx.Response(200, json={"results": self.added, "next": None})
+        if "cursor" in params and self.refuse_cursor:
+            self.asked.append("refused")
+            return httpx.Response(self.refusal, json={"detail": "Invalid cursor"})
+        page = int(params.get("cursor", "1"))
+        self.asked.append(f"page {page}")
+        if page in self.slow:
+            raise httpx.ReadTimeout("The read operation timed out")
+        following = (
+            f"{_API}docket-entries/?cursor={page + 1}&docket={self.docket_id}"
+            if page < self.pages
+            else None
+        )
+        return httpx.Response(200, json={"results": self.entries(page), "next": following})
+
+    def client(self) -> CourtListenerClient:
+        client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
+        client._client = httpx.Client(base_url=_API, transport=httpx.MockTransport(self.handle))
+        return client
+
+
+_RESUME = OnboardResume(overlap_days=2, max_age_days=14)
+_PARTIAL_KEY = "cand/7/onboard/partial.json"
+
+
+def _onboard(upstream: PagedUpstream, db: Path, today: date) -> WatchlistRefreshReport:
+    with upstream.client() as client:
+        return refresh_watchlist(
+            client,
+            db,
+            [_planned(upstream.docket_id, ReadMode.onboard)],
+            max_entry_pages=150,
+            today=today,
+            share=160,
+            resume=_RESUME,
+        )
+
+
+@pytest.fixture
+def store(monkeypatch: pytest.MonkeyPatch) -> casestore.InMemoryObjectTransport:
+    """An injected content store, and no backoff sleeps in the client's retries."""
+    get: Any = CourtListenerClient._get  # tenacity attaches the Retrying as `.retry`
+    monkeypatch.setattr(get.retry, "sleep", lambda _seconds: None)
+    transport = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(transport)
+    return transport
+
+
+def test_an_onboard_stopped_part_way_goes_on_from_its_kept_pages(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    """A five-page docket whose fourth page times out one day and answers the next."""
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=5)
+    upstream.slow = {4}
+    first = _onboard(upstream, db, TODAY)
+    assert first.refreshed == []
+    assert first.failed["cand/7"].endswith(
+        f"[kept 3 page(s) of entries, read since {TODAY}, for this docket's next onboard]"
+    )
+    assert "[last request: page 4 of the entries, cursor 4;" in first.failed["cand/7"]
+    kept = json.loads(store.objects[_PARTIAL_KEY])
+    assert (kept["kind"], kept["docket_id"], kept["pages"], kept["cursor"]) == (
+        "onboard-partial",
+        7,
+        3,
+        "4",
+    )
+    assert len(kept["entries"]) == 60
+    # The kept pages are not a snapshot, to the store's readers or the corpus's.
+    assert casestore.read_latest_snapshot(store, "cand/7") is None
+    with corpus.connect(db) as conn:
+        assert corpus.latest_snapshot(conn, "cand/7") is None
+        assert corpus.get_row(conn, "cand/7") is None
+
+    # The next day: one entry was filed since, and one kept entry was amended.
+    upstream.slow = set()
+    upstream.added = [
+        {"id": 900, "description": "filed since"},
+        {"id": 500, "description": "amended"},
+    ]
+    upstream.asked.clear()
+    following_day = TODAY + timedelta(days=1)
+    second = _onboard(upstream, db, following_day)
+    assert second.failed == {}
+    assert upstream.asked == [
+        "count",
+        "docket",
+        "page 4",
+        "page 5",
+        f"since {TODAY - timedelta(2)}",
+    ]
+    done = second.refreshed[0]
+    assert (done.entries, done.requests, done.resumed_pages) == (101, 5, 3)
+    assert second.as_json()["resumed"] == {"cand/7": 3}
+    with corpus.connect(db) as conn:
+        found = corpus.latest_snapshot(conn, "cand/7")
+    assert found is not None and found[0] == following_day
+    stored = found[1]["docket_entries"]
+    ids_stored = [e["id"] for e in stored]
+    assert ids_stored == sorted(ids_stored, reverse=True) and len(set(ids_stored)) == 101
+    assert ids_stored[0] == 900
+    assert next(e for e in stored if e["id"] == 500)["description"] == "amended"
+    # Every entry a whole read made in one go would hold is there.
+    assert {e["id"] for page in range(1, 6) for e in upstream.entries(page)} <= set(ids_stored)
+    # The kept pages are emptied, and an emptied object is nothing to go on from.
+    emptied = json.loads(store.objects[_PARTIAL_KEY])
+    assert "entries" not in emptied and emptied["cleared"] == following_day.isoformat()
+
+
+def test_a_resumed_onboard_that_stops_again_keeps_every_page_so_far(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=6)
+    upstream.slow = {3}
+    _onboard(upstream, db, TODAY)
+    upstream.slow = {5}
+    again = _onboard(upstream, db, TODAY + timedelta(days=1))
+    kept = json.loads(store.objects[_PARTIAL_KEY])
+    # Still dated from the first attempt: the closing read reaches back to it.
+    assert (kept["pages"], kept["cursor"], kept["started"]) == (4, "5", TODAY.isoformat())
+    assert f"[kept 4 page(s) of entries, read since {TODAY}," in again.failed["cand/7"]
+    assert "[last request: page 5 of the entries, cursor 5;" in again.failed["cand/7"]
+    upstream.slow = set()
+    last = _onboard(upstream, db, TODAY + timedelta(days=2))
+    assert [(r.entries, r.resumed_pages) for r in last.refreshed] == [(120, 4)]
+
+
+def test_a_resumed_onboard_is_sized_at_the_pages_still_owed(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=6)
+    upstream.slow = {5}
+    _onboard(upstream, db, TODAY)
+    upstream.slow = set()
+    planned = _planned(7, ReadMode.onboard)
+    # Six pages counted and four kept: two owed, the count's slack page, the
+    # closing read and the docket. A share one short of that does not start.
+    with upstream.client() as client, pytest.raises(OnboardDoesNotFit):
+        refresh_docket(
+            client, db, planned, max_entry_pages=150, today=TODAY, share_left=5, resume=_RESUME
+        )
+    with upstream.client() as client:
+        done = refresh_docket(
+            client, db, planned, max_entry_pages=150, today=TODAY, share_left=6, resume=_RESUME
+        )
+    assert (done.entries, done.requests) == (120, 5)
+
+
+def test_kept_pages_past_their_age_or_for_another_docket_are_not_used(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.slow = {3}
+    _onboard(upstream, db, TODAY)
+    upstream.slow = set()
+    upstream.asked.clear()
+    late = _onboard(upstream, db, TODAY + timedelta(days=15))
+    assert upstream.asked == ["count", "docket", "page 1", "page 2", "page 3"]
+    assert [(r.entries, r.resumed_pages) for r in late.refreshed] == [(60, 0)]
+
+    for index, unusable in enumerate(
+        (
+            {"kind": "onboard-partial", "version": 1, "docket_id": 8, "pages": 1, "cursor": "2"},
+            {"kind": "onboard-partial", "version": 2, "docket_id": 7, "pages": 1, "cursor": "2"},
+            {"kind": "onboard-partial", "version": 1, "docket_id": 7, "pages": 0, "cursor": "2"},
+            {"kind": "onboard-partial", "version": 1, "docket_id": 7, "pages": 1, "cursor": ""},
+            {"id": 7, "docket_entries": []},
+            {
+                "kind": "onboard-partial",
+                "version": 1,
+                "docket_id": 7,
+                "pages": 1,
+                "cursor": "2",
+                "entries": [{"description": "no id"}],
+            },
+        )
+    ):
+        other = tmp_path / f"unusable-{index}"
+        casestore.write_onboard_partial(
+            store, "cand/7", {"started": TODAY.isoformat(), "entries": [], **unusable}
+        )
+        upstream.asked.clear()
+        whole = _onboard(upstream, _db(other), TODAY)
+        assert upstream.asked == ["count", "docket", "page 1", "page 2", "page 3"], unusable
+        assert whole.refreshed[0].resumed_pages == 0
+        # Pages no onboard will go on from do not outlive the docket's first snapshot.
+        assert "entries" not in json.loads(store.objects[_PARTIAL_KEY])
+    store.objects[_PARTIAL_KEY] = b"not json"
+    assert _onboard(upstream, _db(tmp_path / "raw"), TODAY).refreshed[0].entries == 60
+
+
+def test_kept_pages_whose_cursor_upstream_refuses_are_dropped(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.slow = {3}
+    _onboard(upstream, db, TODAY)
+    upstream.slow, upstream.refuse_cursor = set(), True
+    upstream.refusal = 403
+    forbidden = _onboard(upstream, db, TODAY + timedelta(days=1))
+    # A refusal of the caller is not a refusal of the cursor: the pages stay.
+    assert "dropped" not in forbidden.failed["cand/7"]
+    assert json.loads(store.objects[_PARTIAL_KEY])["pages"] == 2
+    upstream.refusal = 404
+    refused = _onboard(upstream, db, TODAY + timedelta(days=1))
+    assert refused.refreshed == []
+    assert refused.failed["cand/7"].endswith(
+        "[the kept pages' cursor was refused; they are dropped]"
+    )
+    assert "entries" not in json.loads(store.objects[_PARTIAL_KEY])
+    upstream.refuse_cursor = False
+    upstream.asked.clear()
+    whole = _onboard(upstream, db, TODAY + timedelta(days=2))
+    assert upstream.asked == ["count", "docket", "page 1", "page 2", "page 3"]
+    assert whole.refreshed[0].entries == 60
+
+
+def test_an_onboard_the_share_stops_keeps_its_pages_and_says_so_in_the_stop_reason(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=4)
+    served = upstream.handle
+
+    def share_spent_at_page_three(request: httpx.Request) -> httpx.Response:
+        if dict(request.url.params).get("cursor") == "3":
+            raise RateBudgetExceeded("lane share spent")
+        return served(request)
+
+    monkeypatch.setattr(upstream, "handle", share_spent_at_page_three)
+    report = _onboard(upstream, db, TODAY)
+    assert report.failed == {} and report.deferred == ["cand/7"]
+    assert report.stop_reason == (
+        "lane share spent "
+        + f"[kept 2 page(s) of entries, read since {TODAY}, for this docket's next onboard]"
+    )
+    assert json.loads(store.objects[_PARTIAL_KEY])["cursor"] == "3"
+
+
+def test_a_docket_with_a_row_and_no_snapshot_goes_on_from_kept_pages_too(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    """Planned incremental, but nothing stored to merge into: the read becomes an onboard."""
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.slow = {3}
+    _onboard(upstream, db, TODAY)
+    upstream.slow = set()
+    upstream.asked.clear()
+    since = TODAY - timedelta(days=3)
+    with upstream.client() as client:
+        done = refresh_docket(
+            client,
+            db,
+            PlannedRefresh("cand", 7, ReadMode.incremental, TODAY - timedelta(days=1), since),
+            max_entry_pages=150,
+            today=TODAY,
+            resume=_RESUME,
+        )
+    assert upstream.asked == ["docket", "count", "page 3", f"since {TODAY - timedelta(2)}"]
+    assert (done.mode, done.entries, done.resumed_pages) == (ReadMode.onboard, 60, 2)
+
+
+def test_a_closing_read_that_fails_keeps_the_whole_read_and_owes_only_itself(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.slow = {2}
+    _onboard(upstream, db, TODAY)
+    upstream.slow = set()
+    served = upstream.handle
+
+    def closing_read_down(request: httpx.Request) -> httpx.Response:
+        if "date_modified__gte" in dict(request.url.params):
+            return httpx.Response(502)
+        return served(request)
+
+    monkeypatch.setattr(upstream, "handle", closing_read_down)
+    failed = _onboard(upstream, db, TODAY + timedelta(days=1))
+    assert failed.refreshed == []
+    kept = json.loads(store.objects[_PARTIAL_KEY])
+    assert (kept["pages"], kept["cursor"], len(kept["entries"])) == (3, None, 60)
+    monkeypatch.setattr(upstream, "handle", served)
+    upstream.asked.clear()
+    done = _onboard(upstream, db, TODAY + timedelta(days=2))
+    assert upstream.asked == ["count", "docket", f"since {TODAY - timedelta(2)}"]
+    assert [(r.entries, r.resumed_pages) for r in done.refreshed] == [(60, 3)]
+
+
+def test_a_malformed_entry_is_never_kept(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    monkeypatch.setattr(
+        upstream,
+        "entries",
+        lambda page: [{"description": "no id"}] if page == 2 else [{"id": page}],
+    )
+    report = _onboard(upstream, db, TODAY)
+    assert report.failed["cand/7"].startswith("KeyError")
+    kept = json.loads(store.objects[_PARTIAL_KEY])
+    assert (kept["pages"], kept["cursor"], kept["entries"]) == (1, "2", [{"id": 1}])
+
+
+def test_a_run_that_may_not_write_the_store_keeps_nothing_and_reads_whole(tmp_path: Path) -> None:
+    """No content store: the read fails as it did, and leaves nothing behind."""
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.slow = {3}
+    get: Any = CourtListenerClient._get
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(get.retry, "sleep", lambda _seconds: None)
+        report = _onboard(upstream, db, TODAY)
+    assert "kept" not in report.failed["cand/7"]
+    assert casestore.active_transport() is None
+
+
+def test_a_refresh_names_each_request_it_sends(tmp_path: Path) -> None:
+    db = _db(tmp_path)
+    fake = FakeClient({1: [{"id": 1}]}, changed={1: []}, pages=2)
+    steps: list[str] = []
+    refresh_docket(
+        _client(fake),
+        db,
+        _planned(1, ReadMode.onboard),
+        max_entry_pages=150,
+        today=TODAY,
+        on_step=steps.append,
+    )
+    assert steps == [
+        "the entry count",
+        "the docket",
+        "page 1 of the entries",
+        "page 2 of the entries",
+    ]
+    steps.clear()
+    since = TODAY - timedelta(days=3)
+    refresh_docket(
+        _client(fake),
+        db,
+        PlannedRefresh("cand", 1, ReadMode.incremental, TODAY, since),
+        max_entry_pages=150,
+        today=TODAY,
+        on_step=steps.append,
+    )
+    assert steps == [
+        "the docket",
+        f"page 1 of the entries changed since {since}",
+        f"page 2 of the entries changed since {since}",
+    ]
+
+
 def test_a_malformed_entry_fails_its_docket_only(tmp_path: Path) -> None:
     db = _db(tmp_path)
     fake = FakeClient({1: [{"description": "no id"}], 2: [{"id": 2}]})
     plan = [_planned(n, ReadMode.onboard) for n in (1, 2)]
     report = refresh_watchlist(_client(fake), db, plan, max_entry_pages=150, today=TODAY, share=160)
     assert list(report.failed) == ["cand/1"] and report.failed["cand/1"].startswith("KeyError")
+    # Raised after the page answered: the reason places it by the last request, no cursor.
+    assert "[last request: page 1 of the entries; 0s since" in report.failed["cand/1"]
     assert [r.case_id for r in report.refreshed] == ["cand/2"]
 
 

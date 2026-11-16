@@ -17,6 +17,9 @@ identifiers:
   - type: doi
     value: 10.5281/zenodo.22966597
     description: "The prereg/proc-v8 pre-registration, archived on Zenodo."
+  - type: doi
+    value: 10.5281/zenodo.23263986
+    description: "The results/ot2026-longconf release's dataset, archived on Zenodo."
 repository-code: "https://github.com/ModelMirrorAI/fedcourtsai"
 url: "https://fedcourts.ai"
 license: BSD-3-Clause

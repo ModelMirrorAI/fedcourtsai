@@ -298,8 +298,8 @@ def _seed_replay_corpus(corpus_root: Path) -> Path:
 
     - scotus/1: granted after three distributions (2 relists -> high band, a
       floor carve-out at resolution).
-    - scotus/2: denied after one distribution, sample_weight 10 (the weighted
-      denial the precision arithmetic turns on).
+    - scotus/2: denied after one distribution, stored with sample_weight 10
+      (the row that pins every row counting once, whatever weight it stores).
     - scotus/3: granted after one distribution (a grant the gate misses at
       capacity 1 -> recall below 1).
     - scotus/4: denied with no distribution at all (no resolution cutoff ->
@@ -444,7 +444,7 @@ def test_distribution_1_replay_cohorts_on_the_first_conference(tmp_path: Path) -
     # All baseline, so no carve-out; capacity 1 fills by case_id tie-break.
     assert (cell.selected, cell.selected_carve_out, cell.selected_rank_fill) == (1, 0, 1)
     assert cell.capacity_bound_cohorts == 1
-    assert cell.largest_weighted_cohort == 12.0  # 1 + 10 + 1, all non-carve-out
+    assert cell.largest_weighted_cohort == 3.0  # three rows, each once, all non-carve-out
 
 
 def test_the_report_spans_term_by_policy_by_registered_version(tmp_path: Path) -> None:
@@ -475,7 +475,7 @@ def test_the_report_spans_term_by_policy_by_registered_version(tmp_path: Path) -
         assert len({tuple(sorted(c.provenance.items())) for c in same_moment}) == 1
 
 
-def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Path) -> None:
+def test_resolution_replay_selects_the_carveout_and_counts_each_row_once(tmp_path: Path) -> None:
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
     assert report.salience_version == SALIENCE_VERSION
@@ -487,14 +487,16 @@ def test_resolution_replay_selects_the_carveout_and_scores_weighted(tmp_path: Pa
     assert cell.cohorts == 2  # Feb 16 (scotus/2, scotus/3) and Mar 1 (scotus/1)
     assert (cell.selected, cell.selected_carve_out, cell.selected_rank_fill) == (2, 1, 1)
     assert cell.capacity_bound_cohorts == 1  # only Feb 16's rank fill actually cut
-    assert cell.largest_weighted_cohort == 11.0  # Feb 16's non-carve-out weighted mass
-    # Weighted precision: the weight-10 denial dominates the selected slice's
-    # denominator — (1) / (1 + 10) — while raw counts stay readable beside it.
+    assert cell.largest_weighted_cohort == 2.0  # Feb 16's two non-carve-out rows
+    # The denial stored with weight 10 counts once, so every weighted figure
+    # equals the raw count beside it and precision is 1 / (1 + 1).
     assert cell.selected_granted == 1 and cell.realized_granted == 2
-    assert cell.weighted_selected == 11.0 and cell.weighted_selected_granted == 1.0
-    assert cell.precision == pytest.approx(1 / 11)
+    assert cell.weighted_selected == cell.selected == 2
+    assert cell.weighted_selected_granted == cell.selected_granted == 1
+    assert cell.weighted_granted == cell.realized_granted == 2
+    assert cell.precision == pytest.approx(1 / 2)
     assert cell.recall == pytest.approx(1 / 2)  # scotus/3's grant is missed
-    assert cell.weighted_population == 13.0  # 1 + 10 + 1 + 1
+    assert cell.weighted_population == 4.0  # the four projected rows, each once
 
 
 def test_an_untrusted_cutoff_degrades_to_blind(tmp_path: Path) -> None:
@@ -640,7 +642,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     attribute to the scorer.
 
     The parse is the one axis that splits the reconstruction rather than riding
-    it: the active sal-v8 and the registered sal-v4, sal-v5, sal-v6 and sal-v7 pin
+    it: the active sal-v8 and the registered sal-v4, sal-v5, sal-v6, sal-v7 and sal-v9 pin
     `dist-v2` and share one projection, apart from the four `dist-v1` versions.
     Its projection-derived counts still match theirs — a parse changes
     the *count* read off a docket, never which dockets the frame holds or which
@@ -660,19 +662,20 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         "sal-v5",
         "sal-v6",
         "sal-v7",
+        "sal-v9",
     ]
     assert report.salience_versions == versions
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 9  # one (term, policy) cell x 9 registered versions
+    assert report.cells_evaluated == 10  # one (term, policy) cell x 10 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
     assert set(by_version) == set(versions)
-    active, toy, v1, v2, v3, v4, v5, v6, v7 = (by_version[v] for v in versions)
+    active, toy, v1, v2, v3, v4, v5, v6, v7, v9 = (by_version[v] for v in versions)
     # Each cell records the parse its reconstruction was counted under.
-    assert {c.distribution_parse for c in (active, v4, v5, v6, v7)} == {"dist-v2"}
+    assert {c.distribution_parse for c in (active, v4, v5, v6, v7, v9)} == {"dist-v2"}
     assert {c.distribution_parse for c in (toy, v1, v2, v3)} == {"dist-v1"}
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1, v2, v3, v4, v5, v6, v7):
+    for other in (toy, v1, v2, v3, v4, v5, v6, v7, v9):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
@@ -687,6 +690,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     assert set(v4.bands) <= caption_bands
     assert set(v6.bands) <= caption_bands
     assert set(v7.bands) <= caption_bands
+    assert set(v9.bands) <= caption_bands
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
@@ -699,6 +703,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         == sum(v4.bands.values())
         == sum(v6.bands.values())
         == sum(v7.bands.values())
+        == sum(v9.bands.values())
     )
 
 

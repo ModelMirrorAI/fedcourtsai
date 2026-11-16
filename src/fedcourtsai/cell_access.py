@@ -34,6 +34,18 @@ where a search can find them:
   carry no address. The project's own User-Agent string, which cites the
   repository's address, is no access and is stripped first.
 
+A file tool's write of a document into the cell's own run directory is read by
+its target alone. What it wrote there is the cell's own output, where a
+sentence saying that no ``data/qp-topics/`` path was read names the path
+without any call having opened it; so the oracle and cell-record patterns are
+matched over the target path and not over the written content. That holds only
+when every target the slice shows is a ``.md`` or ``.json`` file under the
+cell's own run directory, named in full from ``data/cases/``: a file tool
+writing anywhere else or any other kind of file, one whose target the slice
+does not show, and every shell call, a heredoc into the run directory included,
+are read whole. The published-forecast patterns read the whole slice either
+way.
+
 A path named only to exclude it — ``find … -not -path 'data/qp-topics/*'``,
 ``--exclude``, a ``!`` glob, a ``:(exclude)`` pathspec, a ``-prune`` — is no
 access, and is stripped before matching. An inverted ``grep -v`` is not an
@@ -57,7 +69,10 @@ event, so a write into another case of the same run is caught only when its
 path is written out in full. A published-forecast hit is read from what the
 call asked for, never from what came back: a search worded for something else
 whose results carry a forecast names nothing here, and only the cell's own
-disclosure shows it; a hosted search whose query the engine did not log shows
+disclosure shows it; the documents a file tool wrote into the cell's own run
+directory are not read for a hidden path, so one written there to be run as a
+script (``bash retrieval.md``) names nothing, and neither does the call that
+runs it; a hosted search whose query the engine did not log shows
 nothing either; a forecast published anywhere but the project's own hosts
 is outside the patterns; and an exclusion is not read as one here, so a search
 that names the site only to leave it out (``-site:``) still counts. A hit is
@@ -145,7 +160,12 @@ _GLOB = re.compile(r"[*?\[{]")
 # mid-object, so a target key is also looked for as text.
 _PATH_FIELD = re.compile(rf'"(?:{"|".join(PATH_KEYS)})"\s*:\s*"([^"]+)"')
 # codex's apply_patch names each file it touches on a header line.
-_PATCH_TARGET = re.compile(r"\*\*\* (?:Add|Update|Delete) File: (\S+)")
+# A rename's destination sits on its own header. A patch captured inside a JSON
+# or code-mode wrapper spells its newlines as a backslash escape, so a target
+# stops at a backslash or a quote.
+_PATCH_TARGET = re.compile(r"""\*\*\* (?:(?:Add|Update|Delete) File|Move to): ([^\s\\"']+)""")
+# What a cell's own outputs are: its prose and its JSON artifacts.
+_DOCUMENT_SUFFIXES = (".md", ".json")
 # A shell redirection's or tee's target. `2>&1` and `>&2` are not files.
 _REDIRECT = re.compile(r"(?<![0-9&<>])>>?\s*(?!&)([^\s;&|<>)]+)")
 _TEE = re.compile(r"\btee\s+(?:-a\s+)?([^\s;&|<>)]+)")
@@ -256,6 +276,50 @@ def _write_targets(call: RetrievalCall) -> list[str]:
     return [*_REDIRECT.findall(text), *_TEE.findall(text)]
 
 
+def _own_document(path: str, own: _OwnRun) -> bool:
+    """Whether ``path`` is a document in this cell's own run directory, named in full."""
+    path = posixpath.normpath(path)
+    run_dir = (
+        f"data/cases/{own.case_id}/events/{own.event_id}/predictions/{own.actor_id}/{own.run_id}/"
+    )
+    head, found, _ = path.partition(run_dir)
+    return (
+        bool(found)
+        and (not head or head.endswith("/"))
+        and not head.startswith(("/dev/", "/tmp/"))
+        and "data/" not in head
+        and path.endswith(_DOCUMENT_SUFFIXES)
+    )
+
+
+def _lane_text(call: RetrievalCall, own: _OwnRun) -> tuple[str, bool]:
+    """The part of a call's slice the hidden-path patterns read, and whether it is the whole.
+
+    The whole slice, but for a file tool whose every shown target is a document
+    in the cell's own run directory: there the targets alone, since the rest is
+    the cell's own output rather than a path the call reached for. A patch's
+    targets are its headers; any other file tool's are its path keys, so text
+    shaped like a patch header inside what it wrote is not taken for one.
+    """
+    text = call.query or ""
+    if neutral_tool_class(call.tool) != "file-write":
+        return text, True
+    if call.tool.lower() == "apply_patch":
+        targets = _PATCH_TARGET.findall(text)
+    else:
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            targets = _PATH_FIELD.findall(text)
+        else:
+            if not isinstance(parsed, dict):
+                return text, True
+            targets = [str(parsed[key]) for key in PATH_KEYS if isinstance(parsed.get(key), str)]
+    if targets and all(_own_document(path, own) for path in targets):
+        return " ".join(targets), False
+    return text, True
+
+
 def _guarded_write(path: str, own: _OwnRun) -> bool:
     path = posixpath.normpath(path)
     if path.startswith(("/dev/", "/tmp/")):
@@ -281,11 +345,13 @@ def audit_cell_access(
             continue
         found: list[tuple[AccessKind, str]] = []
         if _touches_tree(call):
-            text = _strip_exclusions(call.query)
-            found += [(AccessKind.oracle, path) for path in _ORACLE.findall(text)]
-            cut = len(call.query) >= QUERY_CAP
-            found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
             targets = [path.strip("'\"`") for path in _write_targets(call)]
+            lane_text, whole = _lane_text(call, own)
+            text = _strip_exclusions(lane_text)
+            found += [(AccessKind.oracle, path) for path in _ORACLE.findall(text)]
+            # Only a slice read whole can end mid-path where the capture cut it.
+            cut = whole and len(call.query) >= QUERY_CAP
+            found += [(AccessKind.cell_record, path) for path in _record_reads(text, own, cut=cut)]
             found += [(AccessKind.write, path) for path in targets if _guarded_write(path, own)]
         found += [(AccessKind.published_forecast, host) for host in _forecast_hosts(call)]
         hits += [

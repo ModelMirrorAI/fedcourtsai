@@ -73,7 +73,7 @@ holds it. Every workflow that binds an environment (every row above but
 `src/fedcourtsai/run_gate.py` by path from a sparse checkout of itself and its
 allow-list: a dispatch proceeds only for a human `config/dispatchers.json`
 names, or for the pipeline bot it allows for that workflow (the dispatch App,
-for `run-predict` alone); a re-run of any run, scheduled ones included, only
+for `run-predict`, `run-pull` and `integration-test`); a re-run of any run, scheduled ones included, only
 for such a human; a first attempt only for a dispatch, `schedule`, `push` or
 `pull_request`. Every other job needs that job and ends its condition with the
 same guard, which also re-checks a re-run of *some* jobs — that keeps the
@@ -3292,9 +3292,9 @@ in-flight, so a fortnight left parked blocks every promotion until it is
 released or rejected. Reject it rather than leaving it pending when a batch is
 waiting.
 
-What a release costs is a campaign's worth of paid cells — roughly $70–90 at the
+What a release costs is a campaign's worth of paid cells — roughly $90 at the
 cron's pinned `--limit` of ten petitions across three engines, on the order of
-$2K a year at 26 releases. The ex-post spend backstop sees none of it: the
+$2.3K a year at 26 releases. The ex-post spend backstop sees none of it: the
 back-test's **scratch-tree** replay writes no `usage.json`, so the ledger the
 ceiling reads stays flat while the campaign spends — unlike a committed replay
 cell, which lands on that ledger like any other. What bounds this lane is the
@@ -4344,6 +4344,11 @@ sits below the job cap (65), so a run that overruns trips the *step* — not the
 job. A step timeout (or a max-turns stop) fails only that step and leaves the
 runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
+Every engine step is `continue-on-error`, and the job's conclusion is decided
+by its last step before the log replay, *Conclude the cell*: it fails the job
+for any engine step that did not succeed, with one exception, a step the
+watchdog reaped (below). So a timeout or a max-turns stop still concludes the
+job red, after the tail has run.
 
 The value is measured, not guessed. Across every completed engine step of
 `run-predict` and `run-evaluate` on `main` from 2026-08-01 to 2026-10-06 — 1,548
@@ -4505,7 +4510,13 @@ where the runner has no `python3` to parse with, the sentinel stands down and
 says so, leaving the deadline as the only bound. The step concludes, the tail runs, `status.json` records
 produced+validated, and `collect` picks the cell up as **ready** — a reaped step
 is counted as an agent that finished, because the watchdog only ever reaps one
-that did. The parse is deliberately all the sentinel asks: schema truth is the
+that did. The job concludes green on the same reading: *Conclude the cell*
+excuses a reaped engine step, so a run whose every cell landed its work does
+not report a failed lane for the manner of one step's ending, and the reap
+stays visible on the run as the disarm step's warning annotation and its
+section of the job summary, with the `REAPED` marker in the cell artifact for
+as long as the artifact is retained. Nothing committed records a reap, so a
+count of reaps over time is a read of run annotations. The parse is deliberately all the sentinel asks: schema truth is the
 tail's `validate`, which routes a malformed cell to the draft PR, and that is
 strictly better than the job cap destroying it.
 

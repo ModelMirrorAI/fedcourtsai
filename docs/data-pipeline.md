@@ -122,8 +122,15 @@ onboard can leave some of these to the next run, which reads from their own
 last refresh. Whole reads take what is left. Further onboards are each sized
 first by upstream's count of the docket's entries (one request; the page cap
 without one) and start only when the share left covers that many pages and
-the docket, because a read the share cut off would write nothing for what it
-spent. So the list onboards a docket each run whose lead read succeeds, and
+the docket, so the share does not cut one off. An onboard that stops part-way,
+on a page that times out, a refusal or the share running out, keeps the pages it read in the content
+store as the docket's `onboard/partial.json`, and the docket's next onboard
+goes on from the page it stopped at: it is sized at the pages still owed and
+closes with a read of the entries changed since the day the first attempt
+began, less the incremental read's overlap, laid over the kept pages by id. Kept pages are working state, never a
+snapshot; they are ignored once older than
+`watchlist_refresh.onboard_resume_max_age_days` and emptied when the docket's
+first snapshot is stored. So the list onboards a docket each run whose lead read succeeds, and
 every other one whose count the rest of the share covers; a docket the count
 puts past the page cap fails on the count alone. The other whole read is a
 weekly re-read on
@@ -176,7 +183,7 @@ era (OT2017+; see [live-sources.md](live-sources.md)). The channel charters:
 - **Historical loading is the historical Term walker**
   (`fedcourts historical-terms`, the `run-seed` workflow) — the
   same client, identity, and ingest seams as the forward poller, landing the
-  sampled decided set for the statpack's per-Term base rates and the cert
+  decided set for the statpack's per-Term base rates and the cert
   back-test set.
 - **Pull is targeted enrichment.** The live channel owns SCOTUS freshness;
   pull's REST budget keeps the tracked set's CourtListener records current.
@@ -927,13 +934,13 @@ refusal is a counted line in the run's report.
 
 Its **scope is its budget argument**. The pass walks the cert-granted SCOTUS
 slice only — rows carrying `date_cert_granted`, which is grants and GVRs
-together: ≈1,230 all-time (1,232 on the corpus blob pulled 2026-09-14) and
+together: ≈1,280 all-time (1,282 on the corpus blob pulled 2026-11-16) and
 ≈120–130 a Term — at up to four REST requests a
 case resolved by docket number (docket, cluster list, the docket that cluster
 names, opinion) and three by the docket route (docket, cluster, opinion),
 dropping to two on the rare row whose newest snapshot is REST-shaped rather
 than the live channel's, and to two on a case neither route resolves. So
-≈5,000 requests bounds a sweep of the standing backlog in which every case
+≈5,100 requests bounds a sweep of the standing backlog in which every case
 reaches its opinion, and ≈520 a Term bounds a
 Term's new grants, against the held
 Tier-4 ceiling of 1,400/day of which the four daily pull windows commit ≈360
@@ -1313,8 +1320,7 @@ shared with the ledger models.
 - **Base-rate aggregation** — `fedcourts stats` on demand, and the published
   **statpack** (`fedcourts statpack` → `metrics/statpack.{json,md}`, kept fresh
   by `run-analytics`'s weekly metrics-refresh job); its cert statistics count
-  each live/historical-slice row `sample_weight` times, so denials the earlier
-  sampled walk kept at a higher weight never bias a published rate, and the
+  each live/historical-slice row once, as the one petition it is, and the
   per-Term array carries the
   cursor-derived filings census and walk-complete flags. The **docket pack**
   (`fedcourts docket` → `metrics/docket.{json,md}`) is the court-facing cut of
@@ -1837,6 +1843,10 @@ two thirds newest decision first and the rest rotated through the older rows,
 and a class above `opinion_record_ceiling` refused
 whole by the writer. The dispatched pass stays pinned to OT2018–OT2025 under a
 maintainer's bound.
+
+A sixth is `ocr-recovery`: run-seed's window runs it as the same split
+(`ocr-recover-petitions --sweep`), at most `historical.sweep_caps.ocr` documents a window,
+and the dispatched pass drains the class under a maintainer's bound.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural

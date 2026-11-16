@@ -872,19 +872,19 @@ class AmicusLineCell(_Strict):
         ge=0, description="Resolved rows in the risk set whose stored count is 0 (raw count)"
     )
     none_weighted_resolved: int = Field(
-        ge=0, description="The same rows, each counted `sample_weight` times"
+        ge=0, description="The same count of rows as the field before it; the name is kept"
     )
     none_weighted_grants: int = Field(
-        ge=0, description="The grant-family rows among them, on the same weights"
+        ge=0, description="The grant-family rows among them, each counted once"
     )
     some_resolved: int = Field(
         ge=0, description="Resolved rows in the risk set whose stored count is 1 or more"
     )
     some_weighted_resolved: int = Field(
-        ge=0, description="The same rows, each counted `sample_weight` times"
+        ge=0, description="The same count of rows as the field before it; the name is kept"
     )
     some_weighted_grants: int = Field(
-        ge=0, description="The grant-family rows among them, on the same weights"
+        ge=0, description="The grant-family rows among them, each counted once"
     )
     unread_resolved: int = Field(
         ge=0,
@@ -2733,6 +2733,13 @@ class Evaluation(_Strict):
         "unlike the skill record beside it — from the scored prediction's "
         "committed label and the outcome's, through "
         "`pipeline.evaluate.is_correct`, and never the evaluator's word: the "
+        "cert comparison reads `granted-in-part` and `granted` as one label "
+        "(`pipeline.evaluate.cert_label`), since the cert resolver records a "
+        "question-limited grant as `granted`, reads a `summary-reversal` call "
+        "against the outcome's `disposition_route` (right where it is "
+        "`summary-merits`, `pipeline.evaluate.summary_reversal_matched`), "
+        "since the resolver records that order as `granted` too, and reads "
+        "every other label as itself. The "
         "comparison needs no pooled baseline and so no salience band to choose, "
         "which is the whole of the cert stage's skill-record exemption. Cleared "
         "to null where either committed artifact is missing — no prediction "
@@ -3635,9 +3642,14 @@ class RetrievalCall(_Strict):
         "fully seen, and the throttle denominator gains nothing. What is counted is CALL "
         "SITES IN PROGRAM TEXT, neither a floor nor a bound on invocations: a site inside "
         "a loop counts once however many times it ran, a site in an untaken branch or a "
-        "comment counts though it never ran, and a call reached through an alias or a "
-        "computed name is not counted at all. The claim it supports is `the program asked "
-        "for these tools`, not an execution trace. "
+        "comment counts though it never ran, and a call reached through an alias is not "
+        'counted at all. A call written by index counts too: `tools["<name>"](` with a '
+        "quoted name lands under that name like the dotted form, and a COMPUTED index "
+        "(`tools[result.name](`, how a program calls a tool it discovered at run time) "
+        "lands under the fixed name `code_mode_computed_call`, a row saying a tool was "
+        "called and not which, so it sits outside the manifest counts, which are "
+        "incomplete for that cell by an amount the row does not bound. The claim it "
+        "supports is `the program asked for these tools`, not an execution trace. "
         "The freeform call keeps its own row beside the lifted ones — a real builtin "
         "invocation, carrying the program and the combined output — so a total over all "
         "rows counts the wrapping call AND the calls it made; count with the MCP "
@@ -4552,7 +4564,7 @@ class LeaderboardStratum(_Strict):
         "**same gradings** `accuracy` averages — every cell counted in "
         "`accuracy_scored`, one per judge, so like `accuracy` it is weighted by "
         "panel depth; `event_always_deny_accuracy` is the per-petition "
-        "reading. A cert cell applies the exact-match rule `Evaluation.correct` "
+        "reading. A cert cell applies the label-match rule `Evaluation.correct` "
         "uses (`pipeline.evaluate.is_correct`) to a synthetic `denied` "
         "prediction against the cell's committed outcome, so any non-`denied` "
         "outcome — a GVR included — is a miss. This is the floor **realized** "
@@ -9943,7 +9955,8 @@ class ScopeManifestEntry(_Strict):
     scope columns for the case: whether it is in the prediction gate
     (``predict_eligible`` ≡ court is SCOTUS), whether the reconcile has latched it
     out (``predict_excluded``), the shared exclusion reason when it has, the
-    inclusion weight the sampling channel asserted, and the salience gate's score /
+    stored ``sample_weight`` (1 on every row a writer has weighted), and the
+    salience gate's score /
     version / selection latch. ``sample_weight`` is null when no channel asserted
     one; ``out_of_scope_reason`` is null for an in-scope case; the salience fields
     are null / False until a salience pass has scored the row.
@@ -9957,7 +9970,7 @@ class ScopeManifestEntry(_Strict):
     )
     sample_weight: int | None = Field(
         default=None,
-        description="Inverse inclusion probability the corpus derives for this row; null if none",
+        description="The corpus row's stored weight: 1 where a writer set it; null if none",
     )
     salience_score: float | None = Field(
         default=None,
@@ -12035,10 +12048,9 @@ class StatPackSection(_Strict):
     )
     weighted: bool = Field(
         default=False,
-        description="True when the section's counts are sample-weighted estimates "
-        "(each row counted `sample_weight` times, so the historical walker's "
-        "denial sampling does not bias the base rates); raw ingested counts "
-        "otherwise",
+        description="A section flag whose name is kept. Every section counts each row "
+        "once, whatever the flag; where it is true the rendered tables label the "
+        "denominator `est. n=`",
     )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
     scope_note: str | None = Field(
@@ -12058,13 +12070,11 @@ class TimingStats(_Strict):
     *termination*, pooled across courts and both SCOTUS docket forms, so its
     mixture follows which rows carry a termination date at all; the per-Term
     statistics key on the cert-stage resolution date, which is the petition's own
-    moment, and weight each row by its
-    ``sample_weight`` (each use states which). The two keys agree on a denied
+    moment (each use states which). Every row counts once. The two keys agree on a denied
     petition and diverge on a granted one, whose termination is the merits
     judgment months later. Rows missing either date are
     excluded rather than guessed, so ``cases`` doubles as the coverage
-    denominator — a raw count in unweighted uses, the weighted estimate in
-    weighted ones. Percentiles use the deterministic nearest-rank method, so the
+    denominator, a count of rows. Percentiles use the deterministic nearest-rank method, so the
     same corpus reproduces the same stats.
     """
 
@@ -12092,11 +12102,11 @@ class StatPackTermClass(_Strict):
     """One (Term, fee class) slice of the live-slice cert population.
 
     ``filings`` is the cursor-derived census — the count of docketed serials
-    through the walked frontier, exact even for petitions the denial sample
-    never ingested (a slight upper bound: withheld serial numbers still count).
-    ``ingested``/``resolved`` are raw live-slice row counts; the estimates
-    (``weighted_resolved``, ``est_grant_rate``, ``dispositions``) count each row
-    ``sample_weight`` times so the walker's denial sampling does not bias them.
+    through the walked frontier, exact even for serials no row is stored for
+    (a slight upper bound: withheld serial numbers still count).
+    ``ingested``/``resolved`` are raw live-slice row counts; ``weighted_resolved``,
+    ``est_grant_rate`` and ``dispositions`` keep their names and count each row
+    once, so ``weighted_resolved`` equals ``resolved``.
     """
 
     fee_class: FeeClass
@@ -12119,24 +12129,24 @@ class StatPackTermClass(_Strict):
     weighted_resolved: int = Field(
         default=0,
         ge=0,
-        description="Sample-weighted resolved estimate — each row counted "
-        "`sample_weight` times (an unweighted-capture row counts once)",
+        description="Resolved rows, each counted once: equal to `resolved`. The name is kept",
     )
     est_grant_rate: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family (granted + gvr pooled) share of "
-        "resolved — pooled, so comparable across Terms where the `dispositions` "
+        description="Grant-family (granted + gvr pooled) share of "
+        "resolved, each row counted once — pooled, so comparable across Terms where "
+        "the `dispositions` "
         "split is not; None when nothing resolved",
     )
     dispositions: list[DispositionShare] = Field(
         default_factory=list,
-        description="Weighted disposition estimates over the resolved rows",
+        description="Disposition counts over the resolved rows, each row counted once",
     )
     timing: TimingStats = Field(
         default_factory=TimingStats,
-        description="Filing → cert-stage resolution timing (weighted nearest-rank), "
+        description="Filing → cert-stage resolution timing (nearest-rank), "
         "keyed on the petition-stage decision date, not docket termination",
     )
 
@@ -12152,8 +12162,8 @@ class StatPackTermSegment(_Strict):
     own grant-likelihood tier. Because the segment lives inside :class:`StatPackTerm`
     it inherits that surface's **per-Term self-selection contract** — a time-masked
     replay cell reads only Terms strictly before its clock, so the rate never leaks
-    the current Term. Estimates are sample-weighted (each row counted
-    ``sample_weight`` times), matching the Term's other weighted cuts.
+    the current Term. Every row counts once, as in the Term's other cuts; the
+    ``weighted_*`` field names are kept and each equals the raw count beside it.
 
     **Two rates, answering two different questions.** A band is monotone
     non-decreasing over a petition's life — the distribution count is max-latched
@@ -12190,13 +12200,14 @@ class StatPackTermSegment(_Strict):
     weighted_resolved: int = Field(
         default=0,
         ge=0,
-        description="Sample-weighted resolved estimate for the band — the base rate's denominator",
+        description="Resolved rows in the band, equal to `resolved` (the name is kept) — "
+        "the base rate's denominator",
     )
     est_grant_rate: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family (granted + gvr pooled) share of the "
+        description="Grant-family (granted + gvr pooled) share of the "
         "rows that ENDED in this band — a descriptive rate, not a forecast "
         "baseline; None when nothing in the band resolved",
     )
@@ -12204,12 +12215,13 @@ class StatPackTermSegment(_Strict):
         default=0,
         ge=0,
         description="Rows in the band's risk set carrying a disposition (raw count) — "
-        "the observed rows behind the weighted estimate beside it",
+        "the same count as `prefix_weighted_resolved` beside it",
     )
     prefix_weighted_resolved: int = Field(
         default=0,
         ge=0,
-        description="Sample-weighted resolved estimate over the band's risk set — "
+        description="Resolved rows in the band's risk set, equal to `prefix_resolved` "
+        "(the name is kept) — "
         "every row that ever reached this band, not only those that ended in it. "
         "Risk sets nest down one petition class's reachable ladder and partition "
         "across classes, so this contains every stronger band the same class can reach",
@@ -12218,7 +12230,7 @@ class StatPackTermSegment(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family (granted + gvr pooled) share over the "
+        description="Grant-family (granted + gvr pooled) share over the "
         "band's risk set: "
         "P(grant | the petition has REACHED this band). The forecast baseline — "
         "this is what a predictor is asked to beat, because a cell is scored at "
@@ -12257,8 +12269,8 @@ class StatPackTerm(_Strict):
     every Term is an entry in a single artifact (recent first), so the statpack stays
     one deterministic committed metric with reviewable diffs and a single-Term view is a
     filter (``fedcourts stats --court scotus --term N``) rather than a separate file.
-    Aggregates are computed over the live/historical provenance slice (weighted, so
-    the denial sampling does not bias them); a Term known only from the discovery
+    Aggregates are computed over the live/historical provenance slice, each row
+    counted once; a Term known only from the discovery
     cursors still appears, carrying its census with zero ingested rows. **This is
     the replay self-selection surface**: a time-masked cell anchors only on Term
     entries strictly preceding ``record/context.json``'s ``decided_before`` —
@@ -12275,17 +12287,16 @@ class StatPackTerm(_Strict):
     ingested: int = Field(
         default=0,
         ge=0,
-        description="Live-slice rows present for this Term — the raw ingested count, "
-        "as opposed to the weighted estimates in `base_rates`",
+        description="Live-slice rows present for this Term — every ingested row, resolved or not",
     )
     base_rates: BaseRateBucket = Field(
-        description="This Term's live-slice counts and weighted base rates"
+        description="This Term's live-slice counts and base rates, each row counted once"
     )
     est_grant_family_rate: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
-        description="Weighted grant-family share of this Term's resolved "
+        description="Grant-family share of this Term's resolved "
         "live-slice rows — granted + gvr today, and the vocabulary's "
         "`summary-reversal` label pools in too if a resolver ever produces it. "
         "The only disposition series comparable "
@@ -12298,12 +12309,11 @@ class StatPackTerm(_Strict):
     timing: TimingStats = Field(
         default_factory=TimingStats,
         description="Filing → cert-stage resolution timing over this Term's live-slice "
-        "resolved cases (weighted nearest-rank)",
+        "resolved cases (nearest-rank)",
     )
     classes: list[StatPackTermClass] = Field(
         default_factory=list,
-        description="Per-fee-class detail (paid, then ifp): census, completeness, "
-        "and weighted estimates",
+        description="Per-fee-class detail (paid, then ifp): census, completeness, and rates",
     )
     grants: int = Field(
         default=0, ge=0, description="Cert grants observed in the live slice this Term"
@@ -12372,8 +12382,7 @@ class _StatPackInterimCounts(_Strict):
     """The count block one interim-docket slice carries (the pack, or one Term).
 
     Raw counts throughout: the live channel polls every application it discovers
-    (no denial sampling, so every row stands only for itself) and nothing here is
-    reweighted. The unit is the application number, not the corpus row: a
+    and every row stands only for itself. The unit is the application number, not the corpus row: a
     number stored under two case ids counts once
     (:func:`fedcourtsai.corpus.duplicate_application_case_ids`). This slice's
     own ``substantive_grant_rate`` stays **descriptive** — it describes the
@@ -12781,9 +12790,8 @@ class _StatPackMeritsCounts(_Strict):
     """The count block one merits slice carries (the pack, or one grant Term).
 
     Raw counts throughout: every case whose grant opened a merits proceeding
-    is walked, none stands in for
-    another, and nothing here is reweighted (the denial-sampling frame covers
-    the cert stage, and a grant is always ingested with certainty). The
+    is walked, and none stands in for
+    another. The
     disturbed rate is the anchor of the pre-registered merits Brier baseline
     (``docs/decision-model.md``): a merits cell's skill is scored against the
     per-grant-Term disturbed rates pooled over Terms strictly before the
@@ -13218,7 +13226,7 @@ class StatPack(_Strict):
     )
     terms: list[StatPackTerm] = Field(
         default_factory=list,
-        description="Per-SCOTUS-Term live-slice detail (weighted base rates, timing, "
+        description="Per-SCOTUS-Term live-slice detail (base rates, timing, "
         "per-fee-class census), most recent Term first",
     )
     interim: StatPackInterim | None = Field(
@@ -13298,15 +13306,15 @@ class DocketPackTerm(_Strict):
     weighted_resolved: int = Field(
         default=0,
         ge=0,
-        description="Denial-reweighted resolved estimate — the sample size behind "
-        "`est_grant_rate` and `dispositions`",
+        description="Resolved petitions, equal to `resolved` (the name is kept) — the "
+        "sample size behind `est_grant_rate` and `dispositions`",
     )
     est_grant_rate: float | None = Field(
         default=None,
         ge=0.0,
         le=1.0,
-        description="Denial-reweighted grant-family (granted + gvr pooled) share "
-        "of the resolved petitions — always equal to `est_grant_family_rate`, "
+        description="Grant-family (granted + gvr pooled) share "
+        "of the resolved petitions, each counted once — always equal to `est_grant_family_rate`, "
         "which carries the same series under the name the statpack's per-Term "
         "entries share; None when nothing resolved",
     )
@@ -13314,8 +13322,9 @@ class DocketPackTerm(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="Denial-reweighted grant-family share of the resolved "
-        "petitions — granted + gvr today, and the vocabulary's `summary-reversal` "
+        description="Grant-family share of the resolved "
+        "petitions, each counted once — granted + gvr today, and the vocabulary's "
+        "`summary-reversal` "
         "label pools in too if a resolver ever produces it. The only disposition "
         "series comparable "
         "across Terms, under the one field name both packs' per-Term entries "
@@ -13327,10 +13336,10 @@ class DocketPackTerm(_Strict):
     )
     dispositions: list[DispositionShare] = Field(
         default_factory=list,
-        description="Denial-reweighted disposition estimates over the resolved petitions",
+        description="Disposition counts over the resolved petitions, each counted once",
     )
     grants: int = Field(
-        default=0, ge=0, description="Cert grants observed this Term (raw, not reweighted)"
+        default=0, ge=0, description="Cert grants observed this Term (a count of rows)"
     )
     median_days_to_grant: float | None = Field(
         default=None,
@@ -13350,13 +13359,12 @@ class DocketPackTerm(_Strict):
 class QpTopicSupport(_Strict):
     """The raw rows behind one bucket of the published topic distribution.
 
-    Every count in the topic table is denial-reweighted, so a bucket's `est. n=`
-    is a population estimate and not the number of petitions anyone read. On a
-    frame that is still accruing, the gap between the two can be an order of
-    magnitude — one sampled denial stands for ten — so the smallest buckets
-    publish a disposition split over a handful of rows. This is the raw view a
-    reweighted bucket otherwise has none of, and the reason it is per label
-    rather than pooled: the thin buckets are not the ones a reader would guess.
+    A bucket's `est. n=` in the topic table keeps its spelling and counts the
+    bucket's resolved rows; this is the bucket's rows on hand, resolved or not.
+    On a frame that is still accruing the smallest buckets
+    publish a disposition split over a handful of rows, and the view is per label
+    rather than pooled because the thin buckets are not the ones a reader would
+    guess.
 
     ``reference_rows`` is carried beside it because the two populations enter on
     different terms: a reference-set member rides in every batch, so a bucket
@@ -13479,8 +13487,8 @@ class DocketPackQpTopics(_Strict):
     )
     support: list[QpTopicSupport] = Field(
         default_factory=list,
-        description="The raw, unweighted rows behind each bucket, with the reference-sourced "
-        "share of them — the view a denial-reweighted `est. n=` does not give, and the one a "
+        description="The rows on hand behind each bucket, with the reference-sourced "
+        "share of them — the view a "
         "small bucket's disposition split cannot be read without",
     )
     section: StatPackSection = Field(
@@ -13582,7 +13590,7 @@ class TopicMixShare(_Strict):
     cases: int = Field(
         ge=0,
         description="Labeled cases at this stage under the label, as the stage's own section "
-        "counts them (denial-reweighted where that section is)",
+        "counts them (a count of rows)",
     )
     share: float = Field(
         ge=0.0,
@@ -13659,13 +13667,11 @@ class DocketPack(_Strict):
     A pure function of the corpus (no clock, no network), so reruns over an
     unchanged corpus reproduce it byte for byte; git-tracked and rendered to a
     companion Markdown document. Every rate carries its scope and its denominator,
-    and each section states whether its counts are denial-reweighted: the
-    historical walk samples denials on a committed frame, so every cert cut is
-    reweighted and its counts are population *estimates* rather than rows on
-    hand. That distinction is why a reweighted denominator is not a sample size:
-    the observed row count behind it is smaller. A breakdown bucket carries no
-    raw view of its own; the per-Term entries carry both, so the gap between the
-    two is legible there. Starts empty (zero counts, scaffolded sections) until a
+    and each section carries the ``weighted`` flag, whose name is kept: every
+    cert cut sets it, and its counts are counts of rows, each stored row
+    standing for one petition. The per-Term entries carry ``resolved`` and
+    ``weighted_resolved`` side by side, and the two are equal. Starts empty
+    (zero counts, scaffolded sections) until a
     corpus is present.
     """
 
@@ -14720,8 +14726,8 @@ class PartyFrameCell(_Strict):
     count silently mixes: the windows differ in *size* (the newest is truncated
     by today, the oldest by the slice's own start), and they differ in
     *composition* — the live channel's coverage of the IFP and application
-    streams grew over the slice's span, and the excluded sampled block is
-    entirely IFP, so the earlier windows lose IFP mass the newest one keeps.
+    streams grew over the slice's span, so the earlier windows hold less IFP
+    and application mass than the newest one.
     Dividing by window size corrects only the first. A share is therefore
     comparable across windows **within a stratum** and not otherwise; the
     paid-cert stratum is the one captured whole in every window and is the
@@ -14736,7 +14742,7 @@ class PartyFrameCell(_Strict):
     )
     rows: int = Field(ge=0, description="Frame rows in this administration x stratum cell")
     sampled_excluded: int = Field(
-        ge=0, description="Sampled-block rows in the same cell, outside the frame"
+        ge=0, description="Always 0: no row is outside the frame as sampled. The name is kept"
     )
 
 
@@ -14767,8 +14773,7 @@ class PartyCensus(_Strict):
     Counts only, under one annotation rule and one date convention — both
     stamped, because a cell is comparable to another only where the pair
     agrees. Grant rates by government-party status are `party-rates`
-    (`PartyRates`), which carries its own population rules and denial
-    reweighting, not a field here.
+    (`PartyRates`), which carries its own population rules, not a field here.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -14797,15 +14802,13 @@ class PartyCensus(_Strict):
     rows: int = Field(
         default=0,
         ge=0,
-        description="Unweighted live-slice SCOTUS rows annotated (the frame)",
+        description="Live-slice SCOTUS rows annotated, each counted once (the frame)",
     )
     sampled_excluded: int = Field(
         default=0,
         ge=0,
-        description="Live-slice rows carrying a sampling weight (the legacy "
-        "one-in-ten denial block) — outside the frame, counted here so the "
-        "coverage gap is visible rather than silently mixed in at a tenth of "
-        "its true stratum size",
+        description="Always 0: every live-slice row stands for one petition and is in "
+        "the frame, so none is excluded as sampled. The name is kept",
     )
     single_party: int = Field(
         default=0,
@@ -14848,12 +14851,10 @@ class PartyCensus(_Strict):
 class PartyRateCell(_Strict):
     """One administration x stratum x federal-side cell of the party rates cut.
 
-    Every share here is published beside its numerator and denominator, raw and
-    weighted: ``granted``/``resolved`` count docket rows once each, and
-    ``weighted_granted``/``weighted_resolved`` count each row ``sample_weight``
-    times, which is what restores the legacy one-in-ten sampled denial block to
-    full strength. ``grant_rate`` is the weighted pair's quotient; where the cell
-    holds no sampled row the two pairs are equal and so is the rate. On the
+    Every share here is published beside its numerator and denominator, under
+    two pairs of names: ``granted``/``resolved`` count docket rows once each, and
+    ``weighted_granted``/``weighted_resolved`` keep their names and hold the same
+    counts. ``grant_rate`` is the ``weighted_*`` pair's quotient. On the
     application stratum the population is the **substantive** asks only — the
     extension, unreadable-ask and never-parsed rows are counted beside the cell,
     never inside its rate.
@@ -14884,7 +14885,7 @@ class PartyRateCell(_Strict):
     sampled_rows: int = Field(
         default=0,
         ge=0,
-        description="Of those, rows from the legacy sampled denial block (weight > 1)",
+        description="Always 0: every row stands for one petition. The name is kept",
     )
     pending: int = Field(
         default=0,
@@ -14909,10 +14910,10 @@ class PartyRateCell(_Strict):
         "(`granted_labels`), raw",
     )
     weighted_resolved: int = Field(
-        default=0, ge=0, description="`resolved` with each row counted `sample_weight` times"
+        default=0, ge=0, description="The same count as `resolved`; the name is kept"
     )
     weighted_granted: int = Field(
-        default=0, ge=0, description="`granted` with each row counted `sample_weight` times"
+        default=0, ge=0, description="The same count as `granted`; the name is kept"
     )
     grant_rate: float | None = Field(
         default=None,
@@ -15716,21 +15717,17 @@ class SalienceReplayCell(_Strict):
         ge=0,
         description="Cohorts whose non-carve-out membership exceeded the capacity, "
         "so the rank fill actually cut (elsewhere N is inert). Counted over the "
-        "walked sample's cohorts: under legacy denial weights a replayed cohort "
-        "holds ~1/weight of the real cohort's non-carve-out members, so capacity "
-        "that would have bound over the Term's real cohort can read as inert here "
-        "— compare largest_weighted_cohort against the capacity before trusting "
+        "replayed cohorts, each stored row one petition; "
+        "compare largest_weighted_cohort against the capacity when reading "
         "the rank-fill figures",
     )
     largest_weighted_cohort: float = Field(
         default=0.0,
         ge=0.0,
-        description="The largest cohort's sample_weight-weighted non-carve-out "
-        "mass — the reader's check on the rank fill: a value above the "
-        "per-conference capacity where the raw cohort size sat below it means "
-        "the real cohort could have been cut where the replayed sample was not, "
-        "and the rank-fill and capacity figures are then sample statistics, not "
-        "population estimates. 0 when the cell formed no cohort",
+        description="The largest cohort's count of non-carve-out rows, as a float "
+        "(the name is kept) — the reader's check on the rank fill: a value above "
+        "the per-conference capacity means the fill cut that cohort. "
+        "0 when the cell formed no cohort",
     )
     bands: dict[str, int] = Field(
         default_factory=dict,
@@ -15763,20 +15760,19 @@ class SalienceReplayCell(_Strict):
     )
     weighted_selected: float = Field(
         ge=0.0,
-        description="Selected petitions weighted by sample_weight (inverse "
-        "inclusion probability, 1 where unasserted), so the figure estimates the "
-        "Term's population rather than counting the walked sample's rows",
+        description="Selected petitions, each counted once: the same count as "
+        "`selected`, as a float. The name is kept",
     )
     weighted_selected_granted: float = Field(
-        ge=0.0, description="Grant-family selected petitions, sample_weight-weighted"
+        ge=0.0, description="Grant-family selected petitions, each counted once"
     )
     weighted_granted: float = Field(
         ge=0.0,
         description="Grant-family outcomes over every projected petition, "
-        "sample_weight-weighted — recall's weighted denominator",
+        "each counted once — recall's denominator",
     )
     weighted_population: float = Field(
-        ge=0.0, description="Every projected petition, sample_weight-weighted"
+        ge=0.0, description="Every projected petition, each counted once"
     )
     precision: float | None = Field(
         default=None,
@@ -15792,7 +15788,7 @@ class SalienceReplayCell(_Strict):
         le=1.0,
         description="weighted_selected_granted / weighted_granted — the share of "
         "the Term's realized grants (among projected petitions) the selection "
-        "would have covered; null when the projected petitions show no weighted "
+        "would have covered; null when the projected petitions show no "
         "grant. The denominator includes blind projections, which can never be "
         "selected — for a 'blind-untrusted-cutoff' row that is a reconstruction "
         "failure, not a gate miss, so read the provenance mix beside a low recall",
@@ -16079,13 +16075,13 @@ class SubstanceCalibration(_Strict):
         ge=0.0,
         le=1.0,
         description="Denied share of resolved modern discretionary-cert petitions "
-        "(from the committed statpack's live-slice, denial-reweighted section), "
+        "(from the committed statpack's live-slice section), "
         "when present",
     )
     base_rate_cases: int | None = Field(
         default=None,
         ge=0,
-        description="Estimated resolved petitions behind the base rate (weighted)",
+        description="Resolved petitions behind the base rate, each counted once",
     )
     lift_over_always_deny: float | None = Field(
         default=None, description="accuracy - deny_base_rate; null until both exist"
@@ -16096,14 +16092,14 @@ class SubstanceCalibration(_Strict):
         le=1.0,
         description="Grant share of the paid salience-scored segment — the base rate "
         "the predicted slice is judged against (from the statpack's salience-band "
-        "section, denial-reweighted); null when that section is absent. With a "
+        "section); null when that section is absent. With a "
         "salience gate the predicted slice grants far above the whole-docket rate, "
         "so this, not deny_base_rate, is the honest anchor",
     )
     segment_base_rate_cases: int | None = Field(
         default=None,
         ge=0,
-        description="Estimated resolved petitions behind segment_grant_rate (weighted)",
+        description="Resolved petitions behind segment_grant_rate, each counted once",
     )
     mean_brier_skill: float | None = Field(
         default=None,
