@@ -495,7 +495,7 @@ salience:
   # with the arrival cohort beside it, at the same planning rate.
   #
   # It costs coverage, and the trade is stated rather than hidden: the
-  # selection keeps 0.76-0.81 of the Term's replay-reconstructable
+  # selection keeps 0.76-0.80 of the Term's replay-reconstructable
   # grant-family outcomes, against 0.944-0.967 measured at 150/200 on the
   # same pool. Raise both as funding lifts, keeping the ratio below.
   per_conference_capacity: 12
