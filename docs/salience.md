@@ -1922,19 +1922,23 @@ model-spend envelope at about $10 per fully predicted event
 for the long conference** (double, because that one cohort clears the summer
 backlog at once). The caps are sized to **bind**, and the gate replay at this
 capacity (`metrics/salience-replay.json`, sal-v1, OT2022–24) measures that they
-do: the mean replay-reconstructable conference cohort runs ~37–38 petitions
-against a cap of 12, and the cap binds **29 of each Term's 33–36
-reconstructable first-distribution cohorts**. The measured yield is **495–522
-selected petitions a Term** — rank fill 398–413 plus floor/CVSG carve-outs of
-97–115, riding above `N` uncapped — carrying **0.76–0.81 of the Term's
-replay-reconstructable grant-family outcomes** (grant denominators 90/108/91
-for OT2022/23/24, GVRs and summary reversals included). Of those grants, 4/6/3
-a Term sit on blind rows — no reconstructable selection moment, so no gate
-could select them — leaving selectable denominators of 86/102/88: recall of
-the *selectable* outcomes is 0.80–0.84, and 0.944–0.967 is the achievable
-ceiling at any capacity (the prior committed replay, at the then-shipped
-150/200 caps on this same pool, measured exactly that ceiling), with the
-carve-outs supplying most of the grant coverage. A per-conference cap
+do. At the `distribution-1` cutoff each Term's observable rows average ~36–39
+to a first-distribution cohort (the long conference's cohort included) against
+a cap of 12, and the cap binds **29 of each Term's 34–36 reconstructable
+first-distribution cohorts**; that early every observable row still reads
+baseline, so no carve-out fires and the selection is 380–387 petitions a Term
+carrying 0.37–0.50 of its grant-family outcomes. At the `resolution` cutoff, the latest and most
+favourable moment, the measured yield is **501–529 selected petitions a
+Term** — rank fill 398–413 plus floor/CVSG carve-outs of 103–122, riding
+above `N` uncapped — carrying **0.76–0.80 of the Term's
+replay-reconstructable grant-family outcomes** (grant denominators 92/109/96
+for OT2022/23/24, GVRs and summary reversals included), with the carve-outs
+supplying most of the grant coverage. Of each Term's rows, 10–11 are blind —
+no reconstructable selection moment, so no gate could select a grant sitting
+on one. The report does not count the grants on those rows, so recall of the
+*selectable* outcomes is at least the figure above and is not stated more
+closely, and what a larger `N` would recover is not measured by the committed
+replay, which runs at the shipped caps only. A per-conference cap
 matches the Court's cadence and scopes replay to one conference's candidate pool;
 the long conference carries a larger `N` so a flat cap does not under-serve it. At
 the top of the same dial, `N` = "every eligible event" makes salience purely the
@@ -2472,7 +2476,7 @@ conference cohort of the pass** — never a carve-out — so the reserve is defi
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered
 limit costs a real cert pick wherever the *eligible* non-carve-out remainder
 exceeds it — at the shipped capacity a full reserve leaves a rank fill of 7,
-far below the ~37–38-petition mean replay-reconstructable cohort, so a full
+far below the ~36–39 petitions an average replay-reconstructable cohort holds, so a full
 reserve would displace a pick at essentially every capacity-bound conference;
 the displacement *frequency* itself is unmeasured, because the gate replay
 runs with no reserve occupancy. An
@@ -2939,9 +2943,9 @@ the posture below keeps selection additive and never destructive:
 - **Capacity `N`** — per-conference, OT2026 default 12 / regular conference and
   24 / long conference (the bootstrapping envelope above). The caps sit well
   under the raw median ~34-petition paid cohort and well under the pool the
-  replay ranks — the mean replay-reconstructable conference cohort runs ~37–38
+  replay ranks — an average replay-reconstructable conference cohort holds ~36–39
   petitions — and the gate replay at this capacity measures the cap binding
-  **29 of each Term's 33–36 reconstructable first-distribution cohorts** across
+  **29 of each Term's 34–36 reconstructable first-distribution cohorts** across
   OT2022–24 (`metrics/salience-replay.json`); carve-outs ride
   above `N` untouched, the interim reserve's slots in use trade inside it, and
   the cert rank fill is what remains. The Tier-0 IFP filter shapes that pool too,
