@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Solicitor General petition on whether the First Amendment bars viewpoint-based termination of competitive federal research grants; a classwide preliminary injunction against a flagship executive policy, with many parallel suits. The subject matter is nationally significant, but the Court denied review at the first conference with no noted dissent or statement, leaving an interlocutory Ninth Circuit ruling in place and deciding nothing; the question remains open for a later final-judgment vehicle. High-stakes subject, modest realized significance for this docket."
+  },
+  "brier_score": 0.6400000000000001,
+  "brier_skill_score": -0.19113372220516678,
+  "case_id": "scotus/9026000210",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7330097087378641,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": -0.1026967668960318
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1026967668960318,
+    "total": -0.1026967668960318
+  },
+  "correct": 0,
+  "created_at": "2026-11-17T17:18:19.550964Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: predicted 2026-08-20, the day after docketing; the petition was denied 2026-11-16. Log: 26 calls, result capture coverage 1.0: shell reads of provisioned inputs and the committed statpack, plus one `fedcourts query --citation \"500 U.S. 173\"` (Rust v. Sullivan, a 1991 authority) that returned no rows. Reliance on the 2025 grant-termination stay rulings is disclosed as general knowledge predating the snapshot and is legitimate forward signal about other cases. No retrieved_doc_date on or after resolution, no read under data/qp-topics/, no order or opinion resolving this petition cited, and the reasoning nowhere presupposes a result (it forecast the opposite). Confirmed genuinely unresolved at prediction time.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.15,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: actual_disposition denied; docket entry Nov 16 2026 'Petition DENIED.'",
+        "claim": "The Court grants certiorari and sets the case for plenary briefing and argument, with a grant by roughly December 2026\u2013January 2027.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Docket: extension to Oct 19 2026 granted Aug 25; 'DISTRIBUTED for Conference of 11/13/2026.'",
+        "claim": "Respondents will likely take an extension, pushing first distribution to a November or December conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: disposed of on Nov 16 2026 after the single 11/13/2026 conference; outcome signals distribution_count 1.",
+        "claim": "Expect one to two relists beyond the first distribution.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The denial carried no noted dissent (noted_dissent_from_denial false), consistent with the 70% silent branch; but the bare 'Petition DENIED.' order gives no reason, so the record cannot settle whether the denial was posture-based.",
+        "claim": "A denial would most plausibly be posture-based; conditional on denial, roughly a 30% chance of a noted dissent or statement (Thomas or Alito), though a vehicular denial could well pass in silence.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome signals cvsg_date null; entailed by the petitioner's identity, so no discriminating credit.",
+        "claim": "No CVSG \u2014 effectively impossible, since the United States is the petitioner.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260820T181919Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:18:19.550964Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7330097087378641,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

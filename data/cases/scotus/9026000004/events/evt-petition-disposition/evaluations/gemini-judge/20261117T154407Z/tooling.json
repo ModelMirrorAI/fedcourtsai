@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000004",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at cleanly reconstructed statpack build 7bcde3b105cb (sal-v4) in force when the candidates ran on 2026-10-29 after main advanced to sal-v8.",
+    "Provisioned petition.txt (including Appendices A and B), brief-in-opposition.txt, cert-reply.txt, and snapshot 2026-11-16.json made it straightforward to verify docket dates, lower-court holdings, and counsel and catch multiple fabricated record claims in gemini-baseline.",
+    "fedcourts query quickly confirmed the exact dispositions and distribution counts of cited post-Mallory follow-on petitions (21-926, 24-1190, 25-1208)."
+  ],
+  "notes": "All provisioned artifacts and blinded candidate directories were complete and consistent.",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "fedcourts query"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

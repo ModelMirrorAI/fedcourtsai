@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000369",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "fedcourts statpack-at",
+    "provisioned appendix.txt and docket snapshot"
+  ],
+  "gaps": [],
+  "notes": "fedcourts statpack-at cleanly reconstructed the September 26, 2026 sal-v4 statpack build (2420d5dd72e1) that all three candidates anchored against prior to the sal-v8 refresh, and the staged appendix.txt (lower-court orders and state restraining order) allowed direct verification of the candidates' vehicle and immunity inferences."
+}

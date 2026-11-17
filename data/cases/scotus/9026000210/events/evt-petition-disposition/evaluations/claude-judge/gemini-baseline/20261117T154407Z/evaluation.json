@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Solicitor General petition asking whether the First Amendment bars viewpoint-based award or termination of competitive federal research grants (NSF/NEH), arising from a classwide preliminary injunction and tied to a wave of grant-termination suits. A merits ruling would have been nationally significant; the plain denial with no noted dissent leaves the Ninth Circuit ruling in place at an interlocutory stage and lowers the realized significance of this docket."
+  },
+  "brier_score": 0.31360000000000005,
+  "brier_skill_score": 0.41790268906805994,
+  "case_id": "scotus/9026000210",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7339901477832512,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.56,
+        "score": 0.22514153704287893
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.72,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.045,
+          "Barrett": 0.005,
+          "Gorsuch": 0.025,
+          "Jackson": 0.005,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.005,
+          "Thomas": 0.045
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.22514153704287893,
+    "total": 0.22514153704287893
+  },
+  "correct": 0,
+  "created_at": "2026-11-17T17:19:27.584359Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction ran 2026-11-02, before the 2026-11-13 conference and the 2026-11-16 denial. No call in the captured log targets the disposition, no retrieved_doc_date on or after resolution, no read under data/qp-topics/, and the reasoning treats the conference as still ahead. Every call is outcome_only (coverage 0.0), so the calls were graded on their queries: corpus lookups, CourtListener searches on related cases (NADOHE, ACLS v. McDonald, Fairfax County) and the N.D. Cal. docket through late October 2026 are ordinary forward signal.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.2,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: one distribution (Oct 28 for the Nov 13 conference), then 'Petition DENIED' on Nov 16; outcome.signals.distribution_count = 1.",
+        "claim": "The petition will be relisted at least once (most likely one or two additional distributions), resolving in late November or December 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json: actual_disposition 'denied', actual_granted 0.",
+        "claim": "The likeliest outcome is a plenary grant of certiorari on the question as written.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null; little discriminating content, since the SG is the petitioner.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json: noted_dissent_from_denial false; docket entry reads only 'Petition DENIED.' The Court gave no reasons, so the stated drivers are unresolved.",
+        "claim": "If the Court denies, it is more likely than not (0.82) to do so without a dissent or statement, the denial being driven by the interlocutory posture and the absence of a completed split.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261102T130502Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:19:27.584359Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7339901477832512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

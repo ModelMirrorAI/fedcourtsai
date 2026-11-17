@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "The question (whether McDonnell Douglas burden-shifting belongs at summary judgment in Title VII cases) matters nationally and two Justices have invited it, and four cert-stage amicus briefs arrived after the call for a response. But the vehicle is an unpublished Ninth Circuit memorandum in a single-employee termination dispute, and the petition was denied at its first post-response conference with no noted dissent or statement, so the case itself changed nothing."
+  },
+  "brier_score": 0.002025,
+  "brier_skill_score": 0.22459967716942164,
+  "case_id": "scotus/9026000100",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.045,
+        "score": 0.0005865542389868902
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.01,
+          "Barrett": 0.001,
+          "Gorsuch": 0.03,
+          "Jackson": 0.002,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.001,
+          "Sotomayor": 0.002,
+          "Thomas": 0.095
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0005865542389868902,
+    "total": 0.0005865542389868902
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:52:25.121062Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction run 2026-10-29, petition denied 2026-11-16. Stamped context: snapshot 2026-08-13, cutoff 2026-08-14. Log capture coverage is 0.0 (every row outcome_only), so calls are graded on their queries: provisioned record files, statpack, corpus queries for generic 2020s rows and for Hittle (24-427) and Ames (23-1039) by docket number, a panel-judge query, and two throttled CourtListener searches for those same two cases. Two directory listings of the case and events folders are path listings of a then-unresolved event. No query targets this docket's later history, and the reasoning forecasts from the Aug 13 snapshot (it treats amicus count as zero, which the later docket contradicts \u2014 consistent with not having read it). No disposition of this petition surfaced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: denied 2026-11-16; brief in opposition filed Oct 14.",
+        "claim": "The Court will deny certiorari after receiving the brief in opposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: single redistribution Oct 28 for the Nov 13 conference, denied Nov 16; outcome signals distribution_count 2.",
+        "claim": "Exactly one further distribution (terminal count 2) for a fall conference, with denial at that conference and no post-BIO relist (~20% chance of one relist).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date null.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial false; order entry is a bare denial.",
+        "claim": "The denial most likely (88%) issues without any dissent or statement.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "A bare denial order states no reasons; the staged record cannot settle why the Court denied.",
+        "claim": "The Court will deny because the brief in opposition shows a fact-bound, unsuitable vehicle (police fault finding, admission, video violations, unpleaded accommodation claim).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T160941Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:52:25.121062Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

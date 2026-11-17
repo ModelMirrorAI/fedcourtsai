@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000120",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with per-candidate retrieval logs and result_capture markers",
+    "The record snapshot's docket entries, which settle the relist, CVSG and writing forecasts directly",
+    "metrics/statpack.md for checking candidates' quoted cuts"
+  ],
+  "gaps": [
+    "The candidates' own snapshots are not staged, so files a candidate cites (decision-below.txt, lower-court-docket.txt) that are absent from the evaluator's record cannot be checked directly"
+  ],
+  "notes": "Checked candidates' base-rate figures against the committed statpack only; small count differences looked like refresh drift, so I did not run statpack-at."
+}

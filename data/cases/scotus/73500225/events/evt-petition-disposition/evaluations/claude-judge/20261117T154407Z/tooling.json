@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500225",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The decided-docket snapshot and the staged retrieval logs were enough to settle every forecast claim on this cert cell.",
+    "The provisioned brief in opposition settled a candidate's claim about the companion petition."
+  ],
+  "gaps": [],
+  "notes": "All three candidates were forward cells that agreed on the pooled band anchor, so I did not run statpack-at or query the corpus."
+}

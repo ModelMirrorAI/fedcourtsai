@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000004",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's reasoning.md and predicted_reasoning.md recite docket facts the staged record contradicts (brief in opposition Sep 2 and reply Sep 16; distribution Sep 29 for an Oct 16 conference, an Oct 15 reschedule, redistribution for Oct 30; a 5-4 Georgia Supreme Court denial on Mar 3, 2026). The docket shows distributions Jul 22 for 9/28 and Oct 28 for 11/13, the opposition Oct 14, the reply Oct 28, and a Mar 31, 2026 state order with all participating Justices concurring. The other two candidates, reading the same-named snapshot, report the docket correctly, so this looks like the candidate's error and not a provisioning fault; it is reflected in reasoning_quality and the forecast grade. Scores are unaffected.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0"
+}

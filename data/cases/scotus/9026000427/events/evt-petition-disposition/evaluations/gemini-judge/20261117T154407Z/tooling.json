@@ -1,0 +1,25 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000427",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at",
+    "record/documents/petition.txt",
+    "mcp:courtlistener:read_document"
+  ],
+  "notes": "fedcourts statpack-at cleanly resolved the exact sal-v4 statpack build (7bcde3b105cb) all three candidates used prior to the sal-v8 refresh, and CourtListener read_document let me verify codex-baseline's doctrinal reading of Bosley v. MSPB (162 F.3d 665).",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "metrics/statpack.md",
+    "mcp:courtlistener:read_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

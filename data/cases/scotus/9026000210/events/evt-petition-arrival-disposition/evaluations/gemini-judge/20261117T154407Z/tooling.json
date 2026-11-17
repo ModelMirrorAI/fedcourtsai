@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000210",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "provisioned record documents",
+    "metrics/statpack.md",
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v3 statpack build (02dd6a20fccc) in force at prediction time, confirming candidate base-rate pooling without false mismatches against sal-v8",
+    "Provisioned petition, brief in opposition, cert reply, and 2026-11-16 snapshot provided complete doctrinal and procedural context without external retrieval"
+  ],
+  "gaps": [],
+  "notes": "Provisioned case documents and prediction-time statpack reconstruction via fedcourts statpack-at were complete and sufficient to grade all three blinded candidates without external corpus or CourtListener queries."
+}

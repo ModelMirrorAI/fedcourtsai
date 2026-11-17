@@ -1,0 +1,113 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "Whether a State may bar carry across transit, parks, health-care facilities, entertainment venues, alcohol-serving premises and demonstrations is the main open post-Bruen question, on a final judgment with a divided Fourth Circuit panel; a merits ruling would have governed carry-location statutes nationwide. The Court denied after five distributions with a Thomas statement respecting denial, so the case sets no national rule; the stakes are real but unrealised, and it drew a single cert-stage amicus brief."
+  },
+  "brier_score": 0.12249999999999998,
+  "brier_skill_score": -3.0458448979591823,
+  "case_id": "scotus/73500225",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": -0.09222202269498965
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.09222202269498965,
+    "total": -0.09222202269498965
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:15:22.690213Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell on the 2026-10-05 snapshot; denied 2026-11-16. Every call in the log is unobserved (coverage 0.0), so it is graded on queries: local file reads, a failed corpus query, and two CourtListener searches (the case caption; 'Antonyuk'). The caption search could not have returned a disposition that did not exist on 2026-10-06, and the reasoning cites nothing later than the snapshot.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.55,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket shows three further distributions after Oct 5 (for the Oct 16, Nov 6 and Nov 13 conferences); outcome distribution_count 5.",
+        "claim": "Expect at least one further relist as the Court considers whether to grant.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: 'Statement of Justice Thomas respecting the denial of certiorari'; outcome noted_dissent_from_denial true.",
+        "claim": "Should the Court deny, a dissent from denial is highly probable, likely authored by Justice Thomas or Justice Alito.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome signals cvsg_date null; no CVSG entry on the docket.",
+        "claim": "A CVSG is unlikely because the case turns on state law.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: distributed Sep 2 for the Sep 28 conference, 'Rescheduled' Sep 24, redistributed Oct 5; the petition had not been considered at any conference, so there was no relist.",
+        "claim": "The petition has been distributed twice and relisted once.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:15:22.690213Z"
+  },
+  "reasoning_quality": 0.3,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

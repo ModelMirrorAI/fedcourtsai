@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000372",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Docket snapshot and outcome.json were enough to settle every route claim (distribution count, response request, CVSG, dissent).",
+    "result_capture markers on the staged retrieval logs made the forward leakage check quick."
+  ],
+  "gaps": [
+    "One candidate's log was entirely outcome_only, so quoted authority in its rationale could not be checked from the staged record."
+  ],
+  "notes": "Straightforward cert denial at first conference; all three candidates called it. No flags."
+}

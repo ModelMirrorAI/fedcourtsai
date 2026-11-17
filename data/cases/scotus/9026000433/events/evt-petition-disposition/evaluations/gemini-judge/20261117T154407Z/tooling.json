@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000433",
+  "gaps": [
+    "CourtListener MCP search returned an upstream HTTP 504 Gateway Time-out on a single precedent citation check, though the provisioned petition and appendix already settled every record fact needed for grading."
+  ],
+  "helpful": [
+    "fedcourts statpack-at cleanly reconstructed the candidate-time sal-v4 statpack build (7bcde3b105cb) so each candidate's base-rate citations could be checked against the exact build in force on 2026-10-30 rather than the newer sal-v8 committed pack.",
+    "Full text of petition.txt and appendix.txt in record/documents/ made it straightforward to verify lower-court holdings and catch a fabricated Pet. 27 quotation in gemini-baseline's rationale."
+  ],
+  "notes": "Evaluated three forward cert-stage predictions against the November 16, 2026 summary denial.",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "courtlistener.search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

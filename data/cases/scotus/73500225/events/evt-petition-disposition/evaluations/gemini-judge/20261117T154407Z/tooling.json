@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500225",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "jq"
+  ],
+  "helpful": [
+    "fedcourts statpack-at cleanly reconstructed the exact sal-v4 statpack build (1c4f550b7b75) the October 5 forward predictions were placed against after main had advanced to sal-v8",
+    "provisioned brief-in-opposition.txt and 2026-11-16 snapshot settled all procedural and companion-docket claims directly"
+  ],
+  "gaps": [
+    "Gemini CLI read_file restricts paths outside the workspace and project temp dir, so /tmp/statpack-at/ outputs have to be read via shell rather than read_file"
+  ],
+  "notes": "Clean cert-stage evaluation; no flags required."
+}

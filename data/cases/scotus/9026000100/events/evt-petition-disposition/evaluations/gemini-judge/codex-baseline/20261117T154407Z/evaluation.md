@@ -1,0 +1,30 @@
+# Evaluation of `codex-baseline` (`scotus/9026000100`, `evt-petition-disposition`)
+
+## Quantitative Summary
+- **Stage / Moment**: Certiorari (`cert`), `distribution` moment (harness stamps `segment_base_rate`, `brier_skill_score`, `base_rate_basis`, `base_rate_salience_version`, and `claim_scores`).
+- **Predicted vs. Actual Disposition**: Predicted `"denied"` (`probability = 0.10`); actual `"denied"` (`actual_granted = 0`, `resolved_at = 2026-11-16`).
+- **Accuracy & Calibration**: `correct = 1`, `brier_score = 0.0100`. Because `codex-baseline` adjusted upward from the stamped segment base rate to `0.10` on a petition that was denied cleanly, its Brier score carries negative skill relative to the stamped segment base rate.
+
+## Base-Rate Verification (`statpack-at`)
+Because the committed statpack moved to `sal-v8` after this forward prediction ran (`run_id = 20261025T012628Z`), `codex-baseline`'s base-rate citations were graded against reconstructed statpack build `eb6830084a18` (`sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba`, landed `2026-10-19`, under `sal-v4`) via `uv run fedcourts statpack-at`. Every figure in `reasoning.md`—its denominator-weighted risk-set pooling across strictly-prior Terms OT2017–OT2025 excluding OT2026, as well as its terminal relist-bucket and CVSG cross-checks—matches build `eb6830084a18` to the digit.
+
+## Assessment of `reasoning.md` (`reasoning_quality = 0.76`)
+`codex-baseline` produced a careful, methodologically disciplined rationale with strong information-set hygiene, but miscalibrated the directional balance between early docket signals and decisive vehicle defects:
+
+- **Strengths**:
+  - Correctly anchored on the frozen `baseline` risk-set population across strictly-prior Terms while refusing to conflate respondent Central Contra Costa Transit Authority with the `state` caption band or to treat an expected post-BIO administrative redistribution as a substantive conference relist.
+  - Consulted the official *Ames v. Ohio Department of Youth Services* slip opinion and the 2026 Supreme Court Rules (Rule 10), accurately distinguishing *Ames*'s narrow majority holding from Justice Thomas's concurrence and explaining why *Ames* (decided June 2025, seven months before the Ninth Circuit's January 2026 memorandum) was not intervening law supporting a routine GVR.
+  - Properly spotted the embedded October 20 creation date inside the October 25 snapshot and identified the forfeited failure-to-accommodate theory noted in the Brief in Opposition.
+
+- **Weaknesses**:
+  - **Wrong-way adjustment to `P(grant) = 0.10`**: `codex-baseline` roughly doubled the grant probability above the stamped segment base rate (and set `dissent-from-denial = 0.18`, `summary-disposition-route = 0.35`, and an inflated `big_case_score = 0.65`) by treating the factual record largely as unresolvable competing advocacy between the briefs.
+  - Inspection of `retrieval_log.json` shows `codex-baseline` read the Ninth Circuit memorandum in Appendix A (`petition.txt` lines 1050–1385) but stopped short of reading the district court's summary-judgment order in Appendix B (`petition.txt` lines 1390+). Appendix B and Appendix A together confirmed as undisputed record matters—not mere BIO advocacy—that the agency approved Cross's hijab in writing the day she requested it, police found Cross at fault for the bicycle collision under Cal. Veh. Code § 21760(b), Cross submitted contemporaneous written statements admitting she "clipped" the cyclist and was "at complete fault," and union-prompted video review uncovered roughly 30 stop-sign/red-light violations and cell-phone use while driving passengers. Combined with the Court's 2025 denial of a much cleaner, published Ninth Circuit vehicle on the same issue (*Hittle v. City of Stockton*, 145 S. Ct. 759) and two subsequent clean denials in 2026 (*Licinio*, *Mays*), the record pointed below—not double—the stamped segment base rate.
+
+## Predicted reasoning (`predicted_reasoning_quality = 0.84`)
+Grading `predicted_reasoning.md` strictly against the staged record (`outcome.json` and `record/snapshots/2026-11-16.json`):
+- **Central claims borne out**: All three resolved central claims held cleanly. `codex-baseline` led with a clear forecast that the Court would deny the petition without a separate writing due to vehicle obstacles (`actual_disposition: "denied"`, `noted_dissent_from_denial: false`), predicted no CVSG (`cvsg_date: null`), and specifically forecast *one* additional administrative post-opposition distribution followed by denial in November or December 2026 rather than a substantive consideration-stage relist (`distribution_count` rose from 1 to 2 via a single October 28, 2026 distribution for the November 13 conference, with denial entered November 16, 2026).
+- **Conditional claims**: Its conditional merits scope and plenary-vs-cert-order route discussion (`0.65` plenary / `0.35` cert-order correction) were left untested by the denial (`unresolved`, earning neither credit nor penalty).
+- **Specificity**: Predicting a single post-BIO redistribution without a substantive relist and a silent denial—despite an August 13 Call for a Response, four supporting amici, and recent separate writings on *McDonnell Douglas*—was genuinely discriminating, though its timing window ("a later conference, followed by denial in November or December 2026") and slightly hedged phrasing ("most likely deny") were marginally less crisp than a forecast pinning down the immediate Rule 15.5 November conference path.
+
+## Leakage Audit
+Clean (`mode = "forward"`, `retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`). The prediction ran on October 25, 2026 while Docket No. 26-100 was genuinely unresolved (decided November 16, 2026). All 34 logged calls in `retrieval_log.json` (including the 10 `unobserved` provider-side `web-search` calls, graded on their visible query strings) targeted local workspace files or official `supremecourt.gov` copies of *Ames* and the 2026 Supreme Court Rules; none queried this docket or touched `data/qp-topics/`.

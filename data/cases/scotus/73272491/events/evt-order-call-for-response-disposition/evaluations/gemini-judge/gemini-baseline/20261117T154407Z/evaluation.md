@@ -1,0 +1,34 @@
+# Evaluation of `gemini-baseline` — *Martin Mizrahi v. United States* (`scotus/73272491`, `evt-order-call-for-response-disposition`)
+
+## Outcome and Quantitative Summary
+
+- **Stage / Moment:** `cert` / `response-requested`
+- **Actual outcome:** `denied` on November 16, 2026 (`actual_granted = 0`, `disposition_basis = "standard"`, `distribution_count = 2`, `cvsg_date = null`, `noted_dissent_from_denial = false`). Following the June 15, 2026 call for a response, the Solicitor General obtained three extensions, filed an 8-page merits-focused brief in opposition on October 13, 2026, petitioner replied on October 19, 2026, and the petition was distributed once more on October 28, 2026 for the November 13, 2026 conference before being denied without noted dissent.
+- **Prediction:** `denied`, `probability = 0.045` (`correct = 1`, `brier_score = 0.002025`). The segment baseline and Brier skill score are harness-stamped from committed artifacts against the stamped segment base rate.
+
+## Assessment of `reasoning.md` (`reasoning_quality = 0.66`)
+
+`gemini-baseline` produced a doctrinally strong and well-organized legal analysis of the *Libretti* / *Apprendi* / *Southern Union* question, backed by targeted vehicle analysis and sensible skepticism toward a separate writing on denial, but made concrete factual and methodological errors when reading both its provisioned June 16, 2026 docket snapshot and the prediction-time statpack.
+
+### Strengths
+1. **Doctrinal and institutional command:** `gemini-baseline` accurately traced the tension between *Libretti v. United States*, 516 U.S. 29, 49 (1995), and the *Apprendi*–*Southern Union*–*Erlinger*–*Ellingburg* line, while recognizing the decisive institutional barrier: complete circuit uniformity under *Rodriguez de Quijas* across every federal court of appeals to address the issue (*Fruchter*, *Leahy*, *Phillips*, *Sigillito*, *Derman*) and a long string of prior Supreme Court denials of the identical request (verifying *Esformes v. United States*, No. 23-95, in the local corpus as denied on December 11, 2023 after a single distribution).
+2. **Independent vehicle scrutiny:** Reading the Second Circuit's nonprecedential summary order in the petition's appendix, `gemini-baseline` spotted genuine trial-record complications — the general conspiracy verdict spanning bank fraud, wire fraud, and drug trafficking, the disputed $3,855,704 narcotics-proceeds component versus $690,000 wire-fraud component, and *Washington v. Recuenco* harmless-error friction — that weakened the case as a vehicle for reconsidering *Libretti*.
+3. **Auxiliary claim calibration:** `gemini-baseline` cleanly distinguished Justice Gorsuch's repeated separate writings on criminal *restitution* (*Hester*, *Rimlawi*) from the silent cert-denial track record on *Libretti* criminal forfeiture, setting `dissent-from-denial = 0.08` — much closer to the silent order that materialized than peers who put a separate writing above 20%.
+
+### Flaws in Docket Reading and Base-Rate Anchoring
+1. **Misread the provisioned June 16, 2026 docket snapshot on two concrete facts:**
+   - `gemini-baseline` twice asserted that the petition had **"no amicus briefs"** (`"with no CVSG and no amicus briefs"`), overlooking the two cert-stage amicus briefs docketed on June 1, 2026 (by Washington Legal Foundation et al. and by ten Former Federal Judges) — apparently treating `context.amicus_briefs: null` (the merits amicus count under `sal-v4`) as zero cert-stage amici without checking the `Other` / `ProceedingsandOrder` entries of `2026-06-16.json`.
+   - `gemini-baseline` misstated the initial distribution and conference dates as **"distributed on May 27, 2026 for the June 11, 2026 conference"** (and `"taken off the June 11 conference list"`), whereas the docket reflects distribution on **June 2, 2026 for the June 18, 2026 conference**.
+2. **Misquoted and mis-selected the prediction-time statpack anchor:** Grading base-rate use against the prediction-time statpack reconstructed via `statpack-at` (build `7bcde3b105cb212283905eda17b827efc188e80c`, `sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641`, which carried `sal-v4` rather than the committed pack's `sal-v8`), `gemini-baseline` cited prior-Term `baseline` figures and denominators (`est. n = 3,181 / 3,363 / 3,628`) that do not appear in build `7bcde3b105cb`'s paid scored-segment `sal-v4` band table, and anchored on a **terminal** `baseline` reading rather than the bracketed **risk-set (`reached`)** column that `statpack.md` specifies for cells carrying a frozen prediction-time band. Because of that mis-anchoring (compounded by missing both amicus briefs), `gemini-baseline` framed `0.045` as a steep upward adjustment when it actually landed slightly below the stamped segment base rate.
+
+## Predicted reasoning
+
+`predicted_reasoning_quality = 0.78`. Evaluating `predicted_reasoning.md` on its own commitments against the staged record, every testable central claim held up cleanly:
+- **Central claims borne out:** (1) standard, unelaborated denial of certiorari leaving *Libretti* intact; (2) SG extensions pushing briefing into autumn, redistribution for an autumn OT2026 conference, and denial at the **first post-BIO conference without multiple relists** (`distribution_count = 2`, denied November 16 after the November 13 conference); (3) no CVSG (entailed by United States party status, so given little discriminating weight); and (4) a silent order with no dissent or statement respecting denial (~92% forecast).
+- **Conditional / unresolved claims:** The plenary-briefing-over-summary-reversal route conditional on a grant was never tested and neither helps nor hurts the grade.
+- **Why 0.78:** Committing specifically to a single post-BIO autumn conference without relists and to an unremarked denial order (despite *Apprendi*/*Erlinger* salience) was discriminating and fully borne out. The score sits slightly above `0.75` rather than near `1.0` because a silent cert denial tests a limited surface and the document repeated the erroneous pre-cutoff distribution date ("May 27, 2026 for the June 11, 2026 conference").
+
+## Leakage and Big-Case Notes
+
+- **Leakage (`not_applicable`, `leakage_suspected = false`):** Forward prediction executed on October 29, 2026, eighteen days before the November 16, 2026 denial order. Retrieval stayed within local corpus queries for prior cases, local metrics files, and one throttled CourtListener search for *Libretti*/*Esformes*.
+- **Big-case read (`0.28`):** Reconsidering *Libretti* would reshape federal criminal forfeiture procedure nationwide under Rule 32.2 and attracted two notable cert-stage amicus briefs plus a CFR, but the splitless overruling posture on an unpublished summary order — following more than a dozen prior denials of the identical question — kept its institutional salience in the moderate-low tier.

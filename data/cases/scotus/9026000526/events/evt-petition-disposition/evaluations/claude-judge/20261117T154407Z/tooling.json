@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000526",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The blinded staging with per-call result_capture markers made the forward leakage check quick.",
+    "The staged petition text let me spot-check the candidates' record claims."
+  ],
+  "gaps": [],
+  "notes": "Plain first-conference denial; all three candidates called it. No corpus, statpack, MCP or web lookups were needed."
+}

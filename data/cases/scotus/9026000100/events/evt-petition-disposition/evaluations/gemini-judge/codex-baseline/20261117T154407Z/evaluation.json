@@ -1,0 +1,113 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.28,
+    "notes": "While Petitioner's abstract invitation to retire or curtail McDonnell Douglas at Rule 56 summary judgment is nationally significant and attracted First Liberty Institute, Orrick, a Call for a Response, and four cert-stage amici, this docket was an unpublished, fact-encumbered single-employee transit discharge after a preventable bus-bicycle collision and documented traffic violations, ending in a routine first-post-BIO-conference denial without CVSG or noted dissent."
+  },
+  "brier_score": 0.010000000000000002,
+  "brier_skill_score": -2.829137396694215,
+  "case_id": "scotus/9026000100",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": -0.007388445761013112
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.007388445761013112,
+    "total": -0.007388445761013112
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:14:41.164009Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-25 against an undecided petition resolved 22 days later on 2026-11-16. Audit of retrieval_log.json (34 calls, result_capture_coverage 0.706; 10 unobserved web-search rows with visible queries) confirms all web lookups targeted official supremecourt.gov copies of Ames v. Ohio Dep't of Youth Services (No. 23-1039) and the 2026 Supreme Court Rules, with no query for Docket No. 26-100, no access to data/qp-topics/, and no outcome-revealing material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.84,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition: 'denied', actual_granted: 0, noted_dissent_from_denial: false, and votes: [].",
+        "claim": "The Court will deny the petition for a writ of certiorari without a separate writing because vehicle defects in an unpublished, fact-disputed employment decision weigh against reviewing McDonnell Douglas here.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count: 2 (up from 1 at prediction time); snapshot 2026-11-16.json shows a single post-BIO distribution on Oct 28, 2026 for the Nov 13, 2026 conference, followed by denial on Nov 16, 2026 with no post-BIO relist.",
+        "claim": "There will be at least one further distribution (0.98) \u2014 most likely a single administrative redistribution placing the completed post-opposition briefing before a later conference \u2014 followed by denial in November or December 2026 rather than a substantive consideration-stage relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date: null, and snapshot 2026-11-16.json shows no CVSG entry.",
+        "claim": "The Court will not call for the views of the Solicitor General (0.02).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied (actual_granted: 0), so conditional grant scope and disposition-route claims were never tested.",
+        "claim": "Conditional on a grant, the Court would narrow the question to Rule 56 record consideration in a Title VII religious-discrimination case and favor plenary review (0.65) over a summary cert-order correction (0.35), rather than issuing an automatic GVR under Ames.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261025T012628Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:14:41.164009Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

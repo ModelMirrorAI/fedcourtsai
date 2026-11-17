@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000383",
+  "gaps": [],
+  "helpful": [
+    "Complete provisioned appendix.txt containing both the Fifth Circuit Rule 47.6 affirmance and the full W.D. La. summary-judgment Memorandum Ruling made grading candidate record mastery straightforward.",
+    "cert_anchor.statpack_digest in the staged prediction contexts paired with git history of metrics/statpack.md verified that all three candidates accurately cited the sal-v4 statpack build in force on 2026-10-31 prior to the sal-v8 rebuild.",
+    "fedcourts query confirmed gemini-baseline's citation of companion prior petition No. 26-80 (scotus/9026000080)."
+  ],
+  "notes": "Clean forward cert-distribution cell with complete docket and outcome records; all three blinded candidates evaluated without issues.",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "git show (metrics/statpack.md history)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

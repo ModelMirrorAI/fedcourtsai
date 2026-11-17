@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000440",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json per candidate",
+    "The staged 2026-11-16 snapshot, which shows the full docket through the denial"
+  ],
+  "gaps": [],
+  "notes": "Simple forward cert denial; the provisioned record was enough. The candidates' base-rate figures were not re-derived with statpack-at because none looked wrong and the anchor is stamped by the harness."
+}

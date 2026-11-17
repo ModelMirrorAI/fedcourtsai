@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Paid petition, pro se at filing, from an unpublished CA9 memorandum affirming a Rooker-Feldman dismissal of a section 1983 suit arising from a privately arbitrated parenting plan. QP2 (delegating parental-rights adjudication to a private arbitrator) has some national family-law reach in the abstract and drew five cert-stage amicus briefs plus a later counsel appearance, but it was never reached below; all respondents waived, the petition was distributed once and denied without a writing."
+  },
+  "brier_score": 0.000144,
+  "brier_skill_score": 0.9448604214876033,
+  "case_id": "scotus/9026000369",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": 0.00246755423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.00246755423898689,
+    "total": 0.00246755423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:26:12.905067Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell, predicted 2026-09-27; event resolved 2026-11-16. Log (26 calls, coverage 0.92): shell reads of provisioned inputs and the statpack, two web-search rows whose queries (per the candidate's retrieval.md) targeted the T.M. and Skinner opinions on supremecourt.gov and neither named this petition, and a CourtListener read of T.M. (decided 2026-06-18, a different case). No call string names this docket or caption; no retrieved date on or after resolution; reasoning states no outcome material for this case was read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome: denied, no noted dissent; 'Petition DENIED' Nov 16 2026.",
+        "claim": "The Court will deny certiorari without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Waivers Oct 2 and Oct 8; distributed once (Oct 28, conference 11/13); distribution_count = 1.",
+        "claim": "One initial distribution after the response deadline or a waiver, then denial without a further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied Nov 16 2026; the hedge toward early 2027 was not needed.",
+        "claim": "Disposition in November or December 2026 (extensions possibly pushing it to early 2027).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date null.",
+        "claim": "No call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "noted_dissent_from_denial false.",
+        "claim": "No dissent from denial or statement respecting it.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:26:12.905067Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

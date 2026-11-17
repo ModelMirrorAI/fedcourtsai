@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73286452",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "write_file",
+    "run_shell_command (uv run fedcourts statpack-at)"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed exact sal-v4 statpack build 73762050f49c from candidate run time after the committed statpack moved to sal-v8",
+    "documents.json fetched_at timestamps clarified which filings were provisioned on 2026-09-18 versus added in October 2026",
+    "blinded retrieval_log.json result_capture and query metadata"
+  ],
+  "gaps": [],
+  "notes": "Provisioned case documents, docket snapshot, outcome.json, and fedcourts statpack-at provided everything needed for blind evaluation without external retrieval."
+}

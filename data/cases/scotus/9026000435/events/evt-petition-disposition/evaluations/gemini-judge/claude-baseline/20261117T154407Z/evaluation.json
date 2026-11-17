@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Routine First-Conference denial of a non-precedential Second Circuit summary order enforcing a single-station NLRB bargaining order over whether television producers are statutory supervisors under 29 U.S.C. 152(11). While Question Presented 2 framed a nationally salient Loper Bright standard-of-review question off a stray pre-Loper Bright deference quotation, the panel's actual holding rested on substantial-evidence review of localized factual gaps, the Second Circuit had already adopted Loper Bright for NLRB review in a published opinion 64 days later (Siren Retail), the Solicitor General waived a response, zero amici filed, and the Court denied certiorari without relist or dissent."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.38733801652892574,
+  "case_id": "scotus/9026000435",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.00101155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.006,
+          "Barrett": 0.003,
+          "Gorsuch": 0.01,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.004,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00101155423898689,
+    "total": 0.00101155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:22:15.959263Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-10-30 (20261030T011325Z), 17 days before the November 16, 2026 denial. retrieval_log.json (16 calls, result_capture_coverage 1.0) shows reads restricted to .github/prompts/predict.md, provisioned case files, metrics/statpack.md, and a 5-row fedcourts query for prior SCOTUS GVRs, with no MCP/web calls and no access to data/qp-topics/ or outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.73,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' and actual_granted = 0 on resolved_at = '2026-11-16' (the order list from the November 13 conference), with no response request in record/snapshots/2026-11-16.json.",
+        "claim": "The petition will be denied at the November 13, 2026 conference without a response being requested.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 1, confirming zero additional distributions beyond October 28, 2026.",
+        "claim": "Most likely no further relists or distributions (~85%), with a ~15% path where the Court calls for a response from the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and the November 16, 2026 docket snapshot contains no CVSG entry.",
+        "claim": "No CVSG will issue because the United States, through the NLRB, is the respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Explicitly conditioned on a grant; certiorari was denied (actual_granted = 0), so no grant route or question selection was tested.",
+        "claim": "Conditional on any grant, the Court would decline plenary review of Question Presented 1 and most likely (~70%) issue a summary GVR on Question Presented 2 in light of Loper Bright or Siren Retail.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false, and the November 16, 2026 docket entry is a bare 'Petition DENIED.' order.",
+        "claim": "No dissent from denial is expected (~2%, with Justice Gorsuch or Justice Thomas likeliest if any Justice writes).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:22:15.959263Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

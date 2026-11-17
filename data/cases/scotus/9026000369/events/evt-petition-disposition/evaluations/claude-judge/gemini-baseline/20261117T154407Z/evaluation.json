@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726",
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "An unpublished two-page Ninth Circuit memorandum affirming a Rooker-Feldman dismissal of a pro se section 1983 suit arising from one domestic-relations arbitration and an expired restraining order. Five advocacy-group amicus briefs show some interest in the parental-rights/private-arbitration theme, but both respondent groups waived, no response was called for, and the petition was denied at its first conference without a noted dissent. Low stakes beyond the parties."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9613880490861788,
+  "case_id": "scotus/9026000369",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.00251155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.001,
+          "Gorsuch": 0.004,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.001,
+          "Thomas": 0.008
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00251155423898689,
+    "total": 0.00251155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:33:50.854917Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-10-31 against a 2026-10-31 snapshot; the petition was denied 2026-11-16. The log (result capture outcome_only throughout, so graded on queries) shows provisioned-file reads, corpus queries for generic 2020s priors and this docket number's metadata row, and CourtListener lookups of T. M. v. University of Md. Medical System (decided June 2026) and the Ninth Circuit decision below. Nothing queried or cited postdates the run or resolves this petition; the reasoning treats the outcome as open.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry 'Nov 16 2026 Petition DENIED'; outcome.json actual_disposition denied, resolved_at 2026-11-16.",
+        "claim": "The petition will be denied on the Monday order list immediately following the November 13, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals distribution_count 1; the docket shows a single distribution (Oct 28) and no response request before the denial.",
+        "claim": "It will not be relisted or redistributed, and no response will be called for.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome signals cvsg_date null; no CVSG entry on the docket.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial false; the docket entry reads only 'Petition DENIED.'",
+        "claim": "The order will be a standard unsigned denial with no noted dissent or separate statement.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not occur; earns neither credit nor penalty.",
+        "claim": "If granted, review would be limited to QP1 and proceed by plenary review rather than summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T010306Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:33:50.854917Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050890782339271884,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.32,
+    "notes": "While the underlying Anti-Terrorism Act litigation carries a $655.5 million trebled verdict against the PLO and Palestinian Authority and follows the Court's merits decision in Fuld v. PLO, 606 U.S. 1 (2025), this follow-on cert petition turned on a sui generis mandate-recall posture under PSJVTA section 903(d)(2) with a parallel 2018 action stayed below, drew waivers from both private respondents and the Solicitor General with zero amicus briefs, and ended in a summary first-conference denial without dissent."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.4054346007983338,
+  "case_id": "scotus/9026000372",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.0011135300871058104
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.38,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.008,
+          "Barrett": 0.005,
+          "Gorsuch": 0.025,
+          "Jackson": 0.005,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.006,
+          "Roberts": 0.003,
+          "Sotomayor": 0.004,
+          "Thomas": 0.015
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0011135300871058104,
+    "total": 0.0011135300871058104
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:00:59.134931Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "retrieval_log.json records mode: 'forward' with all tool calls executed on 2026-10-31T17:43Z-17:45Z, sixteen days before the 2026-11-16 denial and prior to the 2026-11-13 conference. Lookups touched only the provisioned pre-conference record, statpack, and prior related dockets (19-764 and 24-151).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.84,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition: 'denied', actual_granted: 0, disposition_basis: 'standard', and resolved_at: '2026-11-16', matching the November 16, 2026 'Petition DENIED.' entry in record/snapshots/2026-11-16.json.",
+        "claim": "The petition will be denied (P(grant) approximately 4%), most likely as a plain denial on the November 16, 2026 order list following the November 13 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count: 1 and record/snapshots/2026-11-16.json shows no call for a response and no redistribution after the single October 28, 2026 distribution; the modal path held despite the substantial CFR hedge.",
+        "claim": "The likeliest path involves no further distribution or plain relist, though there is roughly a one-in-three chance of a call for a response triggering redistribution in early 2027.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date: null and record/snapshots/2026-11-16.json reflects no CVSG invitation.",
+        "claim": "The Court will not issue a CVSG because the United States is already a respondent on the docket.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial: false and votes: [], and the November 16, 2026 docket entry records an unexplained 'Petition DENIED.'",
+        "claim": "No separate writing or dissent from the denial of certiorari is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on November 16, 2026 (actual_granted: 0), so conditional claims regarding grant scope and plenary versus summary disposition were never tested.",
+        "claim": "If granted, the Court would take the Question Presented as written for plenary review rather than summary disposition, with the 2020 GVR blunting petitioners' reopened-final-judgment framing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:00:59.134931Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

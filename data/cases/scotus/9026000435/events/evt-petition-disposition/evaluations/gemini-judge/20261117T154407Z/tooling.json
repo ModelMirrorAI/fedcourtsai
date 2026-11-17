@@ -1,0 +1,19 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000435",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at reconstructed exact statpack build 7bcde3b105cb to check sal-v4 base-rate claims accurately",
+    "Complete petition.txt including Appendix A allowed direct verification of Second Circuit pin-cites"
+  ],
+  "notes": "Reconstructing the Oct 30, 2026 statpack build via fedcourts statpack-at confirmed that codex-baseline and claude-baseline read the historical sal-v4 tables accurately while gemini-baseline cited figures absent from that build.",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000369",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The 2026-11-16 docket snapshot under record/snapshots made every forecast-document claim (waivers, distribution, timing) checkable.",
+    "result_capture markers in the staged retrieval logs."
+  ],
+  "gaps": [
+    "The staged retrieval logs use different key shapes per candidate (tool vs class, query as string vs object); a single documented shape would make the leakage scan quicker."
+  ],
+  "notes": "Simple forward cert cell; all three candidates called the denial. No statpack rebuild was needed because no candidate's base-rate figure was in dispute."
+}

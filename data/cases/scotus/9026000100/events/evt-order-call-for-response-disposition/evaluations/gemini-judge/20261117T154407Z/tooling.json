@@ -1,0 +1,20 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000100",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at (resolved sal-v4 build 7bcde3b105cb cleanly)",
+    "provisioned brief-in-opposition.txt and cert-reply.txt alongside petition.txt",
+    "harness-captured retrieval_log.json"
+  ],
+  "notes": "fedcourts statpack-at immediately resolved the pre-sal-v8 statpack build (7bcde3b105cb) all three candidates ran against.",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts statpack-at",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
