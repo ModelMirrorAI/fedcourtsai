@@ -698,7 +698,7 @@
     },
     {
       "conference": "2026-10-16",
-      "petitions": 10
+      "petitions": 9
     },
     {
       "conference": "2026-11-06",
@@ -710,7 +710,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 185
+      "petitions": 188
     }
   ],
   "discovery": {
@@ -718,16 +718,16 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-16",
-        "cursor": 633,
-        "frontier": 633,
+        "checked_on": "2026-11-17",
+        "cursor": 641,
+        "frontier": 641,
         "holes": 0,
         "holes_reprobed": 0,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-13",
-        "outside_serial": 498,
-        "outside_source": "order-list 2026-11-09",
+        "newest_filed": "2026-11-16",
+        "outside_serial": 526,
+        "outside_source": "order-list 2026-11-16",
         "problems": [],
         "quiet_business_days": 0,
         "stall_threshold": 3,
@@ -735,14 +735,14 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-16",
-        "cursor": 6154,
-        "frontier": 6154,
-        "holes": 1,
+        "checked_on": "2026-11-17",
+        "cursor": 6162,
+        "frontier": 6162,
+        "holes": 0,
         "holes_reprobed": 1,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-14",
+        "newest_filed": "2026-11-16",
         "outside_serial": 6095,
         "outside_source": "miscellaneous-order 2026-11-12",
         "problems": [],
@@ -752,9 +752,9 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-16",
-        "cursor": 687,
-        "frontier": 687,
+        "checked_on": "2026-11-17",
+        "cursor": 698,
+        "frontier": 698,
         "holes": 2,
         "holes_reprobed": 2,
         "holes_serving": [],
@@ -771,10 +771,10 @@
     "term": 26
   },
   "documents_provisioned": 157,
-  "generated_on": "2026-11-16",
+  "generated_on": "2026-11-17",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 185,
+  "next_conference_petitions": 188,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 749
+  "watchlist": 751
 }

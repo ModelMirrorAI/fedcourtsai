@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2154192,
-      "detail": "2154192 rows vs baseline 2154191",
+      "checked": 2154220,
+      "detail": "2154220 rows vs baseline 2154192",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4311837,
+      "checked": 4311893,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2154192,
+      "checked": 2154220,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -33,7 +33,7 @@
       "problems": []
     },
     {
-      "checked": 2154192,
+      "checked": 2154220,
       "detail": "every stored weight is 1 or unset",
       "failures": 0,
       "name": "sample_weights_are_unit",
@@ -42,7 +42,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-11-16",
+      "detail": "as of 2026-11-17",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -50,15 +50,15 @@
     },
     {
       "checked": 642,
-      "detail": "granted before 2024-11-16 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
+      "detail": "granted before 2024-11-17 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 2154192,
-      "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-16); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+      "checked": 2154220,
+      "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-17); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
       "failures": 75,
       "name": "case_dates_ordered",
       "passed": true,
@@ -86,7 +86,7 @@
       ]
     },
     {
-      "checked": 4308764,
+      "checked": 4308820,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 4311837,
+      "checked": 4311893,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 18969,
+      "checked": 18971,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -118,7 +118,7 @@
       "problems": []
     },
     {
-      "checked": 29953,
+      "checked": 29954,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 4278,
+      "checked": 4280,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 1934,
+      "checked": 1935,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -198,7 +198,7 @@
       "problems": []
     },
     {
-      "checked": 14321,
+      "checked": 14322,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -214,7 +214,7 @@
       "problems": []
     },
     {
-      "checked": 14313,
+      "checked": 14314,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -222,8 +222,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154572,
-  "corpus_rows": 2154192,
+  "corpus_events": 2154600,
+  "corpus_rows": 2154220,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
