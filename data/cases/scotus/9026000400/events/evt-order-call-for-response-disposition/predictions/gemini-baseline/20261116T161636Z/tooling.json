@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000400",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener MCP (search, get_endpoint_item, read_document, search_document)"
+  ],
+  "helpful": [
+    "complete non-truncated petition.txt and appendix.txt in record/documents/",
+    "frozen cert_anchor and cert_amicus_line in context.json alongside metrics/statpack.md",
+    "same-question.json confirming no overlapping pending petitions",
+    "CourtListener MCP read_document for Laboratory Corp. of America Holdings v. Davis, 605 U.S. 327 (2025)"
+  ],
+  "gaps": [
+    "cert-stage amicus brief text is not provisioned in record/documents/ (only filer/counsel metadata in snapshot)",
+    "fedcourts query lacks a moment-specific filter for prior paid cert petitions that drew a Call for a Response after waiver"
+  ],
+  "notes": "Provisioned petition and appendix gave full visibility into the Ninth Circuit's unpublished memorandum, Footnotes 1 and 2, Judge Clifton's dissent, and the unanimous en banc rehearing denial."
+}

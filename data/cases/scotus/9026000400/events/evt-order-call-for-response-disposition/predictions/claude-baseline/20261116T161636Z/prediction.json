@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "If decided, it would settle class-certification questions (uninjured class members, the Comcast damages-model rule, injunctive standing in labeling suits) that the business bar treats as first-order; the underlying dispute itself is an ordinary consumer-labeling class action.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/9026000400",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.02,
+        "Barrett": 0.01,
+        "Gorsuch": 0.015,
+        "Jackson": 0.01,
+        "Kagan": 0.005,
+        "Kavanaugh": 0.04,
+        "Roberts": 0.005,
+        "Sotomayor": 0.005,
+        "Thomas": 0.02
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.06
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.07
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "band_refused": null,
+    "cert_amicus_briefs": 5,
+    "cert_amicus_line": {
+      "arm": "some",
+      "arm_resolved": 2315,
+      "basis": "arm",
+      "fit_digest": "sha256:9a00347f7b4e38084d51fd9c484861fdc42690f34747424794d6846cc74cdf78",
+      "rate": 0.1632829373650108,
+      "rule": "amicus-line-v2"
+    },
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.05172958458379403,
+      "statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-29",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-29",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-16T16:58:55.854891Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-29.json",
+  "judgment": null,
+  "model": "claude-fable-5-2",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.12,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138",
+    "label": "proc-v23",
+    "pipeline_sha": "93cf0ad87d1951d375cdb4e15a8a145299ca3528",
+    "stamped_at": "2026-11-16T16:58:55.854891Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261116T161636Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

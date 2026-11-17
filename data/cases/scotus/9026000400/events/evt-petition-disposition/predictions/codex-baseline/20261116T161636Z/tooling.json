@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000400",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "CourtListener MCP read_document", "web search/open", "fedcourts validate"],
+  "helpful": ["Frozen band and amicus reference rates", "Matching appellate decision and dissent", "Snapshot distinguishing the requested response from conference distribution", "CourtListener access to the earlier Labcorp opinion"],
+  "gaps": ["No opposition yet available in the provisioned record", "Web attempts returned no usable content", "Sparse corpus reporter citations limit exact precedent lookups"],
+  "notes": "Default uv cache access failed on the read-only filesystem; UV_NO_CACHE=1 allowed the installed CLI to run without a package install. Another distribution here is likely routine after a response request, not necessarily substantive relisting."
+}

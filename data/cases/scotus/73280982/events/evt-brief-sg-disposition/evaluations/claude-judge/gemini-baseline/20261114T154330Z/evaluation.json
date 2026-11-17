@@ -1,4 +1,5 @@
 {
+  "amicus_line_rate": null,
   "base_rate_basis": "risk_set",
   "base_rate_lookback_terms": 10,
   "base_rate_salience_version": "sal-v4",

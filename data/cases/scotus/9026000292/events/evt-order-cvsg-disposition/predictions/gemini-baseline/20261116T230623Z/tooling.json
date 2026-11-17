@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000292",
+  "run_id": "20261116T230623Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "metrics/statpack.md and record/context.json for pre-pooled high-band, CVSG, and amicus-line base rates",
+    "record/related/ for companion CVSG dockets 26-293 (Vide) and 26-294 (vided-amicus) showing Kagan's selective recusal",
+    "mcp_courtlistener_read_document to read the full CA2 panel TRIA section and five-judge en banc dissent truncated in petition.txt",
+    "fedcourts query to verify post-CVSG distribution_count increments on resolved CVSG priors"
+  ],
+  "gaps": [
+    "decision-below.txt was not staged and petition.txt truncated at 150k chars mid-appendix, requiring CourtListener MCP lookup in forward mode",
+    "cert-stage amicus briefs (Iowa et al.; Faiq) and the Oct. 30 supplemental brief are not staged in record/documents/"
+  ],
+  "notes": "CourtListener MCP cleanly supplied the full Second Circuit panel and en banc writings that were cut off by the 150,000-character extraction cap on bound Petition + Appendix Vol. I."
+}

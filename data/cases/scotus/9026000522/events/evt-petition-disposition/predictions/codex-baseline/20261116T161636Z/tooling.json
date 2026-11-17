@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000522",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "fedcourts validate", "CourtListener search", "CourtListener search_document", "web.run", "local record and statpack reads"],
+  "helpful": ["Frozen reached-band and amicus reference rates", "Provisioned lower-court opinion and petition appendix", "CourtListener targeted opinion searches"],
+  "gaps": ["The requested opposition is not yet in the provisioned record", "Default uv cache is outside the writable sandbox", "Broad query output obscured its initial transfer line; compact jq output preserved the repeat's line", "Web attempts did not yield usable precedent text"],
+  "notes": "Existing tooling ran with UV_CACHE_DIR=/tmp/uv-cache and no package installation. The snapshot records a response request despite null response_requested metadata. Direct opinion comparisons were more useful than the broad recent-grants corpus sample. No other forecast was consulted."
+}

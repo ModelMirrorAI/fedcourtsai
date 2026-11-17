@@ -1,0 +1,173 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "a7e32a553ef1290b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:56:52.847Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8568296bef760c4e",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000400 && find . -type f | head -100 && wc -c record/* 2>/dev/null",
+      "result_capture": "captured",
+      "result_digest": "77bcbef3d6345e63",
+      "result_status": "error",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:56:53.785Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1d29f8bcd99ad994",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\", \"allow_large\": true, \"limit\": 660, \"offset\": 908}",
+      "result_capture": "captured",
+      "result_digest": "f1fb1e9697306785",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:56:56.344Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "646b788ddd9e6e26",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000400 && cat events/*/event.yaml record/context.json record/same-question.json record/documents/documents.json record/snapshots/*.json record/documents/questions-presented.txt; wc -c record/documents/*",
+      "result_capture": "captured",
+      "result_digest": "2f7ae08ea31e8043",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:56:57.542Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f6b1c0a47ade3f98",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai && sed -n 1,400p data/cases/scotus/9026000400/record/documents/petition.txt | cut -c1-400 | awk 'NR>60' | head -330",
+      "result_capture": "captured",
+      "result_digest": "56d5b7b03032ca93",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:01.329Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f161c5a2d58728d4",
+      "query": "cat schemas/prediction.schema.json | python3 -I -c \"import json,sys; d=json.load(sys.stdin); print(list(d.get('properties',{}).keys())); print(d.get('required')); print(json.dumps(d.get('\\$defs',{}).get('JusticeVote',{}))[:600])\"; cat schemas/agent_tooling.schema.json | python3 -I -c \"import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get('properties'))[:1500]); print(d.get('required'))\"; grep -n \"salience band\" -A 30 metrics/statpack.md | head -80; uv run fedcourts query --help | head ",
+      "result_capture": "captured",
+      "result_digest": "309a96a065df9b48",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:03.852Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3999590c4c0f47e2",
+      "query": "python3 -I - <<'E'\nt=open('data/cases/scotus/9026000400/record/documents/petition.txt').read()\ni=t.find('This case, from the Ninth Circuit, presents three')\nprint(t[i:i+14000])\nj=t.find('II. The Court should grant review to resolve',i+100)\nj=t.find('some members lack Article III standing',i+14000)\nprint('=====');print(t[j:j+6000])\nE\nuv run fedcourts query --court scotus --era modern --disposition granted --limit 5 2>&1 | cut -c1-600 | tail -8",
+      "result_capture": "captured",
+      "result_digest": "6c468abbcb24e27b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:10.257Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "fb9cd3d8db30e8df",
+      "query": "uv run fedcourts query --court scotus --disposition granted --limit 5 2>&1 | cut -c1-500 | tail -8; uv run fedcourts query --court scotus --docket-number 24-304 2>&1 | cut -c1-900 | tail -4",
+      "result_capture": "captured",
+      "result_digest": "d405c62bd3fca75c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:14.801Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7da4d16842a6728e",
+      "query": "select:WebSearch",
+      "result_capture": "captured",
+      "result_digest": "b6f7d1ace9cc70f2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:15.247Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a30a81e886e07729",
+      "query": "Supreme Court certiorari granted 2026 class certification uninjured class members Article III standing after Labcorp v. Davis",
+      "result_capture": "captured",
+      "result_digest": "f52b8b3294594189",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:23.592Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d0f156270eb5ebcb",
+      "query": "python3 -I - <<'E'\nt=open('data/cases/scotus/9026000400/record/documents/appendix.txt').read()\nprint(t[:9000])\nE\ngrep -n \"amicus-brief count\" -A 12 metrics/statpack.md | head -30; grep -n \"by relist count (paid\" -A 12 metrics/statpack.md | head -20",
+      "result_capture": "captured",
+      "result_digest": "c3b5d2a72d31ec45",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:57:25.281Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f57370c42181021a",
+      "query": "D=data/cases/scotus/9026000400/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261116T161636Z && mkdir -p $D && cd $D && cat > prediction.json <<'E'\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/9026000400\",\n  \"event_id\": \"evt-order-call-for-response-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-fable-5-2\",\n  \"run_id\": \"20261116T161636Z\",\n  \"created_at\": \"2026-11-16T16:30:00Z\",\n  \"input_snapshot\": \"2026-10-29.jso",
+      "result_capture": "captured",
+      "result_digest": "aaf5299a2be56413",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-16T16:58:15.878Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000400",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 2,
+    "queries_ok": 2
+  },
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261116T161636Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

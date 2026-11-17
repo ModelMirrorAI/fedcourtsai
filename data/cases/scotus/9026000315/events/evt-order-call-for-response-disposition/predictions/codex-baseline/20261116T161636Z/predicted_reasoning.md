@@ -1,0 +1,13 @@
+# Forecast of the Court's treatment
+
+The Court will most likely deny the petition, without a published explanation or separate writing. The probability of a grant is 38%. A denial will leave the Ninth Circuit's judgment standing without resolving the national disagreement over trustee liability.
+
+The snapshot records **one distribution and no CVSG**. The Court will obtain the response requested November 4, due December 4, 2026, and return the petition to conference afterward. I expect one or two additional distribution entries before disposition, with the first principally reflecting renewed scheduling after the response request rather than necessarily a substantive relist. At least one additional distribution has probability 99%. If the Court moves toward granting, I expect an actual relist after its first post-response consideration. The record does not establish that the originally scheduled November 13 conference considered the petition.
+
+The modal path has no request for the Solicitor General's views. I assign an 18% probability to a later CVSG, most plausibly at an early post-response conference in winter or spring 2027, because the rule affects administration of the federal trustee system. No such invitation or recommendation is already on the snapshot.
+
+If review is granted, the Court will most likely take a narrowed form of the question presented: whether a Chapter 7 trustee may be held personally liable for ordinary negligence in administering estate property when neither judge-like functions nor a sufficiently specific court order supplies immunity. It is less likely to resolve a categorical challenge to every personal-capacity action against a trustee. The narrowed issue would resolve the conflicting fault thresholds while respecting the different immunity doctrines addressed below.
+
+Conditional on a grant, full merits briefing and argument are the expected route. I assign only 2.5% to relief disposed of in the cert order itself. There is no identified intervening controlling decision calling for a routine grant-vacate-remand order, and settling the competing liability standards is not an obvious summary task.
+
+Conditional on denial, the probability of any noted dissent or statement respecting denial is 6%; the expected result is none. If a separate writing appears, Thomas or Gorsuch is the relatively likelier author, potentially emphasizing the unresolved national standard or the source of personal liability. This is a low-probability possibility, not an expectation of either Justice's participation. There is no predicted majority opinion on a denial.

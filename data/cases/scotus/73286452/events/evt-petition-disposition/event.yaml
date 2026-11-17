@@ -6,8 +6,8 @@ event_id: evt-petition-disposition
 kind: petition
 moment: distribution
 opened_at: '2026-05-01'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: cert
-title: Azadeh Khatibi, et al. v. Kristina D. Lawson, President of the Medical Board
-  of California, et al.
+title: Azadeh Khatibi, et al. v. Felix C. Yip, President of the Medical Board of California,
+  et al.

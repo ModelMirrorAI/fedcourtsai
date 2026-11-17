@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000522",
+  "run_id": "20261116T161636Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "web_fetch"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, party-letter.txt, and decision-below.txt",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json",
+    "fedcourts query --docket-number for comparator cert outcome (25-819)",
+    "CourtListener MCP opinion/RECAP search with stat_Relating-to=true and read_document"
+  ],
+  "gaps": [
+    "A committed statpack base-rate cut conditioned on Call-for-Response (CFR) cert petitions",
+    "Filter in fedcourts query for CFR/relist-bucket comparators"
+  ],
+  "notes": "CourtListener opinion search defaults exclude SCOTUS statements respecting denial unless stat_Relating-to=true is passed explicitly; once set, MacRae v. Mattos (opinion_id=11086517) retrieved cleanly."
+}

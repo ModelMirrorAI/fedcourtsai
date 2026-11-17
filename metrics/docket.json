@@ -345,7 +345,7 @@
       "court": "scotus",
       "group_by": "qp_topic",
       "live_slice": true,
-      "scope_note": "Labeled applications only \u2014 2231 of 2242 in-frame live-slice applications labeled, 2193 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 5's extract counted 2231 application(s) in the frame it cut from, of which the artifact held 2231 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1990 drawn from the 1990 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1990 were drawn.",
+      "scope_note": "Labeled applications only \u2014 2231 of 2243 in-frame live-slice applications labeled, 2193 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 5's extract counted 2231 application(s) in the frame it cut from, of which the artifact held 2231 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1990 drawn from the 1990 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1990 were drawn.",
       "title": "Emergency applications by topic (`qp-topic-v1`)",
       "weighted": true
     },
@@ -444,14 +444,14 @@
       "tax"
     ]
   },
-  "corpus_rows": 2154188,
-  "corpus_through": "2026-11-14",
+  "corpus_rows": 2154191,
+  "corpus_through": "2026-11-16",
   "coverage": {
-    "census_filings": 46526,
+    "census_filings": 46527,
     "live_slice_resolved": 58312,
-    "live_slice_rows": 59768
+    "live_slice_rows": 59770
   },
-  "open": 2064909,
+  "open": 2064912,
   "qp_topics": {
     "agree": 320,
     "batches": 13,
@@ -892,7 +892,7 @@
       "court": "scotus",
       "group_by": "qp_topic",
       "live_slice": true,
-      "scope_note": "QP-bearing rows only \u2014 11045 of 46538 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 35493 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 13's extract sized the second: it counted 15613 QP-bearing row(s) in the frame it cut from, of which the artifact held 11049 labeled (70.8%). Both counts are batch 13's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 10692 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 13's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.4x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 13 landed: 353 carried in with certainty against 10696 drawn from the 15260 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
+      "scope_note": "QP-bearing rows only \u2014 11045 of 46539 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 35494 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 13's extract sized the second: it counted 15613 QP-bearing row(s) in the frame it cut from, of which the artifact held 11049 labeled (70.8%). Both counts are batch 13's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 10692 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 13's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.4x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 13 landed: 353 carried in with certainty against 10696 drawn from the 15260 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
       "title": "Cert petitions by question-presented topic (`qp-topic-v0`)",
       "weighted": true
     },
@@ -993,7 +993,7 @@
     {
       "buckets": [
         {
-          "cases": 592080,
+          "cases": 592082,
           "dispositions": [
             {
               "count": 45391,
@@ -1027,7 +1027,7 @@
             }
           ],
           "key": "scotus",
-          "open": 533472,
+          "open": 533474,
           "resolved": 58608
         },
         {
@@ -1397,16 +1397,16 @@
           "resolved": 0
         },
         {
-          "cases": 5,
+          "cases": 6,
           "dispositions": [],
-          "key": "flnd",
-          "open": 5,
+          "key": "nysd",
+          "open": 6,
           "resolved": 0
         },
         {
           "cases": 5,
           "dispositions": [],
-          "key": "nysd",
+          "key": "flnd",
           "open": 5,
           "resolved": 0
         },
@@ -1582,7 +1582,7 @@
           "resolved": 3
         },
         {
-          "cases": 35632,
+          "cases": 35634,
           "dispositions": [
             {
               "count": 27154,
@@ -1611,7 +1611,7 @@
             }
           ],
           "key": "2020s",
-          "open": 1411,
+          "open": 1413,
           "resolved": 34221
         },
         {
@@ -1702,10 +1702,10 @@
           "resolved": 42927
         },
         {
-          "cases": 1409,
+          "cases": 1410,
           "dispositions": [],
           "key": "(open)",
-          "open": 1409,
+          "open": 1410,
           "resolved": 0
         },
         {
@@ -2158,10 +2158,10 @@
           "resolved": 0
         },
         {
-          "cases": 4,
+          "cases": 3,
           "dispositions": [],
           "key": "va",
-          "open": 4,
+          "open": 3,
           "resolved": 0
         },
         {
@@ -2181,7 +2181,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "alacivapp",
+          "key": "alnd",
           "open": 1,
           "resolved": 0
         },
@@ -2217,6 +2217,13 @@
           "cases": 1,
           "dispositions": [],
           "key": "fladistctapp1",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "fladistctapp2",
           "open": 1,
           "resolved": 0
         },
@@ -2279,6 +2286,13 @@
         {
           "cases": 1,
           "dispositions": [],
+          "key": "scctapp",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
           "key": "texcrimapp",
           "open": 1,
           "resolved": 0
@@ -2309,7 +2323,7 @@
     {
       "buckets": [
         {
-          "cases": 38489,
+          "cases": 38487,
           "dispositions": [
             {
               "count": 36028,
@@ -2333,11 +2347,11 @@
             }
           ],
           "key": "0",
-          "open": 1294,
+          "open": 1292,
           "resolved": 37195
         },
         {
-          "cases": 6405,
+          "cases": 6408,
           "dispositions": [
             {
               "count": 5828,
@@ -2361,7 +2375,7 @@
             }
           ],
           "key": "1",
-          "open": 66,
+          "open": 69,
           "resolved": 6339
         },
         {
@@ -2439,7 +2453,7 @@
     {
       "buckets": [
         {
-          "cases": 46341,
+          "cases": 46342,
           "dispositions": [
             {
               "count": 42824,
@@ -2463,7 +2477,7 @@
             }
           ],
           "key": "none",
-          "open": 1378,
+          "open": 1379,
           "resolved": 44963
         },
         {
@@ -2541,7 +2555,7 @@
           "resolved": 43549
         },
         {
-          "cases": 1606,
+          "cases": 1607,
           "dispositions": [
             {
               "count": 1524,
@@ -2565,7 +2579,7 @@
             }
           ],
           "key": "capital",
-          "open": 26,
+          "open": 27,
           "resolved": 1580
         }
       ],
@@ -2962,7 +2976,7 @@
           "resolved": 671
         },
         {
-          "cases": 618,
+          "cases": 619,
           "dispositions": [
             {
               "count": 597,
@@ -2981,7 +2995,7 @@
             }
           ],
           "key": "Supreme Court of Florida",
-          "open": 6,
+          "open": 7,
           "resolved": 612
         },
         {
@@ -3041,7 +3055,7 @@
           "resolved": 311
         },
         {
-          "cases": 303,
+          "cases": 304,
           "dispositions": [
             {
               "count": 291,
@@ -3060,7 +3074,7 @@
             }
           ],
           "key": "Supreme Court of Virginia",
-          "open": 7,
+          "open": 8,
           "resolved": 296
         },
         {
@@ -3215,7 +3229,7 @@
           "resolved": 149
         },
         {
-          "cases": 152,
+          "cases": 151,
           "dispositions": [
             {
               "count": 138,
@@ -3229,7 +3243,7 @@
             }
           ],
           "key": "District Court of Appeal of Florida, Second District",
-          "open": 11,
+          "open": 10,
           "resolved": 141
         },
         {
@@ -5032,7 +5046,7 @@
           "resolved": 31
         },
         {
-          "cases": 30,
+          "cases": 29,
           "dispositions": [
             {
               "count": 29,
@@ -5041,7 +5055,7 @@
             }
           ],
           "key": "Court of Appeals of South Carolina",
-          "open": 1,
+          "open": 0,
           "resolved": 29
         },
         {
@@ -5388,6 +5402,19 @@
           "resolved": 21
         },
         {
+          "cases": 21,
+          "dispositions": [
+            {
+              "count": 20,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Civil Appeals of Alabama",
+          "open": 1,
+          "resolved": 20
+        },
+        {
           "cases": 20,
           "dispositions": [
             {
@@ -5412,19 +5439,6 @@
           "key": "Court of Appeals of Texas, Twelfth District",
           "open": 1,
           "resolved": 19
-        },
-        {
-          "cases": 20,
-          "dispositions": [
-            {
-              "count": 20,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Civil Appeals of Alabama",
-          "open": 0,
-          "resolved": 20
         },
         {
           "cases": 20,
@@ -5899,19 +5913,6 @@
           "cases": 5,
           "dispositions": [
             {
-              "count": 2,
-              "disposition": "gvr",
-              "share": 1.0
-            }
-          ],
-          "key": "United States District Court for the Northern District of Alabama",
-          "open": 3,
-          "resolved": 2
-        },
-        {
-          "cases": 5,
-          "dispositions": [
-            {
               "count": 3,
               "disposition": "dismissed",
               "share": 0.6
@@ -6106,10 +6107,16 @@
         },
         {
           "cases": 4,
-          "dispositions": [],
-          "key": "va",
-          "open": 4,
-          "resolved": 0
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "gvr",
+              "share": 1.0
+            }
+          ],
+          "key": "United States District Court for the Northern District of Alabama",
+          "open": 2,
+          "resolved": 2
         },
         {
           "cases": 3,
@@ -6325,6 +6332,13 @@
           "key": "United States District Court for the Western District of Louisiana",
           "open": 0,
           "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [],
+          "key": "va",
+          "open": 3,
+          "resolved": 0
         },
         {
           "cases": 2,
@@ -8222,7 +8236,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "alacivapp",
+          "key": "alnd",
           "open": 1,
           "resolved": 0
         },
@@ -8258,6 +8272,13 @@
           "cases": 1,
           "dispositions": [],
           "key": "fladistctapp1",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
+          "key": "fladistctapp2",
           "open": 1,
           "resolved": 0
         },
@@ -8320,6 +8341,13 @@
         {
           "cases": 1,
           "dispositions": [],
+          "key": "scctapp",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
           "key": "texcrimapp",
           "open": 1,
           "resolved": 0
@@ -8350,7 +8378,7 @@
     {
       "buckets": [
         {
-          "cases": 32275,
+          "cases": 32276,
           "dispositions": [
             {
               "count": 30214,
@@ -8374,7 +8402,7 @@
             }
           ],
           "key": "ifp",
-          "open": 950,
+          "open": 951,
           "resolved": 31325
         },
         {
@@ -8450,9 +8478,9 @@
       ],
       "est_grant_family_rate": 0.012775842044134726,
       "est_grant_rate": 0.012775842044134726,
-      "filings": 1786,
+      "filings": 1787,
       "grants": 11,
-      "ingested": 1785,
+      "ingested": 1786,
       "median_days_to_grant": 76.0,
       "resolved": 861,
       "term": 2026,
@@ -8779,7 +8807,7 @@
       {
         "cases": 11045,
         "rows": 11045,
-        "scope_note": "QP-bearing rows only \u2014 11045 of 46538 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 35493 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 13's extract sized the second: it counted 15613 QP-bearing row(s) in the frame it cut from, of which the artifact held 11049 labeled (70.8%). Both counts are batch 13's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 10692 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 13's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.4x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 13 landed: 353 carried in with certainty against 10696 drawn from the 15260 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
+        "scope_note": "QP-bearing rows only \u2014 11045 of 46539 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows; the bucket counts are denial-reweighted, and no reweighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 35494 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 13's extract sized the second: it counted 15613 QP-bearing row(s) in the frame it cut from, of which the artifact held 11049 labeled (70.8%). Both counts are batch 13's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 10692 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 13's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.4x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 13 landed: 353 carried in with certainty against 10696 drawn from the 15260 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
         "shares": [
           {
             "cases": 3201,
@@ -9021,7 +9049,7 @@
       {
         "cases": 2231,
         "rows": 2231,
-        "scope_note": "Labeled applications only \u2014 2231 of 2242 in-frame live-slice applications labeled, 2193 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 5's extract counted 2231 application(s) in the frame it cut from, of which the artifact held 2231 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1990 drawn from the 1990 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1990 were drawn.",
+        "scope_note": "Labeled applications only \u2014 2231 of 2243 in-frame live-slice applications labeled, 2193 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are reweighted like every section here. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 5's extract counted 2231 application(s) in the frame it cut from, of which the artifact held 2231 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 1990 drawn from the 1990 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 1990 were drawn.",
         "shares": [
           {
             "cases": 973,

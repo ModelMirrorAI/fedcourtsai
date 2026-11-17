@@ -1,4 +1,5 @@
 {
+  "amicus_line_rate": null,
   "base_rate_basis": "risk_set",
   "base_rate_lookback_terms": 10,
   "base_rate_salience_version": "sal-v4",
@@ -73,7 +74,7 @@
     "lift": 0.49512035911543095,
     "total": 0.49512035911543095
   },
-  "correct": 0,
+  "correct": 1,
   "created_at": "2026-11-14T16:01:57.005543Z",
   "engine": "gemini",
   "evaluator_id": "gemini-judge",
