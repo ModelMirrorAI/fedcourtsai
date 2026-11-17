@@ -942,8 +942,9 @@ The automated consumer stays within CourtListener's published API limits by desi
 - **The decision-below dry run shares it too.** `decision-below` reads the
   lower court's docket rows, clusters, opinions and post-judgment docket
   entries for a named case or a sample of at most 50, through the same client
-  and configured ceilings: four requests for a typical circuit case, sixteen at
-  worst. Its requests count against the same account limits but not against
+  and configured ceilings: four requests for a typical circuit case,
+  twenty-three at worst. One of them is an opinion search, sent only where no
+  docket row found by number carries an opinion on the judgment date. Its requests count against the same account limits but not against
   the pull governor's per-process tally, since each process counts only its
   own. It is a maintainer's measurement, not a lane; `run-analytics`'s
   `decision-below` mode runs the fill's dry run instead, over 25 cases with

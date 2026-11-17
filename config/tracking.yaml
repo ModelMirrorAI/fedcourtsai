@@ -771,7 +771,8 @@ courtlistener_budget:
     # four requests at most.
     opinion-hold: {per_run: 32, runs_per_day: 4}
     # enrich-decision-below --apply, each full live window: 6 cases, about four
-    # requests each and sixteen at worst; a worst-case window defers its tail.
+    # requests each and twenty-three at worst; a worst-case window defers its
+    # tail.
     decision-below-fill: {per_run: 60, runs_per_day: 4}
     # watchlist-refresh, the day's first pull window: one onboard leads, then
     # the AI watchlist's dockets at about two requests each once onboarded

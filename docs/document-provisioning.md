@@ -170,7 +170,13 @@ Each of these is stated, with its reason, where the code makes the choice:
   amended opinion or opinion on rehearing the court filed before the SCOTUS
   docketing, and the docket record (panel, a petition for rehearing en banc,
   its disposition and any dissent noted) as `lower-court-docket`
-  (`pipeline/decision_below.py`, [cli.md](cli.md)). The record words an
+  (`pipeline/decision_below.py`, [cli.md](cli.md)). Where the rows found by
+  case number carry no opinion on the judgment date, an opinion search looks
+  for a docket the court's opinion feed numbered for a consolidated appeal's
+  lead cases together; such a row joins the case only where its docket number
+  or the caption of its opinion on the judgment date lists one of the
+  petition's case numbers, and the record says which. A petition with no
+  docket row found by number is not searched for. The record words an
   absence as one among the entries read, names the date those entries run
   through, and says so where they stop before a rehearing denial the SCOTUS
   docket states, since CourtListener holds a circuit docket only as far as it
