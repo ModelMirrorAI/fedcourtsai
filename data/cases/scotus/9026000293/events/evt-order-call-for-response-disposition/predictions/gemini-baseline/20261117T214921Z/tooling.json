@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000293",
+  "run_id": "20261117T214921Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "context.json (frozen cert_anchor, cert_amicus_line, cvsg_date, distribution_count)",
+    "record/related/ snapshots for companion dockets 26-292 and 26-294",
+    "CourtListener MCP read_document for Exxon Mobil v. Corporacion CIMEX (2026) and the truncated Second Circuit en banc opinions",
+    "metrics/statpack.md CVSG and salience-band cuts",
+    "fedcourts query for recent post-CVSG GVR and granted priors"
+  ],
+  "gaps": [
+    "Cert-stage amicus briefs (Faiq UN Mission brief opposing cert in 26-293 and Iowa et al. brief supporting cert in vided 26-292) and companion petitions (26-292, 26-294) were not staged in record/documents/",
+    "petition.txt hit the 150k-character cap in the appendix, omitting the March 19, 2026 en banc opinions (resolved via CourtListener MCP)"
+  ],
+  "notes": "CourtListener MCP cleanly filled the 150k-character appendix truncation in petition.txt and allowed direct verification of Exxon Mobil v. Corporacion CIMEX against the Second Circuit opinion."
+}

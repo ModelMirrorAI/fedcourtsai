@@ -1,0 +1,34 @@
+{
+  "actor_id": "gemini-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1889828,
+  "case_id": "scotus/9526000686",
+  "created_at": "2026-11-17T21:49:21Z",
+  "engine": "gemini",
+  "engine_version": "0.68.0",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 1.8147268,
+  "event_id": "evt-brief-response-disposition",
+  "input_tokens": 659252,
+  "model": "gemini-4-carbon",
+  "output_tokens": 30724,
+  "pipeline_sha": "04d0354af7f490322217dafc4770d2f3aad014a8",
+  "post_run_poll": {
+    "docket_number": "26A686 *** CAPITAL CASE ***",
+    "polled_at": "2026-11-17T22:19:55.066312Z",
+    "reason": "docket number has no live spelling",
+    "state": "unavailable"
+  },
+  "pre_mint_poll": {
+    "docket_number": "26A686 *** CAPITAL CASE ***",
+    "polled_at": "2026-11-17T22:07:57.368127Z",
+    "reason": "docket number has no live spelling",
+    "state": "unavailable"
+  },
+  "role": "predictor",
+  "run_id": "20261117T214921Z",
+  "schema_version": "1.0",
+  "served_models": [
+    "gemini-4-carbon"
+  ]
+}

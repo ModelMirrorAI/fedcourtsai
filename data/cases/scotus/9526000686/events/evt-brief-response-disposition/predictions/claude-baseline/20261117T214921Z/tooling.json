@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000686",
+  "run_id": "20261117T214921Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned application and response text"],
+  "helpful": ["Applicant-class by capital table in the statpack interim section", "Provisioned application and response text"],
+  "gaps": ["No filter to pull prior capital stay applications from the same state court; the generic query returns the most recent cert denials", "The linked cert petition and decision below were not staged for the application docket"],
+  "notes": null
+}
