@@ -19769,8 +19769,9 @@ def decision_below_command(
     (the federal courts of appeals only), finds the lower court's docket rows by
     number, the opinion cluster dated on the judgment date, any dated after it
     and on or before the SCOTUS docketing, and their sub-opinions' file and text
-    availability — asking one opinion search for a consolidated appeal's docket
-    where no row found by number carries a cluster on the judgment date — and — where upstream holds the docket's entries — reads
+    availability, asking one opinion search for a consolidated appeal's docket
+    where no row found by number carries a cluster on the judgment date, and —
+    where upstream holds the docket's entries — reads
     whether a petition for rehearing en banc was filed, how it was disposed of,
     and whether a dissent was noted, reporting no absence where the entries
     stop before a rehearing denial the SCOTUS docket states. Prints the report as JSON on

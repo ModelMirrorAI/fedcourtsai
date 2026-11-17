@@ -528,7 +528,9 @@ class _Upstream:
             )
         if parts[-1] == "search":
             return self._page(self.search_hits, False)
-        resource, ident = parts[-2], int(parts[-1])
+        return self._one(parts[-2], int(parts[-1]))
+
+    def _one(self, resource: str, ident: int) -> httpx.Response:
         held = {"dockets": self.docket_rows, "opinions": self.opinions}.get(resource, {})
         if ident not in held:
             return httpx.Response(404, json={"detail": "Not found."})
