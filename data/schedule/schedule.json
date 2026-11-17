@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-11-16",
+  "as_of": "2026-11-17",
   "court_next_conference": "2026-12-04",
   "entries": [
     {
@@ -129,7 +129,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1030,7 +1030,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1517,7 +1517,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 3,
       "response_due": null,
@@ -1619,7 +1619,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 3,
       "response_due": null,
@@ -1646,7 +1646,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1673,7 +1673,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1764,7 +1764,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1852,7 +1852,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1928,7 +1928,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 3,
       "response_due": null,
@@ -1976,7 +1976,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 3,
       "response_due": null,
@@ -2013,7 +2013,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 2,
       "response_due": null,
@@ -2052,7 +2052,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -2074,7 +2074,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -2244,19 +2244,35 @@
       "relists": 0,
       "response_due": {
         "set_for": "2026-11-16",
-        "stale_reason": null,
-        "upcoming": "2026-11-16"
+        "stale_reason": "passed",
+        "upcoming": null
       },
       "stale_reason": "conference_passed"
     },
     {
       "argument": null,
       "case_id": "scotus/9026000049",
-      "conferences": null,
+      "conferences": [
+        {
+          "conference": "2026-09-28",
+          "distributed": "2026-09-02",
+          "transition": "first"
+        },
+        {
+          "conference": "2026-10-09",
+          "distributed": "2026-10-05",
+          "transition": "reschedule"
+        },
+        {
+          "conference": "2026-10-16",
+          "distributed": "2026-10-13",
+          "transition": "reschedule"
+        }
+      ],
       "distributed_for_conference": "2026-10-16",
-      "last_live_polled": "2026-11-09",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
-      "relists": null,
+      "relists": 0,
       "response_due": null,
       "stale_reason": "conference_passed"
     },
@@ -2298,7 +2314,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -2320,7 +2336,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -2347,7 +2363,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -2415,11 +2431,27 @@
     {
       "argument": null,
       "case_id": "scotus/9026000093",
-      "conferences": null,
+      "conferences": [
+        {
+          "conference": "2026-09-28",
+          "distributed": "2026-09-02",
+          "transition": "first"
+        },
+        {
+          "conference": "2026-10-09",
+          "distributed": "2026-09-23",
+          "transition": "reschedule"
+        },
+        {
+          "conference": "2026-10-16",
+          "distributed": "2026-10-13",
+          "transition": "relist"
+        }
+      ],
       "distributed_for_conference": "2026-10-16",
-      "last_live_polled": "2026-11-09",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
-      "relists": null,
+      "relists": 1,
       "response_due": {
         "set_for": "2026-08-20",
         "stale_reason": "passed",
@@ -2448,7 +2480,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -2465,7 +2497,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -2566,7 +2598,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -2593,7 +2625,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": {
@@ -2624,7 +2656,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": {
@@ -2667,7 +2699,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -2861,7 +2893,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -2883,7 +2915,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -2900,7 +2932,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -2921,7 +2953,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -3191,7 +3223,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": {
@@ -3217,7 +3249,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": {
@@ -3243,7 +3275,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 1,
       "response_due": {
@@ -3342,7 +3374,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -3405,7 +3437,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3422,7 +3454,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3523,7 +3555,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3582,7 +3614,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -3603,7 +3635,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -3645,7 +3677,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -3696,7 +3728,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3749,7 +3781,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -3833,7 +3865,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -3854,7 +3886,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -3875,7 +3907,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -3911,7 +3943,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3928,7 +3960,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3945,7 +3977,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -3983,7 +4015,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4070,7 +4102,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4087,7 +4119,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -4144,7 +4176,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -4165,7 +4197,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4181,8 +4213,8 @@
       "relists": 0,
       "response_due": {
         "set_for": "2026-11-16",
-        "stale_reason": null,
-        "upcoming": "2026-11-16"
+        "stale_reason": "passed",
+        "upcoming": null
       },
       "stale_reason": null
     },
@@ -4218,7 +4250,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -4239,7 +4271,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4256,7 +4288,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4273,7 +4305,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4305,7 +4337,7 @@
         }
       ],
       "distributed_for_conference": "2026-11-13",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -4341,7 +4373,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-16",
+      "last_live_polled": "2026-11-17",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
@@ -4457,7 +4489,7 @@
       "case_id": "scotus/9026000602",
       "conferences": [],
       "distributed_for_conference": null,
-      "last_live_polled": "2026-11-09",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
       "relists": 0,
       "response_due": {
