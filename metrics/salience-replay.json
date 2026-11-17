@@ -2,31 +2,31 @@
   "cells": [
     {
       "bands": {
-        "baseline": 1649,
-        "federal": 17,
+        "baseline": 1615,
+        "federal": 16,
         "state": 50
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1716,
+      "eligible": 1681,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 1716
+        "truncated": 1681
       },
-      "realized_granted": 103,
+      "realized_granted": 102,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
       "selected_rank_fill": 0,
       "skipped_no_snapshot": 0,
       "term": 2017,
-      "weighted_granted": 103.0,
-      "weighted_population": 1716.0,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -120,6 +120,36 @@
     },
     {
       "bands": {
+        "baseline": 1649,
+        "federal": 17,
+        "state": 50
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1716,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1716
+      },
+      "realized_granted": 103,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 103.0,
+      "weighted_population": 1716.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1615,
         "federal": 16,
         "state": 50
@@ -180,33 +210,93 @@
     },
     {
       "bands": {
-        "baseline": 1640,
+        "baseline": 1615,
+        "federal": 16,
+        "state": 50
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1681,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1681
+      },
+      "realized_granted": 102,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1615,
+        "federal": 16,
+        "state": 50
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1681,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1681
+      },
+      "realized_granted": 102,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1606,
         "federal": 16,
         "state": 50,
-        "unobservable": 10
+        "unobservable": 9
       },
       "capacity_bound_cohorts": 30,
       "cohorts": 36,
       "distribution_parse": "dist-v2",
-      "eligible": 1716,
-      "largest_weighted_cohort": 198.0,
+      "eligible": 1681,
+      "largest_weighted_cohort": 188.0,
       "policy": "distribution-1",
       "precision": 0.08716707021791767,
       "provenance": {
-        "blind-no-moment": 10,
-        "truncated": 1706
+        "blind-no-moment": 9,
+        "truncated": 1672
       },
-      "realized_granted": 103,
-      "recall": 0.34951456310679613,
-      "salience_version": "sal-v4",
+      "realized_granted": 102,
+      "recall": 0.35294117647058826,
+      "salience_version": "sal-v8",
       "selected": 413,
       "selected_carve_out": 16,
       "selected_granted": 36,
       "selected_rank_fill": 397,
       "skipped_no_snapshot": 0,
       "term": 2017,
-      "weighted_granted": 103.0,
-      "weighted_population": 1716.0,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
       "weighted_selected": 413.0,
       "weighted_selected_granted": 36.0
     },
@@ -306,6 +396,38 @@
     },
     {
       "bands": {
+        "baseline": 1640,
+        "federal": 16,
+        "state": 50,
+        "unobservable": 10
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1716,
+      "largest_weighted_cohort": 198.0,
+      "policy": "distribution-1",
+      "precision": 0.08716707021791767,
+      "provenance": {
+        "blind-no-moment": 10,
+        "truncated": 1706
+      },
+      "realized_granted": 103,
+      "recall": 0.34951456310679613,
+      "salience_version": "sal-v4",
+      "selected": 413,
+      "selected_carve_out": 16,
+      "selected_granted": 36,
+      "selected_rank_fill": 397,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 103.0,
+      "weighted_population": 1716.0,
+      "weighted_selected": 413.0,
+      "weighted_selected_granted": 36.0
+    },
+    {
+      "bands": {
         "baseline": 1606,
         "federal": 16,
         "state": 50,
@@ -370,37 +492,101 @@
     },
     {
       "bands": {
-        "baseline": 1328,
-        "elevated": 199,
+        "baseline": 1606,
         "federal": 16,
-        "high": 123,
-        "state": 40,
-        "unobservable": 10
+        "state": 50,
+        "unobservable": 9
       },
-      "capacity_bound_cohorts": 29,
-      "cohorts": 54,
+      "capacity_bound_cohorts": 30,
+      "cohorts": 36,
       "distribution_parse": "dist-v2",
-      "eligible": 1716,
-      "largest_weighted_cohort": 191.0,
-      "policy": "resolution",
-      "precision": 0.1657754010695187,
+      "eligible": 1681,
+      "largest_weighted_cohort": 188.0,
+      "policy": "distribution-1",
+      "precision": 0.08716707021791767,
       "provenance": {
-        "blind-no-moment": 10,
-        "truncated": 1706
+        "blind-no-moment": 9,
+        "truncated": 1672
       },
-      "realized_granted": 103,
-      "recall": 0.9029126213592233,
-      "salience_version": "sal-v4",
-      "selected": 561,
-      "selected_carve_out": 139,
-      "selected_granted": 93,
-      "selected_rank_fill": 422,
+      "realized_granted": 102,
+      "recall": 0.35294117647058826,
+      "salience_version": "sal-v7",
+      "selected": 413,
+      "selected_carve_out": 16,
+      "selected_granted": 36,
+      "selected_rank_fill": 397,
       "skipped_no_snapshot": 0,
       "term": 2017,
-      "weighted_granted": 103.0,
-      "weighted_population": 1716.0,
-      "weighted_selected": 561.0,
-      "weighted_selected_granted": 93.0
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 413.0,
+      "weighted_selected_granted": 36.0
+    },
+    {
+      "bands": {
+        "baseline": 1606,
+        "federal": 16,
+        "state": 50,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1681,
+      "largest_weighted_cohort": 188.0,
+      "policy": "distribution-1",
+      "precision": 0.08716707021791767,
+      "provenance": {
+        "blind-no-moment": 9,
+        "truncated": 1672
+      },
+      "realized_granted": 102,
+      "recall": 0.35294117647058826,
+      "salience_version": "sal-v9",
+      "selected": 413,
+      "selected_carve_out": 16,
+      "selected_granted": 36,
+      "selected_rank_fill": 397,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 413.0,
+      "weighted_selected_granted": 36.0
+    },
+    {
+      "bands": {
+        "baseline": 1422,
+        "elevated": 101,
+        "federal": 16,
+        "high": 92,
+        "state": 41,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 54,
+      "distribution_parse": "dist-v2",
+      "eligible": 1681,
+      "largest_weighted_cohort": 181.0,
+      "policy": "resolution",
+      "precision": 0.17723880597014927,
+      "provenance": {
+        "blind-no-moment": 9,
+        "truncated": 1672
+      },
+      "realized_granted": 102,
+      "recall": 0.9313725490196079,
+      "salience_version": "sal-v8",
+      "selected": 536,
+      "selected_carve_out": 108,
+      "selected_granted": 95,
+      "selected_rank_fill": 428,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 536.0,
+      "weighted_selected_granted": 95.0
     },
     {
       "bands": {
@@ -504,6 +690,40 @@
     },
     {
       "bands": {
+        "baseline": 1328,
+        "elevated": 199,
+        "federal": 16,
+        "high": 123,
+        "state": 40,
+        "unobservable": 10
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 54,
+      "distribution_parse": "dist-v2",
+      "eligible": 1716,
+      "largest_weighted_cohort": 191.0,
+      "policy": "resolution",
+      "precision": 0.1657754010695187,
+      "provenance": {
+        "blind-no-moment": 10,
+        "truncated": 1706
+      },
+      "realized_granted": 103,
+      "recall": 0.9029126213592233,
+      "salience_version": "sal-v4",
+      "selected": 561,
+      "selected_carve_out": 139,
+      "selected_granted": 93,
+      "selected_rank_fill": 422,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 103.0,
+      "weighted_population": 1716.0,
+      "weighted_selected": 561.0,
+      "weighted_selected_granted": 93.0
+    },
+    {
+      "bands": {
         "baseline": 1422,
         "elevated": 101,
         "federal": 16,
@@ -572,33 +792,101 @@
     },
     {
       "bands": {
-        "baseline": 1527,
-        "federal": 23,
+        "baseline": 1422,
+        "elevated": 101,
+        "federal": 16,
+        "high": 92,
+        "state": 41,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 54,
+      "distribution_parse": "dist-v2",
+      "eligible": 1681,
+      "largest_weighted_cohort": 181.0,
+      "policy": "resolution",
+      "precision": 0.17723880597014927,
+      "provenance": {
+        "blind-no-moment": 9,
+        "truncated": 1672
+      },
+      "realized_granted": 102,
+      "recall": 0.9313725490196079,
+      "salience_version": "sal-v7",
+      "selected": 536,
+      "selected_carve_out": 108,
+      "selected_granted": 95,
+      "selected_rank_fill": 428,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 536.0,
+      "weighted_selected_granted": 95.0
+    },
+    {
+      "bands": {
+        "baseline": 1422,
+        "elevated": 101,
+        "federal": 16,
+        "high": 92,
+        "state": 41,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 54,
+      "distribution_parse": "dist-v2",
+      "eligible": 1681,
+      "largest_weighted_cohort": 181.0,
+      "policy": "resolution",
+      "precision": 0.17723880597014927,
+      "provenance": {
+        "blind-no-moment": 9,
+        "truncated": 1672
+      },
+      "realized_granted": 102,
+      "recall": 0.9313725490196079,
+      "salience_version": "sal-v9",
+      "selected": 536,
+      "selected_carve_out": 108,
+      "selected_granted": 95,
+      "selected_rank_fill": 428,
+      "skipped_no_snapshot": 0,
+      "term": 2017,
+      "weighted_granted": 102.0,
+      "weighted_population": 1681.0,
+      "weighted_selected": 536.0,
+      "weighted_selected_granted": 95.0
+    },
+    {
+      "bands": {
+        "baseline": 1508,
+        "federal": 21,
         "state": 42,
         "unobservable": 1
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1593,
+      "eligible": 1572,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
         "blind-untrusted-cutoff": 1,
-        "truncated": 1592
+        "truncated": 1571
       },
-      "realized_granted": 94,
+      "realized_granted": 93,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
       "selected_rank_fill": 0,
       "skipped_no_snapshot": 0,
       "term": 2018,
-      "weighted_granted": 94.0,
-      "weighted_population": 1593.0,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -698,6 +986,38 @@
     },
     {
       "bands": {
+        "baseline": 1527,
+        "federal": 23,
+        "state": 42,
+        "unobservable": 1
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1593,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1592
+      },
+      "realized_granted": 94,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 94.0,
+      "weighted_population": 1593.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1508,
         "federal": 21,
         "state": 42,
@@ -762,34 +1082,97 @@
     },
     {
       "bands": {
-        "baseline": 1513,
+        "baseline": 1508,
+        "federal": 21,
+        "state": 42,
+        "unobservable": 1
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1572,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1571
+      },
+      "realized_granted": 93,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1508,
+        "federal": 21,
+        "state": 42,
+        "unobservable": 1
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1572,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1571
+      },
+      "realized_granted": 93,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1494,
         "federal": 20,
         "state": 42,
-        "unobservable": 18
+        "unobservable": 16
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 36,
       "distribution_parse": "dist-v2",
-      "eligible": 1593,
-      "largest_weighted_cohort": 193.0,
+      "eligible": 1572,
+      "largest_weighted_cohort": 191.0,
       "policy": "distribution-1",
       "precision": 0.08951406649616368,
       "provenance": {
-        "blind-no-moment": 17,
-        "blind-untrusted-cutoff": 1,
-        "truncated": 1575
+        "blind-no-moment": 16,
+        "truncated": 1556
       },
-      "realized_granted": 94,
-      "recall": 0.3723404255319149,
-      "salience_version": "sal-v4",
+      "realized_granted": 93,
+      "recall": 0.3763440860215054,
+      "salience_version": "sal-v8",
       "selected": 391,
       "selected_carve_out": 20,
       "selected_granted": 35,
       "selected_rank_fill": 371,
       "skipped_no_snapshot": 0,
       "term": 2018,
-      "weighted_granted": 94.0,
-      "weighted_population": 1593.0,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
       "weighted_selected": 391.0,
       "weighted_selected_granted": 35.0
     },
@@ -892,6 +1275,39 @@
     },
     {
       "bands": {
+        "baseline": 1513,
+        "federal": 20,
+        "state": 42,
+        "unobservable": 18
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1593,
+      "largest_weighted_cohort": 193.0,
+      "policy": "distribution-1",
+      "precision": 0.08951406649616368,
+      "provenance": {
+        "blind-no-moment": 17,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1575
+      },
+      "realized_granted": 94,
+      "recall": 0.3723404255319149,
+      "salience_version": "sal-v4",
+      "selected": 391,
+      "selected_carve_out": 20,
+      "selected_granted": 35,
+      "selected_rank_fill": 371,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 94.0,
+      "weighted_population": 1593.0,
+      "weighted_selected": 391.0,
+      "weighted_selected_granted": 35.0
+    },
+    {
+      "bands": {
         "baseline": 1494,
         "federal": 20,
         "state": 42,
@@ -956,37 +1372,101 @@
     },
     {
       "bands": {
-        "baseline": 1251,
-        "elevated": 173,
+        "baseline": 1494,
         "federal": 20,
-        "high": 99,
-        "state": 31,
-        "unobservable": 19
+        "state": 42,
+        "unobservable": 16
       },
       "capacity_bound_cohorts": 29,
-      "cohorts": 52,
+      "cohorts": 36,
       "distribution_parse": "dist-v2",
-      "eligible": 1593,
-      "largest_weighted_cohort": 190.0,
-      "policy": "resolution",
-      "precision": 0.14258188824662812,
+      "eligible": 1572,
+      "largest_weighted_cohort": 191.0,
+      "policy": "distribution-1",
+      "precision": 0.08951406649616368,
       "provenance": {
-        "blind-no-moment": 19,
-        "truncated": 1574
+        "blind-no-moment": 16,
+        "truncated": 1556
       },
-      "realized_granted": 94,
-      "recall": 0.7872340425531915,
-      "salience_version": "sal-v4",
-      "selected": 519,
-      "selected_carve_out": 119,
-      "selected_granted": 74,
-      "selected_rank_fill": 400,
+      "realized_granted": 93,
+      "recall": 0.3763440860215054,
+      "salience_version": "sal-v7",
+      "selected": 391,
+      "selected_carve_out": 20,
+      "selected_granted": 35,
+      "selected_rank_fill": 371,
       "skipped_no_snapshot": 0,
       "term": 2018,
-      "weighted_granted": 94.0,
-      "weighted_population": 1593.0,
-      "weighted_selected": 519.0,
-      "weighted_selected_granted": 74.0
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 391.0,
+      "weighted_selected_granted": 35.0
+    },
+    {
+      "bands": {
+        "baseline": 1494,
+        "federal": 20,
+        "state": 42,
+        "unobservable": 16
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1572,
+      "largest_weighted_cohort": 191.0,
+      "policy": "distribution-1",
+      "precision": 0.08951406649616368,
+      "provenance": {
+        "blind-no-moment": 16,
+        "truncated": 1556
+      },
+      "realized_granted": 93,
+      "recall": 0.3763440860215054,
+      "salience_version": "sal-v9",
+      "selected": 391,
+      "selected_carve_out": 20,
+      "selected_granted": 35,
+      "selected_rank_fill": 371,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 391.0,
+      "weighted_selected_granted": 35.0
+    },
+    {
+      "bands": {
+        "baseline": 1355,
+        "elevated": 71,
+        "federal": 20,
+        "high": 75,
+        "state": 34,
+        "unobservable": 17
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 52,
+      "distribution_parse": "dist-v2",
+      "eligible": 1572,
+      "largest_weighted_cohort": 188.0,
+      "policy": "resolution",
+      "precision": 0.1482213438735178,
+      "provenance": {
+        "blind-no-moment": 17,
+        "truncated": 1555
+      },
+      "realized_granted": 93,
+      "recall": 0.8064516129032258,
+      "salience_version": "sal-v8",
+      "selected": 506,
+      "selected_carve_out": 95,
+      "selected_granted": 75,
+      "selected_rank_fill": 411,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 506.0,
+      "weighted_selected_granted": 75.0
     },
     {
       "bands": {
@@ -1090,6 +1570,40 @@
     },
     {
       "bands": {
+        "baseline": 1251,
+        "elevated": 173,
+        "federal": 20,
+        "high": 99,
+        "state": 31,
+        "unobservable": 19
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 52,
+      "distribution_parse": "dist-v2",
+      "eligible": 1593,
+      "largest_weighted_cohort": 190.0,
+      "policy": "resolution",
+      "precision": 0.14258188824662812,
+      "provenance": {
+        "blind-no-moment": 19,
+        "truncated": 1574
+      },
+      "realized_granted": 94,
+      "recall": 0.7872340425531915,
+      "salience_version": "sal-v4",
+      "selected": 519,
+      "selected_carve_out": 119,
+      "selected_granted": 74,
+      "selected_rank_fill": 400,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 94.0,
+      "weighted_population": 1593.0,
+      "weighted_selected": 519.0,
+      "weighted_selected_granted": 74.0
+    },
+    {
+      "bands": {
         "baseline": 1355,
         "elevated": 71,
         "federal": 20,
@@ -1158,23 +1672,91 @@
     },
     {
       "bands": {
-        "baseline": 1399,
+        "baseline": 1355,
+        "elevated": 71,
+        "federal": 20,
+        "high": 75,
+        "state": 34,
+        "unobservable": 17
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 52,
+      "distribution_parse": "dist-v2",
+      "eligible": 1572,
+      "largest_weighted_cohort": 188.0,
+      "policy": "resolution",
+      "precision": 0.1482213438735178,
+      "provenance": {
+        "blind-no-moment": 17,
+        "truncated": 1555
+      },
+      "realized_granted": 93,
+      "recall": 0.8064516129032258,
+      "salience_version": "sal-v7",
+      "selected": 506,
+      "selected_carve_out": 95,
+      "selected_granted": 75,
+      "selected_rank_fill": 411,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 506.0,
+      "weighted_selected_granted": 75.0
+    },
+    {
+      "bands": {
+        "baseline": 1355,
+        "elevated": 71,
+        "federal": 20,
+        "high": 75,
+        "state": 34,
+        "unobservable": 17
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 52,
+      "distribution_parse": "dist-v2",
+      "eligible": 1572,
+      "largest_weighted_cohort": 188.0,
+      "policy": "resolution",
+      "precision": 0.1482213438735178,
+      "provenance": {
+        "blind-no-moment": 17,
+        "truncated": 1555
+      },
+      "realized_granted": 93,
+      "recall": 0.8064516129032258,
+      "salience_version": "sal-v9",
+      "selected": 506,
+      "selected_carve_out": 95,
+      "selected_granted": 75,
+      "selected_rank_fill": 411,
+      "skipped_no_snapshot": 0,
+      "term": 2018,
+      "weighted_granted": 93.0,
+      "weighted_population": 1572.0,
+      "weighted_selected": 506.0,
+      "weighted_selected_granted": 75.0
+    },
+    {
+      "bands": {
+        "baseline": 1370,
         "federal": 26,
         "state": 52
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1477,
+      "eligible": 1448,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 1477
+        "truncated": 1448
       },
       "realized_granted": 99,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -1182,7 +1764,7 @@
       "skipped_no_snapshot": 0,
       "term": 2019,
       "weighted_granted": 99.0,
-      "weighted_population": 1477.0,
+      "weighted_population": 1448.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -1276,6 +1858,36 @@
     },
     {
       "bands": {
+        "baseline": 1399,
+        "federal": 26,
+        "state": 52
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1477,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1477
+      },
+      "realized_granted": 99,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1477.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1370,
         "federal": 26,
         "state": 52
@@ -1336,7 +1948,67 @@
     },
     {
       "bands": {
-        "baseline": 1394,
+        "baseline": 1370,
+        "federal": 26,
+        "state": 52
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1448,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1448
+      },
+      "realized_granted": 99,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1448.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1370,
+        "federal": 26,
+        "state": 52
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1448,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1448
+      },
+      "realized_granted": 99,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1448.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1365,
         "federal": 26,
         "state": 52,
         "unobservable": 5
@@ -1344,17 +2016,17 @@
       "capacity_bound_cohorts": 29,
       "cohorts": 38,
       "distribution_parse": "dist-v2",
-      "eligible": 1477,
-      "largest_weighted_cohort": 190.0,
+      "eligible": 1448,
+      "largest_weighted_cohort": 186.0,
       "policy": "distribution-1",
       "precision": 0.11793611793611794,
       "provenance": {
         "blind-no-moment": 5,
-        "truncated": 1472
+        "truncated": 1443
       },
       "realized_granted": 99,
       "recall": 0.48484848484848486,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 407,
       "selected_carve_out": 26,
       "selected_granted": 48,
@@ -1362,7 +2034,7 @@
       "skipped_no_snapshot": 0,
       "term": 2019,
       "weighted_granted": 99.0,
-      "weighted_population": 1477.0,
+      "weighted_population": 1448.0,
       "weighted_selected": 407.0,
       "weighted_selected_granted": 48.0
     },
@@ -1462,6 +2134,38 @@
     },
     {
       "bands": {
+        "baseline": 1394,
+        "federal": 26,
+        "state": 52,
+        "unobservable": 5
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 38,
+      "distribution_parse": "dist-v2",
+      "eligible": 1477,
+      "largest_weighted_cohort": 190.0,
+      "policy": "distribution-1",
+      "precision": 0.11793611793611794,
+      "provenance": {
+        "blind-no-moment": 5,
+        "truncated": 1472
+      },
+      "realized_granted": 99,
+      "recall": 0.48484848484848486,
+      "salience_version": "sal-v4",
+      "selected": 407,
+      "selected_carve_out": 26,
+      "selected_granted": 48,
+      "selected_rank_fill": 381,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1477.0,
+      "weighted_selected": 407.0,
+      "weighted_selected_granted": 48.0
+    },
+    {
+      "bands": {
         "baseline": 1365,
         "federal": 26,
         "state": 52,
@@ -1526,37 +2230,101 @@
     },
     {
       "bands": {
-        "baseline": 1140,
-        "elevated": 170,
+        "baseline": 1365,
         "federal": 26,
-        "high": 93,
-        "state": 42,
-        "unobservable": 6
+        "state": 52,
+        "unobservable": 5
       },
       "capacity_bound_cohorts": 29,
-      "cohorts": 51,
+      "cohorts": 38,
       "distribution_parse": "dist-v2",
-      "eligible": 1477,
-      "largest_weighted_cohort": 181.0,
-      "policy": "resolution",
-      "precision": 0.15413533834586465,
+      "eligible": 1448,
+      "largest_weighted_cohort": 186.0,
+      "policy": "distribution-1",
+      "precision": 0.11793611793611794,
       "provenance": {
-        "blind-no-moment": 6,
-        "truncated": 1471
+        "blind-no-moment": 5,
+        "truncated": 1443
       },
       "realized_granted": 99,
-      "recall": 0.8282828282828283,
-      "salience_version": "sal-v4",
-      "selected": 532,
-      "selected_carve_out": 119,
-      "selected_granted": 82,
-      "selected_rank_fill": 413,
+      "recall": 0.48484848484848486,
+      "salience_version": "sal-v7",
+      "selected": 407,
+      "selected_carve_out": 26,
+      "selected_granted": 48,
+      "selected_rank_fill": 381,
       "skipped_no_snapshot": 0,
       "term": 2019,
       "weighted_granted": 99.0,
-      "weighted_population": 1477.0,
-      "weighted_selected": 532.0,
-      "weighted_selected_granted": 82.0
+      "weighted_population": 1448.0,
+      "weighted_selected": 407.0,
+      "weighted_selected_granted": 48.0
+    },
+    {
+      "bands": {
+        "baseline": 1365,
+        "federal": 26,
+        "state": 52,
+        "unobservable": 5
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 38,
+      "distribution_parse": "dist-v2",
+      "eligible": 1448,
+      "largest_weighted_cohort": 186.0,
+      "policy": "distribution-1",
+      "precision": 0.11793611793611794,
+      "provenance": {
+        "blind-no-moment": 5,
+        "truncated": 1443
+      },
+      "realized_granted": 99,
+      "recall": 0.48484848484848486,
+      "salience_version": "sal-v9",
+      "selected": 407,
+      "selected_carve_out": 26,
+      "selected_granted": 48,
+      "selected_rank_fill": 381,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1448.0,
+      "weighted_selected": 407.0,
+      "weighted_selected_granted": 48.0
+    },
+    {
+      "bands": {
+        "baseline": 1239,
+        "elevated": 57,
+        "federal": 26,
+        "high": 77,
+        "state": 43,
+        "unobservable": 6
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1448,
+      "largest_weighted_cohort": 177.0,
+      "policy": "resolution",
+      "precision": 0.16221374045801526,
+      "provenance": {
+        "blind-no-moment": 6,
+        "truncated": 1442
+      },
+      "realized_granted": 99,
+      "recall": 0.8585858585858586,
+      "salience_version": "sal-v8",
+      "selected": 524,
+      "selected_carve_out": 103,
+      "selected_granted": 85,
+      "selected_rank_fill": 421,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1448.0,
+      "weighted_selected": 524.0,
+      "weighted_selected_granted": 85.0
     },
     {
       "bands": {
@@ -1660,6 +2428,40 @@
     },
     {
       "bands": {
+        "baseline": 1140,
+        "elevated": 170,
+        "federal": 26,
+        "high": 93,
+        "state": 42,
+        "unobservable": 6
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1477,
+      "largest_weighted_cohort": 181.0,
+      "policy": "resolution",
+      "precision": 0.15413533834586465,
+      "provenance": {
+        "blind-no-moment": 6,
+        "truncated": 1471
+      },
+      "realized_granted": 99,
+      "recall": 0.8282828282828283,
+      "salience_version": "sal-v4",
+      "selected": 532,
+      "selected_carve_out": 119,
+      "selected_granted": 82,
+      "selected_rank_fill": 413,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1477.0,
+      "weighted_selected": 532.0,
+      "weighted_selected_granted": 82.0
+    },
+    {
+      "bands": {
         "baseline": 1239,
         "elevated": 57,
         "federal": 26,
@@ -1728,7 +2530,75 @@
     },
     {
       "bands": {
-        "baseline": 1738,
+        "baseline": 1239,
+        "elevated": 57,
+        "federal": 26,
+        "high": 77,
+        "state": 43,
+        "unobservable": 6
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1448,
+      "largest_weighted_cohort": 177.0,
+      "policy": "resolution",
+      "precision": 0.16221374045801526,
+      "provenance": {
+        "blind-no-moment": 6,
+        "truncated": 1442
+      },
+      "realized_granted": 99,
+      "recall": 0.8585858585858586,
+      "salience_version": "sal-v7",
+      "selected": 524,
+      "selected_carve_out": 103,
+      "selected_granted": 85,
+      "selected_rank_fill": 421,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1448.0,
+      "weighted_selected": 524.0,
+      "weighted_selected_granted": 85.0
+    },
+    {
+      "bands": {
+        "baseline": 1239,
+        "elevated": 57,
+        "federal": 26,
+        "high": 77,
+        "state": 43,
+        "unobservable": 6
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1448,
+      "largest_weighted_cohort": 177.0,
+      "policy": "resolution",
+      "precision": 0.16221374045801526,
+      "provenance": {
+        "blind-no-moment": 6,
+        "truncated": 1442
+      },
+      "realized_granted": 99,
+      "recall": 0.8585858585858586,
+      "salience_version": "sal-v9",
+      "selected": 524,
+      "selected_carve_out": 103,
+      "selected_granted": 85,
+      "selected_rank_fill": 421,
+      "skipped_no_snapshot": 0,
+      "term": 2019,
+      "weighted_granted": 99.0,
+      "weighted_population": 1448.0,
+      "weighted_selected": 524.0,
+      "weighted_selected_granted": 85.0
+    },
+    {
+      "bands": {
+        "baseline": 1697,
         "federal": 41,
         "state": 44,
         "unobservable": 2
@@ -1736,17 +2606,17 @@
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1825,
+      "eligible": 1784,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
         "blind-untrusted-cutoff": 2,
-        "truncated": 1823
+        "truncated": 1782
       },
       "realized_granted": 125,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -1754,7 +2624,7 @@
       "skipped_no_snapshot": 0,
       "term": 2020,
       "weighted_granted": 125.0,
-      "weighted_population": 1825.0,
+      "weighted_population": 1784.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -1854,6 +2724,38 @@
     },
     {
       "bands": {
+        "baseline": 1738,
+        "federal": 41,
+        "state": 44,
+        "unobservable": 2
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1825,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1823
+      },
+      "realized_granted": 125,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1825.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1697,
         "federal": 41,
         "state": 44,
@@ -1918,26 +2820,90 @@
     },
     {
       "bands": {
-        "baseline": 1730,
+        "baseline": 1697,
+        "federal": 41,
+        "state": 44,
+        "unobservable": 2
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1784,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1782
+      },
+      "realized_granted": 125,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1784.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1697,
+        "federal": 41,
+        "state": 44,
+        "unobservable": 2
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1784,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1782
+      },
+      "realized_granted": 125,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1784.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1690,
         "federal": 38,
         "state": 44,
-        "unobservable": 13
+        "unobservable": 12
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 36,
       "distribution_parse": "dist-v2",
-      "eligible": 1825,
-      "largest_weighted_cohort": 261.0,
+      "eligible": 1784,
+      "largest_weighted_cohort": 256.0,
       "policy": "distribution-1",
       "precision": 0.15151515151515152,
       "provenance": {
-        "blind-no-moment": 11,
+        "blind-no-moment": 10,
         "blind-untrusted-cutoff": 2,
-        "truncated": 1812
+        "truncated": 1772
       },
       "realized_granted": 125,
       "recall": 0.52,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 429,
       "selected_carve_out": 38,
       "selected_granted": 65,
@@ -1945,7 +2911,7 @@
       "skipped_no_snapshot": 0,
       "term": 2020,
       "weighted_granted": 125.0,
-      "weighted_population": 1825.0,
+      "weighted_population": 1784.0,
       "weighted_selected": 429.0,
       "weighted_selected_granted": 65.0
     },
@@ -2048,6 +3014,39 @@
     },
     {
       "bands": {
+        "baseline": 1730,
+        "federal": 38,
+        "state": 44,
+        "unobservable": 13
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1825,
+      "largest_weighted_cohort": 261.0,
+      "policy": "distribution-1",
+      "precision": 0.15151515151515152,
+      "provenance": {
+        "blind-no-moment": 11,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1812
+      },
+      "realized_granted": 125,
+      "recall": 0.52,
+      "salience_version": "sal-v4",
+      "selected": 429,
+      "selected_carve_out": 38,
+      "selected_granted": 65,
+      "selected_rank_fill": 391,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1825.0,
+      "weighted_selected": 429.0,
+      "weighted_selected_granted": 65.0
+    },
+    {
+      "bands": {
         "baseline": 1690,
         "federal": 38,
         "state": 44,
@@ -2114,38 +3113,104 @@
     },
     {
       "bands": {
-        "baseline": 1438,
-        "elevated": 193,
+        "baseline": 1690,
         "federal": 38,
-        "high": 105,
+        "state": 44,
+        "unobservable": 12
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1784,
+      "largest_weighted_cohort": 256.0,
+      "policy": "distribution-1",
+      "precision": 0.15151515151515152,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1772
+      },
+      "realized_granted": 125,
+      "recall": 0.52,
+      "salience_version": "sal-v7",
+      "selected": 429,
+      "selected_carve_out": 38,
+      "selected_granted": 65,
+      "selected_rank_fill": 391,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1784.0,
+      "weighted_selected": 429.0,
+      "weighted_selected_granted": 65.0
+    },
+    {
+      "bands": {
+        "baseline": 1690,
+        "federal": 38,
+        "state": 44,
+        "unobservable": 12
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1784,
+      "largest_weighted_cohort": 256.0,
+      "policy": "distribution-1",
+      "precision": 0.15151515151515152,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1772
+      },
+      "realized_granted": 125,
+      "recall": 0.52,
+      "salience_version": "sal-v9",
+      "selected": 429,
+      "selected_carve_out": 38,
+      "selected_granted": 65,
+      "selected_rank_fill": 391,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1784.0,
+      "weighted_selected": 429.0,
+      "weighted_selected_granted": 65.0
+    },
+    {
+      "bands": {
+        "baseline": 1536,
+        "elevated": 80,
+        "federal": 38,
+        "high": 80,
         "state": 35,
-        "unobservable": 16
+        "unobservable": 15
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 45,
       "distribution_parse": "dist-v2",
-      "eligible": 1825,
-      "largest_weighted_cohort": 262.0,
+      "eligible": 1784,
+      "largest_weighted_cohort": 257.0,
       "policy": "resolution",
-      "precision": 0.19823008849557522,
+      "precision": 0.19230769230769232,
       "provenance": {
-        "blind-no-moment": 14,
+        "blind-no-moment": 13,
         "blind-untrusted-cutoff": 2,
-        "truncated": 1809
+        "truncated": 1769
       },
       "realized_granted": 125,
-      "recall": 0.896,
-      "salience_version": "sal-v4",
-      "selected": 565,
-      "selected_carve_out": 143,
-      "selected_granted": 112,
-      "selected_rank_fill": 422,
+      "recall": 0.84,
+      "salience_version": "sal-v8",
+      "selected": 546,
+      "selected_carve_out": 118,
+      "selected_granted": 105,
+      "selected_rank_fill": 428,
       "skipped_no_snapshot": 0,
       "term": 2020,
       "weighted_granted": 125.0,
-      "weighted_population": 1825.0,
-      "weighted_selected": 565.0,
-      "weighted_selected_granted": 112.0
+      "weighted_population": 1784.0,
+      "weighted_selected": 546.0,
+      "weighted_selected_granted": 105.0
     },
     {
       "bands": {
@@ -2252,6 +3317,41 @@
     },
     {
       "bands": {
+        "baseline": 1438,
+        "elevated": 193,
+        "federal": 38,
+        "high": 105,
+        "state": 35,
+        "unobservable": 16
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 45,
+      "distribution_parse": "dist-v2",
+      "eligible": 1825,
+      "largest_weighted_cohort": 262.0,
+      "policy": "resolution",
+      "precision": 0.19823008849557522,
+      "provenance": {
+        "blind-no-moment": 14,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1809
+      },
+      "realized_granted": 125,
+      "recall": 0.896,
+      "salience_version": "sal-v4",
+      "selected": 565,
+      "selected_carve_out": 143,
+      "selected_granted": 112,
+      "selected_rank_fill": 422,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1825.0,
+      "weighted_selected": 565.0,
+      "weighted_selected_granted": 112.0
+    },
+    {
+      "bands": {
         "baseline": 1536,
         "elevated": 80,
         "federal": 38,
@@ -2322,23 +3422,93 @@
     },
     {
       "bands": {
-        "baseline": 1498,
+        "baseline": 1536,
+        "elevated": 80,
+        "federal": 38,
+        "high": 80,
+        "state": 35,
+        "unobservable": 15
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 45,
+      "distribution_parse": "dist-v2",
+      "eligible": 1784,
+      "largest_weighted_cohort": 257.0,
+      "policy": "resolution",
+      "precision": 0.19230769230769232,
+      "provenance": {
+        "blind-no-moment": 13,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1769
+      },
+      "realized_granted": 125,
+      "recall": 0.84,
+      "salience_version": "sal-v7",
+      "selected": 546,
+      "selected_carve_out": 118,
+      "selected_granted": 105,
+      "selected_rank_fill": 428,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1784.0,
+      "weighted_selected": 546.0,
+      "weighted_selected_granted": 105.0
+    },
+    {
+      "bands": {
+        "baseline": 1536,
+        "elevated": 80,
+        "federal": 38,
+        "high": 80,
+        "state": 35,
+        "unobservable": 15
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 45,
+      "distribution_parse": "dist-v2",
+      "eligible": 1784,
+      "largest_weighted_cohort": 257.0,
+      "policy": "resolution",
+      "precision": 0.19230769230769232,
+      "provenance": {
+        "blind-no-moment": 13,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1769
+      },
+      "realized_granted": 125,
+      "recall": 0.84,
+      "salience_version": "sal-v9",
+      "selected": 546,
+      "selected_carve_out": 118,
+      "selected_granted": 105,
+      "selected_rank_fill": 428,
+      "skipped_no_snapshot": 0,
+      "term": 2020,
+      "weighted_granted": 125.0,
+      "weighted_population": 1784.0,
+      "weighted_selected": 546.0,
+      "weighted_selected_granted": 105.0
+    },
+    {
+      "bands": {
+        "baseline": 1469,
         "federal": 12,
         "state": 96
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1606,
+      "eligible": 1577,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 1606
+        "truncated": 1577
       },
       "realized_granted": 113,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -2346,7 +3516,7 @@
       "skipped_no_snapshot": 0,
       "term": 2021,
       "weighted_granted": 113.0,
-      "weighted_population": 1606.0,
+      "weighted_population": 1577.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -2440,6 +3610,36 @@
     },
     {
       "bands": {
+        "baseline": 1498,
+        "federal": 12,
+        "state": 96
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1606,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1606
+      },
+      "realized_granted": 113,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1606.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1469,
         "federal": 12,
         "state": 96
@@ -2500,26 +3700,86 @@
     },
     {
       "bands": {
-        "baseline": 1486,
+        "baseline": 1469,
+        "federal": 12,
+        "state": 96
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1577,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1577
+      },
+      "realized_granted": 113,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1577.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1469,
+        "federal": 12,
+        "state": 96
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1577,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1577
+      },
+      "realized_granted": 113,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1577.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1458,
         "federal": 11,
         "state": 93,
-        "unobservable": 16
+        "unobservable": 15
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 38,
       "distribution_parse": "dist-v2",
-      "eligible": 1606,
-      "largest_weighted_cohort": 175.0,
+      "eligible": 1577,
+      "largest_weighted_cohort": 174.0,
       "policy": "distribution-1",
       "precision": 0.1044776119402985,
       "provenance": {
-        "blind-no-moment": 14,
+        "blind-no-moment": 13,
         "blind-untrusted-cutoff": 2,
-        "truncated": 1590
+        "truncated": 1562
       },
       "realized_granted": 113,
       "recall": 0.37168141592920356,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 402,
       "selected_carve_out": 11,
       "selected_granted": 42,
@@ -2527,7 +3787,7 @@
       "skipped_no_snapshot": 0,
       "term": 2021,
       "weighted_granted": 113.0,
-      "weighted_population": 1606.0,
+      "weighted_population": 1577.0,
       "weighted_selected": 402.0,
       "weighted_selected_granted": 42.0
     },
@@ -2630,6 +3890,39 @@
     },
     {
       "bands": {
+        "baseline": 1486,
+        "federal": 11,
+        "state": 93,
+        "unobservable": 16
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 38,
+      "distribution_parse": "dist-v2",
+      "eligible": 1606,
+      "largest_weighted_cohort": 175.0,
+      "policy": "distribution-1",
+      "precision": 0.1044776119402985,
+      "provenance": {
+        "blind-no-moment": 14,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1590
+      },
+      "realized_granted": 113,
+      "recall": 0.37168141592920356,
+      "salience_version": "sal-v4",
+      "selected": 402,
+      "selected_carve_out": 11,
+      "selected_granted": 42,
+      "selected_rank_fill": 391,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1606.0,
+      "weighted_selected": 402.0,
+      "weighted_selected_granted": 42.0
+    },
+    {
+      "bands": {
         "baseline": 1458,
         "federal": 11,
         "state": 93,
@@ -2696,38 +3989,104 @@
     },
     {
       "bands": {
-        "baseline": 1238,
-        "elevated": 155,
+        "baseline": 1458,
         "federal": 11,
-        "high": 137,
-        "state": 49,
-        "unobservable": 16
+        "state": 93,
+        "unobservable": 15
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 38,
+      "distribution_parse": "dist-v2",
+      "eligible": 1577,
+      "largest_weighted_cohort": 174.0,
+      "policy": "distribution-1",
+      "precision": 0.1044776119402985,
+      "provenance": {
+        "blind-no-moment": 13,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1562
+      },
+      "realized_granted": 113,
+      "recall": 0.37168141592920356,
+      "salience_version": "sal-v7",
+      "selected": 402,
+      "selected_carve_out": 11,
+      "selected_granted": 42,
+      "selected_rank_fill": 391,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1577.0,
+      "weighted_selected": 402.0,
+      "weighted_selected_granted": 42.0
+    },
+    {
+      "bands": {
+        "baseline": 1458,
+        "federal": 11,
+        "state": 93,
+        "unobservable": 15
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 38,
+      "distribution_parse": "dist-v2",
+      "eligible": 1577,
+      "largest_weighted_cohort": 174.0,
+      "policy": "distribution-1",
+      "precision": 0.1044776119402985,
+      "provenance": {
+        "blind-no-moment": 13,
+        "blind-untrusted-cutoff": 2,
+        "truncated": 1562
+      },
+      "realized_granted": 113,
+      "recall": 0.37168141592920356,
+      "salience_version": "sal-v9",
+      "selected": 402,
+      "selected_carve_out": 11,
+      "selected_granted": 42,
+      "selected_rank_fill": 391,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1577.0,
+      "weighted_selected": 402.0,
+      "weighted_selected_granted": 42.0
+    },
+    {
+      "bands": {
+        "baseline": 1316,
+        "elevated": 69,
+        "federal": 11,
+        "high": 114,
+        "state": 52,
+        "unobservable": 15
       },
       "capacity_bound_cohorts": 30,
       "cohorts": 51,
       "distribution_parse": "dist-v2",
-      "eligible": 1606,
-      "largest_weighted_cohort": 174.0,
+      "eligible": 1577,
+      "largest_weighted_cohort": 172.0,
       "policy": "resolution",
-      "precision": 0.16815742397137745,
+      "precision": 0.16326530612244897,
       "provenance": {
-        "blind-no-moment": 15,
+        "blind-no-moment": 14,
         "blind-untrusted-cutoff": 1,
-        "truncated": 1590
+        "truncated": 1562
       },
       "realized_granted": 113,
-      "recall": 0.831858407079646,
-      "salience_version": "sal-v4",
-      "selected": 559,
-      "selected_carve_out": 148,
-      "selected_granted": 94,
-      "selected_rank_fill": 411,
+      "recall": 0.7787610619469026,
+      "salience_version": "sal-v8",
+      "selected": 539,
+      "selected_carve_out": 125,
+      "selected_granted": 88,
+      "selected_rank_fill": 414,
       "skipped_no_snapshot": 0,
       "term": 2021,
       "weighted_granted": 113.0,
-      "weighted_population": 1606.0,
-      "weighted_selected": 559.0,
-      "weighted_selected_granted": 94.0
+      "weighted_population": 1577.0,
+      "weighted_selected": 539.0,
+      "weighted_selected_granted": 88.0
     },
     {
       "bands": {
@@ -2834,6 +4193,41 @@
     },
     {
       "bands": {
+        "baseline": 1238,
+        "elevated": 155,
+        "federal": 11,
+        "high": 137,
+        "state": 49,
+        "unobservable": 16
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1606,
+      "largest_weighted_cohort": 174.0,
+      "policy": "resolution",
+      "precision": 0.16815742397137745,
+      "provenance": {
+        "blind-no-moment": 15,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1590
+      },
+      "realized_granted": 113,
+      "recall": 0.831858407079646,
+      "salience_version": "sal-v4",
+      "selected": 559,
+      "selected_carve_out": 148,
+      "selected_granted": 94,
+      "selected_rank_fill": 411,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1606.0,
+      "weighted_selected": 559.0,
+      "weighted_selected_granted": 94.0
+    },
+    {
+      "bands": {
         "baseline": 1316,
         "elevated": 69,
         "federal": 11,
@@ -2904,23 +4298,93 @@
     },
     {
       "bands": {
-        "baseline": 1196,
+        "baseline": 1316,
+        "elevated": 69,
+        "federal": 11,
+        "high": 114,
+        "state": 52,
+        "unobservable": 15
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1577,
+      "largest_weighted_cohort": 172.0,
+      "policy": "resolution",
+      "precision": 0.16326530612244897,
+      "provenance": {
+        "blind-no-moment": 14,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1562
+      },
+      "realized_granted": 113,
+      "recall": 0.7787610619469026,
+      "salience_version": "sal-v7",
+      "selected": 539,
+      "selected_carve_out": 125,
+      "selected_granted": 88,
+      "selected_rank_fill": 414,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1577.0,
+      "weighted_selected": 539.0,
+      "weighted_selected_granted": 88.0
+    },
+    {
+      "bands": {
+        "baseline": 1316,
+        "elevated": 69,
+        "federal": 11,
+        "high": 114,
+        "state": 52,
+        "unobservable": 15
+      },
+      "capacity_bound_cohorts": 30,
+      "cohorts": 51,
+      "distribution_parse": "dist-v2",
+      "eligible": 1577,
+      "largest_weighted_cohort": 172.0,
+      "policy": "resolution",
+      "precision": 0.16326530612244897,
+      "provenance": {
+        "blind-no-moment": 14,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1562
+      },
+      "realized_granted": 113,
+      "recall": 0.7787610619469026,
+      "salience_version": "sal-v9",
+      "selected": 539,
+      "selected_carve_out": 125,
+      "selected_granted": 88,
+      "selected_rank_fill": 414,
+      "skipped_no_snapshot": 0,
+      "term": 2021,
+      "weighted_granted": 113.0,
+      "weighted_population": 1577.0,
+      "weighted_selected": 539.0,
+      "weighted_selected_granted": 88.0
+    },
+    {
+      "bands": {
+        "baseline": 1183,
         "federal": 19,
         "state": 36
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1251,
+      "eligible": 1238,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 1251
+        "truncated": 1238
       },
       "realized_granted": 92,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -2928,7 +4392,7 @@
       "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 92.0,
-      "weighted_population": 1251.0,
+      "weighted_population": 1238.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -3022,6 +4486,36 @@
     },
     {
       "bands": {
+        "baseline": 1196,
+        "federal": 19,
+        "state": 36
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1251,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1251
+      },
+      "realized_granted": 92,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1251.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1183,
         "federal": 19,
         "state": 36
@@ -3082,7 +4576,67 @@
     },
     {
       "bands": {
-        "baseline": 1190,
+        "baseline": 1183,
+        "federal": 19,
+        "state": 36
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1238,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1238
+      },
+      "realized_granted": 92,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1183,
+        "federal": 19,
+        "state": 36
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1238,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1238
+      },
+      "realized_granted": 92,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1177,
         "federal": 16,
         "state": 34,
         "unobservable": 11
@@ -3090,18 +4644,18 @@
       "capacity_bound_cohorts": 29,
       "cohorts": 34,
       "distribution_parse": "dist-v2",
-      "eligible": 1251,
-      "largest_weighted_cohort": 159.0,
+      "eligible": 1238,
+      "largest_weighted_cohort": 157.0,
       "policy": "distribution-1",
       "precision": 0.10173697270471464,
       "provenance": {
         "blind-no-moment": 10,
         "blind-untrusted-cutoff": 1,
-        "truncated": 1240
+        "truncated": 1227
       },
       "realized_granted": 92,
       "recall": 0.44565217391304346,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 403,
       "selected_carve_out": 16,
       "selected_granted": 41,
@@ -3109,7 +4663,7 @@
       "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 92.0,
-      "weighted_population": 1251.0,
+      "weighted_population": 1238.0,
       "weighted_selected": 403.0,
       "weighted_selected_granted": 41.0
     },
@@ -3212,6 +4766,39 @@
     },
     {
       "bands": {
+        "baseline": 1190,
+        "federal": 16,
+        "state": 34,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 34,
+      "distribution_parse": "dist-v2",
+      "eligible": 1251,
+      "largest_weighted_cohort": 159.0,
+      "policy": "distribution-1",
+      "precision": 0.10173697270471464,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1240
+      },
+      "realized_granted": 92,
+      "recall": 0.44565217391304346,
+      "salience_version": "sal-v4",
+      "selected": 403,
+      "selected_carve_out": 16,
+      "selected_granted": 41,
+      "selected_rank_fill": 387,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1251.0,
+      "weighted_selected": 403.0,
+      "weighted_selected_granted": 41.0
+    },
+    {
+      "bands": {
         "baseline": 1177,
         "federal": 16,
         "state": 34,
@@ -3278,36 +4865,102 @@
     },
     {
       "bands": {
-        "baseline": 956,
-        "elevated": 144,
+        "baseline": 1177,
         "federal": 16,
-        "high": 100,
-        "state": 24,
+        "state": 34,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 34,
+      "distribution_parse": "dist-v2",
+      "eligible": 1238,
+      "largest_weighted_cohort": 157.0,
+      "policy": "distribution-1",
+      "precision": 0.10173697270471464,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1227
+      },
+      "realized_granted": 92,
+      "recall": 0.44565217391304346,
+      "salience_version": "sal-v7",
+      "selected": 403,
+      "selected_carve_out": 16,
+      "selected_granted": 41,
+      "selected_rank_fill": 387,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 403.0,
+      "weighted_selected_granted": 41.0
+    },
+    {
+      "bands": {
+        "baseline": 1177,
+        "federal": 16,
+        "state": 34,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 34,
+      "distribution_parse": "dist-v2",
+      "eligible": 1238,
+      "largest_weighted_cohort": 157.0,
+      "policy": "distribution-1",
+      "precision": 0.10173697270471464,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1227
+      },
+      "realized_granted": 92,
+      "recall": 0.44565217391304346,
+      "salience_version": "sal-v9",
+      "selected": 403,
+      "selected_carve_out": 16,
+      "selected_granted": 41,
+      "selected_rank_fill": 387,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 403.0,
+      "weighted_selected_granted": 41.0
+    },
+    {
+      "bands": {
+        "baseline": 1042,
+        "elevated": 65,
+        "federal": 16,
+        "high": 78,
+        "state": 26,
         "unobservable": 11
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 49,
       "distribution_parse": "dist-v2",
-      "eligible": 1251,
-      "largest_weighted_cohort": 161.0,
+      "eligible": 1238,
+      "largest_weighted_cohort": 160.0,
       "policy": "resolution",
-      "precision": 0.14476190476190476,
+      "precision": 0.14931237721021612,
       "provenance": {
         "blind-no-moment": 11,
-        "truncated": 1240
+        "truncated": 1227
       },
       "realized_granted": 92,
       "recall": 0.8260869565217391,
-      "salience_version": "sal-v4",
-      "selected": 525,
-      "selected_carve_out": 116,
+      "salience_version": "sal-v8",
+      "selected": 509,
+      "selected_carve_out": 94,
       "selected_granted": 76,
-      "selected_rank_fill": 409,
+      "selected_rank_fill": 415,
       "skipped_no_snapshot": 0,
       "term": 2022,
       "weighted_granted": 92.0,
-      "weighted_population": 1251.0,
-      "weighted_selected": 525.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 509.0,
       "weighted_selected_granted": 76.0
     },
     {
@@ -3412,6 +5065,40 @@
     },
     {
       "bands": {
+        "baseline": 956,
+        "elevated": 144,
+        "federal": 16,
+        "high": 100,
+        "state": 24,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 49,
+      "distribution_parse": "dist-v2",
+      "eligible": 1251,
+      "largest_weighted_cohort": 161.0,
+      "policy": "resolution",
+      "precision": 0.14476190476190476,
+      "provenance": {
+        "blind-no-moment": 11,
+        "truncated": 1240
+      },
+      "realized_granted": 92,
+      "recall": 0.8260869565217391,
+      "salience_version": "sal-v4",
+      "selected": 525,
+      "selected_carve_out": 116,
+      "selected_granted": 76,
+      "selected_rank_fill": 409,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1251.0,
+      "weighted_selected": 525.0,
+      "weighted_selected_granted": 76.0
+    },
+    {
+      "bands": {
         "baseline": 1042,
         "elevated": 65,
         "federal": 16,
@@ -3480,23 +5167,91 @@
     },
     {
       "bands": {
-        "baseline": 1312,
+        "baseline": 1042,
+        "elevated": 65,
+        "federal": 16,
+        "high": 78,
+        "state": 26,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 49,
+      "distribution_parse": "dist-v2",
+      "eligible": 1238,
+      "largest_weighted_cohort": 160.0,
+      "policy": "resolution",
+      "precision": 0.14931237721021612,
+      "provenance": {
+        "blind-no-moment": 11,
+        "truncated": 1227
+      },
+      "realized_granted": 92,
+      "recall": 0.8260869565217391,
+      "salience_version": "sal-v7",
+      "selected": 509,
+      "selected_carve_out": 94,
+      "selected_granted": 76,
+      "selected_rank_fill": 415,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 509.0,
+      "weighted_selected_granted": 76.0
+    },
+    {
+      "bands": {
+        "baseline": 1042,
+        "elevated": 65,
+        "federal": 16,
+        "high": 78,
+        "state": 26,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 49,
+      "distribution_parse": "dist-v2",
+      "eligible": 1238,
+      "largest_weighted_cohort": 160.0,
+      "policy": "resolution",
+      "precision": 0.14931237721021612,
+      "provenance": {
+        "blind-no-moment": 11,
+        "truncated": 1227
+      },
+      "realized_granted": 92,
+      "recall": 0.8260869565217391,
+      "salience_version": "sal-v9",
+      "selected": 509,
+      "selected_carve_out": 94,
+      "selected_granted": 76,
+      "selected_rank_fill": 415,
+      "skipped_no_snapshot": 0,
+      "term": 2022,
+      "weighted_granted": 92.0,
+      "weighted_population": 1238.0,
+      "weighted_selected": 509.0,
+      "weighted_selected_granted": 76.0
+    },
+    {
+      "bands": {
+        "baseline": 1284,
         "federal": 29,
         "state": 32
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1373,
+      "eligible": 1345,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 1373
+        "truncated": 1345
       },
       "realized_granted": 109,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -3504,7 +5259,7 @@
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 109.0,
-      "weighted_population": 1373.0,
+      "weighted_population": 1345.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -3598,6 +5353,36 @@
     },
     {
       "bands": {
+        "baseline": 1312,
+        "federal": 29,
+        "state": 32
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1373,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1373
+      },
+      "realized_granted": 109,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1373.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1284,
         "federal": 29,
         "state": 32
@@ -3658,7 +5443,67 @@
     },
     {
       "bands": {
-        "baseline": 1303,
+        "baseline": 1284,
+        "federal": 29,
+        "state": 32
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1345,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1345
+      },
+      "realized_granted": 109,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1345.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1284,
+        "federal": 29,
+        "state": 32
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1345,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1345
+      },
+      "realized_granted": 109,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1345.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1275,
         "federal": 28,
         "state": 31,
         "unobservable": 11
@@ -3666,18 +5511,18 @@
       "capacity_bound_cohorts": 29,
       "cohorts": 36,
       "distribution_parse": "dist-v2",
-      "eligible": 1373,
-      "largest_weighted_cohort": 192.0,
+      "eligible": 1345,
+      "largest_weighted_cohort": 189.0,
       "policy": "distribution-1",
       "precision": 0.15980629539951574,
       "provenance": {
         "blind-no-moment": 8,
         "blind-untrusted-cutoff": 3,
-        "truncated": 1362
+        "truncated": 1334
       },
       "realized_granted": 109,
       "recall": 0.6055045871559633,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 413,
       "selected_carve_out": 28,
       "selected_granted": 66,
@@ -3685,7 +5530,7 @@
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 109.0,
-      "weighted_population": 1373.0,
+      "weighted_population": 1345.0,
       "weighted_selected": 413.0,
       "weighted_selected_granted": 66.0
     },
@@ -3788,6 +5633,39 @@
     },
     {
       "bands": {
+        "baseline": 1303,
+        "federal": 28,
+        "state": 31,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1373,
+      "largest_weighted_cohort": 192.0,
+      "policy": "distribution-1",
+      "precision": 0.15980629539951574,
+      "provenance": {
+        "blind-no-moment": 8,
+        "blind-untrusted-cutoff": 3,
+        "truncated": 1362
+      },
+      "realized_granted": 109,
+      "recall": 0.6055045871559633,
+      "salience_version": "sal-v4",
+      "selected": 413,
+      "selected_carve_out": 28,
+      "selected_granted": 66,
+      "selected_rank_fill": 385,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1373.0,
+      "weighted_selected": 413.0,
+      "weighted_selected_granted": 66.0
+    },
+    {
+      "bands": {
         "baseline": 1275,
         "federal": 28,
         "state": 31,
@@ -3854,38 +5732,104 @@
     },
     {
       "bands": {
-        "baseline": 1021,
-        "elevated": 201,
+        "baseline": 1275,
         "federal": 28,
-        "high": 88,
-        "state": 24,
+        "state": 31,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1345,
+      "largest_weighted_cohort": 189.0,
+      "policy": "distribution-1",
+      "precision": 0.15980629539951574,
+      "provenance": {
+        "blind-no-moment": 8,
+        "blind-untrusted-cutoff": 3,
+        "truncated": 1334
+      },
+      "realized_granted": 109,
+      "recall": 0.6055045871559633,
+      "salience_version": "sal-v7",
+      "selected": 413,
+      "selected_carve_out": 28,
+      "selected_granted": 66,
+      "selected_rank_fill": 385,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1345.0,
+      "weighted_selected": 413.0,
+      "weighted_selected_granted": 66.0
+    },
+    {
+      "bands": {
+        "baseline": 1275,
+        "federal": 28,
+        "state": 31,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 36,
+      "distribution_parse": "dist-v2",
+      "eligible": 1345,
+      "largest_weighted_cohort": 189.0,
+      "policy": "distribution-1",
+      "precision": 0.15980629539951574,
+      "provenance": {
+        "blind-no-moment": 8,
+        "blind-untrusted-cutoff": 3,
+        "truncated": 1334
+      },
+      "realized_granted": 109,
+      "recall": 0.6055045871559633,
+      "salience_version": "sal-v9",
+      "selected": 413,
+      "selected_carve_out": 28,
+      "selected_granted": 66,
+      "selected_rank_fill": 385,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1345.0,
+      "weighted_selected": 413.0,
+      "weighted_selected_granted": 66.0
+    },
+    {
+      "bands": {
+        "baseline": 1109,
+        "elevated": 103,
+        "federal": 28,
+        "high": 69,
+        "state": 25,
         "unobservable": 11
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 47,
       "distribution_parse": "dist-v2",
-      "eligible": 1373,
-      "largest_weighted_cohort": 192.0,
+      "eligible": 1345,
+      "largest_weighted_cohort": 190.0,
       "policy": "resolution",
-      "precision": 0.171875,
+      "precision": 0.1720647773279352,
       "provenance": {
         "blind-no-moment": 10,
         "blind-untrusted-cutoff": 1,
-        "truncated": 1362
+        "truncated": 1334
       },
       "realized_granted": 109,
-      "recall": 0.8073394495412844,
-      "salience_version": "sal-v4",
-      "selected": 512,
-      "selected_carve_out": 116,
-      "selected_granted": 88,
-      "selected_rank_fill": 396,
+      "recall": 0.7798165137614679,
+      "salience_version": "sal-v8",
+      "selected": 494,
+      "selected_carve_out": 97,
+      "selected_granted": 85,
+      "selected_rank_fill": 397,
       "skipped_no_snapshot": 0,
       "term": 2023,
       "weighted_granted": 109.0,
-      "weighted_population": 1373.0,
-      "weighted_selected": 512.0,
-      "weighted_selected_granted": 88.0
+      "weighted_population": 1345.0,
+      "weighted_selected": 494.0,
+      "weighted_selected_granted": 85.0
     },
     {
       "bands": {
@@ -3992,6 +5936,41 @@
     },
     {
       "bands": {
+        "baseline": 1021,
+        "elevated": 201,
+        "federal": 28,
+        "high": 88,
+        "state": 24,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 47,
+      "distribution_parse": "dist-v2",
+      "eligible": 1373,
+      "largest_weighted_cohort": 192.0,
+      "policy": "resolution",
+      "precision": 0.171875,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1362
+      },
+      "realized_granted": 109,
+      "recall": 0.8073394495412844,
+      "salience_version": "sal-v4",
+      "selected": 512,
+      "selected_carve_out": 116,
+      "selected_granted": 88,
+      "selected_rank_fill": 396,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1373.0,
+      "weighted_selected": 512.0,
+      "weighted_selected_granted": 88.0
+    },
+    {
+      "bands": {
         "baseline": 1109,
         "elevated": 103,
         "federal": 28,
@@ -4062,23 +6041,93 @@
     },
     {
       "bands": {
-        "baseline": 1274,
+        "baseline": 1109,
+        "elevated": 103,
+        "federal": 28,
+        "high": 69,
+        "state": 25,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 47,
+      "distribution_parse": "dist-v2",
+      "eligible": 1345,
+      "largest_weighted_cohort": 190.0,
+      "policy": "resolution",
+      "precision": 0.1720647773279352,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1334
+      },
+      "realized_granted": 109,
+      "recall": 0.7798165137614679,
+      "salience_version": "sal-v7",
+      "selected": 494,
+      "selected_carve_out": 97,
+      "selected_granted": 85,
+      "selected_rank_fill": 397,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1345.0,
+      "weighted_selected": 494.0,
+      "weighted_selected_granted": 85.0
+    },
+    {
+      "bands": {
+        "baseline": 1109,
+        "elevated": 103,
+        "federal": 28,
+        "high": 69,
+        "state": 25,
+        "unobservable": 11
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 47,
+      "distribution_parse": "dist-v2",
+      "eligible": 1345,
+      "largest_weighted_cohort": 190.0,
+      "policy": "resolution",
+      "precision": 0.1720647773279352,
+      "provenance": {
+        "blind-no-moment": 10,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1334
+      },
+      "realized_granted": 109,
+      "recall": 0.7798165137614679,
+      "salience_version": "sal-v9",
+      "selected": 494,
+      "selected_carve_out": 97,
+      "selected_granted": 85,
+      "selected_rank_fill": 397,
+      "skipped_no_snapshot": 0,
+      "term": 2023,
+      "weighted_granted": 109.0,
+      "weighted_population": 1345.0,
+      "weighted_selected": 494.0,
+      "weighted_selected_granted": 85.0
+    },
+    {
+      "bands": {
+        "baseline": 1244,
         "federal": 15,
         "state": 38
       },
       "capacity_bound_cohorts": 0,
       "cohorts": 0,
       "distribution_parse": "dist-v2",
-      "eligible": 1327,
+      "eligible": 1297,
       "largest_weighted_cohort": 0.0,
       "policy": "arrival",
       "precision": null,
       "provenance": {
-        "truncated": 1327
+        "truncated": 1297
       },
       "realized_granted": 96,
       "recall": 0.0,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 0,
       "selected_carve_out": 0,
       "selected_granted": 0,
@@ -4086,7 +6135,7 @@
       "skipped_no_snapshot": 0,
       "term": 2024,
       "weighted_granted": 96.0,
-      "weighted_population": 1327.0,
+      "weighted_population": 1297.0,
       "weighted_selected": 0.0,
       "weighted_selected_granted": 0.0
     },
@@ -4180,6 +6229,36 @@
     },
     {
       "bands": {
+        "baseline": 1274,
+        "federal": 15,
+        "state": 38
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1327,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1327
+      },
+      "realized_granted": 96,
+      "recall": 0.0,
+      "salience_version": "sal-v4",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1327.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
         "baseline": 1244,
         "federal": 15,
         "state": 38
@@ -4240,25 +6319,85 @@
     },
     {
       "bands": {
-        "baseline": 1265,
+        "baseline": 1244,
+        "federal": 15,
+        "state": 38
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1297,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1297
+      },
+      "realized_granted": 96,
+      "recall": 0.0,
+      "salience_version": "sal-v7",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1297.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1244,
+        "federal": 15,
+        "state": 38
+      },
+      "capacity_bound_cohorts": 0,
+      "cohorts": 0,
+      "distribution_parse": "dist-v2",
+      "eligible": 1297,
+      "largest_weighted_cohort": 0.0,
+      "policy": "arrival",
+      "precision": null,
+      "provenance": {
+        "truncated": 1297
+      },
+      "realized_granted": 96,
+      "recall": 0.0,
+      "salience_version": "sal-v9",
+      "selected": 0,
+      "selected_carve_out": 0,
+      "selected_granted": 0,
+      "selected_rank_fill": 0,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1297.0,
+      "weighted_selected": 0.0,
+      "weighted_selected_granted": 0.0
+    },
+    {
+      "bands": {
+        "baseline": 1236,
         "federal": 15,
         "state": 38,
-        "unobservable": 9
+        "unobservable": 8
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 34,
       "distribution_parse": "dist-v2",
-      "eligible": 1327,
-      "largest_weighted_cohort": 157.0,
+      "eligible": 1297,
+      "largest_weighted_cohort": 153.0,
       "policy": "distribution-1",
       "precision": 0.10886075949367088,
       "provenance": {
-        "blind-no-moment": 9,
-        "truncated": 1318
+        "blind-no-moment": 8,
+        "truncated": 1289
       },
       "realized_granted": 96,
       "recall": 0.4479166666666667,
-      "salience_version": "sal-v4",
+      "salience_version": "sal-v8",
       "selected": 395,
       "selected_carve_out": 15,
       "selected_granted": 43,
@@ -4266,7 +6405,7 @@
       "skipped_no_snapshot": 0,
       "term": 2024,
       "weighted_granted": 96.0,
-      "weighted_population": 1327.0,
+      "weighted_population": 1297.0,
       "weighted_selected": 395.0,
       "weighted_selected_granted": 43.0
     },
@@ -4366,6 +6505,38 @@
     },
     {
       "bands": {
+        "baseline": 1265,
+        "federal": 15,
+        "state": 38,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 34,
+      "distribution_parse": "dist-v2",
+      "eligible": 1327,
+      "largest_weighted_cohort": 157.0,
+      "policy": "distribution-1",
+      "precision": 0.10886075949367088,
+      "provenance": {
+        "blind-no-moment": 9,
+        "truncated": 1318
+      },
+      "realized_granted": 96,
+      "recall": 0.4479166666666667,
+      "salience_version": "sal-v4",
+      "selected": 395,
+      "selected_carve_out": 15,
+      "selected_granted": 43,
+      "selected_rank_fill": 380,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1327.0,
+      "weighted_selected": 395.0,
+      "weighted_selected_granted": 43.0
+    },
+    {
+      "bands": {
         "baseline": 1236,
         "federal": 15,
         "state": 38,
@@ -4430,38 +6601,102 @@
     },
     {
       "bands": {
-        "baseline": 1010,
-        "elevated": 152,
+        "baseline": 1236,
         "federal": 15,
-        "high": 114,
-        "state": 26,
-        "unobservable": 10
+        "state": 38,
+        "unobservable": 8
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 34,
+      "distribution_parse": "dist-v2",
+      "eligible": 1297,
+      "largest_weighted_cohort": 153.0,
+      "policy": "distribution-1",
+      "precision": 0.10886075949367088,
+      "provenance": {
+        "blind-no-moment": 8,
+        "truncated": 1289
+      },
+      "realized_granted": 96,
+      "recall": 0.4479166666666667,
+      "salience_version": "sal-v7",
+      "selected": 395,
+      "selected_carve_out": 15,
+      "selected_granted": 43,
+      "selected_rank_fill": 380,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1297.0,
+      "weighted_selected": 395.0,
+      "weighted_selected_granted": 43.0
+    },
+    {
+      "bands": {
+        "baseline": 1236,
+        "federal": 15,
+        "state": 38,
+        "unobservable": 8
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 34,
+      "distribution_parse": "dist-v2",
+      "eligible": 1297,
+      "largest_weighted_cohort": 153.0,
+      "policy": "distribution-1",
+      "precision": 0.10886075949367088,
+      "provenance": {
+        "blind-no-moment": 8,
+        "truncated": 1289
+      },
+      "realized_granted": 96,
+      "recall": 0.4479166666666667,
+      "salience_version": "sal-v9",
+      "selected": 395,
+      "selected_carve_out": 15,
+      "selected_granted": 43,
+      "selected_rank_fill": 380,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1297.0,
+      "weighted_selected": 395.0,
+      "weighted_selected_granted": 43.0
+    },
+    {
+      "bands": {
+        "baseline": 1096,
+        "elevated": 56,
+        "federal": 15,
+        "high": 92,
+        "state": 29,
+        "unobservable": 9
       },
       "capacity_bound_cohorts": 29,
       "cohorts": 47,
       "distribution_parse": "dist-v2",
-      "eligible": 1327,
-      "largest_weighted_cohort": 149.0,
+      "eligible": 1297,
+      "largest_weighted_cohort": 146.0,
       "policy": "resolution",
-      "precision": 0.14925373134328357,
+      "precision": 0.15458015267175573,
       "provenance": {
-        "blind-no-moment": 9,
+        "blind-no-moment": 8,
         "blind-untrusted-cutoff": 1,
-        "truncated": 1317
+        "truncated": 1288
       },
       "realized_granted": 96,
-      "recall": 0.8333333333333334,
-      "salience_version": "sal-v4",
-      "selected": 536,
-      "selected_carve_out": 129,
-      "selected_granted": 80,
-      "selected_rank_fill": 407,
+      "recall": 0.84375,
+      "salience_version": "sal-v8",
+      "selected": 524,
+      "selected_carve_out": 107,
+      "selected_granted": 81,
+      "selected_rank_fill": 417,
       "skipped_no_snapshot": 0,
       "term": 2024,
       "weighted_granted": 96.0,
-      "weighted_population": 1327.0,
-      "weighted_selected": 536.0,
-      "weighted_selected_granted": 80.0
+      "weighted_population": 1297.0,
+      "weighted_selected": 524.0,
+      "weighted_selected_granted": 81.0
     },
     {
       "bands": {
@@ -4568,6 +6803,41 @@
     },
     {
       "bands": {
+        "baseline": 1010,
+        "elevated": 152,
+        "federal": 15,
+        "high": 114,
+        "state": 26,
+        "unobservable": 10
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 47,
+      "distribution_parse": "dist-v2",
+      "eligible": 1327,
+      "largest_weighted_cohort": 149.0,
+      "policy": "resolution",
+      "precision": 0.14925373134328357,
+      "provenance": {
+        "blind-no-moment": 9,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1317
+      },
+      "realized_granted": 96,
+      "recall": 0.8333333333333334,
+      "salience_version": "sal-v4",
+      "selected": 536,
+      "selected_carve_out": 129,
+      "selected_granted": 80,
+      "selected_rank_fill": 407,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1327.0,
+      "weighted_selected": 536.0,
+      "weighted_selected_granted": 80.0
+    },
+    {
+      "bands": {
         "baseline": 1096,
         "elevated": 56,
         "federal": 15,
@@ -4635,22 +6905,95 @@
       "weighted_population": 1297.0,
       "weighted_selected": 524.0,
       "weighted_selected_granted": 81.0
+    },
+    {
+      "bands": {
+        "baseline": 1096,
+        "elevated": 56,
+        "federal": 15,
+        "high": 92,
+        "state": 29,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 47,
+      "distribution_parse": "dist-v2",
+      "eligible": 1297,
+      "largest_weighted_cohort": 146.0,
+      "policy": "resolution",
+      "precision": 0.15458015267175573,
+      "provenance": {
+        "blind-no-moment": 8,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1288
+      },
+      "realized_granted": 96,
+      "recall": 0.84375,
+      "salience_version": "sal-v7",
+      "selected": 524,
+      "selected_carve_out": 107,
+      "selected_granted": 81,
+      "selected_rank_fill": 417,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1297.0,
+      "weighted_selected": 524.0,
+      "weighted_selected_granted": 81.0
+    },
+    {
+      "bands": {
+        "baseline": 1096,
+        "elevated": 56,
+        "federal": 15,
+        "high": 92,
+        "state": 29,
+        "unobservable": 9
+      },
+      "capacity_bound_cohorts": 29,
+      "cohorts": 47,
+      "distribution_parse": "dist-v2",
+      "eligible": 1297,
+      "largest_weighted_cohort": 146.0,
+      "policy": "resolution",
+      "precision": 0.15458015267175573,
+      "provenance": {
+        "blind-no-moment": 8,
+        "blind-untrusted-cutoff": 1,
+        "truncated": 1288
+      },
+      "realized_granted": 96,
+      "recall": 0.84375,
+      "salience_version": "sal-v9",
+      "selected": 524,
+      "selected_carve_out": 107,
+      "selected_granted": 81,
+      "selected_rank_fill": 417,
+      "skipped_no_snapshot": 0,
+      "term": 2024,
+      "weighted_granted": 96.0,
+      "weighted_population": 1297.0,
+      "weighted_selected": 524.0,
+      "weighted_selected_granted": 81.0
     }
   ],
-  "cells_evaluated": 144,
+  "cells_evaluated": 216,
   "policies": [
     "arrival",
     "distribution-1",
     "resolution"
   ],
-  "salience_version": "sal-v4",
+  "salience_version": "sal-v8",
   "salience_versions": [
-    "sal-v4",
+    "sal-v8",
     "sal-v1",
     "sal-v2",
     "sal-v3",
+    "sal-v4",
     "sal-v5",
-    "sal-v6"
+    "sal-v6",
+    "sal-v7",
+    "sal-v9"
   ],
   "schema_version": "1.0",
   "stratum": "retrospective",
