@@ -1937,11 +1937,17 @@
     {
       "argument": null,
       "case_id": "scotus/73500293",
-      "conferences": null,
+      "conferences": [
+        {
+          "conference": "2026-10-16",
+          "distributed": "2026-09-30",
+          "transition": "first"
+        }
+      ],
       "distributed_for_conference": "2026-10-16",
-      "last_live_polled": "2026-11-09",
+      "last_live_polled": "2026-11-17",
       "next_conference": null,
-      "relists": null,
+      "relists": 0,
       "response_due": null,
       "stale_reason": "conference_passed"
     },
