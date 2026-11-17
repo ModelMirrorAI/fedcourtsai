@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500225",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "fedcourts statpack-at cleanly reconstructed the exact prediction-time statpack build (ca0c9e1a49e2) so marginal slice citations could be verified without false mismatches against post-prediction refreshes",
+    "provisioned cert briefs and snapshot in record/documents and record/snapshots"
+  ],
+  "gaps": [],
+  "notes": "All three candidates ran forward seven days prior to the November 16, 2026 denial order; detached opinions relating to orders (such as Justice Thomas's statement respecting denial) are linked in the docket entry HTML but not staged as text under record/opinion/, so substantive claims about the text of that statement were marked unresolved per protocol."
+}

@@ -1,0 +1,27 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000526",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-arrival-disposition",
+      "issue": null,
+      "message": "Harness check: the judge-level retrieval.md is missing: this cell wrote no retrieval.md in evaluations/gemini-judge/20261117T154407Z/ or under any candidate, and the contract asks for one every run.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-petition-arrival-disposition",
+      "issue": null,
+      "message": "Harness check: the judge-level tooling.json is missing: this cell wrote no tooling.json in evaluations/gemini-judge/20261117T154407Z/ or under any candidate, and the contract asks for one every run.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0"
+}
