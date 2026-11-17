@@ -1,4 +1,5 @@
 {
+  "amicus_line_rate": null,
   "base_rate_basis": "risk_set",
   "base_rate_lookback_terms": 10,
   "base_rate_salience_version": "sal-v8",
@@ -73,7 +74,7 @@
     "lift": 0.5019412799057663,
     "total": 0.5019412799057663
   },
-  "correct": 0,
+  "correct": 1,
   "created_at": "2026-11-14T15:53:15.727741Z",
   "engine": "claude-code",
   "evaluator_id": "claude-judge",
