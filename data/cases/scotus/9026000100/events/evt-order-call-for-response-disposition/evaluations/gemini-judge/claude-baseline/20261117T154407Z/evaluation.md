@@ -1,0 +1,33 @@
+# Evaluation of `claude-baseline` — `scotus/9026000100` (`evt-order-call-for-response-disposition`)
+
+## Summary of quantitative scoring
+
+- **Stage:** `cert` (`moment: response-requested`, opened `2026-08-13`, resolved `2026-11-16`). No semantic claim set (`semantic-v1`) or vote accuracy is scored on a cert-stage cell.
+- **Outcome match (`correct = 1`):** `claude-baseline` predicted `denied` (`probability = 0.07`, `granted = 0`), matching `outcome.json` (`actual_disposition = "denied"`, `actual_granted = 0`).
+- **Brier score (`0.0049`):** `(0.07 - 0)^2 = 0.0049`.
+- **Baseline and skill:** Left null for the harness (`segment_base_rate`, `brier_skill_score`, and `base_rate_basis` are computed and stamped by `stamp-cell` from the stamped segment base rate). To check `claude-baseline`'s base-rate figures against the statpack in force when it ran (`run_id = 20261029T160941Z`), we rebuilt that pack via `fedcourts statpack-at` (`7bcde3b105cb212283905eda17b827efc188e80c`, `sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641`, landed `2026-10-28T13:56:30-04:00`). Its `sal-v4` `baseline [reached]` citations (e.g., OT2025 `4.0%`, `n = 1,314`; OT2024 `5.9%`, `n = 1,274`) and exclusion of incomplete OT2026 (`1.8%`, `n = 169`) match build `7bcde3b105cb`.
+
+## Reasoning quality (`reasoning_quality = 0.64`)
+
+`claude-baseline`'s `reasoning.md` got the macro posture and calibration (`0.07`) right, but its legal and record analysis was materially shallower than its peers' and contained an inverted preservation argument:
+
+1. **What `reasoning.md` got right:** `claude-baseline` anchored properly on the `sal-v4` risk-set (`reached`) rates excluding OT2026, recognized the unpublished Ninth Circuit memorandum and fact-bound QP framing as major vehicle drags, checked the corpus record for *Hittle v. City of Stockton* (`24-427`, denied `2025-03-10` after 5 distributions), and added a genuinely useful docket-portfolio observation by surfacing several competing OT2026 petitions (`26-80`, `26-385`, `26-448`) raising the same *McDonnell Douglas*/Rule 56 issue—correctly noting that cleaner pending vehicles undercut plenary review in an unpublished case.
+2. **Omission of the appended lower-court opinions:** As reflected in both `reasoning.md` and `retrieval_log.json`, `claude-baseline` read only lines 562–820 of `petition.txt` (pages 13–19 of the petition brief) and never read either the Ninth Circuit memorandum disposition (App. A) or the District Court summary-judgment order (App. B). As a result, `reasoning.md` missed all of the concrete record defects that actually made the petition uncertworthy and dominated Respondent's October 14 Brief in Opposition: the police report finding Cross 100% at fault, Cross's signed pre-grievance admission that she was "at complete fault," the bus video capturing 30 stop-sign/red-light violations and cell-phone use, CCCTA's concession of the prima facie retaliation case (leaving summary judgment resting on the honest-belief rule rather than *McDonnell Douglas* step one), the retained Muslim comparator, and the unpleaded failure-to-accommodate claim (App. 20a n.2).
+3. **Inverted preservation reading of Pet. 14:** `claude-baseline` asserted that *"The petition concedes that petitioner 'did not invoke McDonnell Douglas below.' That is a vehicle problem for a question about whether the framework should apply at all."* In context (Pet. 11, 14, 21), Petitioner was highlighting a preservation *strength*, not conceding a defect: rather than forfeiting an anti-*McDonnell Douglas* challenge by invoking the framework herself, Cross argued below for holistic Rule 56 evaluation under *Ortiz* and had *McDonnell Douglas* imposed over her objection by the District Court and Ninth Circuit. Treating a litigant's refusal to invoke the doctrine she seeks to overturn as a preservation obstacle inverts appellate preservation principles (and Respondent's BIO made no such forfeiture claim on *McDonnell Douglas*, arguing instead that Cross lost under ordinary Rule 56 principles regardless).
+
+## Predicted reasoning (`predicted_reasoning_quality = 0.82`)
+
+Graded strictly on `predicted_reasoning.md` alone (without carrying over `reasoning.md`'s preservation misread, which does not appear in the forecast document), `claude-baseline`'s forecast held up well across every testable claim:
+
+1. **Denial of certiorari (`borne-out`):** Certiorari was denied on November 16, 2026 (`actual_disposition = "denied"`).
+2. **Fall redistribution after response/reply and resolution at the first post-response conference (or at most one relist) (`borne-out`):** The petition was redistributed on October 28, 2026 (the day Petitioner filed her reply) for the November 13, 2026 fall conference (`distribution_count = 2`) and denied at that first post-response conference on November 16, 2026 without a *Hittle*-style run of relists.
+3. **No CVSG (`borne-out`):** No invitation to the Solicitor General was issued (`cvsg_date: null`), for the local-transit-agency / private Title VII reason stated.
+4. **Conditional reformulated QP and hold-then-GVR (~55%) over plenary route (`unresolved`):** Untested because certiorari was denied without a hold or grant; neither credited nor penalized.
+5. **Denial without comment (~80%), or else Thomas/Gorsuch (`borne-out`):** The denial order issued without comment (`noted_dissent_from_denial: false`).
+
+Calling a fall-conference redistribution after response/reply, immediate resolution at the first post-response conference (or at most one relist) rather than a multi-relist run, no CVSG, and an unannotated denial despite Justice Thomas's *Hittle*/*Ames* writings earned `0.82`—above `0.75`, while sitting below the top anchor because of the mild one-relist hedge and thinner specificity on the post-BIO record posture.
+
+## Leakage and big-case notes
+
+- **Leakage (`not_applicable`, `leakage_suspected = false`):** `claude-baseline` ran in `forward` mode on `2026-10-29`, eighteen days before the `2026-11-16` resolution. Audit of `retrieval_log.json` (20 calls, all `captured`, `result_capture_coverage = 1.0`) confirms clean forward execution: reads were limited to provisioned `2026-08-13` inputs, `metrics/statpack.md`, pre-2026 corpus priors, and one captured web search surfacing pending OT2026 *McDonnell Douglas* petitions (`26-80`, `26-385`, `26-448`, `26-5352`, `25-945`) with no target-case outcome or `data/qp-topics/` access.
+- **Big-case read (`evaluator_score = 0.22`):** While the Question Presented pitched a broad challenge to *McDonnell Douglas* at summary judgment and drew four cert-stage amicus briefs, the case itself was an unpublished single-employee termination dispute resolved by a routine, unremarked cert denial.

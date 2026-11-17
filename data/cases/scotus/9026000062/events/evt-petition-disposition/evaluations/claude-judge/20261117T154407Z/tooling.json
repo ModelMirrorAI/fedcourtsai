@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000062",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The staged docket snapshot and documents made it quick to check candidates' docket claims",
+    "result_capture markers on the retrieval logs"
+  ],
+  "gaps": [
+    "The candidate's own input snapshot is not staged, so a docket fact a candidate asserts can only be checked against the later, decided snapshot"
+  ],
+  "notes": "Straightforward cert denial; no corpus or statpack lookup was needed."
+}

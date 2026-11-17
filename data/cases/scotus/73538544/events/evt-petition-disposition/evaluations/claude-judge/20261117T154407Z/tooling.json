@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73538544",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The decided docket snapshot and outcome.json signals settled every central forecast claim (disposition, relist, CVSG, separate writing) without outside lookup.",
+    "The provisioned filings let me spot-check candidates' quotations and factual assertions."
+  ],
+  "gaps": [],
+  "notes": "All three candidates were correct on a forward cell with clean logs, so no statpack rebuild or corpus query was needed. Candidates' prediction contexts carry band elevated under sal-v4 while my record/context.json carries baseline under sal-v8; I left all base-rate fields to the stamp."
+}

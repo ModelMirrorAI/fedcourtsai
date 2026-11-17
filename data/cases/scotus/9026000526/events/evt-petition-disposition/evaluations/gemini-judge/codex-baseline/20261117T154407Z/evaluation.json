@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:25e503d614f67cd9f396993ea846302b54a24c202e68287b7c893383385e55e2",
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "Noncapital single-defendant state criminal cert petition raising a record-bound application of United States v. Scott and Evans v. Michigan to an idiosyncratic mid-trial Compulsory Process dismissal labeled an acquittal after the trial court twice denied sufficiency motions; waived by respondent, zero amici, and denied without comment or dissent on first distribution."
+  },
+  "brier_score": 0.0006250000000000001,
+  "brier_skill_score": 0.7677478909368491,
+  "case_id": "scotus/9026000526",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": 0.0020885300871058103
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.035,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.002,
+          "Gorsuch": 0.005,
+          "Jackson": 0.008,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.009,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0020885300871058103,
+    "total": 0.0020885300871058103
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T19:01:42.272948Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-11-05T02:52Z-02:56Z, eleven days before the 2026-11-16 denial order. Captured shell/MCP calls (94.1% result capture coverage) and two unobserved web-search attempts for McElrath v. Georgia (2024) targeted prior precedent and pre-run corpus denials while the event was genuinely open.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.78,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied' on resolved_at '2026-11-16', and record/snapshots/2026-11-16.json records a bare 'Petition DENIED.' entry on the Monday order list following the November 13, 2026 conference.",
+        "claim": "The Court will deny the petition in the ordinary orders following the November 13, 2026 conference without an explanatory opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 1, and record/snapshots/2026-11-16.json shows no response request or redistribution between the October 28, 2026 distribution and the November 16, 2026 denial.",
+        "claim": "The petition will receive no further distribution and no call for a response beyond its single initial distribution (assigning 10% to at least one additional distribution).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and no CVSG order appears on the November 16, 2026 docket snapshot.",
+        "claim": "The Court will not call for the Solicitor General's views (assigning 0.2% to a new CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition 'denied' (actual_granted = 0), so conditional grant-scope and route predictions were never tested.",
+        "claim": "If review is granted, the Court would address a narrowed functional Double Jeopardy acquittal question via plenary briefing and argument rather than summary disposition (22% conditional summary probability).",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false, votes = [], and writing_roles = null, matching the unadorned 'Petition DENIED.' docket entry.",
+        "claim": "No Justice will note a dissent or statement respecting the denial of certiorari (assigning 3.5% conditional on denial).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261105T015156Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T19:01:42.272948Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

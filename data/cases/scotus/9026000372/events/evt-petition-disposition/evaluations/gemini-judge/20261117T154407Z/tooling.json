@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000372",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "fedcourts paths",
+    "fedcourts query"
+  ],
+  "helpful": [
+    "fedcourts statpack-at cleanly reconstructed statpack build dedb32b153e6 (sal-v6) so each candidate's cited counts and rates could be verified against the exact build in force on 2026-10-31 rather than the working tree's later sal-v8 statpack",
+    "fedcourts query verified all prior related dockets (19-764, 24-20, 24-151, and emergency stay application 26A141) in a single ranged pass",
+    "provisioned petition.txt, appendix.txt, and 2026-11-16.json snapshot provided complete context to grade both reasoning.md and predicted_reasoning.md without external fetches"
+  ],
+  "gaps": [],
+  "notes": "read_file restricts paths outside the workspace and project temp directory, so reading files written to /tmp/statpack-at required inspecting them via shell sed rather than read_file."
+}

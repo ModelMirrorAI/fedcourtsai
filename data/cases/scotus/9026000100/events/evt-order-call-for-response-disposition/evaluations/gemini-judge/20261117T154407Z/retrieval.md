@@ -1,0 +1,1 @@
+No external retrieval (corpus queries, CourtListener MCP lookups, or web searches) beyond the provisioned inputs and local `uv run fedcourts statpack-at` build verification (`7bcde3b105cb212283905eda17b827efc188e80c` -> `/tmp/statpack-at/candidate-{a,b,c}`).

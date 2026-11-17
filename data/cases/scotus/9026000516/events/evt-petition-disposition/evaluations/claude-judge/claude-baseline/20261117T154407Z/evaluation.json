@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Fact-bound request for a GVR in light of Abouammo in a single 26 U.S.C. 7206(2) tax-preparer prosecution; SG waived, no amici, one distribution, denied without noted dissent. Serious for the two defendants (84- and 48-month sentences) but no reach beyond them."
+  },
+  "brier_score": 0.010000000000000002,
+  "brier_skill_score": -2.716033745010414,
+  "case_id": "scotus/9026000516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": -0.007286469912894191
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.88,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.003,
+          "Gorsuch": 0.015,
+          "Jackson": 0.008,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.008,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.007286469912894191,
+    "total": -0.007286469912894191
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:37:02.827478Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-11-01 on the 2026-11-01 snapshot; the petition was denied 2026-11-16. Log (19 calls, fully captured): provisioned files, statpack, corpus GVR queries (Hobson, Whitehead rows), and one web search on Abouammo-based remands that returned the SG's GVR memorandum in Whitehead, a different case; the candidate discloses it and reports nothing on this case's disposition. No retrieved_doc_date on or after the resolution, no qp-topics read, and nothing in the prose treats the petition as decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: denied, resolved 2026-11-16, the first orders list after that conference.",
+        "claim": "Most likely outcome is denial, at the 13 November 2026 conference or soon after (P(grant)=0.10).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket shows waiver (Oct 21), one distribution (Oct 28), denial (Nov 16), and no response request; distribution_count 1.",
+        "claim": "No further distribution is likely; the Court will not ask the Solicitor General for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome signals cvsg_date null. Close to entailed by the posture, so little credit.",
+        "claim": "No CVSG, the United States already being the respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json: noted_dissent_from_denial false.",
+        "claim": "No dissent from denial is expected.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261101T050708Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:37:02.827478Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

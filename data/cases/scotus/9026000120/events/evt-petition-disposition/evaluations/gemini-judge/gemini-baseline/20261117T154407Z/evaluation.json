@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.28,
+    "notes": "Paid certiorari petition represented by the Institute for Free Speech with four ideological amicus briefs challenging Colorado state legislators' enforcement of committee-hearing decorum rules barring 'misgendering' and 'deadnaming' during public comment on HB 24-1071. While the petition touches a salient First Amendment viewpoint-discrimination flashpoint and frames a doctrinal tension between Supreme Court of Virginia v. Consumers Union (1980) and Kentucky v. Graham (1985), every circuit to address state legislators follows Consumers Union in extending legislative immunity to prospective equitable relief, the dispute is confined to internal state legislative committee procedures where non-legislator enforcement staff were not sued, and the Court denied certiorari cleanly on November 16, 2026 without CVSG, post-conference relist, or noted dissent."
+  },
+  "brier_score": 0.010000000000000002,
+  "brier_skill_score": 0.8375812890114676,
+  "case_id": "scotus/9026000120",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.24838227974116475,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": 0.05169375688941822
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.05,
+          "Barrett": 0.005,
+          "Gorsuch": 0.03,
+          "Jackson": 0.005,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.008,
+          "Roberts": 0.005,
+          "Sotomayor": 0.005,
+          "Thomas": 0.07
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.05169375688941822,
+    "total": 0.05169375688941822
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:44:53.877048Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-10 (run_id 20261110T141746Z), prior to the November 13, 2026 conference and November 16, 2026 denial. All 24 logged calls carry result_capture = 'unobserved' (result_capture_coverage 0.0, an engine telemetry shape); graded on their logged queries, they consist exclusively of local case/schema/statpack reads, one 2020s corpus query, and local JSON validation, with no web searches or CourtListener lookups.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records signals.distribution_count = 2 and resolved_at = '2026-11-16', matching both the terminal distribution count of 2 and the exact November 16, 2026 order-list denial date.",
+        "claim": "The modal outcome (75%) is that the Court resolves the petition directly off the November 13, 2026 conference without any further relist (terminal distribution_count = 2), issuing a denial on the November 16, 2026 order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null.",
+        "claim": "There is virtually no prospect of a Call for the Views of the Solicitor General (~1%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition = 'denied', disposition_basis = 'standard', and disposition_route = null.",
+        "claim": "The Court will almost certainly deny certiorari (90%), with negligible chance of a GVR or summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false and the 2026-11-16 docket entry reads 'Petition DENIED.' with no separate writing.",
+        "claim": "Conditional on denial, the single most likely outcome (88%) is a routine denial order without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on 2026-11-16, leaving the conditional grant-scope forecast untested.",
+        "claim": "Conditional on a grant, the Court would grant plenary review on both Questions Presented rather than limiting review to Question 1 or Question 2 alone.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261110T141746Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:44:53.877048Z"
+  },
+  "reasoning_quality": 0.93,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.24813153961136025,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

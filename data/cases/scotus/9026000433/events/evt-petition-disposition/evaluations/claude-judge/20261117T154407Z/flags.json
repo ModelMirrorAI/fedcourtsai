@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000433",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's reasoning.md presents as a direct quotation from Pet. 27 a concession that petitioner 'did not challenge the fundamental-rights prong of the shocks-the-conscience standard below'. The staged petition.txt contains no such sentence; page 27 states that the issue 'was pressed and passed upon at every stage'. The quoted concession supports one of the four stated downward adjustments and recurs in predicted_reasoning.md. It lowered reasoning_quality for that candidate; correct and brier_score are unaffected.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0"
+}

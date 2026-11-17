@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se debtor's emergency stay/injunction application seeking to halt a single E.D. Va. bankruptcy appeal following a \u00a7 455(a) recusal denial and a December 17, 2026 residential foreclosure sale while Fourth Circuit rehearing of a mandamus denial remained pending. High personal stakes for one household, but virtually zero doctrinal, institutional, or public significance, underscored by routine three-day solo chambers denial without response, referral, amici, or writing."
+  },
+  "brier_score": 4e-06,
+  "brier_skill_score": 0.9997061852399737,
+  "case_id": "scotus/9526000684",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": 0.013610019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013610019934335403,
+    "total": 0.013610019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T19:01:18.852763Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Prediction ran in forward mode on 2026-11-14T03:56\u201304:10Z, two days before Chief Justice Roberts denied 26A684 on 2026-11-16. Retrieval log (58 calls, outcome_only capture) shows reads of provisioned inputs, corpus prior queries (including pre-snapshot sibling denials 26A657 on 2026-11-10 and 26A658 on 2026-11-11), and CourtListener lower-court/precedent checks; no web searches, no reads of data/qp-topics/, and no post-resolution material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied', interim_granted 0, and referred_to_court false; snapshot 2026-11-16.json records the exact verbatim entry 'Application (26A684) denied by The Chief Justice.' with no prior administrative stay.",
+        "claim": "Chief Justice Roberts, acting alone in chambers without referring Application No. 26A684 to the full Court, will deny the application in a single-line order ('Application (26A684) denied by The Chief Justice.') without granting an administrative stay or substantive relief.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals records response_requested false and amicus_briefs 0, and snapshot 2026-11-16.json shows only the submission and denial entries.",
+        "claim": "No response will be requested from Respondent BOKF, N.A., and no amicus curiae briefs or submissions will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-16.json records DocketedDate 'November 13, 2026' and denial on 'Nov 16 2026' (three days after docketing), with outcome.json recording votes [] and writing_roles null.",
+        "claim": "The denial will enter within roughly three to seven days of docketing\u2014well ahead of the scheduled December 17, 2026 foreclosure sale\u2014and no Justice will author a concurrence, dissent, or statement respecting the order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Chief Justice Roberts entered a standard one-line unexplained chambers denial with no opinion staged in record/opinion/, so the staged record does not disclose chambers' doctrinal reasoning.",
+        "claim": "Doctrinally, emergency relief is unwarranted under Hollingsworth and Nken because remedies remain pending below under Rule 23.3, mandamus over 28 U.S.C. \u00a7 455(a) recusal lacks cert prospects, and enjoining BOKF's foreclosure reaches beyond the recusal-mandamus order.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261114T033825Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T19:01:18.852763Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73377829",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Staged brief-in-opposition.txt, which let me check a forecast of what the government would argue",
+    "The decided-docket snapshot's ProceedingsandOrder list for the post-response path",
+    "result_capture markers on the blinded retrieval logs"
+  ],
+  "gaps": [
+    "The candidates' own baseline snapshot (2026-06-16) is not staged, so whether amici were listed at the baseline had to be inferred from the candidates' prose"
+  ],
+  "notes": "Straightforward forward cert cell; all three candidates ran before resolution. Did not rebuild the statpack with statpack-at: the candidates' pooled anchor figures agreed with one another and no base-rate figure was marked wrong."
+}

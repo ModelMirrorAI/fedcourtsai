@@ -1,0 +1,22 @@
+# Evaluation — gemini-baseline — scotus/9526000680, evt-motion-disposition
+
+**Stage: interim** (stay application, arrival moment). Outcome: denied by Justice Sotomayor on 2026-11-13; `interim_reading` = denied, `interim_granted` = 0.
+
+## Scores
+- `correct` = 1: predicted `denied`, on the ungranted side with `interim_granted` = 0.
+- `brier_score` = (0.005 − 0)² = 0.000025.
+- The baseline and skill are the harness's on an interim cell; I wrote neither, and `base_rate_basis` stays null. No band was frozen, so no cert-band flag. No `vote_accuracy` and no `semantic_grades` on an interim cell.
+
+## Reasoning quality — 0.85
+The most developed analysis of the three. It anchors correctly on the scored pool and the private/unmarked cell, then explains why both overstate this application's chances (the pool is dominated by counselled, escalated applications), using corpus rows for recent pro se chambers denials as comparison. The legal analysis is organised on the *Hollingsworth* factors and goes beyond the application's face: § 1257 finality with *Flynt v. Ohio* and *Johnson v. Fankell* against the applicant's *Cox*/*Skokie* reliance, a timeliness question from the June certification denial, and — from the parallel federal ruling of 2026-11-09, a pre-cutoff related-case document — that the November 16 hearing transfers neither title nor possession and that a state appellate stay follows a final judgment. That last point goes directly to irreparable harm and is the strongest single reason for denial that any candidate identified.
+
+Reservations: I cannot check the specifics it attributes to the district court's ruling (the state docket entries, counsel's withdrawal, the withdrawn opposition) against anything staged, so I credit the use of the source and not the details. The tone is more certain than a pre-decision record supports ("fails every prong"), it adopts an adverse court's characterisation of the applicant's conduct without reservation, and the claim that every recent substantive grant was a referred institutional application is a strong generalisation from a 50-row query. The log also shows the workflow run twice over the same inputs, which adds nothing.
+
+## Predicted reasoning — 0.75
+Central claims: denial by Justice Sotomayor alone in chambers; no response call and no referral; no amicus submission; a rapid, unreasoned one-line denial with no separate writing, around November 16. All are borne out by `outcome.json` (denied, signals all zero, no writings) and the decided docket, whose entry matches the forecast's wording; the denial came on November 13, inside "shortly around" the hearing date. The conditional doctrinal basis is unresolved because the order gives no reasons. The document is specific and committed on route, actor and form, but the path it called is the strongly modal one and the rest of its length is conditional doctrine that the record cannot settle, so it sits at the 0.75 anchor.
+
+## Leakage
+Mode forward. The event resolved 2026-11-13 and this prediction was created 2026-11-14, so the case was already decided when the cell ran, on a snapshot holding only the submission. I checked the log rather than passing by default. All 92 calls are `outcome_only`, so I graded each on its query and credited none as having returned nothing. The queries are record and statpack reads, generic corpus queries for recent grants and denials, CourtListener searches for the applicant's parallel federal suit and a read of its ruling dated 2026-11-09 (before the 2026-11-12 cutoff, and a related case's ruling — legitimate forward signal), citation verification, and one web search on a cited precedent. Two CourtListener searches use the applicant's surname or caption, and a plan note mentions "live docket verification", but no logged call targets this application's Supreme Court docket and none reads the outcome file. The candidate's own retrieval note lists the substantive denials its corpus query returned, and this application is not among them. The forecast places disposition around November 16, which does not presuppose a November 13 denial. No disposition of this application surfaced: `influenced_prediction` = `not_applicable`, `leakage_suspected` = false, with the caveat that no result content was captured. The timing is flagged in `flags.json`.
+
+## Big case — 0.03
+A single-property pro se foreclosure stay with no reach beyond the parties.

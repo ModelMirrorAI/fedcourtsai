@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000352",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts statpack-at",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "fedcourts statpack-at",
+    "record/documents/appendix.txt",
+    "record/blinded/*/retrieval_log.json"
+  ],
+  "gaps": [],
+  "notes": "fedcourts statpack-at reconstructed the exact sal-v4 statpack build (648fc43559f5) active when the candidates ran on 2026-10-31 after the committed statpack had moved to sal-v8, confirming every candidate's marginal base-rate citations without ambiguity."
+}

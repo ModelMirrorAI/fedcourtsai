@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "Pro se paid certiorari petition from an 8-page nonprecedential Federal Circuit affirmance of a jurisdictional MSPB dismissal over a single former employee's 2015 hazardous-duty-pay supplement and position description. Respondent waived response, zero amici participated, no circuit split was presented, and the Court denied certiorari at first conference without dissent; only the abstract WPEA statutory question in QP2 gives it trace significance above zero."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9904271565082645,
+  "case_id": "scotus/9026000427",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.00258655423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.0007,
+          "Barrett": 0.0004,
+          "Gorsuch": 0.0015,
+          "Jackson": 0.0018,
+          "Kagan": 0.0004,
+          "Kavanaugh": 0.0004,
+          "Roberts": 0.0002,
+          "Sotomayor": 0.0018,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00258655423898689,
+    "total": 0.00258655423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:16:10.274874Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-30 (run 20261030T011325Z), seventeen days before the November 16, 2026 denial. Captured shell/MCP calls and three unobserved web-search attempts targeted only the provisioned record, pre-2026 corpus priors, Bosley v. MSPB (162 F.3d 665), and Supreme Court Rule 10; no outcome material existed.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.74,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 16, 2026 snapshot records 'Nov 16 2026: Petition DENIED.' immediately after the November 13, 2026 Conference with no call for response or relist, and outcome.json records actual_disposition='denied' and signals.distribution_count=1.",
+        "claim": "The Court will deny the petition in an orders list following the November 13, 2026 conference with zero additional distributions and the respondent's waiver standing without further briefing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null and the November 16, 2026 docket snapshot shows no CVSG order.",
+        "claim": "The Court will not call for the Solicitor General's views (no CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false and votes=[], and the November 16, 2026 order entry reads simply 'Petition DENIED.'",
+        "claim": "The denial will be unexplained, with no noted dissent or statement respecting denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on November 16, 2026, leaving the conditional grant-scope claim untested.",
+        "claim": "Conditional on a grant, review would likely be limited to a narrowed version of QP2 rather than QPs 1 and 3.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Certiorari was denied (actual_granted=0, disposition_route=null), so the conditional grant route was never reached.",
+        "claim": "Conditional on any grant, plenary review (85%) is more likely than a summary disposition (15%).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:16:10.274874Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

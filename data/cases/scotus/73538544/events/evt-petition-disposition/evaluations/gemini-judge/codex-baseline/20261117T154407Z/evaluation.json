@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "Wrongful-death FAAAA preemption dispute from a published California Court of Appeal decision (114 Cal. App. 5th 873) involving a major national retail receiver (Walmart) and agricultural shipper (Irigoyen Farms). Although Question 2 raises a recurring statutory threshold question on shipper/receiver coverage under 49 U.S.C. \u00a7 14501(c)(1), no circuit split had matured on that issue and the Court resolved the petition via a routine follow-on GVR under Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026), without plenary briefing or new Supreme Court doctrine."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.97889388149514,
+  "case_id": "scotus/73538544",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": 0.6678666136686466
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": 0.42764432845179506
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.004,
+          "Gorsuch": 0.006,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.004,
+          "Thomas": 0.006
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 1.0955109421204416,
+    "total": 1.0955109421204416
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:45:35.847299Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-29 (run_id 20261029T180303Z), 18 days before the November 16, 2026 GVR resolution. retrieval_log.json has result_capture_coverage = 0.9535 (41/43 captured); the two unobserved web-search calls sought the May 2026 Montgomery v. Caribe Transport II slip opinion (24-1238), one CourtListener search for Montgomery was HTTP 429 throttled, and the captured corpus query was Term-masked (--decided-before 2025, retrieved_doc_date 2025-04-22). The petition was genuinely undecided when predicted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'gvr' and disposition_route = 'gvr', and the November 16, 2026 docket entry vacates and remands for further consideration in light of Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026).",
+        "claim": "The Court will grant certiorari, vacate the California judgment, and remand for reconsideration in light of Montgomery v. Caribe Transport II, LLC, disposing of the petition in the cert order itself rather than granting plenary review on Question 2 or summarily reversing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_basis = 'standard' and disposition_route = 'gvr', and the November 16, 2026 order enters a standard remand 'for further consideration in light of Montgomery' rather than summary merits reversal.",
+        "claim": "The Court's GVR will rest on Montgomery calling the California court's safety-exception ground into question for reconsideration without adjudicating liability for a shipper or receiver or resolving preserved duty, causation, and evidentiary defenses.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 2 and resolved_at = '2026-11-16', the Monday order list immediately following the November 13, 2026 conference.",
+        "claim": "No further distribution is the modal path, with disposition issuing on the orders following the November 13, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and no CVSG appears on the November 16, 2026 docket snapshot.",
+        "claim": "The Court will not issue a new invitation for the Solicitor General's views (CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 16, 2026 docket entry records an unsigned GVR order with no noted dissents or statements, and outcome.json records votes = [] and writing_roles = null.",
+        "claim": "No Justice will author a separate writing on the GVR order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:45:35.847299Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

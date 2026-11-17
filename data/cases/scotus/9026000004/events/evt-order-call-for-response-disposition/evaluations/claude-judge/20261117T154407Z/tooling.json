@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000004",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "jq",
+    "grep"
+  ],
+  "helpful": [
+    "statpack-at made it quick to tell a candidate figure that came from an older pack from one that matches no build",
+    "The staged petition, BIO and docket snapshot let me check record facts a candidate asserted"
+  ],
+  "gaps": [
+    "The candidate's own input snapshot is not staged, so whether a misdescribed record came from its inputs or from the candidate has to be inferred from the transcript's file paths"
+  ],
+  "notes": null
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000383",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Staged snapshot with the full docket made the forecast-document claims directly checkable",
+    "Staged petition/appendix text allowed spot-checking candidates' record citations"
+  ],
+  "gaps": [],
+  "notes": "Straightforward first-conference denial; all three candidates predicted it. No corpus or statpack lookups were needed."
+}

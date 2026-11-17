@@ -1,0 +1,30 @@
+# Evaluation of `claude-baseline` — *Chollet v. United States* (`scotus/9026000516`, `evt-petition-disposition`)
+
+## Outcome and Quantitative Summary
+- **Stage & Event:** Certiorari stage (`moment: distribution`), resolved `2026-11-16` (`actual_disposition: "denied"`, `actual_granted: 0`, `noted_dissent_from_denial: false`, `signals.distribution_count: 1`, `signals.cvsg_date: null`).
+- **Prediction:** `claude-baseline` predicted `"denied"` (`granted: 0`) with `probability: 0.1`.
+- **Accuracy & Calibration:** `correct = 1`, `brier_score = 0.01`. Skill is evaluated by the harness against the stamped segment base rate (`segment_base_rate`, `brier_skill_score`, and `base_rate_basis` are left null for the harness stamp). Adjusting upward to `0.10` left `claude-baseline` worse calibrated than the stamped segment base rate when the petition was denied on its first conference without a response request.
+
+## Reasoning Quality (`reasoning_quality = 0.68`)
+`claude-baseline`'s `reasoning.md` combined one sharp empirical insight with a major avoidable shortcut in reading the provisioned record and controlling precedent:
+
+1. **Base-Rate Verification (`statpack-at`):** Checked against historical statpack build `dedb32b153e6` (`sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa`, landed `2026-10-31`, `sal-v6`) reconstructed via `fedcourts statpack-at` rather than the current committed `sal-v8` pack, `claude-baseline`'s cited anchor, paid `relist-0` split (`1.3%` granted, `0.5%` GVR), and `ca4` GVR rate (`1.3%`) all matched accurately, and it rightly treated `relist-0` as a terminal lower reference rather than a forward anchor.
+2. **Strong Comparator Contrast (*Whitehead*):** `claude-baseline` uniquely identified *Whitehead v. United States* (No. 25-7462, verified in the corpus as `scotus/73393227`, GVR'd `2026-10-05`), where the Solicitor General filed a GVR memorandum in light of *Abouammo*, and contrasted that acquiescence with the SG's October 21 waiver here. It also checked *Hobson v. United States* (No. 26-5216, `scotus/9026005216`) and sensibly discounted it because its underlying GVR ground was unknown.
+3. **Avoidable Failure to Read Provisioned Appendix Opinions and *Abouammo*:** `claude-baseline` candidly disclosed: *"I have not read the CA4 opinion's venue section in detail beyond what the petition characterizes. My read of the panel's reasoning comes from the petitioner's framing."* Nor did it use CourtListener MCP to read *Abouammo v. United States*, 608 U.S. 597 (2026), which was readily available (`opinion_id=11343328`). The Fourth Circuit's entire venue analysis (`App. 13–17`, ~215 lines) and the District Court's venue ruling (`App. 35–36`, ~80 lines) were staged locally inside `record/documents/petition.txt`. By accepting Petitioners' framing without checking those five pages, `claude-baseline` overstated the plausibility of Petitioners' claim that the panel imported § 371 conspiracy overt acts into § 7206(2), missed that Judge Niemeyer explicitly applied `Cabrales` and `Rodriguez-Moreno` (`App. 15`) to § 7206(2)'s conduct elements under 18 U.S.C. § 3237(a), and missed the District Court's count-specific analysis of Counts 18–22 (`App. 36`).
+4. **Miscalibrated Upward Adjustment:** Likely as a result of relying on Petitioners' framing of the opinion below, `claude-baseline` nearly doubled the stamped segment base rate to `0.10` despite its own *Whitehead* evidence showing that the Solicitor General files a GVR memo—rather than waiving—when *Abouammo* genuinely undercuts a federal conviction, and despite the Fourth Circuit having already denied rehearing en banc without a poll after *Abouammo* was briefed. (As a minor internal coherence note, `order-writers` probabilities summed to `0.049` against a conditional `0.03` `dissent-from-denial` rate.)
+
+## Predicted reasoning
+**Grade: `predicted_reasoning_quality = 0.78`.**
+
+Five central claims structured `predicted_reasoning.md`:
+1. **Denial of certiorari at the November 13, 2026 conference or soon after (`P(grant) = 0.10`):** *Borne out* (`actual_disposition: "denied"`, `resolved_at: "2026-11-16"`, the immediate post-conference orders list).
+2. **No further relists (`0.18`) and no Court request for a Solicitor General response:** *Borne out* (`signals.distribution_count: 1`, no response request on `2026-11-16.json`).
+3. **No CVSG (`0.005`) given the United States' party-respondent posture:** *Borne out* (`signals.cvsg_date: null`, largely structural).
+4. **Conditional grant route (`0.88` conditional probability of a GVR on the *Abouammo* question rather than plenary review):** *Unresolved* (`actual_granted: 0`).
+5. **No dissent from denial (`0.03`):** *Borne out* (`noted_dissent_from_denial: false`).
+
+`claude-baseline`'s forecast document was concise, readable, and borne out on all testable procedural and disposition calls—specifically calling denial right after the November 13 conference with no SG response request, zero relists, and no separate writing. It grades at `0.78`, just behind `gemini-baseline` (`0.82`) and `codex-baseline` (`0.80`), because its "Why the Court probably denies" bullet framed internal conference motives as reasons for denial without noting that a summary cert denial order states no rationale, and below `1.0` because a summary denial leaves doctrinal claims untested.
+
+## Leakage Assessment
+- **Mode:** `forward` (`2026-11-01T05:15Z–05:17Z`, fifteen days before the `2026-11-16` denial).
+- **Log & Reasoning Review:** All 19 calls in `retrieval_log.json` are `captured` (`result_capture_coverage: 1.0`). They consist solely of local reads of the prompt, schemas, `statpack.md`, and provisioned case files, corpus queries for recent GVRs and `26-5216`, and one web search on *Abouammo* GVRs (`Abouammo v. United States venue Supreme Court 2026 remanded in light of`). No call accessed `data/qp-topics/` or outcome material for this open petition. `retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`.

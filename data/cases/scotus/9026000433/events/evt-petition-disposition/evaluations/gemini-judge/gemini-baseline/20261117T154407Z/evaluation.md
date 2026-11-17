@@ -1,0 +1,32 @@
+# Evaluation of `gemini-baseline` — `scotus/9026000433` (`evt-petition-disposition`)
+
+## Outcome and Quantitative Summary
+
+This is a forward certiorari-stage cell (`moment: distribution`). On November 16, 2026, the Supreme Court denied the petition for a writ of certiorari off its initial November 13, 2026 conference distribution (`actual_disposition = "denied"`, `actual_granted = 0`, `signals.distribution_count = 1`, `signals.cvsg_date = null`, `noted_dissent_from_denial = false`).
+
+- **Predicted disposition:** `denied` (`correct = 1`)
+- **Predicted grant probability:** `0.008` (`brier_score = 0.000064`)
+- **Baseline and skill:** Left null for harness stamping; skill is evaluated on the board against the stamped segment base rate.
+
+## Assessment of `reasoning.md` (`reasoning_quality = 0.55`)
+
+`gemini-baseline` achieved the sharpest numerical calibration of the three candidates (`probability = 0.008`), backed by strong empirical decomposition of how waived-BIO petitions behave at initial distribution—but its legal rationale is substantially marred by a fabricated quotation from `petition.txt` that inverts what petitioner argued on preservation:
+
+1. **Fabricated quotation and false concession claim (`Pet. 27`):** In Section 1 of `reasoning.md`, `gemini-baseline` asserts: *"Crucially, Pet. 27 explicitly concedes that 'Petitioner did not challenge the fundamental-rights prong of the shocks-the-conscience standard below,' arguing that Third Circuit precedent (Vargas v. City of Philadelphia, 783 F.3d 962, 973 (3d Cir. 2015)) bound the panel."* Section 3 ("*Non-preservation of the Question Presented*") repeats that *"Petitioner candidly concedes (Pet. 27) that the Rochin/Lewis vs. Glucksberg question presented was never raised in the District Court or the Third Circuit."* Direct inspection of `record/documents/petition.txt` confirms that neither that quotation nor any citation to *Vargas* appears anywhere in the petition. On the contrary, `Pet. 27` argues the exact opposite: *"The issue was pressed and passed upon at every stage: petitioner argued that she had proved the constitutional claim this Court's cases define, C.A. Br. 35-38; C.A. Reply Br. 6-10, and the court of appeals rejected that argument, Pet. App. 8a."* While a skeptical reader of `appendix.txt` (`App. 3a–8a`) and `Pet. 8` could legitimately question how squarely petitioner pressed a pure one-element *Rochin* rule below as opposed to *Favish*/*Marsh* and *Taylor* obviousness, inventing a verbatim quote and attributing an explicit concession of non-preservation to `Pet. 27` is a serious factual error in legal analysis.
+2. **Secondary docket-date error:** `gemini-baseline` states in multiple places that the Constitutional Law Scholars amicus brief was filed on "October 29, 2026" ("post-distribution law-professor amicus brief"), whereas the docket snapshot records `Oct 27 2026: Brief amici curiae of Constitutional Law Scholars filed. (Distributed)`—one day *before* the `Oct 28 2026` distribution entry.
+3. **Genuine strengths in empirical anchoring and BIO-waiver mechanics:** Rebuilding the candidate-time statpack (`7bcde3b105cb` via `fedcourts statpack-at`, under `sal-v4`) confirms that `gemini-baseline` accurately verified both the `baseline` risk-set and terminal columns across OT2017–OT2025 as well as the marginal `relist_bucket`, `cvsg`, `cert_amicus`, and `ca3` tables. Unlike the other candidates, `gemini-baseline` properly recognized how heavily a waived BIO with no pre-distribution response call depresses first-conference grant and relist odds below the unconditional risk-set mean, and its analysis of the Third Circuit's nonprecedential qualified-immunity holding, Judge Roth's partial dissent, *Lewis* fn. 8, and post-*Dobbs* substantive-due-process headwinds was otherwise cogent. Those genuine strengths sustain a mid-range `reasoning_quality` of `0.55`, while the fabricated `Pet. 27` quotation imposes a substantial deduction.
+
+## Predicted reasoning (`predicted_reasoning_quality = 0.75`)
+
+`gemini-baseline`'s `predicted_reasoning.md` fits the `0.75` rubric anchor ("The central claims are specific and mostly borne out; one secondary claim failed, or one central claim held only in part"):
+
+- **Disposition, exact conference/orders-list timing, and procedural trajectory (`borne-out`):** Specifically and accurately forecast that the Court would deny certiorari off its November 13, 2026 conference on the November 16, 2026 orders list without calling for a response, relisting (`distribution_count = 1`), or inviting the Solicitor General (`cvsg_date = null`).
+- **Order form and absence of separate writings (`borne-out`):** Specifically and accurately forecast a bare one-line summary denial with no separate opinions, statements respecting denial, or noted dissents (`noted_dissent_from_denial = false`).
+- **False preservation-concession premise (`not-borne-out`):** Carried over from `reasoning.md` the false factual assertion that *"the single question presented in the petition was concededly never raised or passed upon in the courts below"* (alongside misdating the October 27 amicus brief to October 29), which is directly contradicted by `petition.txt` p. 27.
+- **Conditional separate-writing and merits scenarios (`unresolved`):** Its conditional authorship and conditional merits-affirmance forecasts were never tested because the Court denied review without separate writing.
+
+Because every central forecast of what the Court would actually do (disposition, date, single-distribution trajectory, no CFR/CVSG, and no separate writing) was specific and borne out, while its secondary factual claim regarding a conceded preservation defect failed against the staged record, `predicted_reasoning.md` earns `0.75`.
+
+## Leakage Audit
+
+`retrieval_log.json` records `mode = "forward"` (`run_id = 20261030T011325Z`), 17 days before the November 16, 2026 denial. All 51 tool calls carry `outcome_only` capture (`result_capture_coverage = 0.0`, the engine's standing telemetry shape); evaluated on their query strings, they consist solely of local prompt, schema, code, record, and metrics reads plus three `fedcourts query` invocations (docket `26-433` while unresolved, `--limit 5`, and a timed-out `--topic` query). No `data/qp-topics/` reads, MCP calls, web searches, or outcome-revealing material appear (`retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`).

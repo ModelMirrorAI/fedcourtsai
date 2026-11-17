@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9026000004",
+  "gaps": [],
+  "helpful": [
+    "fedcourts statpack-at",
+    "provisioned brief-in-opposition.txt and petition.txt",
+    "harness-captured retrieval_log.json"
+  ],
+  "notes": "fedcourts statpack-at cleanly reconstructed the exact sal-v4 statpack build (7bcde3b105cb) in force at prediction run 20261029T180303Z, which proved decisive in distinguishing accurate statpack pooling (claude-baseline, codex-baseline) from fabricated counts (gemini-baseline). Having brief-in-opposition.txt staged in record/documents/ also enabled direct verification of candidate forecast claims about what Respondent's requested BIO would argue.",
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

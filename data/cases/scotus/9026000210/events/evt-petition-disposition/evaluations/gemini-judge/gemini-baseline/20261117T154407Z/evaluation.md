@@ -1,0 +1,46 @@
+# Evaluation of `gemini-baseline` — *Trump v. Thakur*, No. 26-210 (`evt-petition-disposition`)
+
+## Outcome and Quantitative Summary
+
+- **Stage**: `cert` (`moment: distribution`)
+- **Realized outcome**: `denied` on `2026-11-16` (`actual_granted = 0`, `signals.distribution_count = 1`, `signals.cvsg_date = null`, `noted_dissent_from_denial = false`)
+- **Prediction**: `predicted_disposition = "granted"`, `probability = 0.56`
+- **Accuracy (`correct`)**: `0`
+- **Brier score (`brier_score`)**: `0.3136` (`(0.56 - 0)^2`)
+- **Base-rate reference**: Segment base rate and Brier skill score are left to the harness stamp ("the stamped segment base rate"). Base-rate usage in `reasoning.md` was audited against reconstructed prediction-time statpack build `dedb32b153e6` (`sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa`).
+
+`gemini-baseline` missed the binary label (`granted` vs. `denied`) because its probability remained slightly above 0.50, but its substantial downward adjustment from the stamped segment base rate to `0.56` produced by far the best Brier score in this cohort (`0.3136`, beating the stamped segment base rate).
+
+## Reasoning Quality (`reasoning_quality = 0.58`)
+
+`gemini-baseline`'s `reasoning.md` combines the strongest macro-level cert judgment in the cohort with severe factual confabulations and a flatly erroneous reading of the district-court docket.
+
+### What `gemini-baseline` got right
+- **Correct directional synthesis of cert-stage counterweights**: Unlike peers that stayed near or moved above the `federal` anchor, `gemini-baseline` recognized why a Solicitor General petition can fall well below the stamped segment base rate when it arrives in an **interlocutory preliminary-injunction posture** with **no circuit split** and **active multi-circuit percolation**.
+- **Substantive check on alleged circuit tension**: `gemini-baseline` read the Fourth Circuit's opinions in *National Association of Diversity Officers in Higher Education v. Trump* and *Fairfax County School Board v. McMahon* via CourtListener MCP and accurately explained why neither decision conflicted with the Ninth Circuit's as-applied ruling on terminated research grants (the Fourth Circuit vacated a facial preliminary injunction on standing/ripeness/vagueness grounds in *NADOHE* and dismissed on Tucker Act jurisdictional grounds in *Fairfax County*).
+- **Doctrinal framing and secondary vehicle wrinkles**: `gemini-baseline` cogently framed the merits tension between *Rust v. Sullivan*, 500 U.S. 173 (1991) / *NEA v. Finley*, 524 U.S. 569 (1998) and *Rosenberger v. Rector & Visitors of Univ. of Va.*, 515 U.S. 819 (1995), noted the unaddressed statutory commands in `20 U.S.C. § 956(c)` (NEH) and `42 U.S.C. § 1862s-5` (NSF), and analyzed the *NIH v. APHA*, 145 S. Ct. 2658 (2025) / *Fausto* / *Elgin* Tucker Act preclusion issue.
+
+### Material factual errors and confabulations in `reasoning.md`
+Verification against the provisioned filings, reconstructed statpack build `dedb32b153e6`, and CourtListener RECAP uncovered multiple invented citations, dates, and numbers alongside a major misreading of the district-court stay:
+
+1. **False premise of imminent district-court summary judgment mooting the preliminary injunction**: As its second major downward counterweight (Sections III.B.2 and IV), `gemini-baseline` asserted that summary judgment and class certification were proceeding in the Northern District of California "across 14 federal agencies, with the summary judgment hearing scheduled for November 17, 2026—just four days after this petition's first Conference," creating a serious risk of mooting the two-agency preliminary injunction. That directly contradicted `cert-reply.txt` pp. 8–9, where the Solicitor General explained—citing D. Ct. Doc. 228, at 1–2 (Sept. 1, 2026)—that the parties had **stayed** district-court summary-judgment and class-certification proceedings on the claims at issue pending disposition of the cert petition and any Supreme Court proceedings "thereby ensuring that the preliminary injunction under review will not become moot." Inspection of N.D. Cal. ECF Nos. 228 (`recap_document_id = 492102631`) and 246 (`recap_document_id = 497150947`, which `gemini-baseline` itself retrieved) confirms that the November 17, 2026 summary judgment hearing concerned *solely* an unstayed Equal Protection claim against the Department of Energy, not the NSF/NEH First Amendment claims before the Supreme Court.
+2. **Invented reporter citations and misstated Ninth Circuit panel/authorship**: `gemini-baseline` cited the Ninth Circuit decision below as `179 F.4th 1042 (9th Cir. May 26, 2026), authored by Judge Christen and joined by Judges Gould and Desai`, and the district court order as `789 F. Supp. 3d 809 (N.D. Cal. June 24, 2025)`, and *NADOHE* as `167 F.4th 252`. In the provisioned record (`petition.txt` p. 1, VI, 23 n.*, App. 3a, 31a, 34a; `brief-in-opposition.txt` pp. iv, 1, 18), the Ninth Circuit opinion is **`176 F.4th 1187`**, issued ***per curiam*** before **Judges Paez, Christen, and Desai** (with a separate concurrence by Judge Christen; Judge Gould never sat on the case), the district court order is **`787 F. Supp. 3d 955` (N.D. Cal. June 23, 2025)**, and *NADOHE* is **`167 F.4th 86`**.
+3. **Misstated Supreme Court briefing dates and Second Circuit docket number**: `gemini-baseline` wrote that Respondents filed their BIO on `October 15, 2026` and Petitioners filed their Reply on `October 28, 2026`; the provisioned docket (`documents.json` and `2026-11-16.json`) records the BIO on **October 19, 2026** (after an August 25 extension), the Rule 15.5 waiver on **October 22, 2026**, the Cert Reply on **October 27, 2026**, and distribution on **October 28, 2026**. `gemini-baseline` also tracked `2d Cir. No. 25-2481` rather than the pending permanent-injunction appeals `Nos. 26-1829 & 26-1996 (2d Cir.)` cited at `petition.txt` pp. VI, 22 and `brief-in-opposition.txt` p. 27.
+4. **Confabulated `statpack.md` sub-counts**: While `gemini-baseline` read its frozen anchor from `context.json` accurately, Sections II.1 and II.2 attributed to `metrics/statpack.md` per-Term `federal` counts (`24/30`, `9/13`, `17/20`, `8/12`, `14/19`) and single-Term OT2025 relist counts (`6/2,832`, `15/46`, `14/36`, `2/12`, `5/26`) that do not exist in reconstructed build `dedb32b153e6` (nor in the committed statpack). (`gemini-baseline`'s `retrieval_log.json` shows large `read_file` calls whose buffers truncated mid-table, after which specific counts were apparently confabulated rather than re-read.) Section IV also misnamed the `dissent-from-denial` slug as `separate-writing-on-denial: 0.08` (quoting an unconditional 8% beside the ~18% conditional rate placed in `prediction.json`).
+
+Because sound cert-stage judgment is offset by extensive citation/statpack confabulation and a materially false reading of the district-court stay, `reasoning_quality` is scored at **`0.58`**.
+
+## Predicted reasoning
+
+`predicted_reasoning_quality` is scored at **`0.22`** (anchored near `0.25`, *"A central claim failed, with the rest generic or mixed"*).
+
+In `predicted_reasoning.md`, `gemini-baseline` committed to four main claims:
+1. **Conference trajectory (`not-borne-out`)**: Predicted that the Court would likely relist the petition at least once past the November 13, 2026 conference into late November or December 2026 before acting (while noting the vacuous absence of a CVSG on a federal petition). In fact, the Court denied the petition immediately out of its first conference on November 16, 2026 (`distribution_count = 1`).
+2. **Primary disposition (`not-borne-out`)**: Forecast a standard grant of plenary review (`granted`) as the single most likely action, which failed against `actual_disposition = "denied"`.
+3. **Scope of review if granted (`unresolved`)**: Forecast a full grant of the single Question Presented without adding a Tucker Act question; untested because certiorari was denied.
+4. **Form of denial on the 44% counterfactual branch (`borne-out`)**: Explicitly forecast that if the Court denied certiorari to allow percolation, the order would most likely be an unexplained summary cert denial without a noted dissent (`noted_dissent_from_denial = false`). That specific denial-branch commitment held up cleanly, lifting the grade above `0.0`, though the document sits slightly below `0.25` because both unconditional headline commitments (plenary grant and relist) failed and its conference/denial discussion repeated the mistaken November 17, 2026 district-court summary-judgment mootness premise.
+
+## Leakage and Big-Case Assessment
+
+- **Leakage (`not_applicable`, `leakage_suspected = false`)**: Clean forward run executed on `2026-11-02`, two weeks before the `2026-11-16` cert denial. All `retrieval_log.json` calls predate conference and resolution, and none accessed `data/qp-topics/`.
+- **Big-case read (`evaluator_score = 0.74`)**: Major national question governing First Amendment limits on viewpoint-based federal grant terminations across roughly $200 billion in competitive programs, moderated at this stage by the bounded two-agency UC-class interlocutory posture and the Court's clean first-conference denial while parallel circuit appeals percolate.

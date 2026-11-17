@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73377829",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts statpack-at"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed build 7bcde3b105cb (sal-v4) cleanly when the committed statpack had advanced to sal-v8",
+    "Provisioned brief-in-opposition.txt alongside petition.txt and the 2026-11-16 snapshot allowed direct verification of vehicle and preservation arguments"
+  ],
+  "gaps": [],
+  "notes": "All provisioned filings, blinded candidate artifacts, and historical statpack reconstruction worked smoothly with no external lookups needed."
+}

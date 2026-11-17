@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Individual Section 1983 damages action against a municipal police officer resolved below by a nonprecedential Third Circuit qualified-immunity affirmance and disposed of at the Supreme Court by a routine first-conference cert denial with waived opposition and no separate writing. While the petition framed a recurring methodological question on whether Rochin/Lewis conscience-shocking executive-misconduct claims require a Glucksberg fundamental liberty interest and drew one law-professor amicus brief, no statute or broad government program was at stake and the case ended without merits review."
+  },
+  "brier_score": 0.0025000000000000005,
+  "brier_skill_score": 0.04271565082644624,
+  "case_id": "scotus/9026000433",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.00011155423898688956
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.42,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.004,
+          "Gorsuch": 0.012,
+          "Jackson": 0.02,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.002,
+          "Sotomayor": 0.025,
+          "Thomas": 0.012
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00011155423898688956,
+    "total": 0.00011155423898688956
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:22:24.645822Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction (run 20261030T011325Z) placed 17 days before the November 16, 2026 denial. All 18 logged calls are captured (result_capture_coverage = 1.0) and consist solely of local prompt/schema/record/statpack reads and three fedcourts query calls on 523 U.S. 833 and recent granted priors; no data/qp-topics/ access, CourtListener calls, web searches, or post-resolution material appear.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' (actual_granted = 0) on 2026-11-16, and snapshots/2026-11-16.json shows 'Nov 16 2026: Petition DENIED.'",
+        "claim": "The Court will deny the petition for a writ of certiorari on the November 16, 2026 orders list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 1 and signals.cvsg_date = null; snapshots/2026-11-16.json shows immediate denial after the single Oct 28, 2026 distribution for the 11/13/2026 conference with no response call, relist, or CVSG.",
+        "claim": "Disposition will occur directly off the initial November 13, 2026 conference distribution without calling for a response, relisting, or inviting the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false, and snapshots/2026-11-16.json carries only the bare one-line entry 'Petition DENIED.' with no statement or dissent.",
+        "claim": "Certiorari will be denied in a one-line order without any separate statement or dissent from denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged record contains only a summary 'Petition DENIED.' order, which states no reasons for the Court's refusal to grant review.",
+        "claim": "Four Justices will not vote to grant because the claimed circuit split is thinner than advertised, post-Dobbs substantive-due-process skepticism cuts against petitioner's framing, and the nonprecedential decision below turned on qualified immunity.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No separate writing or dissent from denial was filed (noted_dissent_from_denial = false), leaving the conditional author forecast untested.",
+        "claim": "If a separate statement or dissent from denial appears, Justice Sotomayor or Justice Jackson is the likeliest author (with Justice Thomas or Justice Gorsuch less likely).",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:22:24.645822Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

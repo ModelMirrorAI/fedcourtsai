@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000369",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The staged petition appendix and final snapshot made it possible to check each candidate's record citations directly.",
+    "The retrieval log's result_capture markers made the forward-mode leakage check quick."
+  ],
+  "gaps": [],
+  "notes": "All three candidates predicted denial on a plainly denied petition, so the grades turn on reasoning and forecast specificity. One candidate's staged retrieval.md retains a home-directory path that the identity scrub did not mask; it was given no weight."
+}

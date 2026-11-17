@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.42,
+    "notes": "Strickland v. Moritz raises institutionally sensitive questions about how the federal judiciary polices workplace sexual harassment and discrimination across its roughly 30,000 judicial-branch employees excluded from Title VII, naming senior Judicial Conference, Administrative Office, and Fourth Circuit officials as respondents and drawing congressional and GAO reform scrutiny. However, as presented at certiorari and resolved by a routine unexplained denial without dissent, the case carried minimal doctrinal reach: the Fifth Amendment challenge to Title VII's exclusion was held forfeited below (Pet. App. 44a-45a), the Congressional Accountability Act reporting theory (2 U.S.C. 1434) lacked a statutory right of action or lower-court ruling, no circuit split existed, only one amicus motion was filed at the certiorari stage, and the litigated due-process claim turned on fact-bound clear-error findings after petitioner withdrew from the Chapter X hearing process."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": -0.3269209069777639,
+  "case_id": "scotus/73377829",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": -0.0008869520850346151
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.0008869520850346151,
+    "total": -0.0008869520850346151
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:23:12.329891Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created 2026-10-17T14:50:41Z, nearly one month before the November 16, 2026 denial. retrieval_log.json (100% result capture coverage) shows only local reads of the provisioned 2026-10-10 record, metrics/statpack.md, and schemas/prediction.schema.json, with zero external queries.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Respondents filed their brief in opposition on October 13, 2026; after petitioner's October 26 reply, the petition was distributed on October 28 for the November 13, 2026 conference (taking distribution_count from 1 to 2) and denied on November 16, 2026 with no further relists.",
+        "claim": "Once the brief in opposition is filed, the petition will be distributed for a November 2026 conference and denied at that first post-response conference with no further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date as null; the Solicitor General filed the brief in opposition for the federal respondents.",
+        "claim": "No CVSG will issue because the Solicitor General already represents the respondents.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition as 'denied', actual_granted as 0, and disposition_route as null, matching the November 16, 2026 'Petition DENIED.' entry.",
+        "claim": "The Court will deny certiorari rather than granting plenary review or issuing a GVR or summary reversal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on November 16, 2026 (actual_granted = 0), so the conditional grant branch was not tested.",
+        "claim": "If certiorari were granted, the Court would narrow review to the Fifth Amendment due-process question under QP 1 and leave QP 2's CAA/policy theory aside.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial as false, and the November 16, 2026 order list entry is a bare 'Petition DENIED.' with no separate writing.",
+        "claim": "No noted dissent or separate statement respecting denial will accompany the denial order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261017T142059Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:23:12.329891Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

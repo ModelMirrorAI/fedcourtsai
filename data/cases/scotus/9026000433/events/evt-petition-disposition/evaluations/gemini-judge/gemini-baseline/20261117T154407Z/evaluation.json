@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Individual Section 1983 damages action against a municipal police officer resolved below by a nonprecedential Third Circuit qualified-immunity affirmance and disposed of at the Supreme Court by a routine first-conference cert denial with waived opposition and no separate writing. While the petition framed a recurring methodological question on whether Rochin/Lewis conscience-shocking executive-misconduct claims require a Glucksberg fundamental liberty interest and drew one law-professor amicus brief, no statute or broad government program was at stake and the case ended without merits review."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.975493520661157,
+  "case_id": "scotus/9026000433",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.0025475542389868902
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.002,
+          "Jackson": 0.003,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.005,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0025475542389868902,
+    "total": 0.0025475542389868902
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:22:24.645822Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction (run 20261030T011325Z) placed 17 days before the November 16, 2026 denial. All 51 logged calls carry outcome_only capture (result_capture_coverage = 0.0, the engine's standing telemetry shape); inspected by query, they consist of prompt/schema/code/record/metrics reads and three fedcourts query calls (docket 26-433 while open, --limit 5, and a timed-out --topic filter), with no data/qp-topics/ access, MCP calls, web searches, or outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' (actual_granted = 0) on 2026-11-16; snapshots/2026-11-16.json shows 'Nov 16 2026: Petition DENIED.' off the 11/13/2026 conference.",
+        "claim": "The Court will deny the petition for a writ of certiorari at its November 13, 2026 conference on the November 16, 2026 orders list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 1 and signals.cvsg_date = null; snapshots/2026-11-16.json shows no response call, relist, or CVSG after the single Oct 28, 2026 distribution.",
+        "claim": "The Court will dispose of the petition on its initial conference distribution without calling for a response, relisting (final distribution_count = 1), or inviting the Solicitor General (cvsg = none).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false, and snapshots/2026-11-16.json carries only the single-line entry 'Petition DENIED.' with no separate opinions or statements.",
+        "claim": "The disposition will issue as a standard one-line summary denial with no separate opinions, statements respecting denial, or noted dissents.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "petition.txt (p. 27) directly contradicts the claim of a concession, asserting instead: 'The issue was pressed and passed upon at every stage: petitioner argued that she had proved the constitutional claim this Court's cases define, C.A. Br. 35-38; C.A. Reply Br. 6-10, and the court of appeals rejected that argument, Pet. App. 8a.' (The document also misdates the Oct 27, 2026 amicus brief to Oct 29, 2026.)",
+        "claim": "The single question presented in the petition was concededly never raised or passed upon in the courts below, compounding the nonprecedential qualified-immunity vehicle defect.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Neither a separate writing respecting denial nor a grant of certiorari occurred, leaving the conditional authorship and merits-affirmance forecasts untested.",
+        "claim": "In the unlikely event of a separate writing, Justice Sotomayor or Justice Jackson is the likeliest author (or Justice Thomas on substantive due process), and if certiorari were granted the Court would likely affirm on qualified immunity.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:22:24.645822Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

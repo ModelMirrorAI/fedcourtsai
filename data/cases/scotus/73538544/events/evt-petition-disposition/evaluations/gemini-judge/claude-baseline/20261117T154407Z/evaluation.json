@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "Wrongful-death FAAAA preemption dispute from a published California Court of Appeal decision (114 Cal. App. 5th 873) involving a major national retail receiver (Walmart) and agricultural shipper (Irigoyen Farms). Although Question 2 raises a recurring statutory threshold question on shipper/receiver coverage under 49 U.S.C. \u00a7 14501(c)(1), no circuit split had matured on that issue and the Court resolved the petition via a routine follow-on GVR under Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026), without plenary briefing or new Supreme Court doctrine."
+  },
+  "brier_score": 0.03999999999999998,
+  "brier_skill_score": 0.9413718930420556,
+  "case_id": "scotus/73538544",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": 0.6422666136686466
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.9,
+        "score": 0.41854432845179507
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.03,
+          "Barrett": 0.01,
+          "Gorsuch": 0.03,
+          "Jackson": 0.02,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.015,
+          "Roberts": 0.005,
+          "Sotomayor": 0.02,
+          "Thomas": 0.03
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 1.0608109421204417,
+    "total": 1.0608109421204417
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:45:35.847299Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-29 (run_id 20261029T180303Z), 18 days before the November 16, 2026 GVR resolution. retrieval_log.json has result_capture_coverage = 1.0 across all 16 shell calls, which read only the prompt, provisioned case files (2026-10-29.json, context.json, documents/*), committed metrics/statpack.md, and 5 general GVR priors via fedcourts query; no MCP or web calls were made, and the petition was genuinely undecided when predicted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.93,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'gvr' and disposition_route = 'gvr', the November 16, 2026 docket entry vacates and remands in light of Montgomery, 608 U.S. 219 (2026), and petition.txt App-12 to App-19 confirms the California Court of Appeal declined to follow Miller and adopted Aspen's direct-connection test.",
+        "claim": "The Court grants, vacates, and remands in light of Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026), because the California Court of Appeal declined to follow Miller, adopted Aspen's 'direct connection' reading of the safety exception, and required the claim to allege the tractor-trailer itself was unsafe.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_route = 'gvr' and disposition_basis = 'standard', disposing of the petition via a standard cert-order GVR rather than plenary review or summary reversal.",
+        "claim": "Favorable action will be a GVR in the cert order itself rather than plenary review on Question 2 or summary reversal on Question 3, given the shipper/receiver posture and Walmart's preserved state-law no-duty grounds.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 2 and resolved_at = '2026-11-16', the order list immediately following the November 13, 2026 conference.",
+        "claim": "The petition will most likely be decided at the November 13, 2026 conference with no further distribution (~80%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and no CVSG appears on the November 16, 2026 docket snapshot.",
+        "claim": "No CVSG will issue.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 16, 2026 docket entry records an unsigned GVR order with no noted dissents or statements, and outcome.json records votes = [] and writing_roles = null.",
+        "claim": "No separate writing is expected on the GVR order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:45:35.847299Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

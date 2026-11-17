@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000004",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": true,
+  "used_base_rates": false,
+  "tools_used": [
+    "fedcourts query",
+    "shell"
+  ],
+  "helpful": [
+    "The decided-docket snapshot and the staged petition appendix made it possible to check candidates' procedural recitations line by line.",
+    "Corpus docket-number lookup to confirm cited prior denials."
+  ],
+  "gaps": [
+    "The candidate's own input snapshot is not staged, so a docket recitation that contradicts the record can only be checked against the decided docket."
+  ],
+  "notes": "Cert cell, three candidates, all correct on the label; the grades separate on reasoning soundness."
+}

@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Two real doctrinal questions (legislative immunity against official-capacity prospective relief; whether enforcing a viewpoint-based public-comment rule is a legislative act) on a culturally salient speech subject, with four cert-stage amicus briefs from advocacy groups. But the dispute is confined to state legislative committee procedure, the judgment below was unanimous with en banc review denied without a poll, no governmental or institutional amici appeared, and the Court denied without a noted dissent or statement."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": 0.21389343881550316,
+  "case_id": "scotus/9026000120",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.24838227974116475,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": 0.013293756889418223
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.045,
+          "Barrett": 0.007,
+          "Gorsuch": 0.025,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.009,
+          "Roberts": 0.003,
+          "Sotomayor": 0.002,
+          "Thomas": 0.055
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013293756889418223,
+    "total": 0.013293756889418223
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:01:59.523819Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the log's mode is forward and the prediction was made 2026-11-09, before the 2026-11-16 denial. Log shows provisioned-record reads, statpack, one corpus query for unrelated granted priors (legible doc date 2026-06-23), CourtListener lookups of Supreme Court of Virginia v. Consumers Union (1980), and two web-search rows that are unobserved; graded on their queries, both target the 1980 precedent and Minton, not this petition. No retrieved date on or after resolution, no query for this docket's disposition, no read under data/qp-topics, and the reasoning does not presuppose the result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry Nov 16 2026 'Petition DENIED.'; outcome.json actual_disposition denied, noted_dissent_from_denial false.",
+        "claim": "The Court will most likely deny the petition without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.distribution_count 2; the snapshot shows no distribution after Nov 9 and the denial on Nov 16, the order list following the Nov 13 conference.",
+        "claim": "The modal path is no further distribution after the two already recorded, with disposition following the November 13 conference in the ensuing order cycle.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date null; no CVSG entry on the docket.",
+        "claim": "The Court will resolve the petition without calling for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen; the record cannot settle it.",
+        "claim": "If review is granted it would be plenary, centred on the first question (official-capacity prospective relief), not a summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:01:59.523819Z"
+  },
+  "reasoning_quality": 0.68,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.24813153961136025,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

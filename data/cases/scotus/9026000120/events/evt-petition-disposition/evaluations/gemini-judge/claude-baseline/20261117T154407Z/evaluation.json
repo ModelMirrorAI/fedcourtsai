@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.28,
+    "notes": "Paid certiorari petition represented by the Institute for Free Speech with four ideological amicus briefs challenging Colorado state legislators' enforcement of committee-hearing decorum rules barring 'misgendering' and 'deadnaming' during public comment on HB 24-1071. While the petition touches a salient First Amendment viewpoint-discrimination flashpoint and frames a doctrinal tension between Supreme Court of Virginia v. Consumers Union (1980) and Kentucky v. Graham (1985), every circuit to address state legislators follows Consumers Union in extending legislative immunity to prospective equitable relief, the dispute is confined to internal state legislative committee procedures where non-legislator enforcement staff were not sued, and the Court denied certiorari cleanly on November 16, 2026 without CVSG, post-conference relist, or noted dissent."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.7661170561765134,
+  "case_id": "scotus/9026000120",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.24838227974116475,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.047293756889418226
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.16,
+          "Barrett": 0.02,
+          "Gorsuch": 0.1,
+          "Jackson": 0.02,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.02,
+          "Roberts": 0.01,
+          "Sotomayor": 0.02,
+          "Thomas": 0.2
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.047293756889418226,
+    "total": 0.047293756889418226
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:44:53.877048Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-11-09 (run_id 20261109T171058Z), prior to the November 13, 2026 conference and November 16, 2026 denial. All 8 tool calls in retrieval_log.json were captured (result_capture_coverage 1.0), consisting solely of local file reads and pre-resolution corpus queries (latest retrieved_doc_date 2026-10-16), with no CourtListener or web lookups.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.68,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' on 2026-11-16 (though the forecast's accompanying vehicle remark about mootness misread the appellate posture, as the Tenth Circuit held the case not moot at Pet. App. 3a).",
+        "claim": "The petition will be denied ('Disposition: denied').",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 2 and resolved_at = '2026-11-16', resolving off the November 13, 2026 conference with no post-conference relist.",
+        "claim": "No further distribution beyond the 11/13/2026 conference is the modal path (~80%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null.",
+        "claim": "A CVSG is very unlikely (~1%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false and the 2026-11-16 docket entry reads 'Petition DENIED.' with no separate writing, matching the ~70% modal side though hedged with a ~30% separate-writing chance.",
+        "claim": "Conditional on denial, no separate writing is modal (~70%), with roughly a 30% chance of a writing respecting or dissenting from denial by Justice Thomas, Alito, or Gorsuch.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on 2026-11-16, leaving the conditional plenary-grant scope untested.",
+        "claim": "If granted, the Court would take both questions presented in a plenary grant rather than a GVR or summary reversal.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:44:53.877048Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.24813153961136025,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

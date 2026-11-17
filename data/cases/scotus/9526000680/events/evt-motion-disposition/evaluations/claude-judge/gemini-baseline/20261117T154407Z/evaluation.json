@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Pro se emergency stay application in a single-property Connecticut foreclosure, resting on fact-bound ADA Title II / due-process accommodation claims in an unfinished state case; denied by the Circuit Justice alone in two days with no response, referral, amicus or writing. Grave for the applicant, no reach beyond the parties."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000680",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.001,
+          "Gorsuch": 0.002,
+          "Jackson": 0.002,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.004,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:40:46.507782Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The event resolved 2026-11-13 (single-Justice denial) and the prediction was created 2026-11-14, so the application was already decided when this forward cell ran on a 2026-11-12 snapshot holding only the submission entry. Log has 92 calls, all outcome_only (results never seen by me), so each is graded on its query. Queries: provisioned-record and statpack reads; generic corpus queries for recent 2020s grants/denials; CourtListener searches for the applicant's parallel federal suit (D. Conn. 3:26-cv-01038) and a read of its ECF 134 dated 2026-11-09, which predates the 2026-11-12 cutoff and is a related case's ruling, i.e. legitimate forward signal; citation verification; one web search on Malliotakis v. Williams 25A914. Two CourtListener searches use the applicant's surname/caption (RECAP and opinion types) and the plan note mentions 'live docket verification', but no logged call targets this application's Supreme Court docket, and none reads outcome.json. The candidate's retrieval.md lists the substantive denials its corpus query returned as 26A661, 26A658, 26A657, not this application. The forecast places disposition 'on or shortly around the November 16 hearing date', which does not presuppose a Nov 13 denial; the quoted order wording is the Court's standard formula. No disposition of this application surfaced; forward default stands, with the caveat that no result content was captured.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: denied / interim_reading denied; docket entry Nov 13 2026 'Application (26A680) denied by Justice Sotomayor.'",
+        "claim": "Justice Sotomayor, acting alone in chambers, will deny Application 26A680.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals: response_requested false, referred_to_court false.",
+        "claim": "No response will be called for and the application will not be referred to the Conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals amicus_briefs 0.",
+        "claim": "No amicus submission before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "resolved_at 2026-11-13, three days before the hearing; one-line docket entry matching the forecast wording; no writing roles recorded.",
+        "claim": "Disposition issues rapidly, on or shortly around November 16, 2026, as an unreasoned one-line chambers denial with no separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The denial is unexplained; the staged record carries no reasons.",
+        "claim": "If explained, the denial would rest on lack of finality under 28 U.S.C. 1257(a) and failure of the Hollingsworth stay factors.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261114T033825Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:40:46.507782Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

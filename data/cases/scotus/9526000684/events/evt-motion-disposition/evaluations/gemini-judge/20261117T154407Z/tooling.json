@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000684",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts statpack-at",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.analyze_citations",
+    "courtlistener.search"
+  ],
+  "helpful": [
+    "fedcourts statpack-at confirmed the exact statpack build (8a8367f41747) all three candidates anchored against",
+    "fedcourts query verified the pre-snapshot companion applications (26A657, 26A658) and recent OT2025/OT2026 applications (25A914, 26A476)",
+    "courtlistener.analyze_citations and RECAP docket lookups quickly verified all case citations and lower-court docket claims"
+  ],
+  "gaps": [],
+  "notes": "Blinded staging, retrieval logs, and statpack-at worked smoothly with zero tooling friction."
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000210",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "metrics/statpack.md",
+    "record/documents"
+  ],
+  "helpful": [
+    "statpack-at: let me check quoted per-Term and relist figures against the build the candidates actually read rather than the committed pack",
+    "provisioned petition/BIO/reply text for checking candidates' factual statements"
+  ],
+  "gaps": [],
+  "notes": "All three candidates shared one statpack digest, so one statpack-at rebuild served the cell."
+}

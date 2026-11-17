@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.78,
+    "notes": "Broad Second Amendment challenge on a final summary-judgment record to Maryland's post-Bruen carry bans across transit, parks, healthcare facilities, entertainment venues, alcohol-serving establishments, and public demonstrations. Defining Bruen's 'sensitive places' carve-out is the central open Second Amendment question affecting carry laws across multiple populous states, and even in denial the petition drew five conference distributions and a separate statement from Justice Thomas, though it sits below the highest tier of national structural or federal-statute blockbusters."
+  },
+  "brier_score": 0.1444,
+  "brier_skill_score": -3.769142883798417,
+  "case_id": "scotus/73500225",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.38,
+        "score": -0.11412202269498967
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.48,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.6,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.22,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.11412202269498967,
+    "total": -0.11412202269498967
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:43:10.105090Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed 2026-10-06 UTC (run 20261005T231540Z) against the 2026-10-05 snapshot, six weeks before the 2026-11-16 denial order. 26 of 28 calls are captured (coverage ~0.93); the two unobserved web-search calls queried Wolford v. Lopez (No. 24-1046) and the 2022 Bruen slip opinion, find excluded data/qp-topics/* via -not -path without opening files there, and no outcome material existed.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.5,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome resolved to actual_disposition = denied (actual_granted = 0) on November 16, 2026.",
+        "claim": "The Court will most likely deny the petition, leaving the Fourth Circuit's judgment intact without resolving the constitutional merits (38% probability of any grant).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket snapshot shows three additional distributions after October 5 (Oct 13, Nov 2, and Nov 9), bringing distribution_count from 2 to 5.",
+        "claim": "From the recorded distribution count of two, there will most likely be no further distribution (52% none vs. 48% further), and at most one or two further distributions if redistributed.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Outcome signals record cvsg_date = null, with no CVSG entry on the docket.",
+        "claim": "The Court will not call for the Solicitor General's views (1% probability of a new CVSG).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied (actual_disposition = denied), leaving the conditional grant-route forecast untested.",
+        "claim": "Conditional on a grant, disposition in the cert order itself (principally a GVR in light of Wolford) is more likely than plenary review (60% vs. 40%).",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Outcome records noted_dissent_from_denial = true, and the November 16, 2026 order carried a Statement of Justice Thomas respecting the denial of certiorari.",
+        "claim": "Conditional on denial, there will be no noted dissent or statement respecting denial (78% none vs. 22% some writing).",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:43:10.105090Z"
+  },
+  "reasoning_quality": 0.74,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
