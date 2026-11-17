@@ -3233,9 +3233,9 @@
       "next_conference": null,
       "relists": 1,
       "response_due": {
-        "set_for": "2026-10-05",
-        "stale_reason": "passed",
-        "upcoming": null
+        "set_for": "2026-12-17",
+        "stale_reason": null,
+        "upcoming": "2026-12-17"
       },
       "stale_reason": "conference_passed"
     },
@@ -3259,9 +3259,9 @@
       "next_conference": null,
       "relists": 1,
       "response_due": {
-        "set_for": "2026-10-05",
-        "stale_reason": "passed",
-        "upcoming": null
+        "set_for": "2026-12-17",
+        "stale_reason": null,
+        "upcoming": "2026-12-17"
       },
       "stale_reason": "conference_passed"
     },
@@ -3285,9 +3285,9 @@
       "next_conference": null,
       "relists": 1,
       "response_due": {
-        "set_for": "2026-10-05",
-        "stale_reason": "passed",
-        "upcoming": null
+        "set_for": "2026-12-17",
+        "stale_reason": null,
+        "upcoming": "2026-12-17"
       },
       "stale_reason": "conference_passed"
     },
@@ -4247,6 +4247,27 @@
     },
     {
       "argument": null,
+      "case_id": "scotus/9026000519",
+      "conferences": [
+        {
+          "conference": "2026-12-04",
+          "distributed": "2026-11-10",
+          "transition": "first"
+        }
+      ],
+      "distributed_for_conference": "2026-12-04",
+      "last_live_polled": "2026-11-17",
+      "next_conference": "2026-12-04",
+      "relists": 0,
+      "response_due": {
+        "set_for": "2026-12-17",
+        "stale_reason": null,
+        "upcoming": "2026-12-17"
+      },
+      "stale_reason": null
+    },
+    {
+      "argument": null,
       "case_id": "scotus/9026000522",
       "conferences": [
         {
@@ -4532,6 +4553,21 @@
         "set_for": "2026-12-14",
         "stale_reason": null,
         "upcoming": "2026-12-14"
+      },
+      "stale_reason": null
+    },
+    {
+      "argument": null,
+      "case_id": "scotus/9026000646",
+      "conferences": [],
+      "distributed_for_conference": null,
+      "last_live_polled": "2026-11-17",
+      "next_conference": null,
+      "relists": 0,
+      "response_due": {
+        "set_for": "2026-12-17",
+        "stale_reason": null,
+        "upcoming": "2026-12-17"
       },
       "stale_reason": null
     }
