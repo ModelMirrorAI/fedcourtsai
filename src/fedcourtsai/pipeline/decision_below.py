@@ -65,9 +65,16 @@ two things, reported as ``lead_by``: its docket number lists one of the case's
 numbers, or — for a member appeal the combined number leaves out — the caption
 of its opinion on the judgment date does, read over the first
 :data:`CAPTION_CHARS` of the text with the number standing alone. An opinion
-that merely cites the number passes neither test. At most
-:data:`MAX_LEAD_DOCKETS` rows are added, after the number-matched ones, and
-the docket record says how each was found.
+that cites the number further in passes neither test. The caption test reads
+position, not layout: another opinion of the same court, filed the same day,
+that names the number on its first page (a companion heard in tandem) would
+pass it, which is why the docket record says how each added row was found and
+by which test. Only the first sub-opinion's extracted text is read, so an
+opinion upstream holds without text is not tied this way. At most
+:data:`MAX_LEAD_DOCKETS` rows are added, after the number-matched ones. A case
+with no row found by number is ``no_docket`` and is not searched for, and a
+refused or failed request on this path leaves the case as the number join
+answered it.
 
 **The rehearing reading is text, and says so.** CourtListener serves docket
 entries as filed text with no structured rehearing field, so the en banc
@@ -107,7 +114,8 @@ row carries a cluster on the judgment date, the opinion search's
 :data:`MAX_SEARCH_REQUESTS`: the search, then a docket, a cluster list and a
 caption read for each of up to :data:`MAX_LEAD_DOCKETS` rows, 1 + 6 = 7. That
 is :data:`MAX_REQUESTS_PER_CASE`, 23, at worst; a single-number circuit case
-with one matched opinion costs four, and one with no opinion upstream five.
+with one matched opinion costs four, and one with no opinion upstream four as
+well, the search in place of the opinion read.
 The client's request budget (:class:`RateBudgetExceeded`), a 429 its retries
 could not clear, or a 401 (the credential refused, which every later request
 would meet too) stops the walk with the rest reported deferred, as the opinion
@@ -121,6 +129,7 @@ import sqlite3
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import partial
 from typing import Any, Final, Literal
 
 import httpx
@@ -577,14 +586,14 @@ def caption_names(text: str, wanted: str) -> bool:
     """Whether an opinion's caption carries the docket number ``wanted``.
 
     Read over the first :data:`CAPTION_CHARS` of the text only. The number
-    must stand alone: a longer serial (``23-4441``) or a longer prefix
-    (``123-444``) is another case's, while a case-type suffix the court
-    prints after it (``23-444-cv``) is not.
+    must stand alone: a longer serial (``23-4441``, ``23-444-5``) or a longer
+    prefix (``123-444``, ``2:23-444``) is another case's, while a case-type
+    suffix the court prints after it (``23-444-cv``) is not.
     """
     number = corpus.normalize_docket_number(wanted)
     if number is None:
         return False
-    pattern = rf"(?<![\w-]){re.escape(number)}(?!\d)"
+    pattern = rf"(?<![\w:-]){re.escape(number)}(?!-?\d)"
     return re.search(pattern, text[:CAPTION_CHARS], re.I) is not None
 
 
@@ -1118,13 +1127,16 @@ def _lead_rows(
     things ties it to the case — its docket number lists one of the case's
     numbers (:func:`lists_number`), or, for a member appeal the combined
     number leaves out, the caption of its first opinion on the judgment date
-    does (:func:`caption_names`). A hit that merely cites the number passes
-    neither and is dropped with its clusters.
+    does (:func:`caption_names`). A hit that cites the number below the
+    caption passes neither and is dropped with its clusters. A fault on any of
+    these requests leaves the case as the number join answered it.
     """
     fetched = _searched_rows(walk, court, facts, rows)
     if not fetched:
         return []
-    listed = _list_clusters(walk, fetched, court, facts)
+    listed = _attempt(lambda: _list_clusters(walk, fetched, court, facts))
+    if listed is None:
+        return []
     leads: list[_Lead] = []
     for row in fetched:
         ident = _int(row.get("id"))
@@ -1155,7 +1167,8 @@ def _searched_rows(
     if judgment is None or query is None:
         return []
     known = {_int(row.get("id")) for row in rows}
-    results = walk.opinion_search(court, query, judgment).get("results")
+    page = _attempt(lambda: walk.opinion_search(court, query, judgment))
+    results = page.get("results") if page is not None else None
     candidates: list[int] = []
     for hit in results if isinstance(results, list) else []:
         if not isinstance(hit, Mapping) or hit.get("court_id") != court:
@@ -1167,12 +1180,29 @@ def _searched_rows(
             candidates.append(ident)
     fetched: list[Mapping[str, Any]] = []
     for ident in candidates[:MAX_LEAD_DOCKETS]:
-        row = walk.docket(ident)
-        if _int(row.get("id")) == ident and (
-            docket_court(row, base_url=walk.client.base_url) == court
+        row = _attempt(partial(walk.docket, ident))
+        if (
+            row is not None
+            and _int(row.get("id")) == ident
+            and docket_court(row, base_url=walk.client.base_url) == court
         ):
             fetched.append(row)
     return fetched
+
+
+def _attempt[T](call: Callable[[], T]) -> T | None:
+    """``call``'s answer, or ``None`` where upstream refused or failed it.
+
+    The opinion search is an extra look for a case the number join already
+    answered about, so a fault on it leaves that answer standing, as a fault
+    on the entries does; only a batch wall propagates.
+    """
+    try:
+        return call()
+    except (httpx.HTTPError, ValueError) as exc:
+        if _stop_reason(exc) is not None:
+            raise
+        return None
 
 
 def _tied_by(
@@ -1190,7 +1220,8 @@ def _tied_by(
     first = next((ids[0] for c in on_date if (ids := listed.links[c.cluster_id])), None)
     if first is None:
         return None
-    walk.opinion(first)
+    if _attempt(lambda: walk.opinion(first)) is None:
+        return None
     text = walk.texts.get(first, "")
     return "caption" if any(caption_names(text, n) for n in facts.docket_numbers) else None
 

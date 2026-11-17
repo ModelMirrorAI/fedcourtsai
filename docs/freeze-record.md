@@ -21048,8 +21048,8 @@ freeze commit is recorded here.
     number, split on semicolons and commas with parenthesized markers
     dropped, lists one of the case's numbers; or the first 4,000 characters
     of the text of its first opinion on the judgment date carry one of the
-    case's numbers standing alone (no letter, digit or hyphen before it, no
-    digit after it). The row records which, as `lead_by`.
+    case's numbers standing alone (no letter, digit, colon or hyphen before
+    it, no digit after it, with or without a hyphen between). The row records which, as `lead_by`.
   - An added row follows the rows found by number. Its clusters on and after
     the judgment date are read and stored under the unchanged `MAX_OPINIONS`
     cap, its entries are read for the en banc reading where the unchanged
@@ -21058,7 +21058,9 @@ freeze commit is recorded here.
   - A case costs at most seven more requests (the search, and a docket, a
     cluster list and a caption read for each of two rows), so 23 at worst
     where it was 16; a matched case sends none of them, and a case with no
-    opinion upstream sends the search alone.
+    opinion upstream sends the search alone. A refused or failed request
+    among them leaves the case as the number join answered it; only a
+    request-budget wall, a persistent 429 or a 401 stops the walk.
 
   No prompt byte and no registry field other than the boundary row moves, so
   no digest moves: `uv run fedcourts process-digest --all` prints `proc-v23`
@@ -21091,7 +21093,12 @@ freeze commit is recorded here.
   out, tied by the caption. No corpus was read, so how many stored
   `no_cluster` or `no_cluster_on_date` cases share the shape is not known,
   and neither is how often the caption test alone ties a row. The caption
-  test rests on that one observed case and on its tests.
+  test rests on that one observed case and on its tests. It reads position,
+  not layout: another opinion of the same court filed on the judgment date
+  that names the case's number within its first 4,000 characters, such as a
+  companion heard in tandem, would be tied to the case by it. No such opinion
+  was observed, and the record's line under the added row names the test
+  that tied it.
 
   **What the change does not reach.** The en banc reading of a member appeal
   still comes from its own docket's entries: 26-293's reads
@@ -21104,7 +21111,8 @@ freeze commit is recorded here.
   from the search has a row left unread, so its reading is partial and
   reports no absence. A court that prints no docket number near the top of
   its opinion is not tied by the caption test, and only a case's first three
-  numbers are searched for.
+  numbers are searched for. A case with no docket row found by number stays
+  `no_docket` and is not searched for.
 
   **What does not move.** No base rate re-prices, no membership rule moves
   and no scored figure moves. No skill movement is predicted, and a movement

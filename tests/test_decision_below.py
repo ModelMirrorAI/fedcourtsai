@@ -782,6 +782,8 @@ def test_caption_names_wants_the_number_alone_and_near_the_top() -> None:
     # A longer serial, a longer prefix, and a number met past the caption.
     assert not decision_below.caption_names("No. 24-504981-cv", "24-50498")
     assert not decision_below.caption_names("No. 124-50498", "24-50498")
+    assert not decision_below.caption_names("No. 2:24-50498", "24-50498")
+    assert not decision_below.caption_names("No. 24-50498-2", "24-50498")
     deep = "x" * decision_below.CAPTION_CHARS + " No. 24-50498"
     assert not decision_below.caption_names(deep, "24-50498")
     assert not decision_below.caption_names(_CAPTION, "  ")
@@ -923,6 +925,84 @@ def test_the_search_adds_at_most_its_stated_requests() -> None:
     ]
     assert len(added) == MAX_SEARCH_REQUESTS
     assert not any(r.url.path.endswith("/dockets/73/") for r in upstream.requests)
+
+
+def test_a_combined_number_with_no_separator_falls_to_the_caption() -> None:
+    upstream = _consolidated_upstream("24-50496 (L) 24-50499 (CON)")
+    with _client(upstream) as client:
+        found = match_case(client, _facts())
+    assert [(d.docket_id, d.lead_by) for d in found.dockets] == [(11, None), (71, "caption")]
+
+
+def test_two_searched_rows_each_bring_their_own_clusters() -> None:
+    # The feed filed the panel opinion and an amended one on rows of their own.
+    second = "24-50496 (L)"
+    upstream = _consolidated_upstream(
+        search_hits=[_hit(71), _hit(72)],
+        docket_rows={71: _docket(71, _COMBINED), 72: _docket(72, second)},
+        cluster_pages={
+            ("ca5", _COMBINED): [_cluster(800, "2025-04-09", docket=71, opinions=[900])],
+            ("ca5", second): [
+                _cluster(810, "2025-04-09", docket=72, opinions=[901]),
+                _cluster(811, "2025-06-02", docket=72),
+            ],
+        },
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts())
+    assert [(d.docket_id, d.lead_by) for d in found.dockets] == [
+        (11, None),
+        (71, "docket_number"),
+        (72, "docket_number"),
+    ]
+    assert [(c.cluster_id, c.docket_id) for c in found.clusters] == [
+        (800, 71),
+        (810, 72),
+        (811, 72),
+    ]
+
+
+def test_a_fault_on_the_search_path_leaves_the_number_joins_answer() -> None:
+    # The search's row is gone upstream, and so is the caption's opinion.
+    gone_row = _consolidated_upstream(docket_rows={})
+    gone_opinion = _consolidated_upstream("24-60001", opinions={})
+    for upstream in (gone_row, gone_opinion):
+        with _client(upstream) as client:
+            report = match_cases(client, [CaseInput(label="a", facts=_facts())])
+        (found,) = report.matches
+        assert found.status == "no_cluster"
+        assert [d.docket_id for d in found.dockets] == [11]
+        assert found.rehearing is not None and found.rehearing.disposition == "denied"
+        assert report.stopped is None
+
+
+def test_the_worst_case_with_a_search_stays_inside_the_stated_count() -> None:
+    numbers = [f"24-5049{n}" for n in range(MAX_LOWER_NUMBERS)]
+    by_number = {("ca5", n): [_docket(10 + i, n)] for i, n in enumerate(numbers)}
+    # Each row found by number carries a later cluster only, so the search runs.
+    pages = {
+        ("ca5", n): [_cluster(500 + i, "2025-06-02", docket=10 + i, opinions=[910 + i])]
+        for i, n in enumerate(numbers)
+    }
+    pages[("ca5", "24-60071")] = [_cluster(800, "2025-04-09", docket=71, opinions=[900])]
+    pages[("ca5", "24-60072")] = [_cluster(801, "2025-04-09", docket=72, opinions=[901])]
+    opinions = {910 + i: {**_OPINION, "id": 910 + i} for i in range(MAX_LOWER_NUMBERS)}
+    opinions[900] = {**_OPINION, "plain_text": "Other v. Case"}
+    opinions[901] = {**_OPINION, "id": 901, "plain_text": "No. 24-50490-cv (CON)"}
+    upstream = _Upstream(
+        dockets_by_number=by_number,
+        cluster_pages=pages,
+        opinions=opinions,
+        search_hits=[_hit(71), _hit(72)],
+        docket_rows={71: _docket(71, "24-60071"), 72: _docket(72, "24-60072")},
+        entries_next=True,
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts(LowerCourtCaseNumbers=f"({', '.join(numbers)})"))
+    assert found.status == "matched"
+    assert [d.lead_by for d in found.dockets] == [None, None, None, "caption"]
+    assert found.requests == len(upstream.requests) <= MAX_REQUESTS_PER_CASE
+    assert sum(len(c.opinions) for c in found.clusters) == MAX_OPINIONS
 
 
 @pytest.mark.parametrize("status", [403, 404, 500])

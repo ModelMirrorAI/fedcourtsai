@@ -175,7 +175,8 @@ Each of these is stated, with its reason, where the code makes the choice:
   for a docket the court's opinion feed numbered for a consolidated appeal's
   lead cases together; such a row joins the case only where its docket number
   or the caption of its opinion on the judgment date lists one of the
-  petition's case numbers, and the record says which. The record words an
+  petition's case numbers, and the record says which. A petition with no
+  docket row found by number is not searched for. The record words an
   absence as one among the entries read, names the date those entries run
   through, and says so where they stop before a rehearing denial the SCOTUS
   docket states, since CourtListener holds a circuit docket only as far as it
