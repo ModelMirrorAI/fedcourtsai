@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000292",
+  "run_id": "20261117T214921Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener:search",
+    "courtlistener:read_document",
+    "courtlistener:search_document"
+  ],
+  "helpful": [
+    "Frozen cert_anchor and cert_amicus_line in record/context.json",
+    "Staged companion snapshots in record/related/ (26-293.json and 26-294.json)",
+    "CourtListener MCP read_document for omitted interior pages of CA2 panel and en banc opinions and Stansell III"
+  ],
+  "gaps": [
+    "fedcourts query lacks an --originating-court or --cvsg filter for targeted cert priors",
+    "Cert-stage supplemental briefs (e.g., petitioners' Oct. 30, 2026 supplemental brief) and party-aligned amicus briefs (e.g., Faiq cert opposition amicus when no respondent appeared) are not staged in record/documents/",
+    "lower-court-docket.txt reported 'Opinion on the judgment date: none on CourtListener' and 'dissent noted: not found' even though CourtListener opinions 11127439 and 11277807 (docket 23-258) carry the panel dissent and two en banc dissents"
+  ],
+  "notes": "Because petition.txt hit the 150k-char cap inside the bound appendix, CourtListener MCP was essential to read the omitted core of Judge Cabranes's TRIA holding, Judge Nardini's concurrence in the en banc denial, and Judges Sullivan and Menashi's dissents."
+}
