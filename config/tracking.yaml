@@ -489,15 +489,15 @@ salience:
   # control: at the ~$17-per-event planning rate (docs/milestones.md) that is
   # on the order of $27K a Term, about twice what the shipped cap of 12 costs
   # (derived below). At 12 the
-  # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
-  # fill 398-413 plus uncapped carve-outs 97-115), which with the other
+  # gate measures 501-529 selections a Term (OT2022-24 replay: capped rank
+  # fill 398-413 plus uncapped carve-outs 103-122), which with the other
   # stages' moments lands the escalation program at ~$12.4-12.9K — ~$14.1-14.6K
   # with the arrival cohort beside it, at the same planning rate.
   #
   # It costs coverage, and the trade is stated rather than hidden: the
   # selection keeps 0.76-0.80 of the Term's replay-reconstructable
-  # grant-family outcomes, against 0.944-0.967 measured at 150/200 on the
-  # same pool. Raise both as funding lifts, keeping the ratio below.
+  # grant-family outcomes at the resolution cutoff. Raise both as funding
+  # lifts, keeping the ratio below.
   per_conference_capacity: 12
   # The Term's opening conference clears the summer backlog at once — ~180
   # petitions against a regular conference's ~34 — so it carries a larger cap.
