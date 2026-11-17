@@ -21016,3 +21016,120 @@ freeze commit is recorded here.
   prediction carries `summary-reversal` has `correct` 1 exactly where the
   event's `outcome.json` carries `disposition_route` `summary-merits`, and 0
   otherwise.
+- **The decision-below join finds a consolidated appeal's opinion on a docket
+  no case number reaches; recorded 2026-11-17.** A **provisioning** change
+  with a harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** In predict runs `20261116T161636Z` and `20261116T230623Z` all three
+  predictors flagged that 26-292, 26-293 and 26-294 (ca2) were staged no
+  `decision-below.txt` while each petition describes a published panel
+  opinion and published dissents from the denial of rehearing en banc. Read
+  against CourtListener on 2026-11-17: the six docket rows the petitions'
+  numbers reach (23-258, 23-263, 23-304, 23-444, 23-354, 23-797) carry no
+  opinion cluster. Both opinions hang on a seventh row, docket 71201047,
+  numbered `23-258 (L); 23-354 (L)` with an empty `docket_number_core`, so
+  neither the exact-number filter nor the core filter returns it: cluster
+  10660852 filed 2025-08-26, the judgment date the SCOTUS dockets state, and
+  cluster 10811059 filed 2026-03-19. The join reported `no_cluster` for all
+  three and stored no opinion.
+
+  **What moved.** In `pipeline.decision_below`, where no row found by number
+  carries a cluster on the judgment date and the SCOTUS docket serves that
+  date:
+  - One opinion search asks for the court's opinions filed on the judgment
+    date that mention any of the case's first three numbers, each as a quoted
+    phrase; a number that could not stand as one is left out of the query.
+  - A hit in that court, filed that day, on a row not already found, names a
+    candidate row, at most two a case. Each is fetched and must itself name
+    the court; its clusters are listed by its own number and each must hang
+    on it, as for a row found by number.
+  - A candidate joins the case only where it carries a cluster on the
+    judgment date and one of two things ties it to the case: its docket
+    number, split on semicolons and commas with parenthesized markers
+    dropped, lists one of the case's numbers; or the first 4,000 characters
+    of the text of its first opinion on the judgment date carry one of the
+    case's numbers standing alone (no letter, digit or hyphen before it, no
+    digit after it). The row records which, as `lead_by`.
+  - An added row follows the rows found by number. Its clusters on and after
+    the judgment date are read and stored under the unchanged `MAX_OPINIONS`
+    cap, its entries are read for the en banc reading where the unchanged
+    two-row cap leaves room, and the docket record carries a line under it
+    saying it was found by opinion search and what tied it to the case.
+  - A case costs at most seven more requests (the search, and a docket, a
+    cluster list and a caption read for each of two rows), so 23 at worst
+    where it was 16; a matched case sends none of them, and a case with no
+    opinion upstream sends the search alone.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v23`
+  and the six digests the `proc-v23` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-consolidated-search`. It applies
+    to every predictor, and its reach is `all`, because no narrower
+    registered reach names petitions from the federal courts of appeals. It
+    is **gradual**: a stored row changes only when the fill walks its case,
+    on arrival or once its stamp is 30 days stale. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier rows, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Three cases were read, the three flagged, against
+  CourtListener on 2026-11-17 with this change: each is `matched` on docket
+  71201047 with both clusters read, 26-292 and 26-294 tied by the docket
+  number and 26-293, whose one number (23-444) the combined number leaves
+  out, tied by the caption. No corpus was read, so how many stored
+  `no_cluster` or `no_cluster_on_date` cases share the shape is not known,
+  and neither is how often the caption test alone ties a row. The caption
+  test rests on that one observed case and on its tests.
+
+  **What the change does not reach.** The en banc reading of a member appeal
+  still comes from its own docket's entries: 26-293's reads
+  `denial_unrecorded`, since the consolidated entries sit on the lead
+  appeal's docket (23-258), which the petition does not name and the search
+  does not look for. The later cluster's text, the writings on the denial,
+  now reaches that cell in `decision-below.txt`. A case whose rows found by
+  number already fill the two-row entries cap gains no entries read from the
+  added row, and a case with two rows found by number that gains a third
+  from the search has a row left unread, so its reading is partial and
+  reports no absence. A court that prints no docket number near the top of
+  its opinion is not tied by the caption test, and only a case's first three
+  numbers are searched for.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect. The predict prompt describes both files as a match made on
+  CourtListener by the lower court's docket number and tells a cell to check
+  the opinion against the petition; both still hold, so no amendment debt is
+  added.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-292 --docket 26-293 --docket 26-294` prints three `matched`
+    cases, each with a cluster dated 2025-08-26 and a later one dated
+    2026-03-19 on a docket row whose `lead_by` is set, while CourtListener
+    still files those opinions on a row numbered for the lead appeals
+    together;
+  - once the fill has walked `scotus/9026000292`, `scotus/9026000293` and
+    `scotus/9026000294` again after the promotion, each holds a stored
+    `decision-below` row, and a cell provisioned for one after that lists
+    `decision-below.txt` in its manifest;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-consolidated-search' in {b.name for b in H})"`
+    prints `True`.
