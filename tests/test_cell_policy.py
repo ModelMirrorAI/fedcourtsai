@@ -20,6 +20,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cell_policy
 from fedcourtsai.cli import app
+from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
@@ -151,4 +152,40 @@ def test_the_codex_account_setup_fails_closed_and_probes_the_pinned_cli() -> Non
     run = str(probe["run"])
     assert "execpolicy check" in run and "pip install x" in run
     assert '[ "$refused" != forbidden ]' in run
-    assert steps.index(probe) == 1, "the probe runs right after the rules are installed"
+    (install,) = [s for s in steps if s.get("id") == "pinned-cli"]
+    assert "inputs.require-rules == 'true'" in install["if"]
+    assert "npm ci" in str(install["run"]) and "--ignore-scripts" in str(install["run"])
+    assert [steps.index(install), steps.index(probe)] == [1, 2], (
+        "the probe runs right after the rules are installed, on the CLI installed for it"
+    )
+
+
+def test_the_codex_account_setup_boots_the_sandbox_in_the_cell_posture() -> None:
+    """The action's last step runs one no-op through the pinned CLI's sandbox as
+    the codex account, from the checkout root, under the profile the cells
+    select, so a sandbox that cannot start fails the job before the turn."""
+    action = yaml.safe_load(
+        (REPO_ROOT / ".github" / "actions" / "codex-user-setup" / "action.yml").read_text()
+    )
+    steps = action["runs"]["steps"]
+    selects = f" sandbox -P {CODEX_CELL_PERMISSION_PROFILE} -- true"
+    (boot,) = [s for s in steps if selects in str(s.get("run"))]
+    assert steps.index(boot) == len(steps) - 1, "the boot sees the whole posture"
+    assert boot["if"] == "inputs.grant-workspace-read == 'true' && inputs.codex-config != ''"
+    assert "continue-on-error" not in boot
+    run = str(boot["run"])
+    assert run.startswith("set -euo pipefail")
+    assert 'cd "$GITHUB_WORKSPACE"' in run
+    assert 'sudo -u "$CODEX_USER" -- "${found[0]}"' + selects in run
+    assert run.index('cd "$GITHUB_WORKSPACE"') < run.index(selects)
+    # The CLI it runs is the pinned one, installed where the account can read
+    # it: the read grant closes $RUNNER_TEMP to the account.
+    (install,) = [s for s in steps if s.get("id") == "pinned-cli"]
+    assert "inputs.grant-workspace-read == 'true'" in install["if"]
+    assert install["env"]["PINS"].endswith("/engines/codex")
+    assert "prefix=/opt/" in str(install["run"])
+    assert 'find "$PREFIX/node_modules/@openai"' in run
+    assert boot["env"]["PREFIX"] == "${{ steps.pinned-cli.outputs.prefix }}"
+    # Every carve-out is in place before the sandbox that needs it starts.
+    (carve,) = [s for s in steps if "for carve_out in" in str(s.get("run"))]
+    assert steps.index(carve) < steps.index(boot)

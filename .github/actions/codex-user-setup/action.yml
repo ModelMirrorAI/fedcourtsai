@@ -20,7 +20,11 @@ description: >-
   codex's `.agents` and `.aws` sandbox carve-outs at the checkout root — but
   RUNNER-owned, so they are NOT part of codexcell's writable set: codex mounts
   each read-only and only needs it to exist (it fails to initialize if it
-  must create such an entry itself at the read-only checkout root).
+  must create such an entry itself at the read-only checkout root). On a
+  read-granted leg its last step boots that sandbox once, as the account, on
+  the checkout root, under the cell's permission profile and with the pinned
+  CLI — so a protected path this action does not pre-create fails the job
+  here, before the turn spends anything.
 
 inputs:
   codex-user:
@@ -30,7 +34,8 @@ inputs:
     description: >-
       Workspace path of the trusted codex config the MCP-configure step emitted
       (copied, runner-owned, into the account's derived CODEX_HOME). Empty skips
-      the copy — only a leg that runs no real turn should skip it.
+      the copy, and with it the sandbox boot, which needs the profile the
+      config declares — only a leg that runs no real turn should skip it.
     required: false
     default: .codex/config.toml
   require-rules:
@@ -56,8 +61,9 @@ inputs:
       "true" to grant codexcell read+traverse (never write) over the checkout,
       which it needs to run `fedcourts` and read the provisioned record; it also
       gates pre-creating codex's `.agents` and `.aws` sandbox carve-outs, which
-      are needed only when the policy cwd is this read-granted checkout root. A boot-probe
-      leg that reads no files leaves this "false".
+      are needed only when the policy cwd is this read-granted checkout root,
+      and the sandbox boot that checks them. A leg whose turn runs somewhere
+      else leaves this "false".
     required: false
     default: "false"
   env-keep:
@@ -157,25 +163,43 @@ runs:
           exit 1
         fi
 
+    - name: Install the pinned codex CLI for the pre-turn checks
+      id: pinned-cli
+      if: inputs.require-rules == 'true' || (inputs.grant-workspace-read == 'true' && inputs.codex-config != '')
+      shell: bash
+      env:
+        PINS: ${{ github.action_path }}/../../../engines/codex
+      run: |
+        set -euo pipefail
+        # codex itself is installed later, inside codex-action, so the two
+        # checks below install the same pinned package, against the same
+        # lockfile, into a prefix of their own. The prefix sits outside
+        # `$RUNNER_TEMP` because the sandbox boot runs the binary AS THE CODEX
+        # ACCOUNT, and the read grant below closes `$RUNNER_TEMP` to it.
+        # Runner-owned and world-readable, never writable by the account:
+        # the package is public, and codex-action puts the same binary on the
+        # account's PATH for the turn.
+        prefix=/opt/fedcourts-codex-checks
+        sudo install -d -o "$(id -u)" -g "$(id -g)" -m 755 "$prefix"
+        cp "$PINS/package.json" "$PINS/package-lock.json" "$prefix/"
+        npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund --silent
+        chmod -R o+rX "$prefix"
+        echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+
     - name: Check the installed install refusal with the pinned codex CLI
       if: inputs.require-rules == 'true'
       shell: bash
       env:
         CODEX_USER: ${{ inputs.codex-user }}
-        PINS: ${{ github.action_path }}/../../../engines/codex
+        PREFIX: ${{ steps.pinned-cli.outputs.prefix }}
       run: |
         set -euo pipefail
-        # codex itself is installed later, inside codex-action, so the check
-        # installs the same pinned package into a prefix of its own and asks
-        # it how the rules codex will load decide two commands: `pip install`
-        # must be forbidden and the cell's own `uv run fedcourts` must not be.
-        # A rules file that does not parse, or a rule shape the pinned version
-        # reads differently, fails here before any model spend.
-        prefix="$RUNNER_TEMP/codex-policy-check"
-        mkdir -p "$prefix"
-        cp "$PINS/package.json" "$PINS/package-lock.json" "$prefix/"
-        npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund --silent
-        codex="$prefix/node_modules/.bin/codex"
+        # Ask the pinned CLI how the rules codex will load decide two
+        # commands: `pip install` must be forbidden and the cell's own
+        # `uv run fedcourts` must not be. A rules file that does not parse, or
+        # a rule shape the pinned version reads differently, fails here before
+        # any model spend.
+        codex="$PREFIX/node_modules/.bin/codex"
         args=()
         for rules in "/home/$CODEX_USER/.codex/rules"/*.rules; do
           [ "$(stat -c %U "$rules")" = root ] || {
@@ -298,8 +322,7 @@ runs:
       # Same gate as the read grant above, and ordered AFTER it: this leaf must
       # survive that step's recursive `o+rX`, and the sandbox that needs it only
       # runs when the policy cwd is the checkout root — which only a
-      # read-granted leg uses (a boot probe with its own codexcell-owned cwd
-      # provisions its account inline and never calls this action).
+      # read-granted leg uses.
       if: inputs.grant-workspace-read == 'true'
       shell: bash
       run: |
@@ -335,7 +358,8 @@ runs:
         # (a codexcell-owned dir would strand a later runner-side clean). The
         # `o+rX` above already ran, so set the mode here explicitly. Re-check the
         # protected set on any `codex-version` bump: a further name would
-        # reintroduce this failure, and no smoke runs a command in this posture.
+        # reintroduce this failure, which the sandbox boot at the end of this
+        # action then reports before the turn starts.
         for carve_out in .agents .aws; do
           install -d -m 755 "$GITHUB_WORKSPACE/$carve_out"
           install -m 644 /dev/null "$GITHUB_WORKSPACE/$carve_out/.keep"
@@ -363,3 +387,57 @@ runs:
         esac
         mkdir -p "$GITHUB_WORKSPACE/$OUTPUT_DIR"
         sudo chown -R "$CODEX_USER:$CODEX_USER" "$GITHUB_WORKSPACE/$OUTPUT_DIR"
+
+    - name: Boot the codex sandbox once in the cell's posture
+      # Last, so everything the turn's sandbox will find is in place: the
+      # account, its config, the read grant, the carve-outs and the output
+      # subtree. Gated like the carve-outs, on the checkout root being the
+      # policy cwd, and on the config that declares the profile being there.
+      if: inputs.grant-workspace-read == 'true' && inputs.codex-config != ''
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+        PREFIX: ${{ steps.pinned-cli.outputs.prefix }}
+      run: |
+        set -euo pipefail
+        # A codex release can add a protected path to the set its sandbox
+        # mounts read-only at the policy cwd. One the carve-out step does not
+        # pre-create leaves every command of the turn dead on
+        # `bwrap: Can't mkdir <workspace>/<name>: Permission denied`, while
+        # the model goes on being asked what to run next — a cell that is paid
+        # for and produces nothing. So run one no-op through the sandbox the
+        # way the turn's commands will run: as the codex account, across the
+        # same `sudo -u` hop codex-action uses, from the checkout root, under
+        # the cell's permission profile (`fedcourts-cell`, declared in the
+        # config installed above; a test holds the name here to
+        # `fedcourtsai.mcp`), with the pinned CLI. It asks the model nothing
+        # and needs no key. A sandbox that cannot start fails the job here and
+        # bwrap's own line above the error names the path.
+        #
+        # The sandbox needs unprivileged user namespaces, which the hosted
+        # images restrict. codex-action loosens the same two knobs itself
+        # before the turn, so this only does it a few steps sooner; each is
+        # probed first, since a kernel without the knob has nothing to loosen.
+        if [ "$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || echo 1)" != 1 ]; then
+          sudo sysctl -w kernel.unprivileged_userns_clone=1
+        fi
+        if [ "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)" != 0 ]; then
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+        fi
+        # The native binary, not the `node` launcher beside it: sudo's
+        # `secure_path` is not the runner's PATH, and the launcher only finds
+        # and starts this file. A release that moves it out of the package's
+        # `vendor/<target>/bin/` fails here, by count, rather than booting
+        # nothing. No `-H` on the hop: codex-action's own `sudo -u` carries
+        # none, and the boot should find its home the way the turn will.
+        mapfile -t found < <(find "$PREFIX/node_modules/@openai" -type f -path '*/vendor/*/bin/codex')
+        if [ "${#found[@]}" -ne 1 ]; then
+          echo "::error::expected one native codex binary under $PREFIX, found ${#found[@]}"
+          exit 1
+        fi
+        cd "$GITHUB_WORKSPACE"
+        if ! timeout 120 sudo -u "$CODEX_USER" -- "${found[0]}" sandbox -P fedcourts-cell -- true; then
+          echo "::error::the codex sandbox does not start as $CODEX_USER on the checkout root; the turn's commands would all fail, so the job stops before any model spend"
+          exit 1
+        fi
+        echo "codex sandbox booted as $CODEX_USER under fedcourts-cell"
