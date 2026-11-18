@@ -19769,7 +19769,9 @@ def decision_below_command(
     (the federal courts of appeals only), finds the lower court's docket rows by
     number, the opinion cluster dated on the judgment date, any dated after it
     and on or before the SCOTUS docketing, and their sub-opinions' file and text
-    availability, and — where upstream holds the docket's entries — reads
+    availability, asking one opinion search for a consolidated appeal's docket
+    where no row found by number carries a cluster on the judgment date, and —
+    where upstream holds the docket's entries — reads
     whether a petition for rehearing en banc was filed, how it was disposed of,
     and whether a dissent was noted, reporting no absence where the entries
     stop before a rehearing denial the SCOTUS docket states. Prints the report as JSON on
@@ -19778,7 +19780,7 @@ def decision_below_command(
     Strictly **read-only**: writes no corpus, content store or ledger, and
     stages nothing to a cell. It spends CourtListener REST requests through the
     shared client, throttled by this process's own governor at the configured
-    ceilings — four for a typical case, `MAX_REQUESTS_PER_CASE` (16) at worst —
+    ceilings — four for a typical case, `MAX_REQUESTS_PER_CASE` (23) at worst —
     which count against the same account limits as the pull lanes but not
     against their per-process tally; `--sample` is capped at `MAX_SAMPLE` (50)
     to bound that. It never calls RECAP Fetch, so nothing is bought. `--case`

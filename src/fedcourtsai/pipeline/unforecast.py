@@ -75,7 +75,7 @@ from .salience import salience_band
 FEDERAL_BAND = "federal"
 
 #: Term-to-date reachable recall below this raises the alarm. Set under the
-#: salience replay's 0.76-0.81 at the shipped cap (``config/tracking.yaml``), so
+#: salience replay's 0.76-0.80 at the shipped cap (``config/tracking.yaml``), so
 #: the cap's own cost does not trip it. The replay's denominator is its own
 #: reconstructable pool, so the two figures are neighbours, not the same
 #: quantity, and the alarm is a prompt to read the list, not a test.

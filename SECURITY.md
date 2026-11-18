@@ -757,7 +757,8 @@ runbook, [docs/security.md](docs/security.md).
   Court. A cert or merits predict cell may also read
   `record/documents/decision-below.txt` and `lower-court-docket.txt`:
   CourtListener's extraction of the lower court's opinion and docket, reached
-  by a match on the lower court's docket number that can be wrong, and neither
+  by a match on the lower court's docket number, on a docket row or in an
+  opinion's caption, that can be wrong, and neither
   party-authored nor the Court's own record. No round takes a case list from anything a
   requester wrote, since the matrix is derived from committed corpus state.
   Agents are instructed to treat all of it as data, not instructions, and the

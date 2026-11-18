@@ -51,6 +51,31 @@ rehearing with the writings attached, files it as a later cluster on the same
 docket, and that is the text the petition then quotes. It does not make a
 match — the status still says whether the judgment date itself has a cluster.
 
+**A consolidated appeal's opinion can sit on a row no number reaches.** A
+court's opinion feed can file the opinion of a consolidated appeal on a docket
+row of its own, numbered for the lead appeals together
+(``"23-258 (L); 23-354 (L)"``), which neither number filter returns; the rows
+they do return then carry no cluster. So where no checked row carries a
+cluster on the judgment date, one opinion search asks for the court's opinions
+filed on that date that mention any of the case's numbers. A hit is a lead,
+not an answer. Its docket is fetched and must be this court's, its clusters
+are listed and checked as any row's are, and the row joins the case only where
+it carries a cluster on the judgment date and is tied to the case by one of
+two things, reported as ``lead_by``: its docket number lists one of the case's
+numbers, or — for a member appeal the combined number leaves out — the caption
+of its opinion on the judgment date does, read over the first
+:data:`CAPTION_CHARS` of the text with the number standing alone. An opinion
+that cites the number further in passes neither test. The caption test reads
+position, not layout: another opinion of the same court, filed the same day,
+that names the number on its first page (a companion heard in tandem) would
+pass it, which is why the docket record says how each added row was found and
+by which test. Only the first sub-opinion's extracted text is read, so an
+opinion upstream holds without text is not tied this way. At most
+:data:`MAX_LEAD_DOCKETS` rows are added, after the number-matched ones. A case
+with no row found by number is ``no_docket`` and is not searched for, and a
+refused or failed request on this path leaves the case as the number join
+answered it.
+
 **The rehearing reading is text, and says so.** CourtListener serves docket
 entries as filed text with no structured rehearing field, so the en banc
 reading is a pattern match over the text of each entry filed on or after the
@@ -84,8 +109,13 @@ requests per lower-court number (up to :data:`MAX_LOWER_NUMBERS` numbers),
 one cluster list per distinct checked number (up to the same cap), one
 request per opinion read (up to :data:`MAX_OPINIONS` a case) and up to
 :data:`MAX_ENTRY_PAGES` pages of entries for each of up to
-:data:`MAX_ENTRY_DOCKETS` rows — 6 + 3 + 3 + 4 = :data:`MAX_REQUESTS_PER_CASE`
-at worst; a single-number circuit case with one matched opinion costs four.
+:data:`MAX_ENTRY_DOCKETS` rows — 6 + 3 + 3 + 4 = 16 — and, where no checked
+row carries a cluster on the judgment date, the opinion search's
+:data:`MAX_SEARCH_REQUESTS`: the search, then a docket, a cluster list and a
+caption read for each of up to :data:`MAX_LEAD_DOCKETS` rows, 1 + 6 = 7. That
+is :data:`MAX_REQUESTS_PER_CASE`, 23, at worst; a single-number circuit case
+with one matched opinion costs four, and one with no opinion upstream four as
+well, the search in place of the opinion read.
 The client's request budget (:class:`RateBudgetExceeded`), a 429 its retries
 could not clear, or a 401 (the credential refused, which every later request
 would meet too) stops the walk with the rest reported deferred, as the opinion
@@ -99,6 +129,7 @@ import sqlite3
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import partial
 from typing import Any, Final, Literal
 
 import httpx
@@ -123,9 +154,27 @@ MAX_OPINIONS: Final = 3
 MAX_ENTRY_DOCKETS: Final = 2
 MAX_ENTRY_PAGES: Final = 2
 
+#: Docket rows the opinion search may add to a case: rows a court's opinion
+#: feed filed under a number of its own, which no number filter reaches.
+MAX_LEAD_DOCKETS: Final = 2
+
+#: How far into an opinion's text its caption is read for a docket number. A
+#: consolidated caption lists every member appeal on the first page, after
+#: any header the extraction keeps; a number met deeper in is a citation.
+CAPTION_CHARS: Final = 4000
+
+#: The most requests the opinion search adds to a case with no cluster on the
+#: judgment date: the search, each added row's docket and cluster list, and a
+#: caption read on each.
+MAX_SEARCH_REQUESTS: Final = 1 + 3 * MAX_LEAD_DOCKETS
+
 #: The most requests one case can cost (see the module docstring).
 MAX_REQUESTS_PER_CASE: Final = (
-    2 * MAX_LOWER_NUMBERS + MAX_LOWER_NUMBERS + MAX_OPINIONS + MAX_ENTRY_DOCKETS * MAX_ENTRY_PAGES
+    2 * MAX_LOWER_NUMBERS
+    + MAX_LOWER_NUMBERS
+    + MAX_OPINIONS
+    + MAX_ENTRY_DOCKETS * MAX_ENTRY_PAGES
+    + MAX_SEARCH_REQUESTS
 )
 
 #: The default and the largest sample of the ``decision-below`` command. The
@@ -202,6 +251,13 @@ _EITHER_WRITING_RE: Final = re.compile(r"\bconcurring\s+or\s+dissenting\b", re.I
 # An amended opinion filed with the rehearing order recites the panel's own
 # dissent, which is not a dissent from that order.
 _AMENDED_RE: Final = re.compile(r"\bamend(?:ed|ing|s)?\b", re.I)
+
+# A marker a court hangs on one number of a combined docket number
+# ("23-258 (L); 23-354 (L)", "(CON)", "(XAP)").
+_NUMBER_MARKER_RE: Final = re.compile(r"\([^)]*\)")
+# A docket number that can stand as a quoted search phrase: nothing in it can
+# close the phrase or read as query syntax.
+_SEARCHABLE_NUMBER_RE: Final = re.compile(r"[\w.:-]+")
 
 
 class LowerCourtFacts(BaseModel):
@@ -288,6 +344,12 @@ class DocketRow(BaseModel):
     case_name: str | None = None
     panel: str | None = Field(default=None, description="Upstream's `panel_str`, where set")
     cluster_links: int = Field(ge=0, description="How many `clusters` links the row carries")
+    lead_by: Literal["docket_number", "caption"] | None = Field(
+        default=None,
+        description="Set on a row the opinion search found rather than a number filter, and "
+        "says what tied it to the case: its combined docket number lists one of the case's "
+        "numbers, or the caption of its opinion on the judgment date does",
+    )
 
 
 class EntryCite(BaseModel):
@@ -504,6 +566,45 @@ def number_names(served: object, wanted: str) -> bool:
         return True
     core = appellate_core(wanted)
     return core is not None and appellate_core(served) == core
+
+
+def lists_number(served: object, wanted: str) -> bool:
+    """Whether a served docket number lists ``wanted``, alone or among several.
+
+    A court's opinion feed can file a consolidated appeal under one combined
+    number (``"23-258 (L); 23-354 (L)"``). Each part between semicolons or
+    commas is read with its parenthesized marker dropped and compared by
+    :func:`number_names`, so a part must be the number, not merely contain it.
+    """
+    if not isinstance(served, str):
+        return False
+    parts = re.split(r"[;,]", _NUMBER_MARKER_RE.sub(" ", served))
+    return any(number_names(part, wanted) for part in parts if part.strip())
+
+
+def caption_names(text: str, wanted: str) -> bool:
+    """Whether an opinion's caption carries the docket number ``wanted``.
+
+    Read over the first :data:`CAPTION_CHARS` of the text only. The number
+    must stand alone: a longer serial (``23-4441``, ``23-444-5``) or a longer
+    prefix (``123-444``, ``2:23-444``) is another case's, while a case-type
+    suffix the court prints after it (``23-444-cv``) is not.
+    """
+    number = corpus.normalize_docket_number(wanted)
+    if number is None:
+        return False
+    pattern = rf"(?<![\w:-]){re.escape(number)}(?!-?\d)"
+    return re.search(pattern, text[:CAPTION_CHARS], re.I) is not None
+
+
+def _search_query(numbers: Sequence[str]) -> str | None:
+    """The opinion-search query for a case's numbers: each a quoted phrase, any of them."""
+    terms: list[str] = []
+    for raw in numbers[:MAX_LOWER_NUMBERS]:
+        number = corpus.normalize_docket_number(raw)
+        if number is not None and _SEARCHABLE_NUMBER_RE.fullmatch(number) and number not in terms:
+            terms.append(number)
+    return " OR ".join(f'"{term}"' for term in terms) or None
 
 
 # --- the rehearing reading -----------------------------------------------------
@@ -729,6 +830,7 @@ class _Walk:
         # Each read opinion's `plain_text`, kept off the report: the fill
         # stores it, and a measurement drops it with the walk.
         self.texts: dict[int, str] = {}
+        self._opinions: dict[int, Mapping[str, Any]] = {}
 
     def dockets(self, court: str, number: str) -> list[Mapping[str, Any]]:
         """The checked rows for one number: exact spelling first, then the core."""
@@ -764,12 +866,31 @@ class _Walk:
         )
 
     def opinion(self, opinion_id: int) -> Mapping[str, Any]:
+        """One sub-opinion, requested once however often the walk asks for it."""
+        held = self._opinions.get(opinion_id)
+        if held is not None:
+            return held
         self.requests += 1
         payload = _object(self.client.get_opinion(opinion_id))
         text = payload.get("plain_text")
         if isinstance(text, str) and text.strip():
             self.texts[opinion_id] = text
+        self._opinions[opinion_id] = payload
         return payload
+
+    def opinion_search(self, court: str, query: str, filed: date) -> Mapping[str, Any]:
+        """The first page of the court's opinions filed on ``filed`` that match ``query``."""
+        self.requests += 1
+        day = filed.isoformat()
+        return _object(
+            self.client.search(
+                {"type": "o", "court": court, "q": query, "filed_after": day, "filed_before": day}
+            )
+        )
+
+    def docket(self, docket_id: int) -> Mapping[str, Any]:
+        self.requests += 1
+        return _object(self.client.get_docket(docket_id))
 
     def _count(self) -> None:
         self.requests += 1
@@ -798,7 +919,12 @@ def _availability(opinion_id: int, payload: Mapping[str, Any]) -> OpinionAvailab
     )
 
 
-def _docket_row(row: Mapping[str, Any], *, base_url: str) -> DocketRow | None:
+def _docket_row(
+    row: Mapping[str, Any],
+    *,
+    base_url: str,
+    lead_by: Literal["docket_number", "caption"] | None = None,
+) -> DocketRow | None:
     docket_id = _int(row.get("id"))
     if docket_id is None:
         return None
@@ -809,6 +935,7 @@ def _docket_row(row: Mapping[str, Any], *, base_url: str) -> DocketRow | None:
         case_name=_text(row.get("case_name")),
         panel=_text(row.get("panel_str")),
         cluster_links=len(_linked_ids(links, base_url=base_url, resource="clusters")),
+        lead_by=lead_by,
     )
 
 
@@ -866,13 +993,15 @@ def _checked_rows(walk: _Walk, court: str, numbers: Sequence[str]) -> list[Mappi
     return rows
 
 
-@dataclass(frozen=True)
+@dataclass
 class _Clusters:
     found: list[ClusterMatch]
+    # The sub-opinion ids of each cluster on or after the judgment date.
+    links: dict[int, list[int]]
     truncated: bool = False
 
 
-def _clusters(
+def _list_clusters(
     walk: _Walk, rows: Sequence[Mapping[str, Any]], court: str, facts: LowerCourtFacts
 ) -> _Clusters:
     """The clusters on the checked rows, dated on or before the docketing.
@@ -883,14 +1012,12 @@ def _clusters(
     about. Each result is a full cluster serialization, so no per-cluster fetch
     follows, and each must name one of the checked rows
     (:func:`~fedcourtsai.pipeline.opinion_enrichment.cluster_docket_id`), or it
-    is another case's and is dropped. Sub-opinions are read for a cluster on
-    the judgment date — the candidate for the decision below — and for one
+    is another case's and is dropped. Sub-opinion links are kept for a cluster
+    on the judgment date — the candidate for the decision below — and for one
     dated after it, which is an amended opinion or one issued on rehearing and
-    is what the petition asks the Court to review where it replaced the first.
-    The newest cluster is read first, at most :data:`MAX_OPINIONS` a case, with
-    one read held for the judgment-date cluster: the cap falls on the earlier
-    opinion, and never takes all of it. Without a served docketing
-    date nothing bounds a later cluster, and none is read.
+    is what the petition asks the Court to review where it replaced the first
+    (:func:`_read_opinions` reads them). Without a served docketing date
+    nothing bounds a later cluster, and none is kept.
     """
     base_url = walk.client.base_url
     row_ids = {ident for ident in (_int(row.get("id")) for row in rows) if ident is not None}
@@ -944,6 +1071,17 @@ def _clusters(
                     panel_links=len(panel) if isinstance(panel, list) else 0,
                 )
             )
+    return _Clusters(found=found, links=links, truncated=truncated)
+
+
+def _read_opinions(walk: _Walk, clusters: _Clusters) -> None:
+    """Read the sub-opinions of the clusters on and after the judgment date.
+
+    The newest cluster is read first, at most :data:`MAX_OPINIONS` a case, with
+    one read held for the judgment-date cluster: the cap falls on the earlier
+    opinion, and never takes all of it.
+    """
+    found, links = clusters.found, clusters.links
     newest_first = sorted(
         (c for c in found if c.cluster_id in links),
         key=lambda c: c.date_filed or date.min,
@@ -960,7 +1098,132 @@ def _clusters(
         cluster.opinions = [
             _availability(opinion_id, walk.opinion(opinion_id)) for opinion_id in opinion_ids
         ]
-    return _Clusters(found=found, truncated=truncated)
+
+
+@dataclass(frozen=True)
+class _Lead:
+    row: Mapping[str, Any]
+    by: Literal["docket_number", "caption"]
+
+
+def _lead_rows(
+    walk: _Walk,
+    court: str,
+    facts: LowerCourtFacts,
+    rows: Sequence[Mapping[str, Any]],
+    clusters: _Clusters,
+) -> list[_Lead]:
+    """Rows the opinion search ties to the case, their clusters added to ``clusters``.
+
+    A court's opinion feed can file a consolidated appeal's opinion on a docket
+    row of its own, numbered for the lead appeals together
+    (``"23-258 (L); 23-354 (L)"``) and carrying no ``docket_number_core``, so
+    neither number filter reaches it and the rows it does reach carry no
+    cluster. One search asks for the court's opinions filed on the judgment
+    date that mention any of the case's numbers. A hit is a lead, not an
+    answer: its docket is fetched and must be this court's, the clusters are
+    listed by that row's own number as for any checked row, and the row is
+    kept only where it carries a cluster on the judgment date and one of two
+    things ties it to the case — its docket number lists one of the case's
+    numbers (:func:`lists_number`), or, for a member appeal the combined
+    number leaves out, the caption of its first opinion on the judgment date
+    does (:func:`caption_names`). A hit that cites the number below the
+    caption passes neither and is dropped with its clusters. A fault on any of
+    these requests leaves the case as the number join answered it.
+    """
+    fetched = _searched_rows(walk, court, facts, rows)
+    if not fetched:
+        return []
+    listed = _attempt(lambda: _list_clusters(walk, fetched, court, facts))
+    if listed is None:
+        return []
+    leads: list[_Lead] = []
+    for row in fetched:
+        ident = _int(row.get("id"))
+        mine = [c for c in listed.found if c.docket_id == ident]
+        by = _tied_by(walk, row, [c for c in mine if c.on_judgment_date], listed, facts)
+        if by is None:
+            continue
+        leads.append(_Lead(row=row, by=by))
+        clusters.found.extend(mine)
+        clusters.links.update(
+            {c.cluster_id: listed.links[c.cluster_id] for c in mine if c.cluster_id in listed.links}
+        )
+        clusters.truncated = clusters.truncated or listed.truncated
+    return leads
+
+
+def _searched_rows(
+    walk: _Walk, court: str, facts: LowerCourtFacts, rows: Sequence[Mapping[str, Any]]
+) -> list[Mapping[str, Any]]:
+    """The court's docket rows an opinion search for the case's numbers points at.
+
+    Rows not already checked, whose hit is this court's and filed on the
+    judgment date, at most :data:`MAX_LEAD_DOCKETS`; each is fetched and must
+    itself name this court.
+    """
+    judgment = facts.judgment_date
+    query = _search_query(facts.docket_numbers)
+    if judgment is None or query is None:
+        return []
+    known = {_int(row.get("id")) for row in rows}
+    page = _attempt(lambda: walk.opinion_search(court, query, judgment))
+    results = page.get("results") if page is not None else None
+    candidates: list[int] = []
+    for hit in results if isinstance(results, list) else []:
+        if not isinstance(hit, Mapping) or hit.get("court_id") != court:
+            continue
+        ident = _int(hit.get("docket_id"))
+        if _iso_date(hit.get("dateFiled")) != judgment or ident is None:
+            continue
+        if ident not in known and ident not in candidates:
+            candidates.append(ident)
+    fetched: list[Mapping[str, Any]] = []
+    for ident in candidates[:MAX_LEAD_DOCKETS]:
+        row = _attempt(partial(walk.docket, ident))
+        if (
+            row is not None
+            and _int(row.get("id")) == ident
+            and docket_court(row, base_url=walk.client.base_url) == court
+        ):
+            fetched.append(row)
+    return fetched
+
+
+def _attempt[T](call: Callable[[], T]) -> T | None:
+    """``call``'s answer, or ``None`` where upstream refused or failed it.
+
+    The opinion search is an extra look for a case the number join already
+    answered about, so a fault on it leaves that answer standing, as a fault
+    on the entries does; only a batch wall propagates.
+    """
+    try:
+        return call()
+    except (httpx.HTTPError, ValueError) as exc:
+        if _stop_reason(exc) is not None:
+            raise
+        return None
+
+
+def _tied_by(
+    walk: _Walk,
+    row: Mapping[str, Any],
+    on_date: Sequence[ClusterMatch],
+    listed: _Clusters,
+    facts: LowerCourtFacts,
+) -> Literal["docket_number", "caption"] | None:
+    """What ties a searched row to the case, or ``None`` where nothing does."""
+    if not on_date:
+        return None
+    if any(lists_number(row.get("docket_number"), n) for n in facts.docket_numbers):
+        return "docket_number"
+    first = next((ids[0] for c in on_date if (ids := listed.links[c.cluster_id])), None)
+    if first is None:
+        return None
+    if _attempt(lambda: walk.opinion(first)) is None:
+        return None
+    text = walk.texts.get(first, "")
+    return "caption" if any(caption_names(text, n) for n in facts.docket_numbers) else None
 
 
 def _verdict(
@@ -968,10 +1231,16 @@ def _verdict(
 ) -> tuple[MatchStatus, str]:
     on_date = [c for c in clusters if c.on_judgment_date]
     if on_date:
+        searched = {d.docket_id for d in dockets if d.lead_by is not None}
         return (
             "matched",
             f"{len(on_date)} cluster(s) dated {facts.judgment_date} on "
-            + f"{len(dockets)} {facts.court_id} docket row(s)",
+            + f"{len(dockets)} {facts.court_id} docket row(s)"
+            + (
+                ", on a row found by opinion search"
+                if any(c.docket_id in searched for c in on_date)
+                else ""
+            ),
         )
     if clusters:
         return (
@@ -1006,7 +1275,13 @@ def _match(walk: _Walk, facts: LowerCourtFacts, *, case_id: str | None) -> Decis
             + ", ".join(facts.docket_numbers[:MAX_LOWER_NUMBERS]),
             requests=walk.requests,
         )
-    clusters = _clusters(walk, rows, court, facts)
+    clusters = _list_clusters(walk, rows, court, facts)
+    if not any(c.on_judgment_date for c in clusters.found):
+        for lead in _lead_rows(walk, court, facts, rows, clusters):
+            found = _docket_row(lead.row, base_url=base_url, lead_by=lead.by)
+            if found is not None:
+                dockets.append(found)
+    _read_opinions(walk, clusters)
     rehearing = _rehearing(walk, dockets, facts)
     status, reason = _verdict(clusters.found, dockets, facts)
     return DecisionBelowMatch(
@@ -1343,6 +1618,17 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
             f"CourtListener docket {row.docket_id}: {row.case_name or 'no caption'}, "
             + f"No. {row.docket_number or 'not served'}; panel: {row.panel or 'not recorded'}"
         )
+        if row.lead_by is not None:
+            lines.append(
+                "  Found by opinion search rather than by case number: a docket the court's "
+                + "opinions are filed on for a consolidated appeal, tied to this case because "
+                + (
+                    "its docket number lists one of the case numbers above."
+                    if row.lead_by == "docket_number"
+                    else "the caption of its opinion on the judgment date lists one of the "
+                    + "case numbers above."
+                )
+            )
     decided = _decided(match)
     for cluster in reversed(decided):
         ids = ", ".join(str(opinion.opinion_id) for opinion in cluster.opinions)
