@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.06,
+    "notes": "The requested relief protects an individual home and the timing of a bankruptcy appeal and recusal challenge. The application shows substantial personal stakes but no established national policy impact, inter-circuit conflict, or broad institutional consequence."
+  },
+  "brier_score": 4e-06,
+  "brier_skill_score": 0.9997061852399737,
+  "case_id": "scotus/9526000684",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": 0.013610019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.012,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013610019934335403,
+    "total": 0.013610019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:27:51.759724Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction and all 70 logged calls occurred November 14, before this application's November 16 resolution. The log has outcome_only capture throughout, coverage 0.0: null dates and digests do not establish empty results. Assessed queries cover the arrival record, aggregate context, companion applications, lower-court proceedings and precedents. The self-report identifies companion denials as material. These concern different applications and are legitimate forward signals; no query or reasoning shows this application's own disposition. The limited result capture is an evidentiary limit, not a defect or a clean-result finding.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 16 entry reads Application (26A684) denied by The Chief Justice.; the outcome records denied and no referral.",
+        "claim": "Chief Justice Roberts will deny the application alone in chambers.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.response_requested is false; the staged docket has no response request.",
+        "claim": "No response will be called for from BOKF.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records referred_to_court false and amicus_briefs 0, consistent with the two-entry staged docket.",
+        "claim": "The application will not be referred to the full Court and no amicus briefs will arrive.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The snapshot gives DocketedDate November 13 and the bare denial November 16: three days after docketing, six after submission, and before December 17. No accompanying writing is noted.",
+        "claim": "A single-line denial without a separate writing will issue within roughly three to seven days of docketing and before the December 17 foreclosure.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Chief Justice gave no explanation. The application permits assessing these as arguments but the outcome and docket do not establish that they were the grounds for denying relief.",
+        "claim": "The denial is doctrinally warranted by unexhausted lower-court relief, poor prospects for certiorari over recusal mandamus, and the foreclosure request exceeding that controversy.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261114T033825Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:27:51.759724Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

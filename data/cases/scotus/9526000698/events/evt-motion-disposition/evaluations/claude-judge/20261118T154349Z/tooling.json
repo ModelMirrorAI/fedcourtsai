@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000698",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval logs and result_capture markers",
+    "Outcome interim_signals made the forecast claims directly checkable"
+  ],
+  "gaps": [
+    "A candidate's lower-court retrieval results are not visible on outcome_only logs, so factual claims drawn from them cannot be checked without re-fetching"
+  ],
+  "notes": "Simple interim denial; no corpus or statpack lookup was needed."
+}

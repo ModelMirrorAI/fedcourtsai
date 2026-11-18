@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.82,
+    "notes": "The petition presents a nationally consequential boundary between federal research-funding discretion and protection against viewpoint discrimination, affecting academic speech and competitive grants across agencies. The interlocutory vehicle and denial leave that constitutional boundary unresolved; this order itself establishes no nationwide merits rule."
+  },
+  "brier_score": 0.5184,
+  "brier_skill_score": 0.03775750641862985,
+  "case_id": "scotus/9026000210",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7339901477832512,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.72,
+        "score": 0.020341537042879
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.55,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.12,
+          "Barrett": 0.01,
+          "Gorsuch": 0.06,
+          "Jackson": 0.03,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.03,
+          "Roberts": 0.01,
+          "Sotomayor": 0.03,
+          "Thomas": 0.09
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.020341537042879,
+    "total": 0.020341537042879
+  },
+  "correct": 0,
+  "created_at": "2026-11-18T16:07:59.180157Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on November 2 preceded the November 16 resolution. All 24 logged calls have captured results. The log shows provisioned briefs, snapshot, context and statpack reads and general grant/denial queries; no own-case disposing order, post-resolution document, outcome-file read or prohibited topic-artifact read appears. No evidence the case was already decided when predicted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.05,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied on November 16, 2026; the snapshot records Petition DENIED after the sole November 13 conference distribution.",
+        "claim": "The Court will grant plenary review at the first conference or after one relist.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null, and the completed docket contains no CVSG entry.",
+        "claim": "There will be no CVSG because the Solicitor General is the petitioner.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied; no grant defined the questions for review.",
+        "claim": "If granted, the Court will take the question as written, with an added Tucker Act question unlikely.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The grant condition did not occur.",
+        "claim": "If granted, the case will proceed to briefing and argument rather than a summary disposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Denial occurred, but outcome.noted_dissent_from_denial is false. No individual cert votes are inferred.",
+        "claim": "If denied, the Court will issue a written dissent, most likely by Alito joined by Thomas and Gorsuch.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261102T130502Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:07:59.180157Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7339901477832512,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

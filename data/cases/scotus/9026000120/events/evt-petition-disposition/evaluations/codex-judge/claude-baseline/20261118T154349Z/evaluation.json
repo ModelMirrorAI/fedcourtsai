@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "The questions concern constitutional remedies for viewpoint discrimination in state legislative hearings, with nationwide implications for public participation and legislative independence. The procedural setting is confined and denial created no Supreme Court merits precedent."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.7661170561765134,
+  "case_id": "scotus/9026000120",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.24838227974116475,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": 0.047293756889418226
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.16,
+          "Barrett": 0.02,
+          "Gorsuch": 0.1,
+          "Jackson": 0.02,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.02,
+          "Roberts": 0.01,
+          "Sotomayor": 0.02,
+          "Thomas": 0.2
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.047293756889418226,
+    "total": 0.047293756889418226
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:03:17.968984Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on November 9 preceded the November 16 resolution. All 16 logged calls carry captured results. Queries/reads concern the then-provisioned case record, statpack, tool-output continuation, and a general granted-case corpus sample. No query seeks this petition's result, and neither rationale nor forecast presupposes its denial. The present evaluator snapshot is later and was not substituted for the candidate's information set.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied on November 16, 2026.",
+        "claim": "The Court will deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "After the November 9 distribution for the November 13 conference, the next staged entry is Petition DENIED on November 16; the final distribution count is 2.",
+        "claim": "The likeliest path is no further distribution and denial on the November 16 order list.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records cvsg_date=null and the staged docket contains no CVSG.",
+        "claim": "No CVSG is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The premise is contradicted by the petition, printed p. 8 and App. 11a-14a: the Tenth Circuit rejected mootness and held the controversy live. The unexplained Supreme Court denial supplies no contrary finding or stated reason.",
+        "claim": "A mootness holding below presents a vehicle problem supporting denial.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The Court denied certiorari, so neither the scope of a grant nor the conditional plenary-versus-summary route was tested.",
+        "claim": "If granted, review would favor QP2 or a narrowed version, and summary disposition would be unlikely.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:03:17.968984Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.24813153961136025,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

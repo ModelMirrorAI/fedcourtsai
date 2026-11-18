@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000062",
+  "gaps": [
+    "The predictor's exact provisioned snapshot is not staged, limiting diagnosis of gemini-baseline's factual discrepancies.",
+    "No complete cert-order writing inventory is staged, so the absence of a separate statement cannot be established."
+  ],
+  "helpful": [
+    "Blinded rationale and forecast documents with harness-captured query logs.",
+    "Frozen statpack digests and statpack-at reconstruction avoid penalizing historical figures for later refreshes.",
+    "Outcome signals and the staged docket support conference-path checks."
+  ],
+  "notes": "Completed all three candidate evaluations from staged case evidence. Uncaptured calls were assessed on query text; their telemetry shape was not flagged as a defect. No packages were installed.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell file reads",
+    "Python",
+    "fedcourts statpack-at",
+    "jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000526",
+  "gaps": [],
+  "helpful": [
+    "Blinded inputs and recorded cert-anchor digest support independent grading.",
+    "statpack-at recovers the reference build without reading candidate identities.",
+    "Capture markers distinguish unseen results from empty results."
+  ],
+  "notes": "The staged docket and outcome suffice for the observable procedural forecasts. The unexplained denial cannot establish a doctrinal reason. gemini-baseline result contents and two codex-baseline web results are unavailable; these standing capture shapes were respected and not treated as defects. No packages were installed.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local file reads",
+    "rg",
+    "fedcourts statpack-at",
+    "historical statpack.md",
+    "Python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

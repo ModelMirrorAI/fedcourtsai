@@ -1,0 +1,17 @@
+codex-baseline correctly predicted denial. This is an interim application, and the recorded finer reading is denied with interim_granted = 0. Thus correct = 1 and Brier = (0.03 - 0)^2 = 0.0009. The November 13 docket entry identifies Justice Sotomayor as the deciding Justice. Certiorari and merits are separate events; no votes or semantic claims are graded here.
+
+The reasoning.md analysis earns 0.92. It applies the stay-pending-certiorari standard, distinguishes the state judgment from the parallel federal appeal, and confronts both section 1257 finality and the limited Cox Broadcasting exception. It treats the applicant's allegations as allegations, acknowledges the missing appendix and adversarial materials, and distinguishes an upcoming hearing from established immediate dispossession. It also gives the disability-access and housing interests substantive attention. The adjustment to 3% remains judgmental rather than empirically calibrated to comparable arrival-stage applications, and the staged denial cannot establish which legal obstacle actually controlled.
+
+The candidate appropriately selects strictly prior application Terms, uses the finer interim counts, and treats the private/unmarked applicant cut as descriptive context. Its reported figures agree with the corresponding committed statpack figures; no numerical base-rate discrepancy is charged. This cell's baseline and Brier skill belong to the harness, using the stamped segment base rate. The committed pack contains the interim section and sufficient readable prior-Term coverage to support that calculation; no thin-pool refusal is apparent. No baseline or skill is supplied here.
+
+## Predicted reasoning
+
+The forecast document earns 1.0 for its specific, testable central path: denial by Sotomayor, no response request or referral, no amicus increment, and action by November 16. Those calls match the staged docket and outcome signals. This grade concerns the forecast document alone. The absence of a separate writing is unresolved because the writing inventory is unavailable. Conditional explanations for denial or hypothetical relief are untested and receive neither credit nor penalty; the docket's silence does not establish a doctrinal holding.
+
+## Leakage and timing
+
+The captured log labels the run forward, but the November 14 prediction and calls postdate the outcome's November 13 resolution. The supplied arrival boundary is cutoff November 12, cut_kind arrival-position, anchor 0. I flag the chronological provisioning inconsistency and assess exposure without relying on the forward label. The evaluator's later, uncut snapshot is evidence of the outcome, not evidence of what the candidate received.
+
+The queries and reasoning show no retrieval of this application's disposition. Historical-authority lookups, the provisioned application and arrival snapshot, and statpack reads do not reveal it. The two web rows are unobserved, so their null dates and digests do not mean that searches returned nothing; their queries concern historical precedents. The remaining marked calls are captured. Assessment: retrieved_outcome_material = false, influenced_prediction = none, leakage_suspected = false. This is an evidence-based nonfinding of exposure, not certification that the already-decided run was genuinely forward.
+
+The stakes assessment is 0.12: potentially grave individual harm and important access rights, with limited demonstrated precedential reach in this interlocutory property dispute.

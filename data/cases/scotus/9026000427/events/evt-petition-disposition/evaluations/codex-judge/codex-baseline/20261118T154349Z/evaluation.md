@@ -1,0 +1,19 @@
+# Evaluation: codex-baseline
+
+The cert-stage prediction correctly called `denied`. The outcome records denial on November 16, 2026, with `actual_granted = 0`. Its grant probability of 0.005 gives `correct = 1` and Brier score `(0.005 - 0)^2 = 0.000025`.
+
+Reasoning quality: **0.94**. The rationale makes a careful distinction between the petitioner's theory of fresh post-disclosure personnel actions and the lower court's finding of continuing consequences from earlier decisions. Appendix A, pages 4–8, supports its account of the January pay decision, later disclosures, the separately identified disclosures associated with reassignment, and the Board's decision not to reach the administrative judge's alternative protected-disclosure finding. It identifies a conceivable statutory issue in QP2 while explaining the missing demonstrated split and the factual vehicle problems.
+
+The statistical discussion selects strictly prior Term risk-set rows, identifies the petitioner as private despite the government respondent, and expressly avoids treating terminal relist/CVSG/amicus cuts as independent adjustments or forward hazards. It preserves the null amicus count and discounts its denial-selected convenience sample. The Bosley discussion is consistent with the distinction relevant to the staged appendix; I did not fetch that authority anew. The candidate also notices that Bosley predates Morgan, avoiding the petition's chronological conflation. The exact probability remains judgmental rather than independently calibrated, which limits the strength of the quantitative adjustment, but the legal and evidentiary analysis is strong.
+
+Base-rate use was checked against historical statpack build `7bcde3b105cb212283905eda17b827efc188e80c` (digest `sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641`), recovered with `fedcourts statpack-at` for this alias. It is the sal-v4 build available at prediction time, rather than the currently committed sal-v8 pack. The cited historical table entries agree with that build. The scored comparison uses the stamped segment base rate; the harness supplies that rate and Brier skill.
+
+## Predicted reasoning
+
+Forecast quality: **0.90**. The forecast committed to a denial following the scheduled November 13 conference, in mid-to-late November, with zero further distributions and no CVSG. The November 16 denial and single recorded distribution bear those claims out; the docket also shows no intervening response filing. The outcome expressly records no noted dissent.
+
+Its no-separate-writing prediction goes beyond what can be fully verified without order text or staged writings: absence of a noted dissent is established, but absence of every possible statement is unresolved. Conditional predictions about a narrowed QP2, its merits treatment, plenary review, and possible writers were not tested. They earn neither credit nor penalty. The specific procedural route supports the high forecast grade, independently of the more detailed rationale.
+
+Leakage: **not applicable; not suspected**. The October 30 forward log has 35 captured calls and three unobserved web calls. Those three queries concern Rule 10 and the official rules PDF, not this case's result; uncaptured returns are not treated as empty. The only extracted document date is April 29, 2026. CourtListener retrieval concerns the 1998 Bosley authority. No query or prose reveals this petition already decided. The candidate's null cutoff is the ordinary forward distribution shape.
+
+Cert votes are not scored. No semantic grades or quantitative claim scores are assigned; the harness supplies claim scores, the stamped segment base rate, and skill. The independent stakes read is 0.12: broader pleading implications are conceivable, but this remains an individual, fact-dependent vehicle without a demonstrated appellate conflict.

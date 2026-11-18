@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "The petition raises a consequential First Amendment boundary between government speech and privately delivered instruction required for professional licensure, with implications beyond California medicine. The immediate dispute concerns a particular CME scheme; denial establishes no new nationwide rule."
+  },
+  "brier_score": 0.1444,
+  "brier_skill_score": -3.769142883798417,
+  "case_id": "scotus/73286452",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.38,
+        "score": -0.11412202269498967
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.55,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.22,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.11412202269498967,
+    "total": -0.11412202269498967
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T15:49:58.852128Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward mode; prediction formed September 18 against the September 17 as-stored snapshot, before the November 16 denial. Inspected all 37 logged calls (32 captured, five unobserved web calls). The web queries concern Shurtleff and Chiles; their uncaptured results are unknown, not proved empty. Recorded local reads and precedent lookups show no retrieval of this petition's own disposition or later history. No decided-case misprovisioning is evident.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.65,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied on November 16, 2026; the docket records a cert denial, with no merits judgment by this Court.",
+        "claim": "The Court will most likely deny certiorari, leaving the judgment below standing without endorsing its rationale.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket adds four distributions after the frozen count of two: October 5, October 13, November 2 and November 9. November 16 disposition fits the timing window, but the central distribution-count forecast understates the path.",
+        "claim": "One further distribution is expected, with disposition in October or November 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null and the staged docket contains no CVSG before denial.",
+        "claim": "The Court probably will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Review was denied; the conditional grant route and merits ground were never tested.",
+        "claim": "If review is granted, plenary review of the government-speech boundary is more likely than a Chiles-related summary disposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The November 16 docket identifies a Thomas dissent joined by Alito and separately notes that Gorsuch would grant. The modal prediction of no writing failed; the forecast did acknowledge that possibility.",
+        "claim": "On denial, no separate writing is expected, though a dissent or statement is possible.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T15:49:58.852128Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

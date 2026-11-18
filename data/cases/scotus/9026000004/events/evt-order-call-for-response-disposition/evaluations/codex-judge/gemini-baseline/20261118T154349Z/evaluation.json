@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Consent by corporate registration raises a commercially significant interstate due-process issue; an individual default-judgment dispute with substantial preservation and procedural complications is a limited vehicle. Denial supplies no constitutional holding."
+  },
+  "brier_score": 0.0064,
+  "brier_skill_score": -1.450647933884297,
+  "case_id": "scotus/9026000004",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": -0.0037884457610131103
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.025,
+          "Barrett": 0.005,
+          "Gorsuch": 0.02,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.002,
+          "Sotomayor": 0.005,
+          "Thomas": 0.015
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.0037884457610131103,
+    "total": -0.0037884457610131103
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T15:57:08.535109Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made October 29, before the November 16 disposition. Logged queries concern the provisioned August snapshot and petition, general precedents, recent grants, and a lower-court caption search whose logged outcome was throttled. All calls are outcome_only (coverage 0.0): null result dates do not establish empty results. Assessing the query scopes and prose, there is no indication that this petition's later disposition surfaced. Factual inaccuracies in the rationale are not evidence of leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.5,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, actual_granted=0, standard disposition basis, and noted_dissent_from_denial=false; the November 16 docket entry states Petition DENIED.",
+        "claim": "The Court will deny certiorari through a standard, unreasoned order without a noted dissent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The October 14 opposition and October 28 reply are recorded; the second distribution was October 28 for the November 13 conference, followed by denial November 16. The outcome records two distributions.",
+        "claim": "The response and reply will be followed by a second distribution and denial at that conference or after at most one further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date is null and the complete staged docket records no CVSG.",
+        "claim": "There will be no invitation to the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The actual opposition concerns a Chatham County default judgment and argues failure to present the federal question, litigation concessions, and admissions supporting specific jurisdiction (BIO pp. 14-24). The specified discovery orders and chronology do not describe this case.",
+        "claim": "The opposition will expose discovery-stage waiver findings and an expired-term bar arising from the specified 2025 Fulton County orders.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The Court gave no reason for denying review. The staged appellate opinion contradicts the forecast's underlying discovery-order history, but neither the denial nor the briefs establish the Court's actual rationale.",
+        "claim": "The Court will decline review because the asserted discovery-order posture defeats section 1257 finality or presents an independent state procedural ground.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T15:57:08.535109Z"
+  },
+  "reasoning_quality": 0.2,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

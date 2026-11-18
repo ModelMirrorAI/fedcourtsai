@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000004",
+  "gaps": [
+    "The rationale for the unreasoned denial is unavailable.",
+    "gemini-baseline has outcome-only result capture, so its historical snapshot contents cannot be checked."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts and capture markers",
+    "Resolved outcome and complete docket sequence",
+    "Prediction-time statpack reconstruction"
+  ],
+  "notes": "All three candidates scored from staged aliases. Statpack reconstruction used only the authorized metric history; no external retrieval or package installation.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell/read-only file inspection",
+    "fedcourts statpack-at",
+    "Python jsonschema validation",
+    "Pydantic output validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

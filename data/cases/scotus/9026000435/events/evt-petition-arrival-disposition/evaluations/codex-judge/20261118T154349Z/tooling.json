@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000435",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell file inspection",
+    "fedcourts statpack-at",
+    "Python jsonschema validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging and captured retrieval queries",
+    "Outcome plus full docket snapshot for procedural forecast checks",
+    "Historical statpack reconstruction preserves fair base-rate assessment"
+  ],
+  "gaps": [],
+  "notes": "No additional case facts were needed. Result-capture markers allowed unobserved calls to be distinguished from empty returns. Harness-owned fields were left absent."
+}

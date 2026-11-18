@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.01,
+    "notes": "Routine pro se emergency injunction application seeking to halt a Tennessee home foreclosure, local HOA wage-garnishment proceedings, and a state misdemeanor prosecution after an untimely D.C. Circuit appeal; denied in chambers by the Chief Justice without response, referral, amicus participation, or doctrinal significance."
+  },
+  "brier_score": 4e-06,
+  "brier_skill_score": 0.9997061852399737,
+  "case_id": "scotus/9526000698",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": 0.013610019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013610019934335403,
+    "total": 0.013610019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:35:52.656933Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created 2026-11-17T14:48:36Z from arrival-position snapshot 2026-11-13.json while 26A698 was unresolved. Although result_capture_coverage is 0.0 (all 58 calls logged outcome_only), grading every call on its query alongside retrieval.md and the prose confirms queries targeted only pre-November-17 SCOTUS priors and lower-court D.D.C./D.C. Cir./Tennessee dockets and opinions; no query sought 26A698's SCOTUS status and no trace of a decided outcome appears.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records interim_signals.response_requested = false, and snapshot 2026-11-18.json shows no response call prior to the Nov 17 denial.",
+        "claim": "Chief Justice Roberts will not call for a response from Tennessee or any other respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.referred_to_court = false, and snapshot 2026-11-18.json records 'Application (26A698) denied by The Chief Justice.'",
+        "claim": "Chief Justice Roberts will act alone in chambers as Circuit Justice under Rule 22 rather than referring the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.amicus_briefs = 0, and snapshot 2026-11-18.json contains no amicus entries.",
+        "claim": "The amicus curiae entry/submission count will remain at zero.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-18.json records DocketedDate 'November 16, 2026' and the one-line order on 'Nov 17 2026': 'Application (26A698) denied by The Chief Justice.' (outcome.json resolved_at = '2026-11-17').",
+        "claim": "Disposition will occur rapidly within roughly one to five days of docketing\u2014around November 17, 2026\u2014by a one-line chambers order entered on the docket without explanation.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition = 'denied', interim_reading = 'denied', interim_granted = 0, noted_dissent_from_denial = null, and writing_roles = null.",
+        "claim": "The application will be denied in full via a straight denial rather than an administrative stay or mootness dismissal, with no separate writing by any Justice.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261117T141816Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:35:52.656933Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

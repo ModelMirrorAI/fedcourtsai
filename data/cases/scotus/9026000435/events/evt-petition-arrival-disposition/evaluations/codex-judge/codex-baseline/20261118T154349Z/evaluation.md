@@ -1,0 +1,21 @@
+# Evaluation: codex-baseline
+
+This is a cert-stage arrival evaluation. Ground truth is `outcome.json`: denied on November 16, 2026, `actual_granted = 0`, no CVSG and no noted dissent from denial. The staged November 16 snapshot records an October 23 government waiver, an October 28 distribution for the November 13 conference, and denial on November 16. It records one distribution and no request for a response or further conference. No Supreme Court opinion or separate-writing text is staged. The bare denial supplies no explanation of the Court's reasons.
+
+Base-rate use was checked against the historical sal-v4 statpack reconstructed by `uv run fedcourts statpack-at`, build `1c4f550b7b758c0f5dbb4d505b8159cd8e93fee5` (digest `sha256:6686e96900da7521a4a61b621aa78c4a04231c24a834f547cd36848f501f675e`), rather than the current sal-v8 build. There is no alternative build reported. The private-petitioner baseline risk set and strictly prior OT2017–OT2025 rows are appropriate; the historical table supports the candidate's approximate starting calculation. The federal respondent does not change the petitioner's caption class. The stamped segment base rate and skill are the harness's; no independently pooled evaluation anchor is reported here.
+
+Votes are unscored on cert, and no semantic set applies. Quantitative claims are left entirely to the harness.
+
+The denial label is correct: `correct = 1`. P(grant) was 0.12, so the binary Brier score is `(0.12 - 0)^2 = 0.0144`.
+
+`reasoning_quality = 0.88` grades `reasoning.md` alone. The analysis identifies both the legal-deference language that makes the Loper Bright argument colorable and the independent factual obstacles in the attached summary order. Appendix A, 3a, recites de novo legal review alongside considerable deference; 6a–8a describes missing examples of discretionary assignments, instructions from higher management, a single available worker, and no proof of accountability for subordinates. Distinguishing those findings from statutory interpretation is sound. The discussion also avoids treating one station's supervisory-status result as a categorical rule for every producer, recognizes Siren Retail's potential effect on the need for review, and explains why an older Loper Bright precedent does not automatically warrant a new GVR. It expressly limits reliance on petition-only descriptions and acknowledges the missing opposition.
+
+The upward adjustment remains judgmental and relatively substantial despite the acknowledged factual vehicle problems; no comparable-case evidence establishes its magnitude. That limits precision without making the analysis unsound. An unexplained denial cannot confirm the proposed legal reason for the Court's refusal. Neither the forecast grade nor any independent assessment of the structured claims enters this rationale grade.
+
+## Predicted reasoning
+
+`predicted_reasoning_quality = 0.78`. The central forecast of denial after one conference, without a CVSG or separate writing, matches the staged record. The distinction between initial distribution and repeat conference is useful and specific. Its December–March timing forecast missed the November disposition, which costs secondary credit. The suggested factual obstacle to review is plausible but the unexplained denial cannot establish it as the Court's actual reasoning. Conditional GVR and question-selection discussion is untested and earns neither credit nor penalty. The grade rests on the procedural path and disposition that the record can settle, not inferred agreement with the petition's merits.
+
+## Leakage
+
+The log records forward mode and October 1 calls, before the November 16 resolution. It reads the October 2 baseline snapshot and petition, and checks general Loper Bright and Multimedia KSDK authorities. Two web calls are unobserved; their queries target Loper Bright, not this petition. No logged query or prose shows this case already disposed of. Null dates on unobserved calls are not treated as empty results. The forward default applies: `influenced_prediction = not_applicable`, `retrieved_outcome_material = false`, and `leakage_suspected = false`. The evaluator's later, fully resolved snapshot is evidence for grading and is not treated as the candidate's original information set.

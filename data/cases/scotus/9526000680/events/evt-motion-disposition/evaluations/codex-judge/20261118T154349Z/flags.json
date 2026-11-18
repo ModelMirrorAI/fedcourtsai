@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000680",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "codex-baseline, gemini-baseline, and claude-baseline are labeled forward, but their run 20261114T033825Z, November 14 retrieval timestamps, and prediction.created_at values follow outcome.resolved_at = 2026-11-13. An already-decided application was therefore provisioned forward with a truncated November 12 arrival snapshot. Check mode/timing classification before treating these cells as prospective performance. Leakage was assessed separately from that designation; quantitative scores are unchanged.",
+      "severity": "warning"
+    },
+    {
+      "category": "leakage-disclosure",
+      "event_id": "evt-motion-disposition",
+      "message": "gemini-baseline made unrestricted own-caption CourtListener searches after the recorded November 13 resolution (calls 27, 30, and 59 in its November 14 log). Under the contract query-based rule, retrieved_outcome_material is true and influence possible, so leakage_suspected is true. All rows are outcome_only: the log does not expose returned content or prove that the Supreme Court denial was seen. The disclosed November 9 district-court ruling is earlier legitimate context, not evidence of this application outcome. This is a possible-influence assessment, not a finding of admitted knowledge.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0"
+}

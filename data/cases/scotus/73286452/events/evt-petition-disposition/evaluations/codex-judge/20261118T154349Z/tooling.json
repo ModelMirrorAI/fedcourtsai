@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/73286452",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "local provisioned records",
+    "fedcourts statpack-at",
+    "Python jsonschema"
+  ],
+  "helpful": [
+    "Blinded candidates and separate rationale/forecast documents",
+    "Outcome and chronological docket entries",
+    "Per-call result_capture markers",
+    "Historical statpack reconstruction"
+  ],
+  "gaps": [],
+  "notes": "Provisioned records sufficed. No external retrieval or package installation was needed. The unstaged dissent body limited assessment of its substantive reasoning; docket metadata settled existence and authorship."
+}

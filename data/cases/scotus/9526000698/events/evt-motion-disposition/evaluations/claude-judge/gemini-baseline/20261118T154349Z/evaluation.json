@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se application asking the Circuit Justice to halt a Tennessee home foreclosure, a state misdemeanor prosecution and an HOA garnishment, and to enter merits judgment. Fact-bound, no question of wider reach; denied by the Chief Justice alone in a one-line order with no response, referral or amicus."
+  },
+  "brier_score": 4e-06,
+  "brier_skill_score": 0.9997061852399737,
+  "case_id": "scotus/9526000698",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": 0.013610019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013610019934335403,
+    "total": 0.013610019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:24:59.420530Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; every call is outcome_only (coverage 0.0), so graded on queries. Queries: provisioned snapshot/application, statpack, generic SCOTUS denied/granted corpus queries (one bounded --decided-before 2026-11-15), and CourtListener lookups of the D.D.C./D.C. Cir. lower-court dockets and cited authorities. No query targets 26A698's own Supreme Court disposition; the lower-court material predates the application and is ordinary forward signal. The forecast's 'around November 17' timing is drawn from the foreclosure date stated in the application, not from the order. Reasoning does not presuppose the result.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome: 'Application (26A698) denied by The Chief Justice', Nov 17 2026; outcome.json interim_signals show response_requested false, referred_to_court false, amicus_briefs 0. interim_reading is 'denied', not a moot dismissal.",
+        "claim": "The application will be denied in full by a straight denial, not a mootness dismissal, even if the Nov 17 foreclosure sale passes first.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: denied by The Chief Justice; interim_signals.referred_to_court is false.",
+        "claim": "The Chief Justice will act alone in chambers under Rule 22 without referring the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "interim_signals.response_requested is false.",
+        "claim": "No response will be requested from Tennessee or any other respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denied Nov 17 2026, five days after the Nov 12 submission, by a one-line docket entry.",
+        "claim": "Disposition will come rapidly, within roughly one to five days of docketing, around November 17, 2026, by a one-line unexplained chambers order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "amicus_briefs 0; the denial entry records no writing.",
+        "claim": "No amicus submissions and no Justice will write a dissent, concurrence or statement.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261117T141816Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:24:59.420530Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

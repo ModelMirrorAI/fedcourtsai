@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726",
+  "big_case": {
+    "evaluator_score": 0.06,
+    "notes": "An individual municipal-employment dispute applying settled ADA and summary-judgment principles, with an unpublished affirmance and no demonstrated inter-circuit conflict. Recurring subject matter gives it limited broader significance; the denial creates no substantive national rule."
+  },
+  "brier_score": 1.6e-05,
+  "brier_skill_score": 0.9938220878537886,
+  "case_id": "scotus/9026000383",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.004,
+        "score": 0.00259555423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.4,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.0005,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.001,
+          "Jackson": 0.002,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.0005,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.002,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00259555423898689,
+    "total": 0.00259555423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:13:40.643304Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 11 logged calls have captured results (coverage 1.0). The queries read the provisioned October 31 snapshot, petition opening/questions, schemas, and statpack, plus general denied-case priors; there is no web, MCP, own-case outcome lookup, or forbidden topic-artifact content search. Null retrieved-document dates alone are not proof of clean results, but query scope and the reasoning show no own-case disposition. This forward forecast predates the November 16 resolution: retrieved_outcome_material=false; influence=not_applicable.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The final snapshot has a single distribution for November 13, followed by Petition DENIED on November 16; outcome.actual_disposition is denied.",
+        "claim": "The petition will be denied at its first scheduled November 13 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final docket proceeds from the respondent's waiver and single October 28 distribution to denial; no request or intervening distribution appears.",
+        "claim": "No response will be requested and no relist or further distribution will occur.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final docket contains no CVSG and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.noted_dissent_from_denial is false; no order text or separate-writing collection is staged to settle the additional no-statement component.",
+        "claim": "No dissent from denial or statement respecting denial is expected.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Review was denied, so question selection and the conditional route were never tested.",
+        "claim": "If review is granted, QP 1 will be selected, and summary reversal will be about as likely as plenary review.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T010306Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:13:40.643304Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050890782339271884,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
