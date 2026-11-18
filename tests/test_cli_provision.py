@@ -2314,7 +2314,7 @@ def test_writings_are_staged_one_file_each_with_their_digests(
     assert manifest["case_id"] == "ca9/101"
     [decision] = manifest["decisions"]
     assert (decision["term"], decision["listing_number"]) == (2025, "12")
-    assert decision["text_rule"] == "scotus-opinion-text/1"
+    assert decision["text_rule"] == "scotus-opinion-text/2"
     lead, dissent = decision["writings"]
     assert lead["file"] == "writings/OT2025-12/01-opinion-of-the-court.txt"
     assert dissent["file"] == "writings/OT2025-12/02-dissent.txt"

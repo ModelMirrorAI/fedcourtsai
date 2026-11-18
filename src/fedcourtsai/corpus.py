@@ -618,15 +618,17 @@ class CorpusRow(BaseModel):
     )
     vided_amicus: list[str] | None = Field(
         default=None,
-        description="The amicus filings the docket marks `VIDED` — one brief "
-        "entered on several dockets — as `<ISO date>|<filer text>` keys "
-        "(`pipeline.vided.vided_amicus_keys`), sorted. Two dockets sharing a key "
-        "share a brief, which is how a companion the Court never linked as `Vide` "
+        description="The filings the docket marks `VIDED` — one filing "
+        "entered on several dockets — as keys (`pipeline.vided.vided_keys`), "
+        "sorted: an amicus filing as `<ISO date>|<filer text>`, a party filing as "
+        "`<ISO date>|<lower court>|<lower-court number>`, one per number the docket "
+        "lists. Two dockets sharing a key share a filing, which is how a companion "
+        "the Court never linked as `Vide` "
         "is found (`vided_companions`, asked with the keys a placed payload shows). "
         "Written by the live cert branch at ingest; fill-in latched, so a poll "
         "that discloses no proceedings keeps the stored keys. Withheld from the "
         "retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). "
-        "None = no VIDED amicus entry seen, or not live-parsed since the column "
+        "None = no VIDED filing seen, or not live-parsed since the column "
         "existed.",
     )
     argument_set_for: date | None = Field(
@@ -1178,9 +1180,10 @@ CREATE TABLE IF NOT EXISTS cases (
     -- latched. Withheld from the retrieval surface. NULL = no opening petition
     -- entry disclosed, or not parsed.
     opening_writ TEXT,
-    -- The VIDED amicus keys (see CorpusRow and pipeline/vided.py): one
-    -- `<date>|<filer>` key per amicus filing the docket marks VIDED, as a
-    -- sorted JSON list. Written by the live poll's cert branch at ingest;
+    -- The VIDED keys (see CorpusRow and pipeline/vided.py): one
+    -- `<date>|<filer>` key per amicus filing the docket marks VIDED and one
+    -- `<date>|<lower court>|<number>` key per party filing and lower-court
+    -- number, as a sorted JSON list. Written by the live poll's cert branch at ingest;
     -- fill-in latched. Withheld from the retrieval surface. NULL = none seen.
     vided_amicus TEXT,
     -- The conferences a cert petition was first distributed for after a call
@@ -1471,7 +1474,7 @@ def _migrate_cases(conn: sqlite3.Connection) -> None:
         "WHERE last_live_polled IS NOT NULL"
     )
     # The VIDED companion lookup (`vided_companions`) reads every row carrying
-    # a VIDED amicus key, a few hundred among millions, so a covering partial
+    # a VIDED key, a few hundred among millions, so a covering partial
     # index makes it one short walk rather than a table scan: on the ranged
     # backend, a few pages rather than the whole blob. Created here for the
     # same reason as the index above.
@@ -2446,7 +2449,7 @@ def _update_clause(column: str) -> str:
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
     consolidated member's lead-filed respondent brief and the post-argument
     transcript's argument day among them), the merits decision record, and the
-    writ the opening petition entry names, the VIDED amicus keys, and the
+    writ the opening petition entry names, the VIDED keys, and the
     conferences distributed after a call for response) only ever fill in, so a
     writer that
     does not carry the fact keeps what another channel stamped;
@@ -5147,13 +5150,13 @@ def live_scotus_case_ids_by_docket_numbers(
     return found
 
 
-#: The partial index over rows carrying a VIDED amicus key (`_migrate_cases`).
+#: The partial index over rows carrying a VIDED key (`_migrate_cases`).
 VIDED_AMICUS_INDEX = "idx_cases_vided_amicus"
 
 
 @dataclass(frozen=True)
 class VidedCompanion:
-    """A docket sharing at least one VIDED amicus filing with the asked one."""
+    """A docket sharing at least one VIDED key with the asked one."""
 
     case_id: str
     docket_number: str
@@ -5165,9 +5168,9 @@ def vided_companions(
 ) -> list[VidedCompanion] | None:
     """The SCOTUS dockets that carry any of ``keys``, most shared first.
 
-    ``keys`` are VIDED amicus keys (:func:`fedcourtsai.pipeline.vided.vided_amicus_keys`)
+    ``keys`` are VIDED keys (:func:`fedcourtsai.pipeline.vided.vided_keys`)
     read off the payload the caller holds, so a cell placed at a cutoff asks
-    only about the briefs its own docket showed by then; ``own_case`` is left
+    only about the filings its own docket showed by then; ``own_case`` is left
     out of the answer. Every other SCOTUS row carrying a key is read through
     the partial index that holds exactly those rows, and a row sharing at least
     one is kept: a candidate, since one filer's two unrelated VIDED briefs on a

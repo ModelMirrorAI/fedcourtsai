@@ -1101,7 +1101,7 @@ jobs:
         # Tolerated here and judged by "Conclude the cell" at the foot of the
         # job, which fails the job for every ending of this step but a reap.
         continue-on-error: true
-        uses: anthropics/claude-code-action@4fa93a88de49bbef68b10eb15aabedf28ca0e1ed # v1.0.271
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
