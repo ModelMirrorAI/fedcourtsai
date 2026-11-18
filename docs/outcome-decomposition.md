@@ -614,11 +614,10 @@ Drawn from the above, and cheaper to apply than to rediscover:
 7. **Is the rate weighted the way the frame demands, and is the frame uniform?**
    Each stored corpus row is one petition, so a count over the walker's rows
    is a count of petitions and the weighting half is met by construction; the
-   frame half still has to be checked for the pool being quoted. A rate printed
-   with `est. n=` and one printed with plain `n` are both over row counts;
-   `metrics/README.md` is the governing statement. The packs' cert cuts carry
-   the scope phrase "denial-reweighted estimates" over those same counts, so
-   read the scope line for the population rather than for a weighting.
+   frame half still has to be checked for the pool being quoted. Every rate the
+   packs print carries an `n=` that is a row count; `metrics/README.md` is the
+   governing statement. Each cert cut's scope line names its population and
+   says its counts are stored rows, each counted once.
 8. **Is the baseline far enough from 0 (or 1) that a correct call is worth more
    than a season of honest reporting?** The rule pays `(b − y)² − (p − y)²` per
    claim, so at a baseline of half a percent an honest confident negative

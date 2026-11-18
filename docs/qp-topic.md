@@ -1160,7 +1160,7 @@ no batch could reach, and a cut publishing the bound says so.
 
 Beside the table, each bucket publishes the **rows on hand** behind it and the
 reference-sourced share of them. Every count in the cut is a count of rows,
-each one petition, so a bucket's `est. n=` equals its rows on hand, and on a
+each one petition, so a bucket's `n=` is its resolved rows on hand, and on a
 frame this thin the smallest buckets are a handful of petitions.
 A bucket under the same support floor the reference set uses per label is named
 outright as a split to read row by row rather than as a rate. The reference

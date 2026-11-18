@@ -257,7 +257,12 @@ written as `$EVALUATOR_ID/$RUN_ID/<alias>/…`, as
     stage's own axis? On a cert or interim cell that is
     `predicted_disposition` against `actual_disposition`, exact match on the
     label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
-    though both count as a grant on the binary axis. An interim cell whose
+    though both count as a grant on the binary axis. A cert cell has two
+    exceptions: `granted-in-part` is read as `granted`, and a
+    `summary-reversal` call is correct where the outcome's `disposition_route`
+    is `summary-merits` or its `actual_disposition` is itself
+    `summary-reversal`, and wrong otherwise, since such an order is recorded
+    as `granted` with the route beside it. An interim cell whose
     outcome records the finer reading takes the binary instead (the interim
     rule below). On a **merits** cell the
     axis is the `judgment` instead — a merits outcome's `actual_disposition`
@@ -929,8 +934,8 @@ authorities an opinion cites and never a route to this case's own opinion when
 the slot is empty — an empty slot is the mask, and a body this cell's record
 does not carry is not in the record. And the committed
 `metrics/statpack.md` carries the base-rates (its cert statistics are
-live/historical-slice, denial-reweighted estimates — each section's scope line
-says so). That is the pack checked out for *you*; a metrics refresh may have
+live/historical-slice counts of stored rows, each row counted once — each
+section's scope line says so). That is the pack checked out for *you*; a metrics refresh may have
 landed after a candidate ran, so its figures can differ from the pack it read.
 Before you mark a candidate's base-rate figures wrong for disagreeing with the
 committed pack, rebuild the one it was placed against:

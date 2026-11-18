@@ -3396,13 +3396,12 @@ the rendered table) and
   never here. That exclusion is what makes the pack citable on its own terms.
 
   Read it the same way as the statpack's live-slice cuts: every section states its
-  own scope, and every rate repeats its denominator. **Every cert cut prints
-  the scope phrase "denial-reweighted estimates" and counts each stored row
-  once**, since each row is one petition; that includes the
-  by-originating-court table, the only place a state court appears. A
-  denominator written `est. n=` and one written `n=` are both row counts, the
-  first printed on a section carrying the `weighted: true` flag, so an
-  `est. n=` is exactly that many resolved rows; the per-Term census
+  own scope, and every rate repeats its denominator. **Every cut's scope line
+  says its counts are stored rows, each counted once**, since each row is one
+  petition; that includes the
+  by-originating-court table, the only place a state court appears. Every
+  denominator is written `n=` and is that many resolved rows, whatever the
+  section's `weighted` flag in the JSON reads; the per-Term census
   prints the observed `ingested (rows)` beside it.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
@@ -3436,8 +3435,8 @@ the rendered table) and
   artifact, always beside the labeler that produced it, that labeler's agreement
   with the reference rater against the rate a constant labeler scores (agreement,
   **not** accuracy), the labels that vocabulary cannot yet measure, and the inline
-  scope string it requires — which says in the same breath that no reweighting
-  recovers the docket, so that cut's `est. n=` counts rows of a QP-bearing
+  scope string it requires — which says in the same breath that no weighting
+  recovers the docket, so that cut's `n=` counts rows of a QP-bearing
   stream and is never a docket population. The
   labeled rows are a **partial frame** — the labeling accrues one batch a run —
   so that scope string also names what the gap between labeled and in-scope rows
@@ -3456,7 +3455,7 @@ the rendered table) and
   two states of the table itself outrank a frame, since the factor describes the
   table's mix: no drawn row at all publishes an unbounded factor, and a table
   whose own rows are all labeled over a frame labeled out publishes no factor. Each bucket also prints the rows on
-  hand behind it, which equal its `est. n=`, and its reference-sourced share
+  hand behind it, of which its `n=` counts the resolved ones, and its reference-sourced share
   of them, because the thinnest buckets
   here rest on a handful. The **emergency applications** get a cut of their
   own on the same terms from the `qp-topic-v1` application labels file, over the
