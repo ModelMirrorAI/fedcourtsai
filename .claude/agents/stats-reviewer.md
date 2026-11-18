@@ -113,8 +113,8 @@ repo already set for itself.
   *described*; it stops being fine the moment one cell of it is lifted out as a
   headline. Flag a claim selected from the grid after the fact, and say what
   the pre-registered version of that claim would have been.
-- **Caveats travel with the number.** A statpack `est. n=` is a count of
-  resolved rows, each one petition, whatever its label says; filing censuses
+- **Caveats travel with the number.** A statpack `n=` is a count of
+  resolved rows, each one petition; filing censuses
   are upper bounds, tool-call zeros are not evidence of choice, and an empty frozen headline is a shakedown state rather than a regression.
   Where the code renders prose around a figure, the caveat belongs in the same
   sentence the figure is in — a caveat one section away does not travel when

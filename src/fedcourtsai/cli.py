@@ -28916,8 +28916,8 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
     """Price a would-mint cell set at the per-(seam, engine) rates, with its basis.
 
     Summed cell by cell rather than multiplied by one blended rate, because the
-    engines differ by up to ~4.6x within a seam: a plan narrowed to one engine
-    priced at the design-mix average is wrong by up to ~2.2x in either direction, and a
+    engines differ by up to ~3.1x within a seam: a plan narrowed to one engine
+    priced at the design-mix average is wrong by up to ~1.8x in either direction, and a
     narrowed plan is exactly the shape a backfill re-queue takes. A cell whose
     engine the table does not name falls back to the design-mix rate and is
     counted, so an unrecognized engine shows up as a stated approximation rather
@@ -28964,7 +28964,7 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$18 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$20 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,

@@ -47,8 +47,8 @@ PLANNING_USD_PER_CELL = 3.35
 #: ``docs/milestones.md``'s ~$17 per fully evaluated event is that total as it
 #: stood when the plan was priced, about 15% below it. What
 #: conditioning buys is the *narrowed* plan: within a seam the engines differ
-#: up to ~4.6x, so an engine-narrowed backfill priced at the flat rate is wrong
-#: by up to ~2.2x.
+#: up to ~3.1x, so an engine-narrowed backfill priced at the flat rate is wrong
+#: by up to ~1.8x.
 #:
 #: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
 #: per-actor measurements behind these rows are one actor per engine in the
