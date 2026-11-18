@@ -52,12 +52,13 @@ anything it cannot place without choosing between the judge's own files.
 
 **What this is, and what it is not.** It is an *anti-anchoring* measure enforced
 by a prompt contract, not a sandbox. It removes every route by which identity
-reaches the grader incidentally: no predictor id, evaluator id, engine name, or
-model name survives in the staged bytes or in a staged filename, the alias order
-is not the registry's order, and the map does not sit in the tree the grader is
-told to open. It does not, and cannot, stop a grader that sets out to break it —
-the routes below stay open by construction, and the honest reading of any
-blinded number depends on naming them:
+reaches the grader incidentally: no predictor id, evaluator id, engine name,
+model name, or engine-specific cell account name survives in the staged bytes
+or in a staged filename, the alias order is not the registry's order, and the
+map does not sit in the tree the grader is told to open. It does not, and
+cannot, stop a grader that sets out to break it — the routes below stay open by
+construction, and the honest reading of any blinded number depends on naming
+them:
 
 - **The permutation is recomputable.** The shuffle is keyed on the run, case, and
   event — all three stated in the evaluator's own kickoff prompt — and this
@@ -198,6 +199,19 @@ ENGINE_TERMS: Final[tuple[str, ...]] = (
     "sonnet",
 )
 
+#: The accounts a cell's engine runs as where a workflow gives it one of its own
+#: (the ``codex-user`` input of ``.github/actions/codex-user-setup``). An account
+#: name is fixed per engine and reaches a predictor's notes through its home
+#: path (``/home/<account>/.cache/…``), so it names the engine as surely as the
+#: engine's own name does — and the family words above do not cover it, because
+#: the trailing boundary refuses a match a letter follows. The shared runner
+#: account every other engine runs as is the same for all of them and is left
+#: alone. Keyed by engine, since a judge on that engine runs as the same account
+#: and may name its own (:func:`_own_identity`). ``test_blinding.py`` holds the
+#: accounts to the workflows' own values.
+CELL_ACCOUNTS: Final[Mapping[str, str]] = {"codex": "codexcell"}
+CELL_ACCOUNT_TERMS: Final[tuple[str, ...]] = tuple(sorted(CELL_ACCOUNTS.values()))
+
 #: The prose documents are staged under **harness-chosen** names rather than the
 #: names the prediction's pointers happen to carry, because a pointer is the
 #: agent's own word and a filename is as identifying as its contents (a
@@ -305,9 +319,9 @@ def identity_terms(config_root: Path, *, extra: Iterable[str] = ()) -> tuple[str
     registered predictor and evaluator id, engine, and model (enabled or not — a
     disabled actor's id still names it), every value in
     :data:`fedcourtsai.pricing.DEFAULT_MODELS` and every key of ``MODEL_RATES``,
-    the bare family words in :data:`ENGINE_TERMS`, and ``extra`` (the predictor
-    directories actually present, so an id retired from the registry but still on
-    disk is covered).
+    the bare family words in :data:`ENGINE_TERMS`, the cell accounts in
+    :data:`CELL_ACCOUNT_TERMS`, and ``extra`` (the predictor directories actually
+    present, so an id retired from the registry but still on disk is covered).
 
     Full identifiers are carried whole rather than split into components. A split
     would add terms like ``pro``, ``sol``, and ``code`` — all of which occur in
@@ -322,7 +336,13 @@ def identity_terms(config_root: Path, *, extra: Iterable[str] = ()) -> tuple[str
     beside the redaction, which names the model as surely as the whole string.
     A test in ``test_blinding.py`` walks the table's prefix pairs for exactly that.
     """
-    terms: set[str] = {*ENGINE_TERMS, *extra, *DEFAULT_MODELS.values(), *MODEL_RATES}
+    terms: set[str] = {
+        *ENGINE_TERMS,
+        *CELL_ACCOUNT_TERMS,
+        *extra,
+        *DEFAULT_MODELS.values(),
+        *MODEL_RATES,
+    }
     actors: list[PredictorConfig | EvaluatorConfig] = [
         *load_predictors(config_root / "predictors.yaml"),
         *load_evaluators(config_root / "evaluators.yaml"),
@@ -1651,10 +1671,12 @@ HARNESS_CELL_FILES: Final[frozenset[str]] = frozenset(
 
 
 def _own_identity(config_root: Path, evaluator_id: str) -> frozenset[str]:
-    """The evaluator's own id, engine and model, lowercase.
+    """The evaluator's own id, engine, model and cell account, lowercase.
 
     The judge writes these about itself as a matter of course — its
-    ``evaluation.json`` carries ``evaluator_id``, ``engine`` and ``model`` — so
+    ``evaluation.json`` carries ``evaluator_id``, ``engine`` and ``model``, and
+    a judge whose engine runs as an account of its own
+    (:data:`CELL_ACCOUNTS`) quotes that account in its own home path — so
     they are not names of a candidate, and the names-present count leaves them
     out. Everything else in the identity set stays in, the engine family words
     included: the record is per term, so a reader can discount a judge's
@@ -1665,6 +1687,7 @@ def _own_identity(config_root: Path, evaluator_id: str) -> frozenset[str]:
         if entry.id == evaluator_id:
             engine = str(entry.engine)
             terms.update({engine, entry.model or DEFAULT_MODELS.get(engine, "")})
+            terms.add(CELL_ACCOUNTS.get(engine, ""))
     return frozenset(term.lower() for term in terms if term)
 
 
