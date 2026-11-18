@@ -1,0 +1,15 @@
+Beyond the provisioned case inputs, I consulted the prediction contract, output schemas, and the committed metrics/statpack.md modern-cert, paid-segment relist/CVSG/amicus, and sal-v8 per-Term tables. I also inspected metrics/statpack.json's top-level keys; no additional case records were read from it. Routine filesystem listings, path resolution, and repository status inspection supplied no substantive case evidence. No web search or CourtListener MCP lookup was attempted.
+
+CLI calls and results:
+
+1. `uv run fedcourts paths --court scotus --docket 9026000492 --event evt-petition-disposition --role predictor` failed before execution because uv could not initialize its cache at the read-only default path. A following `uv run fedcourts query --help` in the same shell command was not reached. No retrieval or package installation occurred.
+2. `UV_CACHE_DIR=/tmp/fedcourtsai-uv-cache UV_NO_SYNC=1 uv run fedcourts paths --court scotus --docket 9026000492 --event evt-petition-disposition --role predictor` succeeded and identified the case, event, and corpus paths; it withheld the evaluator-only outcome path. I did not open any outcome.
+3. `UV_CACHE_DIR=/tmp/fedcourtsai-uv-cache UV_NO_SYNC=1 uv run fedcourts query --help` succeeded. Read the structured filters and timing rules before querying.
+4. `UV_CACHE_DIR=/tmp/fedcourtsai-uv-cache UV_NO_SYNC=1 uv run fedcourts query --court scotus --era 2020s --disposition denied --decided-before 2026 --limit 4` returned Martin Mizrahi, No. 25-1238; Azadeh Khatibi, No. 25-1240; Caryn Devins Strickland, No. 25-1303; and Katherine Novotny, No. 25-1324. Their terminal distribution counts were 2, 6, 2, and 5. None supplied a close factual analogue or an opinion body, and this outcome-filtered sample was not used to estimate a grant rate. The Term-year filter can admit decisions entered in the next calendar year; this forward cell has no replay cutoff.
+   `ranged corpus reads: 6 GET(s), 1572864 byte(s)`
+5. `UV_CACHE_DIR=/tmp/fedcourtsai-uv-cache UV_NO_SYNC=1 uv run fedcourts query --court scotus --citation '592 U.S. 351' --decided-before 2026 --limit 1 --full` returned no rows. The coverage note said only 195 scoped rows carry reporter citations and that an empty result reflects sparse coverage rather than absence of the precedent. No opinion body was received; Ford was assessed through the provisioned petition and appellate opinion.
+   `ranged corpus reads: 10 GET(s), 2621440 byte(s)`
+6. `UV_CACHE_DIR=/tmp/fedcourtsai-uv-cache UV_NO_SYNC=1 uv run fedcourts query --court scotus --citation '582 U.S. 255' --decided-before 2026 --limit 1 --full` returned no rows and the same citation-coverage warning. This lookup was submitted alongside the Ford lookup before either warning returned. No opinion body was received; Bristol-Myers Squibb was assessed through the provisioned record.
+   `ranged corpus reads: 0 GET(s), 0 byte(s)`
+
+The temporary cache override and UV_NO_SYNC allowed the preinstalled CLI to run without installing anything. The required cell validator was run after writing the outputs; it is a local output check, not an evidence retrieval.

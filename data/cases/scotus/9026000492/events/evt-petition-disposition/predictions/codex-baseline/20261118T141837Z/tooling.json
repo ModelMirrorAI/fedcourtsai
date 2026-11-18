@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000492",
+  "run_id": "20261118T141837Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "provisioned document text",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen band and no-amicus reference rates made the quantitative starting point explicit.",
+    "The separately staged appendix exposed the lower court's actual reasoning and the missing product connection."
+  ],
+  "gaps": [
+    "Corpus reporter-citation coverage was too sparse to return either controlling precedent."
+  ],
+  "notes": "The default uv cache path was read-only. Setting UV_CACHE_DIR to /tmp/fedcourtsai-uv-cache and UV_NO_SYNC=1 allowed the existing CLI to run without installation. No live MCP lookup was needed because the relevant lower-court opinion was provisioned in the appendix."
+}

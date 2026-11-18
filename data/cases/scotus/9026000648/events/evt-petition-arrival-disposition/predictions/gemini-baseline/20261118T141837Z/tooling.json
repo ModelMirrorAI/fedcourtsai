@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000648",
+  "run_id": "20261118T141837Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP (search, get_endpoint_item)"
+  ],
+  "helpful": [
+    "record/context.json frozen cert_anchor and cert_amicus_line",
+    "metrics/statpack.md paid-segment relist, CVSG, amicus, and sal-v8 band tables",
+    "provisioned petition.txt, decision-below.txt, and lower-court-docket.txt",
+    "CourtListener docket lookup confirming D.C. Cir. No. 26-7050 remains pending"
+  ],
+  "gaps": [
+    "counsel-name or originating-court filter flags on fedcourts query to check attorney or circuit-specific cert grant priors directly"
+  ],
+  "notes": "Provisioned arrival record was complete and cleanly structured; full 39-page petition body and 46-page Second Circuit slip opinion were legible with zero OCR issues."
+}

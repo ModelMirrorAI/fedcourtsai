@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000294",
+  "run_id": "20261118T141837Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "fedcourts validate"],
+  "helpful": ["Frozen band and amicus anchors", "Provisioned companion snapshots", "CourtListener case-name search located both lower-court decisions", "Targeted opinion search clarified the majority's recognition/immunity distinction"],
+  "gaps": ["No published grant-rate cut conditional on a cert response request", "Reporter-citation search missed an opinion found by case name"],
+  "notes": "Default uv cache is read-only. UV_NO_CACHE=1 and uv run --no-sync restored CLI access without installation. The staged lower-court synopsis lacked matched opinion text and did not detect the rehearing dissents in docket-entry text; direct MCP opinion retrieval supplied both. The corpus grant query supplied procedural examples rather than subject-matched priors."
+}
