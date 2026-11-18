@@ -21,7 +21,7 @@ payload and documents a cell actually receives.
 *What lands on disk.* :func:`write_cell_record` writes that placement to the
 gitignored ``record/`` — the dated snapshot, the ``context.json`` conditioning
 stamp, ``documents/`` with its manifest, and ``related/`` with the
-``Vide``-linked dockets, and those sharing a VIDED amicus brief
+``Vide``-linked dockets, and those sharing a VIDED filing
 (:func:`read_vided`), cut to the cell's moment and redacted
 (:func:`place_related`), the snapshot and documents through the contact-detail
 scrubs. One writer, because a cell's record is one thing: the
@@ -76,7 +76,7 @@ from .pipeline.documents import (
 )
 from .pipeline.opinion_record import StoredText
 from .pipeline.vide_links import MAX_RELATED_DOCKETS, VIDE_RELATION, related_file_number
-from .pipeline.vided import VIDED_AMICUS_RELATION
+from .pipeline.vided import VIDED_PARTY_RELATION, companion_relation
 from .schemas import (
     AmicusLineFit,
     ArgumentFeatures,
@@ -114,9 +114,11 @@ class RelatedRead:
     """One related docket as the cell's read found it.
 
     ``relation`` says how it was found: linked by the Court as ``Vide``
-    (:data:`VIDE_RELATION`), or sharing a VIDED amicus brief with the cell's
-    docket (:data:`VIDED_AMICUS_RELATION`), in which case ``shared`` counts the
-    briefs. ``case_id`` is ``None`` where no live corpus row carries the
+    (:data:`VIDE_RELATION`), or sharing a VIDED filing with the cell's docket
+    (:func:`~.pipeline.vided.companion_relation`: ``vided-amicus`` for a shared
+    amicus brief, ``vided-party`` for a party filing entered the same day on a
+    petition from the same case below), in which case ``shared`` counts the
+    filings. ``case_id`` is ``None`` where no live corpus row carries the
     number, and ``latest`` where the row has no stored snapshot; ``unread``
     says why nothing was looked up at all (no index to resolve through). Every
     link is still recorded in the manifest, so a cell can tell a docket the
@@ -1076,17 +1078,20 @@ def read_vided(
     find: Callable[[Sequence[str]], Sequence[VidedCompanion] | None],
     snapshot: Callable[[str], tuple[date, dict[str, Any]] | None],
 ) -> tuple[RelatedRead, ...]:
-    """The dockets sharing a VIDED amicus brief with the cell's, beyond those it links.
+    """The dockets sharing a VIDED filing with the cell's, beyond those it links.
 
-    ``keys`` are the VIDED amicus keys of the payload the cell was placed on
-    (:func:`~.pipeline.vided.vided_amicus_keys`), so a placed cell asks only
-    about the briefs its own docket showed by its moment; ``find`` answers them
+    ``keys`` are the VIDED keys of the payload the cell was placed on
+    (:func:`~.pipeline.vided.vided_keys`), so a placed cell asks only
+    about the filings its own docket showed by its moment; ``find`` answers them
     from the corpus index (:func:`~fedcourtsai.corpus.vided_companions`), most shared first.
     A docket the cell already reads as ``Vide`` (``linked``) is not read again,
     and the room left under :data:`MAX_RELATED_DOCKETS` is what the Court's
     own links (every one served, staged or not) leave, so they come first. A
-    shared brief makes a candidate, not a link: the row carries the count it
-    shares, which is the match's strength.
+    shared filing makes a candidate, not a link: the row carries its relation
+    and the count it shares, which is the match's strength
+    (:func:`~.pipeline.vided.companion_relation`). A ``vided-party`` companion,
+    tied by the case below as well as the filing, is read before a
+    ``vided-amicus`` one, so the room goes to the stronger tie first.
 
     Empty where ``find`` answers ``None``: with no index nothing was looked up,
     and a candidate the read never found has no row to record.
@@ -1099,7 +1104,10 @@ def read_vided(
         return ()
     reads: list[RelatedRead] = []
     seen = set(linked)
-    for companion in found:
+    ranked = [(companion, *companion_relation(companion.shared)) for companion in found]
+    # A stable sort: within a relation the index's order stands.
+    ranked.sort(key=lambda item: item[1] != VIDED_PARTY_RELATION)
+    for companion, relation, shared in ranked:
         number = related_file_number(companion.docket_number)
         if number is None or number in seen or companion.case_id == own_case:
             continue
@@ -1109,8 +1117,8 @@ def read_vided(
                 number,
                 companion.case_id,
                 snapshot(companion.case_id),
-                relation=VIDED_AMICUS_RELATION,
-                shared=len(companion.shared),
+                relation=relation,
+                shared=shared,
             )
         )
         if len(reads) == room:
@@ -1211,8 +1219,8 @@ def place_related(
 def related_manifest(placed: Sequence[RelatedPlacement]) -> list[dict[str, Any]]:
     """The ``related.json`` rows: every link, staged or not, and why not.
 
-    ``shared_briefs`` is the number of VIDED amicus briefs a
-    ``vided-amicus`` row shares with the cell's docket, and null on a ``Vide``
+    ``shared_briefs`` is the number of VIDED filings a ``vided-amicus`` or
+    ``vided-party`` row shares with the cell's docket, and null on a ``Vide``
     row, which the Court linked itself.
     """
     return [

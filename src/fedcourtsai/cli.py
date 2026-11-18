@@ -23481,8 +23481,8 @@ def _read_related(
 ) -> tuple[provision.RelatedRead, ...]:
     """The related dockets of the payload a cell was placed on.
 
-    Those it links as ``Vide``, then those sharing one of its VIDED amicus
-    briefs (:func:`provision.read_vided`). A read of its own, taken after the
+    Those it links as ``Vide``, then those sharing one of its VIDED
+    filings (:func:`provision.read_vided`). A read of its own, taken after the
     cell's gates and placement, so a refused cell spends nothing on companions
     and the links and briefs are the placed payload's. Each kind resolves
     through the corpus index in one scan. Under the casestore backend, which
@@ -23493,7 +23493,7 @@ def _read_related(
     VIDED companion the index could not find has no row to record.
     """
     numbers = vide_links.vide_docket_numbers(payload)
-    keys = vided.vided_amicus_keys(payload) or []
+    keys = vided.vided_keys(payload) or []
     if not numbers and not keys:
         return ()
     if backend == "casestore":

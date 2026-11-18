@@ -78,7 +78,7 @@ from .interim_signals import (
 from .judgment import last_judgment_entry
 from .merits_signals import respondent_brief_date
 from .schedule_signals import argument_set_date, response_deadline
-from .vided import vided_amicus_keys
+from .vided import vided_keys
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -210,8 +210,8 @@ class CorpusRow(BaseModel):
     )
     vided_amicus: list[str] | None = Field(
         default=None,
-        description="The amicus filings the docket marks VIDED, as matchable keys "
-        "(`pipeline.vided.vided_amicus_keys`). Live cert branch only; None elsewhere "
+        description="The filings the docket marks VIDED, amicus and party, as matchable "
+        "keys (`pipeline.vided.vided_keys`). Live cert branch only; None elsewhere "
         "— the storage fill-in latch keeps stored keys when a writer carries none.",
     )
     argument_set_for: date | None = Field(
@@ -1315,9 +1315,9 @@ def map_live_docket(
         # fixed at filing, and read off the entry text so a sealed certiorari
         # petition's "In re" caption never reads as a Rule 20 writ.
         "opening_writ": opening_writ(payload) if form == "cert" else None,
-        # The amicus filings marked VIDED, on the cert branch only: the keys a
+        # The filings marked VIDED, on the cert branch only: the keys a
         # companion the Court never linked as `Vide` is matched on.
-        "vided_amicus": vided_amicus_keys(payload) if form == "cert" else None,
+        "vided_amicus": vided_keys(payload) if form == "cert" else None,
         # The conferences first distributed for after a call for response,
         # counted under the reading `distribution_count` holds.
         "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,

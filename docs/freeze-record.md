@@ -21420,3 +21420,137 @@ freeze commit is recorded here.
   carrying merge has stamped the registry, and a dated follow-up entry quotes
   it before any `proc-v23` window figure is quoted outside the committed
   board.
+
+- **A predict cell also stages the petition a VIDED party filing ties to its
+  own under `record/related/`; recorded 2026-11-18.** A
+  **provisioning-cutoff** change with a harness boundary, recorded ahead of
+  the promotion that carries it. It extends the 2026-11-06
+  `vided-amicus-related-dockets` entry, which is not otherwise edited.
+
+  **Why.** In predict run `20261118T010747Z` the `claude-baseline` cell on
+  26-142 (`scotus/9026000142`) flagged that the brief in opposition answers
+  Nos. 26-141 and 26-142 together while no `record/related/` was staged. Read
+  from the content store on 2026-11-18: each docket carries one entry marked
+  `VIDED`, a brief in opposition dated 2026-10-30, neither lists a `Vide`
+  link, and the two entries are worded differently, each for its own docket's
+  caption. The VIDED read keyed amicus filings only, by the entry's text, so
+  it keyed neither entry, and a key on the text would not have matched them.
+  Both dockets name the same case below, ca2 `24-644`.
+
+  **What moved.** `pipeline.vided.vided_keys` reads a second kind of key
+  beside the amicus one. A proceedings entry that ends `VIDED`, says `filed`
+  and is not an amicus filing keys as `<ISO date>|<lower court>|<lower-court
+  number>`, one key for each number the docket's `LowerCourtCaseNumbers`
+  lists under its `LowerCourt`, each folded as an amicus key's text is. Two
+  dockets share such a key only where both took a VIDED party filing on one
+  day and both name that court and number below; the entry's wording plays no
+  part. A docket naming no court below or no number keys no party filing,
+  and a VIDED entry that does not say `filed` (an argument setting, a bare
+  grant, a judgment) is not keyed; the Court's action on a filed motion says
+  it and keys as the motion does, which the tie to the case below makes
+  harmless. The keys ride the same column
+  (`cases.vided_amicus`), the same partial index and the same read
+  (`corpus.vided_companions`, `provision.read_vided`), asked with the keys of
+  the **placed** snapshot, so a cell placed at a cutoff asks only about the
+  filings its own docket showed by then. A companion found through a party
+  key reads `vided-party` in `related.json`
+  (`pipeline.vided.companion_relation`), whether or not it shares an amicus
+  brief as well, and is read before a `vided-amicus` one within the unchanged
+  four-docket bound. `shared_briefs` counts filings: each shared amicus
+  brief, and each day on which both dockets took a VIDED party filing,
+  whatever number of lower-court numbers they share. A shared lower-court
+  number alone stages nothing.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
+  and the six digests the `proc-v24` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut: the pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect. Two things move for a figure that selects `vided-amicus` rows
+  across this boundary: a companion that shares an amicus brief and a party
+  key reads `vided-party` after it, with a `shared_briefs` one higher for
+  each shared party-filing day, and a `vided-party` companion read first can
+  take the room an amicus candidate had under the four-docket bound.
+  - **The registry row** is `vided-party-related-dockets`. It applies to
+    every predictor and its reach is `all`, because no narrower registered
+    reach names these dockets, so a figure reading its own effect selects
+    them by `related.json`. It is **gradual**: the column is written by the
+    live poll's cert branch at ingest, so a companion is found only once both
+    dockets have been polled after the carrying merge. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket and its companion were both re-polled stages none, so the
+    after-side `n` is an upper bound on exposure.
+
+  **The population.** `CHECK_SUMMARY=<file> uv run python
+  scripts/checks/vided_party_census.py`, read-only over blob
+  `fc208a4d386ca5791f6492b4c196b00872ce95413135551a195441069f6f1890` (newest
+  pull 2026-11-18, newest stored snapshot row 2026-07-13) with payloads from
+  the per-case content store, keying each docket's latest snapshot as the
+  column will hold it once re-polled. Of the live-polled OT2023 to OT2026
+  cert dockets, 1,964 share a lower-court number with another, in whatever
+  court, and were read, none without a snapshot. 96 carry a party key, and 43
+  pairs over 77 dockets share one. The Court links 32 of those pairs as
+  `Vide` on at least one of the two dockets; a cell on a docket that lists
+  the link reads it as such and the VIDED read skips it. Of the other 11, six share an amicus key
+  too, so their rows were `vided-amicus` candidates and read `vided-party`
+  from here. Five pairs are found by the party key alone: 23-726 and 23-727,
+  23-1229 and 23-1230, 24-582 and 24-612, 24-656 and 24-657, and 26-141 and
+  26-142. Only the last has no disposition. The `Vide` test reads each
+  docket's latest snapshot and counts a link listed on either docket, so a
+  cell placed before the Court added a link, or on the docket of a pair that
+  does not list it, can stage a `vided-party` row that the count above files
+  under `Vide`. No
+  pair was read by hand for whether the two petitions are in fact
+  companions; the tie is the case below, which the Court's own docket
+  states.
+
+  **What the change does not reach.** A docket whose snapshot names no court
+  below, or whose companion lists the case below under a number the two do
+  not share, keys nothing in common. A companion whose party filing was
+  entered on a different day, or was not marked `VIDED` on one of the two
+  dockets, is not found. The column is written on the cert branch alone, so
+  an application docket is never found as a companion.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. `context.vide_links` still lists the Court's
+  own links alone, so the leaderboard's linked stratum is unchanged. No skill
+  movement is predicted, and a movement in **either** direction across this
+  boundary may not be read as a model effect.
+
+  **The amendment debt.** One is added. The predict prompt names two
+  relations, `Vide` and `vided-amicus`. It describes the second as a shared
+  amicus brief, says `shared_briefs` counts briefs, and attaches "a
+  candidate, not the Court's link" and "read the docket before you treat it
+  as a companion" to `vided-amicus` by name. `vided-party` is a third
+  relation it does not name, so until the sentence lands a cell meets a
+  staged docket whose relation the prompt does not describe, and its
+  statement that an absent `record/related/` means no shared brief was found
+  is narrower than the read now made. Naming the relation moves the three
+  predictor digests. It cannot ride `proc-v24`, whose digests are registered
+  and pending, since `register-process` refuses a second label per
+  promotion; it is owed to the re-bless after that one.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_vided.py tests/test_related_dockets.py` is
+    green;
+  - where the corpus is pulled once the live poll has re-read 26-141 and
+    26-142 after the promotion, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000142 --event evt-petition-disposition` prints
+    `26-141 [vided-party x1]` on its `related` line, for as long as the Court
+    has not linked the two as `Vide`;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('vided-party-related-dockets' in {b.name for b in H})"` prints
+    `True`.
