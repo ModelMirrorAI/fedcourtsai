@@ -100,9 +100,8 @@ an extrapolation from six weeks, and a fully evaluated event on the current
 models comes to about $11.20, part measured and part projected, and to about
 $15.80 from 2026-12-01, once gemini's rate doubles
 ([budget.md](budget.md)). At that count today's row is ≈$22–32K at the
-figure in force from that date, inside the envelope only at the low end of
-the count, and ≈$28–40K at the table's $20.09, which is not. So the envelope
-holds on the projection only toward its low end, and not on the planning
+figure in force from that date, inside the envelope only at the very bottom of the count and before retries, and ≈$28–40K at the table's $20.09, which is not. So the envelope
+holds on the projection only at its very bottom, and not on the planning
 ceiling. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning

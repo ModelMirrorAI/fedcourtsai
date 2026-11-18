@@ -32,7 +32,7 @@ Model spend is `events × cost per event`, and two dials set it:
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
 event is budgeted at roughly **$10**, the basis everything below scales from.
-It was set as a conservative figure above the measured one. It no longer is:
+The figure sits below the current cost:
 an event on the current models comes to about $11.20, and to about $15.80
 from 2026-12-01, when gemini's rate doubles. Those two figures are part
 measured and part projected, engine by engine.
@@ -43,7 +43,7 @@ measured and part projected, engine by engine.
   $8 / $40 with cache reads at $0.20.
 - **Gemini, measured at the introductory rate.** The `gemini-4-carbon` cells
   over the same span come to about $2.64 a prediction and $1.97 a grading run
-  (41 each), at $2 / $10 with $0.10 cached. That is nearly twice what
+  (41 each), at $2 / $10 with $0.10 cached. That is about twice what
   `gemini-4-argon` spent on its cells at the same rate ($1.40 and $0.93), so
   Carbon spends more tokens on the same kind of cell. The rate doubles from
   2026-12-01, which at equal tokens, and with the cached rate assumed to
@@ -64,10 +64,10 @@ measured and part projected, engine by engine.
 One run of each predictor is then about $6.08 and one of each judge about
 $5.13, $11.20 an event; from 2026-12-01 they are about $8.72 and $7.10,
 $15.80 an event. Those are per run, and an event costs more than one run of
-each wherever a cell is retried. None of the 40 events forecast on the
-current claude and gemini models was, but the 213 events forecast between
+each wherever a cell is retried. None of the 41 events forecast on the
+current claude and gemini models was (40 of them by all three predictors), but the 213 events forecast between
 2026-10-20 and 2026-11-11 took 683 prediction runs, about 7% above one run a
-predictor. The stage moves the figure as well: over the same 40 events one
+predictor. The stage moves the figure as well: over the 40 forecast by all three, one
 run of each predictor (codex still on Sol) came to about $4.45 on a cert
 petition at distribution (13 events) and $6.80 on an argued case (3). Both
 samples are small, a week of cells: the grading runs are mostly cert-stage
@@ -305,28 +305,32 @@ Projected, not measured, at the per-run figures above. The window's runs
 models' cost come to about $2,190 of cells once Astra is live, and with the
 window's summaries and labeler runs to about $2,400 a month, above this line.
 From 2026-12-01 gemini's share doubles and the same runs come to about $3,140
-of cells and $3,370 in all. The last seven days ran slower (41 events
-forecast, 43 graded), and their cells repriced the same way come to about
-$1,950 a month before that date and $2,800 after. So an in-Term month
-projects to roughly $1,950–2,400 until 2026-12-01 and $2,800–3,370 from it:
-above this line throughout, above the auto-release budget below from
-December, and at its top above the `spend` backstop's ceiling, where minting
-stops. The trailing window reaches those figures gradually, since each day at
-the new cost replaces one at the old; at the last week's pace it passes the
-point where routine rounds wait for a release in about the second week of
-December. Over a Term, 1,400–2,000 events at $11.20–15.80 is ≈$16–32K before
+of cells and $3,350 in all. The last seven days ran slower (41 events
+forecast, 43 graded), and their spend on every lane, with the cells repriced
+the same way, comes to about $1,950 a month before that date and $2,850
+after; that week holds 10 codex gradings against 43 claude ones, so it reads
+low by the missing codex runs. Every figure here rests on a week of cells
+whose cost varies widely run to run, and is rounded to the nearest $50. So an
+in-Term month projects to roughly $1,950–2,400 until 2026-12-01
+and $2,850–3,350 from it: at or above this line until December, and from
+then above the auto-release budget below and, at its top, above the `spend`
+backstop's ceiling, where minting stops. The trailing window reaches those figures gradually, since each day at
+the new cost replaces one at the old; at the last week's pace, with Astra live and the gemini
+rate rows edited on 2026-12-01 (below), it passes the point where routine
+rounds wait for a release during the first half of December. Over a Term, 1,400–2,000 events at $11.20–15.80 is ≈$16–32K before
 retries, and ≈$22–32K at the figure in force for most of it, against the $24K
 envelope and before the summaries and the labeler add their ≈$1.3–2.1K a year
 at the rates above; the annual figure sits below twelve in-Term months
-because the summer forecasts little. On the projection the envelope holds
-only at the low end of the event count, and it has no headroom for milestone
+because the summer forecasts little. On the projection the envelope holds, if at all, only at the very bottom of
+the event count, and not once retries and the summaries are added; it has no headroom for milestone
 2's AI-case watchlist ([milestones.md](milestones.md)).
 
 The limits read the ledger, and the ledger prices each cell's tokens at the
 rate table in `src/fedcourtsai/pricing.py` as it stands when the cell is
 recorded. Gemini's doubling therefore reaches the measured total only once
-that table's Carbon row is edited, which is owed on 2026-12-01; until then a
-gemini cell is recorded at half its bill.
+that table's gemini rows are edited, which is owed on 2026-12-01; a gemini
+cell recorded after that date and before the edit is recorded at half its
+bill.
 
 The envelope is also what unattended spend is held to. A predict, evaluate,
 case-summary or topic-label round skips the maintainer's release only while
