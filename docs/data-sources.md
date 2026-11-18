@@ -251,7 +251,7 @@ each fetching in a job that holds no credential
   applications decided without argument, which leaves the 66 the published
   end-of-Term count reports. That match is a reading of the listing, not the
   stat pack's stated definition.
-- **The word count** (rule `scotus-opinion-words`, version 1). An opinion's
+- **The word count** (rule `scotus-opinion-words`, version 2). An opinion's
   text runs from its header sentence to the next opinion's header or the end
   of the document.
   - **Footnotes are in.** Each opinion's footnotes count toward it, and the
@@ -289,7 +289,7 @@ each fetching in a job that holds no credential
     kerning ("pr esent"), with footnotes below the em-dash rule; the
     preliminary print in plain mode, since its layout mode letter-spaces,
     with footnotes told from body text by their smaller type.
-- **The text** (rule `scotus-opinion-text`, version 1). Each read document's
+- **The text** (rule `scotus-opinion-text`, version 2). Each read document's
   writings are also stored as text, for grading a merits forecast against
   what the Court wrote: each writing's body from its header sentence on, and
   its footnotes, exactly the lines the word count is taken over, with each

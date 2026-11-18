@@ -154,14 +154,19 @@ from .vote_sources import is_opinion_pdf
 WORD_RULE: Final = "scotus-opinion-words"
 #: Bump whenever the same document could count differently (stored rows keep theirs).
 #: The stamp assumes the locked pypdf: an extractor upgrade that changes the text
-#: layer is a reason to bump it.
-WORD_RULE_VERSION: Final = 1
+#: layer is a reason to bump it. Version 2 counts a preliminary print under a
+#: plain-mode text layer that splits fewer words at kerning and sets fewer
+#: stray spaces before punctuation; each split piece counts as a word, so the
+#: same print counts up to about 2% fewer words than under version 1.
+WORD_RULE_VERSION: Final = 2
 #: The text rule's name, stamped on every stored document's writings: each
 #: writing's body lines and footnote lines as the splitter cut them, each line's
 #: whitespace collapsed, so the word rule counts them to the stored `words`.
 TEXT_RULE: Final = "scotus-opinion-text"
-#: Bump whenever the same document could yield other text (stored objects keep theirs).
-TEXT_RULE_VERSION: Final = 1
+#: Bump whenever the same document could yield other text (stored objects keep theirs),
+#: an extractor upgrade that changes the text layer included. Version 2 is cut
+#: from the same plain-mode text layer as version 2 of the word rule.
+TEXT_RULE_VERSION: Final = 2
 #: The opinion-header reader's stamp, on a per curiam's writings.
 HEADER_READER: Final = "scotus-opinion-headers"
 #: Bump whenever the same headers could read differently.

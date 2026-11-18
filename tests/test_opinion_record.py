@@ -567,7 +567,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
         ).fetchone()
         assert row["author"] == "Alito" and row["kind"] == "dissent"
         assert json.loads(row["joins"]) == [{"justice": "Thomas", "qualifier": "as to Part I"}]
-        assert row["word_rule"] == "scotus-opinion-words/1"
+        assert row["word_rule"] == "scotus-opinion-words/2"
         assert row["case_id"] == "scotus/1"
 
         fetcher.fetched.clear()
@@ -1368,7 +1368,7 @@ def test_each_read_document_s_writings_are_stored_and_pointed_at(
     done = _build(_corpus, _Fetcher([_listing("1", "25-1")]))
     assert (done.texts, done.texts_inserted) == (1, 1)
     row = _texts(_corpus)["1"]
-    assert row["text_rule"] == "scotus-opinion-text/1"
+    assert row["text_rule"] == "scotus-opinion-text/2"
     assert row["object_key"].startswith("scotus/opinions/OT2025/1-")
     body = casestore.read_pinned(_store, row["object_key"], row["digest"])
     assert body is not None and len(body) == row["bytes"]
