@@ -1,0 +1,9 @@
+The Court will deny certiorari, most likely on the first order list following the December 4, 2026 conference. The petition has been distributed once and has not yet been relisted. I expect zero further distributions; the probability of at least one additional distribution is 8%. The Court is unlikely to request further consideration after both respondent groups waived a response.
+
+No call for the Solicitor General's views is on the record. I expect none, assigning a 0.3% probability to a future invitation. The petition concerns the application of existing personal-jurisdiction decisions to private drug litigation and presents no developed reason for seeking the federal government's views.
+
+If review is granted, the Court will most likely take the single question presented in a narrower form: whether a manufacturer's deliberate use of Illinois for allegedly defective packaging and nationwide distribution sufficiently relates to nonresident plaintiffs' out-of-state injuries when their particular purchases have not been connected to those Illinois operations. The general-jurisdiction-by-registration theory rejected below is outside the petition's question and is unlikely to be added.
+
+Conditional on a grant, full briefing and argument are more likely than immediate disposition; I assign 15% to a summary route. No identified intervening decision supplies a natural grant-vacate-remand basis. Any merits reasoning would arise only if review were granted; denial will leave the Illinois judgment standing without deciding whether its interpretation of Ford is correct.
+
+If the petition is denied, I expect no noted dissent or statement respecting denial, with a 2.5% probability of one. Sotomayor is the most plausible author of a rare separate writing because of her prior disagreement with Bristol-Myers Squibb's restriction on nonresident claims, but the central forecast is an unexplained denial.
