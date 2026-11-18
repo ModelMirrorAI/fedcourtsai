@@ -100,6 +100,7 @@ class FakeClient:
         max_pages: int,
         date_modified_gte: date | None = None,
         on_request: Callable[[], None] | None = None,
+        on_text_dropped: Callable[[], None] | None = None,
     ) -> EntryPages:
         for _ in range(self.pages):
             if on_request is not None:
@@ -615,11 +616,14 @@ def test_a_read_that_times_out_says_which_page_and_how_long_it_took(
             share=160,
             clock=lambda: now,
         )
-    assert timed_out == 4
+    # Four attempts as asked, then four without document text: the times are
+    # the second request's own, and the read's in all.
+    assert timed_out == 8
     assert report.failed == {
         "cand/7": "ReadTimeout: The read operation timed out "
-        + "[last request: page 3 of the entries, cursor 3; 120s since it was asked for, "
-        + "waits and resends included, 124s into this docket's read]"
+        + "[last request: page 3 of the entries, asked again without document text, cursor 3; "
+        + "120s since it was asked for, "
+        + "waits and resends included, 244s into this docket's read]"
     }
     with corpus.connect(db) as conn:
         assert corpus.latest_snapshot(conn, "cand/7") is None
@@ -628,7 +632,9 @@ def test_a_read_that_times_out_says_which_page_and_how_long_it_took(
 class PagedUpstream:
     """A mock upstream for one docket of ``pages`` pages, entries newest id first.
 
-    ``slow`` names pages that time out however often they are asked for;
+    ``slow`` names pages that time out however often they are asked for, and
+    ``heavy`` pages that time out unless asked for without document text (with
+    ``documents`` set, each entry carries one document and its text);
     ``added`` is entries the date-narrowed read serves; ``refuse_cursor`` makes
     upstream answer any cursor with ``refusal``. Every request is recorded.
     """
@@ -637,6 +643,8 @@ class PagedUpstream:
         self.docket_id = docket_id
         self.pages = pages
         self.slow: set[int] = set()
+        self.heavy: set[int] = set()
+        self.documents = False
         self.added: list[dict[str, Any]] = []
         self.refuse_cursor = False
         self.refusal = 404
@@ -644,7 +652,15 @@ class PagedUpstream:
 
     def entries(self, page: int) -> list[dict[str, Any]]:
         top = (self.pages - page + 1) * 100
-        return [{"id": top - n, "description": f"entry {top - n}"} for n in range(20)]
+        found: list[dict[str, Any]] = [
+            {"id": top - n, "description": f"entry {top - n}"} for n in range(20)
+        ]
+        if self.documents:
+            for entry in found:
+                entry["recap_documents"] = [
+                    {"id": entry["id"] * 10, "plain_text": f"text of {entry['id']}"}
+                ]
+        return found
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         params = dict(request.url.params)
@@ -661,15 +677,22 @@ class PagedUpstream:
             self.asked.append("refused")
             return httpx.Response(self.refusal, json={"detail": "Invalid cursor"})
         page = int(params.get("cursor", "1"))
-        self.asked.append(f"page {page}")
-        if page in self.slow:
+        light = params.get("omit") == "recap_documents__plain_text"
+        self.asked.append(f"page {page}" + (" without text" if light else ""))
+        if page in self.slow or (page in self.heavy and not light):
             raise httpx.ReadTimeout("The read operation timed out")
         following = (
             f"{_API}docket-entries/?cursor={page + 1}&docket={self.docket_id}"
+            + ("&omit=recap_documents__plain_text" if light else "")
             if page < self.pages
             else None
         )
-        return httpx.Response(200, json={"results": self.entries(page), "next": following})
+        found = self.entries(page)
+        if light:
+            for entry in found:
+                for document in entry.get("recap_documents", []):
+                    del document["plain_text"]
+        return httpx.Response(200, json={"results": found, "next": following})
 
     def client(self) -> CourtListenerClient:
         client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
@@ -716,7 +739,10 @@ def test_an_onboard_stopped_part_way_goes_on_from_its_kept_pages(
     assert first.failed["cand/7"].endswith(
         f"[kept 3 page(s) of entries, read since {TODAY}, for this docket's next onboard]"
     )
-    assert "[last request: page 4 of the entries, cursor 4;" in first.failed["cand/7"]
+    assert (
+        "[last request: page 4 of the entries, asked again without document text, cursor 4;"
+        in first.failed["cand/7"]
+    )
     kept = json.loads(store.objects[_PARTIAL_KEY])
     assert (kept["kind"], kept["docket_id"], kept["pages"], kept["cursor"]) == (
         "onboard-partial",
@@ -779,7 +805,10 @@ def test_a_resumed_onboard_that_stops_again_keeps_every_page_so_far(
     # Still dated from the first attempt: the closing read reaches back to it.
     assert (kept["pages"], kept["cursor"], kept["started"]) == (4, "5", TODAY.isoformat())
     assert f"[kept 4 page(s) of entries, read since {TODAY}," in again.failed["cand/7"]
-    assert "[last request: page 5 of the entries, cursor 5;" in again.failed["cand/7"]
+    assert (
+        "[last request: page 5 of the entries, asked again without document text, cursor 5;"
+        in again.failed["cand/7"]
+    )
     upstream.slow = set()
     last = _onboard(upstream, db, TODAY + timedelta(days=2))
     assert [(r.entries, r.resumed_pages) for r in last.refreshed] == [(120, 4)]
@@ -1321,3 +1350,115 @@ def test_a_share_spent_on_the_count_stops_the_run(tmp_path: Path) -> None:
     assert report.deferred == ["cand/1", "cand/2"]
     assert report.stop_reason == "lane share spent"
     assert fake.reads == []
+
+
+def _texts(entries: list[dict[str, Any]]) -> dict[int, str | None]:
+    return {e["id"]: e["recap_documents"][0].get("plain_text") for e in entries}
+
+
+def test_an_onboard_asks_again_without_document_text_for_a_page_that_times_out(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    """A page too heavy to answer as asked lands in the same run, less its documents' text."""
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=5)
+    upstream.documents = True
+    upstream.heavy = {4, 5}
+    report = _onboard(upstream, db, TODAY)
+    assert report.failed == {}
+    # Page 4 is asked for as usual (the client's four attempts), then once
+    # without text; page 5 is asked for without text from the start.
+    assert upstream.asked == [
+        "count",
+        "docket",
+        "page 1",
+        "page 2",
+        "page 3",
+        *["page 4"] * 4,
+        "page 4 without text",
+        "page 5 without text",
+    ]
+    done = report.refreshed[0]
+    # The re-ask is a request of its own: the docket, five pages and one more.
+    assert (done.entries, done.requests, done.pages_without_text) == (100, 8, 2)
+    assert report.as_json()["without_text"] == {"cand/7": 2}
+    with corpus.connect(db) as conn:
+        found = corpus.latest_snapshot(conn, "cand/7")
+    assert found is not None
+    texts = _texts(found[1]["docket_entries"])
+    assert len(texts) == 100
+    # Pages 1 to 3 hold ids 300 and up, with their text; pages 4 and 5 none.
+    assert all((text is None) == (entry_id <= 200) for entry_id, text in texts.items())
+    assert _PARTIAL_KEY not in store.objects
+
+
+def test_a_page_that_times_out_without_document_text_too_stops_the_onboard(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=5)
+    upstream.slow = {4}
+    report = _onboard(upstream, db, TODAY)
+    assert upstream.asked[-8:] == [*["page 4"] * 4, *["page 4 without text"] * 4]
+    assert report.refreshed == []
+    assert (
+        "[last request: page 4 of the entries, asked again without document text, cursor 4;"
+        in report.failed["cand/7"]
+    )
+    assert json.loads(store.objects[_PARTIAL_KEY])["pages"] == 3
+
+
+def test_a_full_read_without_document_text_keeps_the_text_the_stored_docket_holds(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=3)
+    upstream.documents = True
+    _onboard(upstream, db, TODAY)
+    upstream.heavy = {2}
+    upstream.asked.clear()
+    later = TODAY + timedelta(days=7)
+    with upstream.client() as client:
+        done = refresh_docket(
+            client,
+            db,
+            PlannedRefresh("cand", 7, ReadMode.full, TODAY, None),
+            max_entry_pages=150,
+            today=later,
+        )
+    assert upstream.asked[-2:] == ["page 2 without text", "page 3 without text"]
+    assert (done.mode, done.pages_without_text, done.changed) == (ReadMode.full, 2, False)
+    with corpus.connect(db) as conn:
+        found = corpus.latest_snapshot(conn, "cand/7")
+    assert found is not None
+    texts = _texts(found[1]["docket_entries"])
+    assert texts == {entry_id: f"text of {entry_id}" for entry_id in texts} and len(texts) == 60
+
+
+def test_a_read_of_what_changed_never_drops_document_text(
+    tmp_path: Path, store: casestore.InMemoryObjectTransport
+) -> None:
+    """A new ruling's text is what its summary is written from: a timeout fails the read."""
+    db = _db(tmp_path)
+    upstream = PagedUpstream(7, pages=1)
+    _onboard(upstream, db, TODAY)
+    asked: list[dict[str, str]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        if "date_modified__gte" in params:
+            asked.append(params)
+            raise httpx.ReadTimeout("The read operation timed out")
+        return upstream.handle(request)
+
+    with upstream.client() as client:
+        client._client = httpx.Client(base_url=_API, transport=httpx.MockTransport(handle))
+        with pytest.raises(httpx.ReadTimeout):
+            refresh_docket(
+                client,
+                db,
+                _planned(7, ReadMode.incremental, TODAY - timedelta(days=2)),
+                max_entry_pages=150,
+                today=TODAY + timedelta(days=1),
+            )
+    assert len(asked) == 4 and all("omit" not in params for params in asked)

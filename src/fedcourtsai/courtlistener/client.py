@@ -189,6 +189,12 @@ def classify_error(exc: BaseException) -> ErrorClass:
 #: (twenty entries a page upstream).
 DEFAULT_MAX_ENTRY_PAGES: Final = 25
 
+#: The ``omit`` value that leaves each document's extracted text out of a page
+#: of entries. A page whose entries carry hundreds of documents is megabytes
+#: of that text, and upstream does not serve it within the client's timeout;
+#: the page size itself is upstream's, and ``page_size`` is ignored there.
+_OMIT_DOCUMENT_TEXT: Final = "recap_documents__plain_text"
+
 #: What a cursor ``next`` link adds to the question its first page asked
 #: (upstream echoes the requested ``fields`` too, which this client never sets).
 _CURSOR_KEYS: Final = frozenset({"cursor"})
@@ -206,6 +212,9 @@ class EntryPages(NamedTuple):
     pages: int
     #: Whether the last page read was the docket's last.
     complete: bool
+    #: Pages asked for without their documents' text, after a page timed out
+    #: as first asked; 0 for a read that never had to.
+    pages_without_text: int = 0
 
 
 class CourtListenerClient:
@@ -440,6 +449,7 @@ class CourtListenerClient:
         on_request: Callable[[], None] | None = None,
         cursor: str | None = None,
         on_page: Callable[[list[JsonDict], str | None], None] | None = None,
+        on_text_dropped: Callable[[], None] | None = None,
     ) -> EntryPages:
         """Read up to ``max_pages`` pages of a docket's entries, following the cursor.
 
@@ -458,6 +468,18 @@ class CourtListenerClient:
         and the cursor of the page after it (``None`` after the last page, and
         after the page that reaches ``max_pages``), so a caller holds what a
         read fetched, and where it would go next, when a later page fails.
+
+        With ``on_text_dropped``, a page that times out through the client's
+        own resends is asked for once more without its documents' extracted
+        text (``plain_text``), and so is every page after it: the same entries
+        and documents, each document without that one field. A cursor names a
+        position among the entries, so it holds whichever way the page is
+        asked for. The callback is called before that second request
+        (``on_request`` is called for it too), and the result counts the pages
+        read that way. A page that times out without the text as well fails
+        the read. For a caller that needs the docket's entries more than every
+        document's text; a read whose text matters passes none, and a timeout
+        fails it.
         """
         if max_pages < 1:
             raise ValueError("max_pages must be >= 1")
@@ -466,14 +488,30 @@ class CourtListenerClient:
             asked["date_filed__gte"] = date_filed_gte.isoformat()
         if date_modified_gte is not None:
             asked["date_modified__gte"] = date_modified_gte.isoformat()
-        if on_request is not None:
-            on_request()
-        if cursor is None:
-            payload = self.list_docket_entries(
-                docket_id, date_filed_gte=date_filed_gte, date_modified_gte=date_modified_gte
-            )
-        else:
-            payload = self._get("docket-entries/", {**asked, "cursor": cursor})
+        light = 0
+
+        def get(params: JsonDict) -> JsonDict:
+            """One page: as asked, or without document text once a page has timed out."""
+            nonlocal light
+            if on_request is not None:
+                on_request()
+            if not light:
+                try:
+                    return self._get("docket-entries/", params)
+                except httpx.ReadTimeout:
+                    # Upstream took the request and did not answer in time: the
+                    # sign of a heavy page. A connection that could not be made
+                    # says nothing of the page, and fails the read as before.
+                    if on_text_dropped is None:
+                        raise
+                asked["omit"] = _OMIT_DOCUMENT_TEXT
+                on_text_dropped()
+                if on_request is not None:
+                    on_request()
+            light += 1
+            return self._get("docket-entries/", {**params, "omit": _OMIT_DOCUMENT_TEXT})
+
+        payload = get(dict(asked) if cursor is None else {**asked, "cursor": cursor})
         entries: list[JsonDict] = []
         pages = 0
         while True:
@@ -494,10 +532,13 @@ class CourtListenerClient:
                 on_page(found, params.get("cursor") if params is not None else None)
             if params is None:
                 break
-            if on_request is not None:
-                on_request()
-            payload = self._get("docket-entries/", dict(params))
-        return EntryPages(entries=entries, pages=pages, complete=not payload.get("next"))
+            payload = get(dict(params))
+        return EntryPages(
+            entries=entries,
+            pages=pages,
+            complete=not payload.get("next"),
+            pages_without_text=light,
+        )
 
     def iter_docket_entries(
         self, docket_id: int, *, max_pages: int = DEFAULT_MAX_ENTRY_PAGES

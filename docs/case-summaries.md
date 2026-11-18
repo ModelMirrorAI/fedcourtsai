@@ -524,8 +524,8 @@ entry's main document and the entry is not a party's draft: an entry whose
 description reads "proposed" or "stipulat…" (proposed findings, a stipulated
 order) is counsel's text, which the activity rule can read as an opinion or a
 judgment, and is left out. The description only classifies the entry here; it
-is never staged, sent or published. A court-written ruling without text yet (RECAP has no copy, or only
-the clerk's entry text exists) is listed in the plan's `rulings_without_text`, free,
+is never staged, sent or published. A court-written ruling without text yet (RECAP has no copy, only
+the clerk's entry text exists, or its page of the docket was read without document text) is listed in the plan's `rulings_without_text`, free,
 and planned again by each run until its text arrives or its record ages out. A
 ruling whose document becomes readable later is recorded again, in the day's
 `available` list, so a ruling whose text arrives after its first record has

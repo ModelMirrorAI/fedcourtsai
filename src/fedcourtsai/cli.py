@@ -19545,6 +19545,11 @@ def watchlist_refresh_cmd(
             typer.echo(
                 f"  onboarded {done.case_id} from {done.resumed_pages} page(s) an earlier run kept"
             )
+        if done.pages_without_text:
+            typer.echo(
+                f"  read {done.pages_without_text} page(s) of {done.case_id} without document "
+                + "text, after a page timed out"
+            )
     for case_id, reason in sorted(result.failed.items()):
         typer.echo(f"  failed {case_id}: {reason}", err=True)
     if result.failed:
