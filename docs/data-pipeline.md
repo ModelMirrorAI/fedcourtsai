@@ -1060,7 +1060,8 @@ keep that honest, and they bind wherever the bit is filled.
 The **decision below** is filled by a sibling pass on the same budget,
 `enrich-decision-below` (`pipeline/decision_below.py`). For a cert petition from
 a federal court of appeals, not denied, it joins the lower court's docket on
-CourtListener and stores the opinion on the judgment date, with any amended
+CourtListener and stores the opinion on the judgment date (or the earliest
+opinion filed after a judgment the court entered by order), with any amended
 opinion or opinion on rehearing filed after it and before the SCOTUS docketing,
 as a `decision-below`
 document and the docket record as a `lower-court-docket` document, both through

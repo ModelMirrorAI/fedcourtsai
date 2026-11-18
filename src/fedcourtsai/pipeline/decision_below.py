@@ -7,7 +7,8 @@ court's name (``LowerCourt``), its case number or numbers
 where one was denied, the date rehearing was denied
 (``LowerCourtRehearingDenied``). This module joins those facts to
 CourtListener and reports what it finds there — the lower court's docket row,
-the opinion cluster dated on the judgment date, whether that opinion carries a
+the opinion cluster dated on the judgment date (or the one that follows a
+judgment entered by order), whether that opinion carries a
 downloadable file or extracted text, the panel, and, where upstream holds the
 docket's entries (RECAP), whether a petition for rehearing en banc was filed,
 how it was disposed of, and whether a dissent from the disposition was noted.
@@ -41,7 +42,8 @@ this number, by either spelling, or it is dropped. The clusters are then
 asked for by the court and each checked row's own number, dated on or before
 the SCOTUS docketing — one list request however many clusters a row carries —
 and a returned cluster must hang on a checked row. A cluster counts as the
-decision below only when its ``date_filed`` is the judgment date. Several
+decision below when its ``date_filed`` is the judgment date, or under the
+rule for a judgment entered by order below. Several
 clusters on the judgment date are all reported, since a court can issue an
 opinion and an amended one the same day; a list that says more exist than one
 page holds is reported ``clusters_truncated``. A cluster dated after the
@@ -49,7 +51,24 @@ judgment date, still on or before the docketing, is reported ``after_judgment``
 and read too: a court that amends its opinion, or publishes its order on
 rehearing with the writings attached, files it as a later cluster on the same
 docket, and that is the text the petition then quotes. It does not make a
-match — the status still says whether the judgment date itself has a cluster.
+match where the judgment date has a cluster of its own.
+
+**A judgment entered by order has its opinion filed later.** A court can enter
+judgment by order and file the opinion that explains it weeks afterwards; the
+SCOTUS docket then names the order's date, which carries no cluster. So where
+no row — found by number or by the opinion search below — carries a cluster on
+the judgment date, the earliest cluster filed after it is reported
+``follows_judgment`` and makes the match: it is on or before the docketing as
+every later cluster is, and filed before any rehearing denial the SCOTUS
+docket states, since a cluster filed on or after that day is a writing on
+rehearing, not the opinion the petition for rehearing asked about. Clusters
+sharing that earliest date are all marked. The read is an inference from
+dates, and the stored rows say so: the reason, the opinion's header and the
+docket record each state that the judgment date has no opinion of its own and
+that this is the earliest filed after it. Nothing is marked where that
+emptiness was not established: a cluster list that ran past one page, or a
+request of the opinion search that upstream refused or failed, leaves the case
+``no_cluster_on_date`` with its later clusters read and stored as before.
 
 **A consolidated appeal's opinion can sit on a row no number reaches.** A
 court's opinion feed can file the opinion of a consolidated appeal on a docket
@@ -321,7 +340,14 @@ class ClusterMatch(BaseModel):
     after_judgment: bool = Field(
         default=False,
         description="Whether `date_filed` falls after the judgment date and on or before the "
-        "SCOTUS docketing: an amended opinion, or one issued on rehearing",
+        "SCOTUS docketing: an amended opinion, one issued on rehearing, or the opinion on a "
+        "judgment entered by order",
+    )
+    follows_judgment: bool = Field(
+        default=False,
+        description="Whether this is the earliest cluster filed after a judgment date that "
+        "carries none, and before any rehearing denial the SCOTUS docket states: read as the "
+        "opinion on a judgment the court entered by order",
     )
     precedential_status: str | None = None
     judges: str | None = Field(default=None, description="Upstream's `judges` string")
@@ -831,6 +857,9 @@ class _Walk:
         # stores it, and a measurement drops it with the walk.
         self.texts: dict[int, str] = {}
         self._opinions: dict[int, Mapping[str, Any]] = {}
+        # Requests of the opinion search upstream refused or failed: with any,
+        # the search did not establish that no row carries the opinion.
+        self.search_faults = 0
 
     def dockets(self, court: str, number: str) -> list[Mapping[str, Any]]:
         """The checked rows for one number: exact spelling first, then the core."""
@@ -1078,8 +1107,9 @@ def _read_opinions(walk: _Walk, clusters: _Clusters) -> None:
     """Read the sub-opinions of the clusters on and after the judgment date.
 
     The newest cluster is read first, at most :data:`MAX_OPINIONS` a case, with
-    one read held for the judgment-date cluster: the cap falls on the earlier
-    opinion, and never takes all of it.
+    one read held for the judgment-date cluster, or for the cluster that
+    follows a judgment entered by order (``follows_judgment``): the cap falls
+    on the earlier opinion, and never takes all of it.
     """
     found, links = clusters.found, clusters.links
     newest_first = sorted(
@@ -1089,7 +1119,14 @@ def _read_opinions(walk: _Walk, clusters: _Clusters) -> None:
     )
     # One read is held for the judgment-date cluster, so an order on rehearing
     # published with several writings cannot leave the panel's opinion unread.
-    held = next((c for c in newest_first if c.on_judgment_date and links[c.cluster_id]), None)
+    held = next(
+        (
+            c
+            for c in newest_first
+            if (c.on_judgment_date or c.follows_judgment) and links[c.cluster_id]
+        ),
+        None,
+    )
     opinions_left = MAX_OPINIONS - (1 if held is not None else 0)
     for cluster in newest_first:
         take = max(opinions_left, 0) + (1 if cluster is held else 0)
@@ -1134,7 +1171,7 @@ def _lead_rows(
     fetched = _searched_rows(walk, court, facts, rows)
     if not fetched:
         return []
-    listed = _attempt(lambda: _list_clusters(walk, fetched, court, facts))
+    listed = _attempt(walk, lambda: _list_clusters(walk, fetched, court, facts))
     if listed is None:
         return []
     leads: list[_Lead] = []
@@ -1167,7 +1204,7 @@ def _searched_rows(
     if judgment is None or query is None:
         return []
     known = {_int(row.get("id")) for row in rows}
-    page = _attempt(lambda: walk.opinion_search(court, query, judgment))
+    page = _attempt(walk, lambda: walk.opinion_search(court, query, judgment))
     results = page.get("results") if page is not None else None
     candidates: list[int] = []
     for hit in results if isinstance(results, list) else []:
@@ -1180,7 +1217,7 @@ def _searched_rows(
             candidates.append(ident)
     fetched: list[Mapping[str, Any]] = []
     for ident in candidates[:MAX_LEAD_DOCKETS]:
-        row = _attempt(partial(walk.docket, ident))
+        row = _attempt(walk, partial(walk.docket, ident))
         if (
             row is not None
             and _int(row.get("id")) == ident
@@ -1190,18 +1227,21 @@ def _searched_rows(
     return fetched
 
 
-def _attempt[T](call: Callable[[], T]) -> T | None:
+def _attempt[T](walk: _Walk, call: Callable[[], T]) -> T | None:
     """``call``'s answer, or ``None`` where upstream refused or failed it.
 
     The opinion search is an extra look for a case the number join already
     answered about, so a fault on it leaves that answer standing, as a fault
-    on the entries does; only a batch wall propagates.
+    on the entries does; only a batch wall propagates. The fault is counted
+    on the walk (``search_faults``), since a search that failed says nothing
+    about what it would have found.
     """
     try:
         return call()
     except (httpx.HTTPError, ValueError) as exc:
         if _stop_reason(exc) is not None:
             raise
+        walk.search_faults += 1
         return None
 
 
@@ -1220,15 +1260,47 @@ def _tied_by(
     first = next((ids[0] for c in on_date if (ids := listed.links[c.cluster_id])), None)
     if first is None:
         return None
-    if _attempt(lambda: walk.opinion(first)) is None:
+    if _attempt(walk, lambda: walk.opinion(first)) is None:
         return None
     text = walk.texts.get(first, "")
     return "caption" if any(caption_names(text, n) for n in facts.docket_numbers) else None
 
 
+def _mark_following(clusters: Sequence[ClusterMatch], facts: LowerCourtFacts) -> None:
+    """Mark the opinion that follows a judgment entered by order.
+
+    Where no cluster is dated on the judgment date, the earliest cluster filed
+    after it (``after_judgment``, so on or before the docketing) is marked
+    ``follows_judgment``, with any other cluster of that date — unless the
+    SCOTUS docket states a rehearing denial on or before that day, when the
+    cluster is a writing on rehearing and nothing is marked. The caller marks
+    only where the judgment date's emptiness was established: every cluster
+    list read whole, and no request of the opinion search faulted.
+    """
+    if any(c.on_judgment_date for c in clusters):
+        return
+    later = [c.date_filed for c in clusters if c.after_judgment and c.date_filed is not None]
+    if not later:
+        return
+    earliest = min(later)
+    if facts.rehearing_denied is not None and earliest >= facts.rehearing_denied:
+        return
+    for cluster in clusters:
+        if cluster.after_judgment and cluster.date_filed == earliest:
+            cluster.follows_judgment = True
+
+
 def _verdict(
     clusters: Sequence[ClusterMatch], dockets: Sequence[DocketRow], facts: LowerCourtFacts
 ) -> tuple[MatchStatus, str]:
+    following = [c for c in clusters if c.follows_judgment]
+    if following:
+        return (
+            "matched",
+            f"no cluster dated {facts.judgment_date}; {len(following)} cluster(s) dated "
+            + f"{following[0].date_filed}, the earliest filed after it, read as the opinion "
+            + "on a judgment entered by order",
+        )
     on_date = [c for c in clusters if c.on_judgment_date]
     if on_date:
         searched = {d.docket_id for d in dockets if d.lead_by is not None}
@@ -1281,6 +1353,8 @@ def _match(walk: _Walk, facts: LowerCourtFacts, *, case_id: str | None) -> Decis
             found = _docket_row(lead.row, base_url=base_url, lead_by=lead.by)
             if found is not None:
                 dockets.append(found)
+    if not clusters.truncated and not walk.search_faults:
+        _mark_following(clusters.found, facts)
     _read_opinions(walk, clusters)
     rehearing = _rehearing(walk, dockets, facts)
     status, reason = _verdict(clusters.found, dockets, facts)
@@ -1504,9 +1578,10 @@ def _cap(text: str, char_cap: int) -> tuple[str, bool]:
 def _decided(match: DecisionBelowMatch) -> list[ClusterMatch]:
     """The clusters that carry the decision below, newest first.
 
-    Those on the judgment date and those after it (an amended opinion, or one
-    issued on rehearing); a cluster before the judgment date is an earlier
-    stage of the appeal and is left out.
+    Those on the judgment date and those after it (the opinion on a judgment
+    entered by order, an amended opinion, or one issued on rehearing); a
+    cluster before the judgment date is an earlier stage of the appeal and is
+    left out.
     """
     return sorted(
         (c for c in match.clusters if c.on_judgment_date or c.after_judgment),
@@ -1526,9 +1601,11 @@ def opinion_document(
     Each sits under a ``=== <type> (<author>) ===`` header where there is more
     than one; where a cluster is dated after the judgment date, every header
     carries its cluster's filing date and that cluster's says it follows the
-    judgment. Cut at ``char_cap``. Dated on the newest cluster it holds, which
-    is what places it against a moment cutoff and never follows the SCOTUS
-    docketing. ``None`` for a case with no such cluster, or whose opinions
+    judgment, or, for the opinion on a judgment entered by order
+    (``follows_judgment``), that it is the earliest filed after a judgment
+    date with no opinion of its own. Cut at ``char_cap``. Dated on the newest
+    cluster it holds, which is what places it against a moment cutoff and
+    never follows the SCOTUS docketing. ``None`` for a case with no such cluster, or whose opinions
     carry no text.
     """
     judgment = match.facts.judgment_date
@@ -1555,7 +1632,12 @@ def opinion_document(
                 label += f" ({opinion.author})"
             if dated:
                 label += f", filed {cluster.date_filed}"
-            if cluster.after_judgment:
+            if cluster.follows_judgment:
+                label += (
+                    f", the earliest opinion after the {judgment} judgment the SCOTUS "
+                    + "docket names, which has none of its own on CourtListener"
+                )
+            elif cluster.after_judgment:
                 label += f", after the {judgment} judgment the SCOTUS docket names"
             body = f"=== {label} ===\n{body}"
         parts.append(body)
@@ -1584,13 +1666,47 @@ def _yes_no(value: bool | None, unknown: str) -> str:
     return unknown if value is None else ("yes" if value else "none in the entries read")
 
 
+def _cluster_lines(decided: Sequence[ClusterMatch]) -> list[str]:
+    """The docket record's lines for the clusters on or after the judgment date.
+
+    One a cluster, oldest first, then what the judgment date itself holds:
+    where it holds none, a line says so, and a second names the opinion read
+    as following a judgment entered by order, where one is.
+    """
+    lines: list[str] = []
+    for cluster in reversed(decided):
+        ids = ", ".join(str(opinion.opinion_id) for opinion in cluster.opinions)
+        later = cluster.after_judgment and not cluster.follows_judgment
+        lines.append(
+            ("Later opinion cluster" if later else "Opinion cluster")
+            + f" {cluster.cluster_id} ({cluster.date_filed}"
+            + (", after the judgment date" if cluster.after_judgment else "")
+            + f"): {cluster.precedential_status or 'status not served'}; "
+            + f"judges: {cluster.judges or 'not recorded'}; "
+            + f"opinion id(s): {ids or 'not read'}"
+        )
+    if not any(cluster.on_judgment_date for cluster in decided):
+        lines.append("Opinion on the judgment date: none on CourtListener")
+        following = [cluster for cluster in decided if cluster.follows_judgment]
+        if following:
+            lines.append(
+                "  The earliest opinion filed after it is cluster "
+                + ", ".join(str(cluster.cluster_id) for cluster in reversed(following))
+                + f" ({following[0].date_filed}), read here as the court's opinion on a "
+                + "judgment it entered by order: an inference from the dates, to be checked "
+                + "against the petition's appendix."
+            )
+    return lines
+
+
 def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDocument | None:
     """The lower court's docket as a stored ``lower-court-docket`` row.
 
     A short text record, one fact a line: the court and numbers the SCOTUS
     docket names, the judgment and rehearing dates it serves, the CourtListener
     rows found, the panel where upstream records one, each opinion cluster on
-    or after the judgment date with its opinion ids, and the en banc reading
+    or after the judgment date with its opinion ids, a line naming the opinion
+    read as following a judgment entered by order, and the en banc reading
     with the date its entries run through and the entries it rests on. Where
     the entries' text could not carry an answer — an entry described nowhere,
     or a stated rehearing denial no entry records — the record says "could not
@@ -1630,18 +1746,7 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
                 )
             )
     decided = _decided(match)
-    for cluster in reversed(decided):
-        ids = ", ".join(str(opinion.opinion_id) for opinion in cluster.opinions)
-        lines.append(
-            ("Later opinion cluster" if cluster.after_judgment else "Opinion cluster")
-            + f" {cluster.cluster_id} ({cluster.date_filed}"
-            + (", after the judgment date" if cluster.after_judgment else "")
-            + f"): {cluster.precedential_status or 'status not served'}; "
-            + f"judges: {cluster.judges or 'not recorded'}; "
-            + f"opinion id(s): {ids or 'not read'}"
-        )
-    if not any(cluster.on_judgment_date for cluster in decided):
-        lines.append("Opinion on the judgment date: none on CourtListener")
+    lines.extend(_cluster_lines(decided))
     reading = match.rehearing
     if reading is None or reading.unavailable is not None or reading.entries_read == 0:
         why = reading.unavailable if reading and reading.unavailable else "no entries held"
