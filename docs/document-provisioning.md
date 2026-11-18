@@ -104,8 +104,8 @@ which overrides the code's defaults.
 Each of these is stated, with its reason, where the code makes the choice:
 
 - **A petition raising the same question without a `Vide` link or a shared
-  VIDED brief is not staged.**
-  Only linked companions, and those sharing a VIDED amicus brief, reach
+  VIDED filing is not staged.**
+  Only linked companions, and those sharing a VIDED filing, reach
   `record/related/`. `fedcourts same-question`
   lists the unlinked ones by questions-presented text similarity, cut to a date,
   and `fedcourts same-question-lists` builds a cert cell's list at its own

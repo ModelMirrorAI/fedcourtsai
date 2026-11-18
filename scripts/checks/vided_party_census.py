@@ -21,10 +21,11 @@ named by `CHECK_SUMMARY`:
   finds;
 - the docket numbers of those pairs, and which of them have no disposition.
 
-Only dockets that share a lower-court number are read, because a party key
-carries the case below and no other docket can match one. The index column is
-the pre-filter and the payload's own fields decide the key, so a docket whose
-stored number differs from its payload's is read and may still key nothing.
+Only dockets that share a lower-court number are read, whatever court each
+names, because a party key carries the case below and no other docket can
+match one. The index column is the pre-filter and the payload's own fields
+decide the key, court included, so a docket read may still key nothing. A
+pair is counted as linked where either docket lists the other as `Vide`.
 
 Counts and docket numbers only reach `CHECK_SUMMARY`, never an entry's text.
 Payload reads are fanned across the content store's bounded reader pool
@@ -68,11 +69,11 @@ class Census:
 
 def candidates(conn: corpus.ReadConnection, first: int, last: int) -> dict[str, tuple[str, bool]]:
     """Each docket to read: its number and whether it has a disposition."""
-    groups: dict[tuple[str, str], set[str]] = defaultdict(set)
+    groups: dict[str, set[str]] = defaultdict(set)
     rows: dict[str, tuple[str, bool]] = {}
     for record in conn.execute(
-        "SELECT case_id, docket_number, originating_court, originating_court_name, "
-        "originating_docket_number, disposition FROM cases WHERE court = 'scotus' "
+        "SELECT case_id, docket_number, originating_docket_number, disposition "
+        "FROM cases WHERE court = 'scotus' "
         "AND last_live_polled IS NOT NULL AND originating_docket_number IS NOT NULL"
     ):
         number = str(record["docket_number"] or "")
@@ -81,10 +82,10 @@ def candidates(conn: corpus.ReadConnection, first: int, last: int) -> dict[str, 
             continue
         case_id = str(record["case_id"])
         rows[case_id] = (number, record["disposition"] is not None)
-        court = str(record["originating_court_name"] or record["originating_court"] or "")
         for part in re.split(r"[,;]", str(record["originating_docket_number"])):
-            if part.strip():
-                groups[(court.casefold(), part.strip().casefold())].add(case_id)
+            lower = part.strip().strip("()").strip().casefold()
+            if lower:
+                groups[lower].add(case_id)
     wanted = {case_id for members in groups.values() if len(members) > 1 for case_id in members}
     return {case_id: rows[case_id] for case_id in sorted(wanted)}
 

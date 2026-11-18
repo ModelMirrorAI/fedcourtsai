@@ -9,8 +9,13 @@ below), the live poll writes a docket's keys to the corpus, and
 
 from __future__ import annotations
 
+import importlib.util
 import sqlite3
+import sys
+from datetime import date
 from pathlib import Path
+
+import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.ingest import from_live_record, map_live_docket, to_corpus_row
@@ -100,6 +105,9 @@ def test_only_a_dated_vided_filing_that_is_not_an_amicus_one_is_a_party_key() ->
     # An amicus filing has its own key and the Court's own action is not a filing.
     assert vided_party_keys(_SAMARITAN[1], _SAMARITAN[0], below) == []
     assert vided_party_keys("SET FOR ARGUMENT on Monday. VIDED.", "Oct 30 2026", below) == []
+    # The Court's action on a filed motion says "filed" and keys as the motion does.
+    granted = "Motion to dispense with printing filed by petitioner GRANTED. VIDED."
+    assert len(vided_party_keys(granted, "Oct 30 2026", below)) == 1
     assert vided_party_keys(_OPPOSITION_ONE[1], None, below) == []
     assert vided_party_keys(_OPPOSITION_ONE[1], "Oct 2026", below) == []
     # No case below, no key: the text alone is not one.
@@ -242,3 +250,55 @@ def test_companions_are_scotus_dockets_only_and_need_the_index(tmp_path: Path) -
         conn.execute(f"DROP INDEX {corpus.VIDED_AMICUS_INDEX}")
         # A blob without the index answers "not looked up", never "none".
         assert corpus.vided_companions(conn, ["d|a"], own_case="scotus/193") is None
+
+
+def test_the_party_census_counts_the_pairs_only_the_party_key_finds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = Path(__file__).resolve().parents[1] / "scripts" / "checks" / "vided_party_census.py"
+    spec = importlib.util.spec_from_file_location("_census_check_vided_party", path)
+    assert spec is not None and spec.loader is not None
+    census = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, census)
+    spec.loader.exec_module(census)
+
+    linked = {"RelatedCaseNumber": [{"DisplayCaseNumber": "26-4", "RelatedType": "Vide"}]}
+    dockets = {
+        # One opposition worded for each docket, no link: the pair to find.
+        "scotus/1": ("26-1", "24-644", _payload(_OPPOSITION_ONE, number="26-1"), None),
+        "scotus/2": ("26-2", "24-644, 24-701", _payload(_OPPOSITION_TWO, number="26-2"), None),
+        # The same shape, linked by the Court on one of the two dockets.
+        "scotus/3": ("26-3", "24-900", {**_payload(_OPPOSITION_ONE, number="26-3"), **linked}, 1),
+        "scotus/4": ("26-4", "24-900", _payload(_OPPOSITION_ONE, number="26-4"), 1),
+        # Shares a number with no other docket, so it is never read.
+        "scotus/5": ("26-5", "24-555", _payload(_OPPOSITION_ONE, number="26-5"), None),
+    }
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number=number,
+                    originating_docket_number=lower,
+                    last_live_polled=date(2026, 11, 18),
+                    date_cert_denied=date(2026, 11, 2) if decided else None,
+                    disposition="denied" if decided else None,
+                )
+                for case_id, (number, lower, _, decided) in dockets.items()
+            ],
+        )
+        for case_id, (_, lower, payload, _) in dockets.items():
+            below = {**_BELOW, "LowerCourtCaseNumbers": f"({lower})"}
+            corpus.upsert_snapshot(conn, case_id, date(2026, 11, 18), {**payload, **below})
+    with corpus.connect_readonly(db) as conn:
+        counted = census.run_census(conn, 23, 26)
+    assert (counted.read, counted.no_snapshot, counted.keyed) == (4, 0, 4)
+    assert sorted(counted.pairs) == [("26-1", "26-2"), ("26-3", "26-4")]
+    assert (counted.vide, counted.amicus) == (1, 0)
+    assert counted.only == [("26-1", "26-2")]
+    assert sorted(counted.undecided) == ["26-1", "26-2"]
+    text = census.render(counted, 23, 26)
+    assert "pairs only the party key finds: 1" in text and "Jane Roe" not in text

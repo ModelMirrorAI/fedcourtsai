@@ -1315,7 +1315,7 @@ def map_live_docket(
         # fixed at filing, and read off the entry text so a sealed certiorari
         # petition's "In re" caption never reads as a Rule 20 writ.
         "opening_writ": opening_writ(payload) if form == "cert" else None,
-        # The amicus filings marked VIDED, on the cert branch only: the keys a
+        # The filings marked VIDED, on the cert branch only: the keys a
         # companion the Court never linked as `Vide` is matched on.
         "vided_amicus": vided_keys(payload) if form == "cert" else None,
         # The conferences first distributed for after a call for response,

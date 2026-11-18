@@ -21445,8 +21445,10 @@ freeze commit is recorded here.
   dockets share such a key only where both took a VIDED party filing on one
   day and both name that court and number below; the entry's wording plays no
   part. A docket naming no court below or no number keys no party filing,
-  and the Court's own VIDED entries (an argument setting, a grant, a
-  judgment) are not keyed. The keys ride the same column
+  and a VIDED entry that does not say `filed` (an argument setting, a bare
+  grant, a judgment) is not keyed; the Court's action on a filed motion says
+  it and keys as the motion does, which the tie to the case below makes
+  harmless. The keys ride the same column
   (`cases.vided_amicus`), the same partial index and the same read
   (`corpus.vided_companions`, `provision.read_vided`), asked with the keys of
   the **placed** snapshot, so a cell placed at a cutoff asks only about the
@@ -21468,7 +21470,11 @@ freeze commit is recorded here.
   what a predict cell reads under unchanged digests. It is composition, not a
   cut: the pooled default and the paired figure keep both sides and list each
   engine's `n` before and after. It cuts only a figure that reads its own
-  effect.
+  effect. Two things move for a figure that selects `vided-amicus` rows
+  across this boundary: a companion that shares an amicus brief and a party
+  key reads `vided-party` after it, with a `shared_briefs` one higher for
+  each shared party-filing day, and a `vided-party` companion read first can
+  take the room an amicus candidate had under the four-docket bound.
   - **The registry row** is `vided-party-related-dockets`. It applies to
     every predictor and its reach is `all`, because no narrower registered
     reach names these dockets, so a figure reading its own effect selects
@@ -21490,16 +21496,19 @@ freeze commit is recorded here.
   pull 2026-11-18, newest stored snapshot row 2026-07-13) with payloads from
   the per-case content store, keying each docket's latest snapshot as the
   column will hold it once re-polled. Of the live-polled OT2023 to OT2026
-  cert dockets, 562 share a lower-court number with another and were read,
-  none without a snapshot. 84 carry a party key, and 43 pairs over 77 dockets
-  share one. The Court links 32 of those pairs as `Vide`, which a cell reads
-  as such and the VIDED read skips. Of the other 11, six share an amicus key
+  cert dockets, 1,964 share a lower-court number with another, in whatever
+  court, and were read, none without a snapshot. 96 carry a party key, and 43
+  pairs over 77 dockets share one. The Court links 32 of those pairs as
+  `Vide` on at least one of the two dockets; a cell on a docket that lists
+  the link reads it as such and the VIDED read skips it. Of the other 11, six share an amicus key
   too, so their rows were `vided-amicus` candidates and read `vided-party`
   from here. Five pairs are found by the party key alone: 23-726 and 23-727,
   23-1229 and 23-1230, 24-582 and 24-612, 24-656 and 24-657, and 26-141 and
   26-142. Only the last has no disposition. The `Vide` test reads each
-  docket's latest snapshot, so a cell placed before the Court added a link
-  can stage a `vided-party` row that the count above files under `Vide`. No
+  docket's latest snapshot and counts a link listed on either docket, so a
+  cell placed before the Court added a link, or on the docket of a pair that
+  does not list it, can stage a `vided-party` row that the count above files
+  under `Vide`. No
   pair was read by hand for whether the two petitions are in fact
   companions; the tie is the case below, which the Court's own docket
   states.
@@ -21508,7 +21517,8 @@ freeze commit is recorded here.
   below, or whose companion lists the case below under a number the two do
   not share, keys nothing in common. A companion whose party filing was
   entered on a different day, or was not marked `VIDED` on one of the two
-  dockets, is not found. An application docket carries no keys.
+  dockets, is not found. The column is written on the cert branch alone, so
+  an application docket is never found as a companion.
 
   **What does not move.** No base rate re-prices, no membership rule moves
   and no scored figure moves. `context.vide_links` still lists the Court's
@@ -21517,12 +21527,17 @@ freeze commit is recorded here.
   boundary may not be read as a model effect.
 
   **The amendment debt.** One is added. The predict prompt names two
-  relations, `Vide` and `vided-amicus`, and describes the second as a shared
-  amicus brief; `vided-party` is a third it does not name. A cell reads the
-  relation in `related.json` and the prompt's instruction to read a
-  candidate's docket before treating it as a companion still applies to it.
-  Naming the relation in the prompt moves the three predictor digests, so it
-  is owed to the next re-bless.
+  relations, `Vide` and `vided-amicus`. It describes the second as a shared
+  amicus brief, says `shared_briefs` counts briefs, and attaches "a
+  candidate, not the Court's link" and "read the docket before you treat it
+  as a companion" to `vided-amicus` by name. `vided-party` is a third
+  relation it does not name, so until the sentence lands a cell meets a
+  staged docket whose relation the prompt does not describe, and its
+  statement that an absent `record/related/` means no shared brief was found
+  is narrower than the read now made. Naming the relation moves the three
+  predictor digests. It cannot ride `proc-v24`, whose digests are registered
+  and pending, since `register-process` refuses a second label per
+  promotion; it is owed to the re-bless after that one.
 
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
   commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).

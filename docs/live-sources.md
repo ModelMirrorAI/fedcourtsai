@@ -382,8 +382,9 @@ unrelated petitions read alike. It keys as `<ISO date>|<lower court>|<lower-cour
 number>`, one key for each number in the docket's `LowerCourtCaseNumbers`, so
 it matches only a petition from the same case below that took a VIDED party
 filing the same day; a docket naming no court below or no number keys none.
-The Court's own VIDED entries (an argument setting, a grant, a judgment) are
-not keyed. A companion found through a party key reads `vided-party` in
+A VIDED entry that does not say `filed` (an argument setting, a bare grant, a
+judgment) is not keyed; the Court's action on a filed motion says it and keys
+as the motion does. A companion found through a party key reads `vided-party` in
 `related.json`, one found through amicus keys alone `vided-amicus`. Cert
 branch only, fill-in latched, withheld from the `query` rows, and null on a row
 polled before the column existed.

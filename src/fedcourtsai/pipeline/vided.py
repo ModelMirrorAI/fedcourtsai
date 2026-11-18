@@ -70,8 +70,11 @@ _VIDED_RE: Final = re.compile(r"\s*\bVIDED\b\.?\s*(?:\([^()]*\)\s*)?$", re.IGNOR
 #: brief is, so it reads as a key of its own that both dockets carry.
 _AMICUS_RE: Final = re.compile(r"\bamic(?:us|i)\b", re.IGNORECASE)
 
-#: What makes a VIDED entry a filing rather than the Court's own action: an
-#: argument setting, a grant or a judgment the Clerk marks ``VIDED`` is not one.
+#: What a party key is read from: a VIDED entry that names a filing. An entry
+#: that does not say ``filed`` (an argument setting, a bare grant, a judgment)
+#: is not one. The Court's action on a filed motion ("Motion … filed by
+#: petitioner GRANTED. VIDED.") still says it and keys too, which costs
+#: nothing: the case below is what ties two dockets, not the entry's kind.
 _FILED_RE: Final = re.compile(r"\bfiled\b", re.IGNORECASE)
 
 _SEPARATORS_RE: Final = re.compile(r"[\W_]+", re.UNICODE)
@@ -120,9 +123,11 @@ def lower_cases(payload: Mapping[str, Any]) -> list[str]:
 def vided_party_keys(text: str, raw_date: str | None, below: Iterable[str]) -> list[str]:
     """The party keys one proceedings entry reads as, one for each case in ``below``.
 
-    Empty unless the entry is a filing marked ``VIDED`` that is not an amicus
-    filing (:func:`vided_key` reads those) and carries a fully specified date.
-    ``below`` is the docket's :func:`lower_cases`.
+    Empty unless the entry is marked ``VIDED``, says ``filed``, names no amicus
+    (:func:`vided_key` reads those) and carries a fully specified date.
+    ``below`` is the docket's :func:`lower_cases`. A party's filing that
+    mentions an amicus, such as an opposition to a motion for leave to file an
+    amicus brief, is read as an amicus entry and keys on its text.
     """
     if not _VIDED_RE.search(text) or _AMICUS_RE.search(text) or not _FILED_RE.search(text):
         return []
@@ -163,7 +168,10 @@ def vided_keys(payload: Mapping[str, Any]) -> list[str] | None:
     ``None`` where the docket shows none, and where the payload discloses no
     proceedings at all, so the corpus's fill-in latch keeps a stored reading
     over a degraded poll. The proceedings list is append-only, so a later poll's
-    keys contain an earlier poll's.
+    keys contain an earlier poll's, as long as it still names the case below:
+    the latch replaces a stored list with any non-empty reading, so a poll that
+    shows an amicus key and no lower-court fields would drop the stored party
+    keys until the next poll that names them.
     """
     if not snapshot_carries_proceedings(payload):
         return None
