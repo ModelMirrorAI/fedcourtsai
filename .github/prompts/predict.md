@@ -1165,7 +1165,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     `granted=1` and let `probability` express P(any grant). The label still
     decides `correct`: a `summary-reversal` call is right only where the
     outcome records that route (`disposition_route` is `summary-merits`, the
-    judgment riding the grant order) and wrong on a plenary grant or a GVR,
+    judgment riding the grant order, or the outcome's own label is
+    `summary-reversal`) and wrong on a plenary grant or a GVR,
     a `gvr` call is right only on a `gvr` outcome, and `granted` and
     `granted-in-part` are each right on a `granted` outcome whatever its
     route. On a **merits**

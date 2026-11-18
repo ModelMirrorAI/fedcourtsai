@@ -95,11 +95,13 @@ step was sized at: 850–1,100 SCOTUS events a Term before milestone 1's
 moments, a few hundred more with them. Measurement moves both. The ledger's
 recent pace reads to roughly 1,400–2,000 events a Term,
 an extrapolation from six weeks, and a fully evaluated event measures about
-$4.90, about $7.35 once gemini's rate doubles on 2026-12-01
-([budget.md](budget.md)). At that count today's row is ≈$10–15K at the
-projected $7.35 and ≈$14–20K at the $10 budget.md budgets, both inside the
-envelope, and ≈$28–40K at the table's $20.09, which is not. So the envelope
-holds on measured cost and not on the planning ceiling. Milestone 3's event
+$4.90, and projects to about $11.35–13.40 from 2026-12-01, once gemini's
+rate doubles and with the claude and codex pairs on their current models
+([budget.md](budget.md)). At that count today's row is ≈$7–10K at the
+measured $4.90, inside the envelope, ≈$16–27K at the projection, whose top
+is not, and ≈$28–40K at the table's $20.09, which is not. So the envelope
+holds on measured cost, on the projection only toward its low end, and not
+on the planning ceiling. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning
 ceiling until a round of measured cells re-anchors it.

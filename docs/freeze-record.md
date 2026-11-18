@@ -21289,12 +21289,14 @@ freeze commit is recorded here.
   and prompt together, so a movement in its window is not split among them.
   `claude-baseline` and `gemini-baseline` change only by the prompt
   rewording, which changes the description of figures and of a scoring rule
-  and no figure or rule, and a movement in **either** direction across this
+  and no figure or rule (the pack they read is re-rendered at the first
+  metrics refresh after the carrying merge, not at this label's instant, as
+  the amendment paragraph below states), and a movement in **either** direction across this
   label in their windows is not read as an effect of the rewording. The
   judge-authored grades (`reasoning_quality`, `predicted_reasoning_quality`,
   and a claim a judge grades) from `codex-judge` are made by a different
-  grader model from this label on, the third its series pools
-  (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.2-astra`), so a per-rubric reading
+  grader model from this label on, one more that its series pools, so a
+  per-rubric reading
   of that judge across this label compares graders as well as candidates.
   A change in how often a judge writes `est. n=` in a transcribed base rate
   is the label's renaming, not a change in what was read.
@@ -21323,6 +21325,9 @@ freeze commit is recorded here.
   cells on `main` at `f3754248d` (266 prediction runs and 83 grading runs
   from 2026-10-20 on, $175.30 in all) come to $701.20: a mean of about
   $2.08 a prediction against $0.52 and $1.78 a grading run against $0.44.
+  Nearly all of those cells ran on Codex CLI releases before 0.169.0, so the
+  repricing assumes the model and the CLI release both leave token counts
+  where they were, which the smaller context window may not.
   The codex planning rates rise with the move, to $3.00 and $2.20, the 90th
   percentile of those repriced cells rounded up. `docs/budget.md` carries
   the projection.
@@ -21360,9 +21365,9 @@ freeze commit is recorded here.
 
   | Actor | Before | `proc-v24` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138` (`proc-v23`) | `sha256:e1db3cc1366694569ca57a0a0fb44c27ffd6376e0c32a3b7c3505dad8d53c948` (new) |
-  | `codex-baseline` | `sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319` (`proc-v23`) | `sha256:29f43ef7f2b5208b9826a2a97bcd7462d460f77c28aaee1db96b3c6b9d411f5d` (new) |
-  | `gemini-baseline` | `sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3` (`proc-v23`) | `sha256:d9b3fbbcc879310bfa6186c856845dd69f9cf10ddddf5da94deddf4d3aed08f3` (new) |
+  | `claude-baseline` | `sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138` (`proc-v23`) | `sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4` (new) |
+  | `codex-baseline` | `sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319` (`proc-v23`) | `sha256:76886de4c60736d0541ca7743006913ed195947a5292e0db628b90833d9ed987` (new) |
+  | `gemini-baseline` | `sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3` (`proc-v23`) | `sha256:b4d3cf9384ea19f0ebd20a314ded6bfb6cad288a64f969b148cf832a2a3d2f32` (new) |
   | `claude-judge` | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (`proc-v22`, `proc-v23`) | `sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5` (new) |
   | `codex-judge` | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (`proc-v22`, `proc-v23`) | `sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022` (new) |
   | `gemini-judge` | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (`proc-v22`, `proc-v23`) | `sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf` (new) |
@@ -21388,9 +21393,9 @@ freeze commit is recorded here.
   | `claude-baseline` (`e266abac…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
   | `codex-baseline` (`b1048550…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
   | `gemini-baseline` (`5b3e9ae5…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
-  | `claude-baseline` (`e1db3cc1…`) | `proc-v24` | this label's instant | open (new) |
-  | `codex-baseline` (`29f43ef7…`) | `proc-v24` | this label's instant | open (new) |
-  | `gemini-baseline` (`d9b3fbbc…`) | `proc-v24` | this label's instant | open (new) |
+  | `claude-baseline` (`6a8149a0…`) | `proc-v24` | this label's instant | open (new) |
+  | `codex-baseline` (`76886de4…`) | `proc-v24` | this label's instant | open (new) |
+  | `gemini-baseline` (`b4d3cf93…`) | `proc-v24` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them, and the registry
   holds 45 windows where it held 42. The earliest-window rule is unchanged:
