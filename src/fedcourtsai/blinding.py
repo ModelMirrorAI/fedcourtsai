@@ -54,10 +54,11 @@ anything it cannot place without choosing between the judge's own files.
 by a prompt contract, not a sandbox. It removes every route by which identity
 reaches the grader incidentally: no predictor id, evaluator id, engine name,
 model name, or engine-specific cell account name survives in the staged bytes
-or in a staged filename, the alias order is not the registry's order, and the map does not sit in the tree the grader is
-told to open. It does not, and cannot, stop a grader that sets out to break it —
-the routes below stay open by construction, and the honest reading of any
-blinded number depends on naming them:
+or in a staged filename, the alias order is not the registry's order, and the
+map does not sit in the tree the grader is told to open. It does not, and
+cannot, stop a grader that sets out to break it — the routes below stay open by
+construction, and the honest reading of any blinded number depends on naming
+them:
 
 - **The permutation is recomputable.** The shuffle is keyed on the run, case, and
   event — all three stated in the evaluator's own kickoff prompt — and this
