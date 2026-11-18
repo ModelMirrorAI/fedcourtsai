@@ -54,7 +54,7 @@ transcript, which only a post-argument cell is given.
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
-| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener: the opinion on the judgment date and any amended opinion or opinion on rehearing filed after it and before the SCOTUS docketing, the newest first, dated by the newest it holds | Cert, Granted |
+| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener: the opinion on the judgment date (where the court entered judgment by order, the earliest opinion filed after it) and any amended opinion or opinion on rehearing filed after it and before the SCOTUS docketing, the newest first, dated by the newest it holds | Cert, Granted |
 | `lower-court-docket` | A short record of that court's docket: panel, the opinion clusters and their opinion ids, and whether rehearing en banc was sought, how it was disposed of and any dissent, with the date the entries read run through | Cert, Granted |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
@@ -176,7 +176,12 @@ Each of these is stated, with its reason, where the code makes the choice:
   lead cases together; such a row joins the case only where its docket number
   or the caption of its opinion on the judgment date lists one of the
   petition's case numbers, and the record says which. A petition with no
-  docket row found by number is not searched for. The record words an
+  docket row found by number is not searched for. Where the judgment date
+  still carries no opinion, the court may have entered judgment by order and
+  filed its opinion later: the earliest opinion filed after the judgment date
+  is then stored as the opinion on that judgment, under a header and a record
+  line that say the reading is an inference from the dates, unless the SCOTUS
+  docket states a rehearing denial on or before the day it was filed. The record words an
   absence as one among the entries read, names the date those entries run
   through, and says so where they stop before a rehearing denial the SCOTUS
   docket states, since CourtListener holds a circuit docket only as far as it

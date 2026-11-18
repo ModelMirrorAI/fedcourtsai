@@ -21420,3 +21420,138 @@ freeze commit is recorded here.
   carrying merge has stamped the registry, and a dated follow-up entry quotes
   it before any `proc-v23` window figure is quoted outside the committed
   board.
+- **The opinion that follows a judgment entered by order is read as the
+  decision below; recorded 2026-11-18.** A **provisioning** change with a
+  harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** A predict-cell flag in run `20261118T010747Z` on
+  `scotus/9026000142` (26-142) said no `decision-below.txt` was staged and
+  `lower-court-docket.txt` said CourtListener holds no opinion on the
+  judgment date. The SCOTUS docket names a judgment of 2025-06-18, which the
+  flag reads as an order; CourtListener docket 68985738 (ca2
+  `24-644`) carries clusters dated 2025-08-08, 2025-09-08 and 2026-04-29, the
+  last on the rehearing-denial date the SCOTUS docket states. Read against
+  CourtListener and the case store on 2026-11-18, the flag has two causes:
+  - The case's rows were stored on 2026-11-03, before the
+    `decision-below-later-opinions` boundary, when only a cluster on the
+    judgment date was read. Its stamp keeps it out of the rotation until
+    2026-12-03. A dry run of the fill at `staging` `a82cd82ba`, without this
+    change, already stores a `decision-below` row for it holding all three
+    opinions, so the missing file is the earlier rows, not a rule that
+    refuses the opinion.
+  - What that walk would store still misdescribes the case. The join reports
+    `no_cluster_on_date`, the record says "Opinion on the judgment date: none
+    on CourtListener" and lists the 2025-08-08 opinion as one of three later
+    clusters, and the opinion's header says only that it was filed after the
+    judgment. Nothing tells a cell that it is the court's opinion on that
+    judgment. The opinion read cap also holds no read for it: with no
+    cluster on the judgment date the cap falls on the oldest cluster first,
+    so an order on rehearing published with three writings would leave the
+    opinion unread.
+
+  **What moved.** In `pipeline.decision_below`, where no row, found by number
+  or by the opinion search, carries a cluster on the judgment date:
+  - The earliest cluster dated after the judgment date and on or before the
+    SCOTUS docketing is marked `follows_judgment`, with any other cluster of
+    that date, unless the SCOTUS docket states a rehearing denial on or
+    before that date, when the cluster is a writing on rehearing and nothing
+    is marked. No day window is set beyond those two bounds. Without a
+    served docketing date no later cluster is read, so none is marked.
+  - A case with a marked cluster is `matched`, and its reason says no cluster
+    is dated on the judgment date and names the date of the one read in its
+    place.
+  - One opinion read is held for the marked cluster, as one is for a
+    judgment-date cluster, under the unchanged `MAX_OPINIONS` cap.
+  - The marked opinion's header in the `decision-below` row says it is the
+    earliest opinion after the judgment the SCOTUS docket names, which has
+    none of its own on CourtListener. The docket record lists the cluster as
+    "Opinion cluster", keeps the line that the judgment date holds none, and
+    adds a line naming the cluster as the one read as the court's opinion on
+    a judgment it entered by order, "an inference from the dates, to be
+    checked against the petition's appendix".
+  - No request is added: the clusters were already listed and read. The
+    opinion search still runs first, since a cluster on the judgment date on
+    a consolidated row outranks an inference from dates.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
+  and the six digests the `proc-v24` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-opinion-follows-order`. It
+    applies to every predictor, and its reach is `all`, because no narrower
+    registered reach names petitions from the federal courts of appeals. It
+    is **gradual**: a stored row changes only when the fill walks its case,
+    on arrival or once its stamp is 30 days stale. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier rows, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `95439295c26d483bc3c8b28bd932b51a01214388f47ec25205d59997fed7129f` (newest
+  pull 2026-11-18, newest stored snapshot row 2026-07-13; `staging`'s
+  pointer, which differed from `main`'s that day) and the case store on
+  2026-11-18:
+  402 cases carry a fill stamp, 388 hold a `lower-court-docket` row and 334 a
+  `decision-below` row. 54 of the 388 records say the judgment date holds no
+  opinion, and 52 of those cases hold no `decision-below` row. 26 of the 54
+  were stored on or after 2026-11-11, the day a record began to list later
+  clusters: 2 list one, both dated before any stated rehearing denial, so
+  both would be marked (`scotus/72475426` and `scotus/9026000522`), and 24
+  list none, though a row stored that day before the promotion merged would
+  list none either way. The other 28, 26-142 among them, were stored before
+  that day and list no later cluster either way, so how many of them have
+  this shape is not known from the stored rows; each is walked again once
+  its stamp is 30 days stale, which the last reaches by 2026-12-10, and the
+  rotation's case cap can hold a stale row longer. CourtListener was read for 26-142
+  and its companion 26-141 only. With this change 26-142 is `matched` on
+  cluster 10650428 (2025-08-08) with all three clusters read, and 26-141,
+  whose SCOTUS docket names the 2025-09-08 judgment, is `matched` on cluster
+  10667729 as before with nothing marked.
+
+  **What the change does not reach.** The rule reads dates, not the
+  documents: where CourtListener lacks the opinion a court did file on its
+  judgment date and holds a later amended opinion filed before any stated
+  rehearing denial, the amended opinion is marked, and the record's line
+  says the reading is an inference. Where the SCOTUS docket states no
+  rehearing denial, a writing on a denial it left out is marked the same
+  way. A case whose rows predate this change keeps them until the fill walks
+  it again, and no walk is brought forward: 26-142's three predictors
+  forecast `evt-petition-disposition` on 2026-11-18 without the opinion.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect. The predict prompt describes `decision-below.txt` as the court's
+  opinion on its judgment date with any later opinion under its own dated
+  heading, and tells a cell to check the opinion against the petition; the
+  marked opinion sits under a dated heading that says what it is, so no
+  amendment debt is added.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-142` prints one `matched` case whose cluster dated 2025-08-08
+    has `follows_judgment` true, while CourtListener still holds no cluster
+    dated 2025-06-18 on that docket;
+  - once the fill has walked `scotus/9026000142` again after the promotion
+    (its stamp goes stale on 2026-12-03), the case holds a stored
+    `decision-below` row, and its `lower-court-docket` row carries the line
+    "The earliest opinion filed after it is cluster 10650428";
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-opinion-follows-order' in {b.name for b in H})"`
+    prints `True`.

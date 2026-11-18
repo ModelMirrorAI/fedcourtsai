@@ -1361,10 +1361,14 @@ def test_a_later_cluster_alone_is_stored_and_says_what_it_is() -> None:
     upstream = _amended_upstream(
         cluster_pages={("ca5", "24-50496"): [_cluster(502, "2025-06-02", opinions=[901])]}
     )
+    # Filed on the day rehearing was denied: a writing on rehearing, not the
+    # opinion on the judgment, so it makes no match.
+    facts = _facts(LowerCourtRehearingDenied="June 2, 2025")
     with _client(upstream) as client:
         walk = decision_below._Walk(client)
-        found = decision_below._match(walk, _facts(), case_id="scotus/1")
+        found = decision_below._match(walk, facts, case_id="scotus/1")
     assert found.status == "no_cluster_on_date"
+    assert [c.follows_judgment for c in found.clusters] == [False]
     document = opinion_document(found, walk.texts, today=_TODAY, char_cap=10_000)
     assert document is not None
     assert document.text.startswith("=== 010combined (Ho), filed 2025-06-02, after the")
@@ -1375,6 +1379,118 @@ def test_a_later_cluster_alone_is_stored_and_says_what_it_is() -> None:
     quiet = found.model_copy(update={"rehearing": None})
     dated = docket_document(quiet, today=_TODAY)
     assert dated is not None and dated.entry_date == "2025-06-02"
+
+
+_EXPLAINED = {**_OPINION, "id": 905, "plain_text": "OPINION. We explain our earlier order."}
+
+
+def _order_then_opinion_upstream(**overrides: Any) -> _Upstream:
+    """A judgment entered by order: the opinion follows, then writings on rehearing."""
+    kwargs: dict[str, Any] = {
+        "cluster_pages": {
+            ("ca5", "24-50496"): [
+                _cluster(504, "2025-05-20", opinions=[905]),
+                _cluster(502, "2025-06-02", opinions=[901]),
+            ]
+        },
+        "opinions": {901: _AMENDED, 905: _EXPLAINED},
+    }
+    kwargs.update(overrides)
+    return _matched_upstream(**kwargs)
+
+
+def test_the_opinion_that_follows_a_judgment_order_makes_the_match() -> None:
+    upstream = _order_then_opinion_upstream()
+    facts = _facts(LowerCourtRehearingDenied="June 2, 2025")
+    with _client(upstream) as client:
+        walk = decision_below._Walk(client)
+        found = decision_below._match(walk, facts, case_id="scotus/1")
+    assert found.status == "matched"
+    assert found.reason == (
+        "no cluster dated 2025-04-09; 1 cluster(s) dated 2025-05-20, the earliest filed "
+        + "after it, read as the opinion on a judgment entered by order"
+    )
+    assert [
+        (c.cluster_id, c.on_judgment_date, c.after_judgment, c.follows_judgment)
+        for c in found.clusters
+    ] == [(504, False, True, True), (502, False, True, False)]
+    document = opinion_document(found, walk.texts, today=_TODAY, char_cap=10_000)
+    assert document is not None
+    first, second = document.text.split("\n\n")
+    assert first.startswith(
+        "=== 010combined (Ho), filed 2025-06-02, after the 2025-04-09 judgment the SCOTUS "
+        + "docket names ===\nAMENDED OPINION."
+    )
+    assert second.startswith(
+        "=== 010combined (Ho), filed 2025-05-20, the earliest opinion after the 2025-04-09 "
+        + "judgment the SCOTUS docket names, which has none of its own on CourtListener ===\n"
+        + "OPINION. We explain"
+    )
+    record = docket_document(found, today=_TODAY)
+    assert record is not None
+    assert "Opinion cluster 504 (2025-05-20, after the judgment date): Published" in record.text
+    assert "Later opinion cluster 502 (2025-06-02, after the judgment date)" in record.text
+    assert (
+        "Opinion on the judgment date: none on CourtListener\n"
+        + "  The earliest opinion filed after it is cluster 504 (2025-05-20), read here as the "
+        + "court's opinion on a judgment it entered by order: an inference from the dates, to "
+        + "be checked against the petition's appendix.\n"
+    ) in record.text
+
+
+def test_a_cluster_on_the_judgment_date_leaves_no_later_one_marked() -> None:
+    upstream = _amended_upstream(ignore_date_filter=True)
+    with _client(upstream) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    assert found.status == "matched"
+    assert not any(c.follows_judgment for c in found.clusters)
+
+
+def test_clusters_sharing_the_earliest_later_date_are_all_marked() -> None:
+    upstream = _order_then_opinion_upstream(
+        cluster_pages={
+            ("ca5", "24-50496"): [
+                _cluster(504, "2025-05-20", opinions=[905]),
+                _cluster(505, "2025-05-20"),
+                # Before the judgment date: an earlier stage, never marked.
+                _cluster(501, "2024-11-01"),
+            ]
+        }
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    assert found.status == "matched"
+    assert {c.cluster_id: c.follows_judgment for c in found.clusters} == {
+        504: True,
+        505: True,
+        501: False,
+    }
+    assert found.reason.startswith("no cluster dated 2025-04-09; 2 cluster(s) dated 2025-05-20")
+
+
+def test_no_opinion_follows_a_judgment_without_a_docketing_date() -> None:
+    upstream = _order_then_opinion_upstream()
+    with _client(upstream) as client:
+        found = match_case(client, _facts(DocketedDate=None), case_id="scotus/1")
+    assert found.status == "no_cluster_on_date"
+    assert not any(c.follows_judgment for c in found.clusters)
+
+
+def test_writings_on_rehearing_leave_the_following_opinion_its_read() -> None:
+    upstream = _order_then_opinion_upstream(
+        cluster_pages={
+            ("ca5", "24-50496"): [
+                _cluster(504, "2025-05-20", opinions=[905]),
+                _cluster(502, "2025-06-02", opinions=[901, 903, 904]),
+            ]
+        },
+        opinions={n: {**_OPINION, "id": n} for n in (901, 903, 904, 905)},
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    read = {c.cluster_id: [o.opinion_id for o in c.opinions] for c in found.clusters}
+    assert read == {504: [905], 502: [901, 903]}
+    assert sum(len(ids) for ids in read.values()) == MAX_OPINIONS
 
 
 def test_a_later_cluster_is_not_read_without_a_docketing_date() -> None:
