@@ -457,7 +457,9 @@ budget), with every probe step's `timeout-minutes` reading that
 value. So a required leg of the promotion gate arms and disarms the deadline on
 all three engines' real invocation blocks, and its step summary says so per
 engine — `engine deadline armed (<engine>): …` and then `disarmed before it was
-reached`, or the marker the watchdog left.
+reached`, or the marker the watchdog left. The codex probe's account setup also
+boots the cell's sandbox once before the turn, as the cells' own setup does
+(*Engine CLI updates* in [pipeline.md](pipeline.md)).
 
 `qp-labeler-smoke` extends the actions-smoke doctrine to the one invocation
 block the engine legs cannot cover: the qp-topic labeler's, which is not a
