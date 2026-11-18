@@ -90,8 +90,7 @@ event. The table prices the gemini pair at about $9.25 of each event, set
 against the rate in force from 2026-12-01 ([budget.md](budget.md));
 the scaling is rough from milestone 5, where more predictors change each
 engine's share of an event. At milestone 2 the column sits inside the
-bootstrapping envelope; on the measured cost below, today's row alone takes
-most of it.
+bootstrapping envelope; on the measured cost below, today's row alone takes most of it at the top of the event count.
 
 The column is the planning ceiling, and its event counts are the ones each
 step was sized at: 850–1,100 SCOTUS events a Term before milestone 1's
@@ -102,9 +101,9 @@ models comes to about $11.20, part measured and part projected, and to about
 $15.80 from 2026-12-01, once gemini's rate doubles
 ([budget.md](budget.md)). At that count today's row is ≈$22–32K at the
 figure in force from that date, inside the $36K envelope, and ≈$34–49K at
-the table's $24.64, which is not above the bottom of the count. So the
-envelope holds on the projection, with little to spare at its top, and not
-on the planning ceiling. Milestone 3's event
+the table's $24.64, which is inside it only below about 1,460 events. So the
+envelope holds on the projection, with little to spare at its top, and on
+the planning ceiling only near the bottom of the count. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning
 ceiling until a round of measured cells re-anchors it.
@@ -228,8 +227,8 @@ A case reaches one or two moments in a typical year, so the watchlist is
 roughly 10–40 events a year. Lower-court records are larger than SCOTUS ones,
 so a fully evaluated event is estimated at ≈$30–60, to be re-measured on the
 first events: ≈$1–2K of model spend a year. That fits
-the margin the bootstrapping envelope leaves above today's row only toward
-the low end of the SCOTUS event count ([budget.md](budget.md)), and if every
+the margin the bootstrapping envelope leaves above today's row except at the
+very top of the SCOTUS event count ([budget.md](budget.md)), and if every
 case reached all four moments in one year (80 events at $60), it would be
 ≈$5K and the step would outgrow it. Those counts are of the three briefed
 motions and the final disposition; the injunction moment, the appeal stage

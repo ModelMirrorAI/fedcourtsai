@@ -33,8 +33,9 @@
 # leaves out a rejected response's retry; a topic-label round's is its plan's
 # upper estimate too, its batch's rows at the labeler's per-row planning rate
 # (the merits side coder's own provisional table on its frame).
-# Those rates sit at or above each engine's measured or projected mean (the gemini rows at the rate in force
-# from 2026-12-01), but a cell's spend varies around its mean and
+# Those rates sit at or above each engine's measured or projected mean (the
+# gemini rows at the rate in force from 2026-12-01), but a cell's spend
+# varies around its mean and
 # retries spend more than a cell's rate, so actual spend can exceed the
 # estimate. The budget is a projection over a ledger that lags — a manually
 # released round in flight, an auto-released round whose collect PR is still

@@ -312,19 +312,21 @@ low by the missing codex runs. Every figure here rests on a week of cells
 whose cost varies widely run to run, and is rounded to the nearest $50. So an
 in-Term month projects to roughly $1,950–2,400 until 2026-12-01 and
 $2,850–3,350 from it: inside this line until December, and from then on
-either side of it, inside the auto-release budget below and under the
-`spend` backstop's ceiling. The trailing window reaches those figures
+either side of it and under the `spend` backstop's ceiling. It is inside the
+auto-release budget below except near the range's top, where the allowance
+for rounds in flight brings routine rounds to the hold. The trailing window reaches those figures
 gradually, since each day at the new cost replaces one at the old. A month
-above the range's top, a long conference's campaign among them, passes the
-point where routine rounds wait for a release. Over a Term, 1,400–2,000
+above the range's top, a long conference's campaign among them, has every
+round wait for a release. Over a Term, 1,400–2,000
 events at $11.20–15.80 is ≈$16–32K before retries, and ≈$22–32K at the
 figure in force for most of it, against the $36K envelope and before the
 summaries and the labeler add their ≈$1.3–2.1K a year at the rates above;
 the annual figure sits below twelve in-Term months because the summer
 forecasts little. On the projection the envelope holds across the event
-count, with a few thousand dollars to spare at its top once retries are
-added; that margin is what milestone 2's AI-case watchlist
-([milestones.md](milestones.md)) has to fit in.
+count: about $2K to spare at its top once retries are added, and under $1K
+once the summaries and the labeler are. Milestone 2's AI-case watchlist
+(≈$1–2K, [milestones.md](milestones.md)) fits in that margin except at the
+very top of the count.
 
 The limits read the ledger, and the ledger prices each cell's tokens at the
 rate table in `src/fedcourtsai/pricing.py` as it stands when the cell is
