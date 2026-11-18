@@ -35,12 +35,19 @@ A docket is read three ways:
   emptied when the docket's first snapshot is stored. They are never a
   snapshot: nothing reads them but the onboard that goes on from them. A run
   that may not write the content store keeps nothing and reads whole. Kept
-  pages only help past a page that answers on a later day: a page that never
-  answers stops every attempt at the same place until the kept pages age out.
+  pages only help past a page that answers on a later day. A page that times
+  out as asked is asked for once more without its documents' extracted text,
+  and so is every page after it in that read: upstream sets the page size, and
+  a page of entries with hundreds of documents is megabytes of that text. Such
+  a page is stored with its entries and documents whole but for that one
+  field, which a later incremental read fills for an entry that changes. A
+  page that times out that way too stops the attempt there.
 - **full**, a whole re-read on a day the docket's id picks, once every
   ``full_read_every_days``, so the reads spread across the period. It catches
   what the incremental read cannot see: an entry deleted upstream, or a
-  document attached without moving its entry's modification time. A full read
+  document attached without moving its entry's modification time. A page that
+  times out is asked for again without document text, as on an onboard, and a
+  document read that way keeps the text the stored docket holds for it. A full read
   is taken only when what is left of the run's share covers the docket's stored
   length; a docket longer than that is read incrementally instead, and its
   full read waits for its next day.
@@ -435,7 +442,9 @@ class _OnboardKeeper:
                     cursor=cursor,
                     on_request=lambda: asked.page(None),
                     on_page=on_page,
+                    on_text_dropped=asked.text_dropped,
                 )
+                asked.pages_without_text += read.pages_without_text
             except Exception as exc:
                 if pages > before and cursor is not None:
                     self._keep(exc, _KeptPages(started, pages, cursor, entries))
@@ -522,6 +531,9 @@ class _Requests:
         self._pages: dict[date | None, int] = {}
         self._on_request = on_request
         self._on_step = on_step
+        self._again = False
+        # Pages this refresh read without their documents' text.
+        self.pages_without_text = 0
 
     def send(self, step: str) -> None:
         self.sent += 1
@@ -535,8 +547,17 @@ class _Requests:
 
     def page(self, since: date | None) -> None:
         """The next page of the entries, of those changed since ``since`` when narrowed."""
-        number = self._pages[since] = self._pages.get(since, 0) + 1
-        self.send(f"page {number} of the entries" + (f" changed since {since}" if since else ""))
+        again, self._again = self._again, False
+        number = self._pages[since] = self._pages.get(since, 0) + (0 if again else 1)
+        self.send(
+            f"page {number} of the entries"
+            + (f" changed since {since}" if since else "")
+            + (", asked again without document text" if again else "")
+        )
+
+    def text_dropped(self) -> None:
+        """The page just asked for timed out: the next request asks for it again, lighter."""
+        self._again = True
 
     def whole_read_starts_after(self, pages: int) -> None:
         """Number the whole read's pages from after ``pages`` an earlier run kept."""
@@ -555,6 +576,9 @@ class Refreshed:
     # Pages of entries an onboard took from an earlier run's kept pages
     # rather than asking for again; 0 for a read made whole in this run.
     resumed_pages: int = 0
+    # Pages of entries a whole read took without their documents' text, after
+    # a page timed out as first asked; 0 for a read that never had to.
+    pages_without_text: int = 0
     # The docket's own fields, without its entries.
     docket: Mapping[str, Any] = field(default_factory=dict, compare=False)
     # Entries the stored docket lacked; empty on an onboard, which has no
@@ -576,19 +600,61 @@ def _read_entries(
     stored: object,
     max_entry_pages: int,
 ) -> list[dict[str, Any]]:
-    """One read made in this run alone: whole, or what changed since ``since`` over ``stored``."""
+    """One read made in this run alone: whole, or what changed since ``since`` over ``stored``.
+
+    A whole read asks again, without document text, for a page that times out;
+    a read of what changed does not, since the text of a new ruling is what
+    its summary is written from.
+    """
     read = client.docket_entries(
         docket_id,
         max_pages=max_entry_pages,
         date_modified_gte=since,
         on_request=lambda: asked.page(since),
+        on_text_dropped=asked.text_dropped if since is None else None,
     )
+    asked.pages_without_text += read.pages_without_text
     if not read.complete:
         what = f"changed since {since}" if since else "in all"
         raise EntryPageCapExceeded(
             f"docket {docket_id} has more than {max_entry_pages} pages of entries {what}"
         )
     return merge_entries(stored if since and isinstance(stored, list) else [], read.entries)
+
+
+def _with_stored_text(
+    stored: Iterable[object], entries: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """``entries`` with the text the stored docket holds for a document read without it.
+
+    A whole re-read that had to leave document text out must not strip it from
+    a docket that held it: a document whose fresh copy has no ``plain_text``
+    field at all takes the stored copy's. A document read with the field keeps
+    what it was read with, an empty text included.
+    """
+    held: dict[object, object] = {}
+    for entry in stored:
+        if not isinstance(entry, Mapping):
+            continue
+        for document in entry.get("recap_documents") or []:
+            if isinstance(document, Mapping) and "plain_text" in document:
+                held[document.get("id")] = document["plain_text"]
+
+    def filled(document: object) -> object:
+        if (
+            isinstance(document, Mapping)
+            and "plain_text" not in document
+            and document.get("id") in held
+        ):
+            return {**document, "plain_text": held[document.get("id")]}
+        return document
+
+    return [
+        {**entry, "recap_documents": [filled(d) for d in entry["recap_documents"]]}
+        if isinstance(entry.get("recap_documents"), list)
+        else entry
+        for entry in entries
+    ]
 
 
 def refresh_docket(  # noqa: PLR0913 - each option bounds or observes the one refresh
@@ -688,6 +754,8 @@ def refresh_docket(  # noqa: PLR0913 - each option bounds or observes the one re
         entries = merge_entries([], keeper.read(client, asked, max_entry_pages))
     else:
         entries = _read_entries(client, planned.docket_id, asked, since, stored, max_entry_pages)
+    if asked.pages_without_text and isinstance(stored, list):
+        entries = _with_stored_text(stored, entries)
     fresh = {**docket, "docket_entries": entries}
     changed = prior is None or prior[1] != fresh
     if changed:
@@ -707,6 +775,7 @@ def refresh_docket(  # noqa: PLR0913 - each option bounds or observes the one re
         entries=len(entries),
         requests=asked.sent,
         resumed_pages=resumed,
+        pages_without_text=asked.pages_without_text,
         docket=docket,
         added=added,
         gained=gained,
@@ -737,6 +806,10 @@ class WatchlistRefreshReport:
             ],
             # case id -> pages an onboard took from an earlier run's kept pages.
             "resumed": {r.case_id: r.resumed_pages for r in self.refreshed if r.resumed_pages},
+            # case id -> pages a whole read took without their documents' text.
+            "without_text": {
+                r.case_id: r.pages_without_text for r in self.refreshed if r.pages_without_text
+            },
             "failed": dict(sorted(self.failed.items())),
             "deferred": list(self.deferred),
             "stop_reason": self.stop_reason,

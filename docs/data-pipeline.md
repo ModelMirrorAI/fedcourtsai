@@ -136,7 +136,17 @@ puts past the page cap fails on the count alone. The other whole read is a
 weekly re-read on
 a day the docket id picks, which catches deletions and documents that did not
 move an entry's modification time, taken only where the share left covers the
-docket's stored length. Like pull, a run stops at a wall-clock budget or a run
+docket's stored length. Upstream sets the page at twenty entries and ignores a
+requested size, and a page whose entries carry hundreds of documents does not
+answer within the client's timeout with every document's extracted text in it.
+So a whole read, an onboard or the weekly re-read, asks once more for a page
+that times out, this time without that text (`omit=recap_documents__plain_text`),
+and reads every page after it in that run the same way, at one request more
+than the read was sized at. Those entries are stored whole but for their
+documents' `plain_text`: the weekly re-read keeps the text the stored docket
+already holds for a document, and an incremental read, which never leaves text
+out, fills it for an entry that changes. The run's log says how many pages
+were read that way. Like pull, a run stops at a wall-clock budget or a run
 of transient failures and defers the rest. Corpus validation accepts these rows
 outside the tracked courts by name, and no other row of those courts. A refresh
 that finds entries the stored docket lacked records the significant ones
