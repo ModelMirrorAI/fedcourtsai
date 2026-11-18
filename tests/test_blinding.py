@@ -26,12 +26,14 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import blinding, tool_usage
 from fedcourtsai.agent_flags import CellCoordinates
 from fedcourtsai.blinding import (
     ALIAS_PREFIX,
+    CELL_ACCOUNT_TERMS,
     ENGINE_TERMS,
     BlindingError,
     assign_aliases,
@@ -71,6 +73,7 @@ from fedcourtsai.validate import (
 runner = CliRunner()
 
 CONFIG_ROOT = Path("config")
+WORKFLOWS_ROOT = Path(".github/workflows")
 COURT = "scotus"
 DOCKET = 73369987
 EVENT = "evt-petition-disposition"
@@ -291,7 +294,12 @@ def _forbidden_terms() -> list[str]:
     ``config/predictors.yaml`` — or re-pricing a model — fails here rather than
     leaking silently.
     """
-    terms: set[str] = {*ENGINE_TERMS, *DEFAULT_MODELS.values(), *MODEL_RATES}
+    terms: set[str] = {
+        *ENGINE_TERMS,
+        *CELL_ACCOUNT_TERMS,
+        *DEFAULT_MODELS.values(),
+        *MODEL_RATES,
+    }
     actors: list[PredictorConfig | EvaluatorConfig] = [
         *load_predictors(CONFIG_ROOT / "predictors.yaml"),
         *load_evaluators(CONFIG_ROOT / "evaluators.yaml"),
@@ -390,6 +398,91 @@ def test_retrieval_md_self_identification_is_scrubbed(ledger: Path) -> None:
     staged = (alias_dir / "retrieval.md").read_text()
     assert blinding.IDENTITY_REDACTION in staged
     assert "Retrieval log" in staged, "the scrub replaces identity, not the document"
+
+
+def _workflow_cell_accounts() -> dict[str, set[str]]:
+    """Every ``codex-user`` a workflow step passes, with the workflows passing it."""
+    accounts: dict[str, set[str]] = {}
+    for path in sorted(WORKFLOWS_ROOT.glob("*.yml")):
+        jobs = yaml.safe_load(path.read_text()).get("jobs") or {}
+        for job in jobs.values():
+            for step in job.get("steps") or []:
+                account = (step.get("with") or {}).get("codex-user")
+                if account is not None:
+                    accounts.setdefault(str(account), set()).add(path.name)
+    return accounts
+
+
+def test_every_cell_account_a_workflow_names_is_a_scrub_term() -> None:
+    """An engine's own account names it, so the scrub's list follows the workflows.
+
+    The account is a workflow input, not a registry field, so nothing reads it
+    into the term set: a renamed or added account would pass the scrub in a home
+    path until someone noticed. This walks the values the workflows pass.
+    """
+    accounts = _workflow_cell_accounts()
+    assert accounts, "no workflow passes a cell account: this guard has nothing to walk"
+    terms = blinding.identity_terms(CONFIG_ROOT)
+    for account, workflows in accounts.items():
+        assert account in terms, (
+            f"{sorted(workflows)} run a cell as {account!r}, which the blinding scrub "
+            "does not mask: add it to blinding.CELL_ACCOUNT_TERMS"
+        )
+    assert set(CELL_ACCOUNT_TERMS) <= set(accounts), (
+        "CELL_ACCOUNT_TERMS names an account no workflow runs a cell as"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "uv cache at /home/codexcell/.cache/x",
+        "`UV_CACHE_DIR=/home/codexcell/.cache/uv uv run fedcourts query`",
+        "the session ran as codexcell, which owns /home/codexcell/.codex/sessions",
+        "file:///home/CodexCell/notes.md",
+    ],
+)
+def test_a_cell_account_home_path_is_scrubbed(text: str) -> None:
+    """The family word inside an account name is not left legible by the letter after it."""
+    pattern = blinding.scrub_pattern(blinding.identity_terms(CONFIG_ROOT))
+    scrubbed = blinding.scrub_text(text, pattern)
+    assert "codex" not in scrubbed.lower(), scrubbed
+    assert "/home/" + blinding.IDENTITY_REDACTION in scrubbed, (
+        "the account is masked, not the path around it"
+    )
+
+
+def test_the_shared_runner_home_path_is_left_alone() -> None:
+    """Every engine but one runs as the runner account, so its home path names nobody."""
+    pattern = blinding.scrub_pattern(blinding.identity_terms(CONFIG_ROOT))
+    text = "read /home/runner/work/repo/repo/data/cases/scotus/1/record/context.json"
+    assert blinding.scrub_text(text, pattern) == text
+
+
+def test_a_staged_note_naming_the_cell_account_home_carries_no_engine_word(
+    ledger: Path,
+) -> None:
+    """A predictor's notes and transcript quote its own home path; the staged copies do not."""
+    source = blinding.latest_prediction_dirs(CasePaths(ledger, COURT, DOCKET).event(EVENT))[
+        "codex-baseline"
+    ]
+    notes = source / "retrieval.md"
+    write_text(notes, notes.read_text() + "\nThe uv cache sat at /home/codexcell/.cache/x.\n")
+    log_path = source / "retrieval_log.json"
+    log = json.loads(log_path.read_text())
+    log["calls"][0]["query"] = "UV_CACHE_DIR=/home/codexcell/.cache/uv uv run fedcourts query"
+    log_path.write_text(json.dumps(log))
+
+    result = _blind(ledger)
+    alias = next(c.alias for c in result.candidates if c.predictor_id == "codex-baseline")
+    alias_dir = CasePaths(ledger, COURT, DOCKET).blinded_prediction_dir(alias)
+    staged_notes = (alias_dir / "retrieval.md").read_text()
+    staged_log = (alias_dir / "retrieval_log.json").read_text()
+    assert f"/home/{blinding.IDENTITY_REDACTION}/.cache/x" in staged_notes
+    assert f"/home/{blinding.IDENTITY_REDACTION}/.cache/uv" in staged_log
+    for path in _staged_files(ledger):
+        assert "codex" not in path.read_text().lower(), path
+    assert "codexcell" in notes.read_text(), "the committed notes are not rewritten"
 
 
 def test_prediction_identity_fields_are_masked(ledger: Path) -> None:

@@ -21141,3 +21141,70 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('decision-below-consolidated-search' in {b.name for b in H})"`
     prints `True`.
+- **The blinding identity scrub masks the codex cell account's name,
+  2026-11-18.** A **masking-surface** entry. No freeze commit and no label
+  bump: no prompt byte, registry field, stamp or score moves, and no harness
+  boundary is registered, since the boundary registry splits predictor cells
+  only and this change reaches no predict cell.
+
+  **The change.** `blinding.identity_terms` gains the accounts a workflow runs
+  an engine's cell as (`blinding.CELL_ACCOUNT_TERMS`, today `codexcell`, the
+  `codex-user` input of the codex account setup action). The staged copy of a
+  prediction (`record/blinded/<alias>/`) therefore carries
+  `[redacted:identity]` where the committed file carries that account name,
+  in the prose, `retrieval.md` and the transcript's strings. The committed
+  predictor files are not rewritten. A test holds the list to the values the
+  workflows pass, so a renamed or added account fails the suite until it is
+  listed.
+
+  **Why it passed before.** The scrub matches a term only where no letter
+  follows it, so the family word `codex` inside `codexcell` did not match,
+  and a predictor's notes that quoted its own home path
+  (`/home/codexcell/.cache/…`) were staged with the account name legible.
+  The account is fixed per engine, so it names the candidate's engine to a
+  grader. `claude-judge` flagged it in evaluate run `20261117T154407Z` on
+  `scotus/9026000369`.
+
+  **Population**, over the committed predictor files a staging reads
+  (`prediction.json`, the two prose documents, `retrieval.md` and
+  `retrieval_log.json`; 11,398 files) at `staging` `77e2d3a53`, whose data is
+  `main`'s as of that sync: **37** files carry the account name, every one a
+  `codex-baseline` `retrieval.md`, from run `20261029T142045Z` through
+  `20261116T143731Z`, out of 831 committed `codex-baseline` prediction runs.
+  Run through the scrub before this change, all 37 keep it; after it, none
+  carries `codex` in any spelling, and no other file's scrubbed text differs.
+  **8** committed gradings name one of those runs as their
+  `prediction_run_id` (4 predictions; 4 by `claude-judge`, 4 by
+  `gemini-judge`). They stay as graded: nothing is re-scored, de-counted or
+  set aside, and the count is stated so a reader of `reasoning_quality` on
+  those cells knows the candidate's account was legible when the grade was
+  formed. A staging takes each predictor's latest prediction, so a cell among
+  the 37 graded after the carrying merge is graded from the masked copy.
+
+  **Evaluate cells are dated by this entry, not partitioned.** An evaluate
+  cell provisioned after the carrying merge reads the narrower text under the
+  same evaluator digests. The evaluate prompt does not describe which terms
+  the scrub removes, so no prompt statement is made stale and no amendment
+  debt is added.
+
+  **What the change does not reach.** The shared runner account every other
+  engine runs as is left legible, since it is the same for all of them. A
+  home path of an account the workflows do not name is not masked by shape.
+  The residual routes the module docstring of `fedcourtsai.blinding` lists
+  (the recomputable permutation, the checkout's history, the call-class
+  profile, the query slice, style) are unchanged.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_blinding.py -k "cell_account"` is green;
+  - on `main` once the promotion has merged, `uv run python -c "from pathlib
+    import Path; from fedcourtsai import blinding as b; p =
+    b.scrub_pattern(b.identity_terms(Path('config')));
+    print(b.scrub_text('/home/codexcell/.cache/x', p))"` prints
+    `/home/[redacted:identity]/.cache/x`;
+  - in the artifact of the first evaluate cell after the promotion that
+    grades a `codex-baseline` prediction whose committed `retrieval.md`
+    carries `codexcell`, a search of `record/blinded/` for `codexcell`
+    returns nothing.
