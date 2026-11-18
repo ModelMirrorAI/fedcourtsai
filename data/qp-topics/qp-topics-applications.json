@@ -2,12 +2,12 @@
   "agreement": {
     "floor": 0.3817427385892116,
     "gate_passed": true,
-    "overall_agree": 223,
+    "overall_agree": 214,
     "overall_n": 241,
-    "overall_rate": 0.9253112033195021,
+    "overall_rate": 0.8879668049792531,
     "per_label": [
       {
-        "agree": 9,
+        "agree": 8,
         "label": "administrative-law-and-benefit-programs",
         "n": 9,
         "rate": null
@@ -25,22 +25,22 @@
         "rate": 0.9166666666666666
       },
       {
-        "agree": 7,
+        "agree": 6,
         "label": "constitutional-rights",
         "n": 7,
         "rate": null
       },
       {
-        "agree": 14,
+        "agree": 13,
         "label": "criminal-law",
         "n": 24,
-        "rate": 0.5833333333333334
+        "rate": 0.5416666666666666
       },
       {
-        "agree": 13,
+        "agree": 12,
         "label": "election-law",
         "n": 13,
-        "rate": 1.0
+        "rate": 0.9230769230769231
       },
       {
         "agree": 6,
@@ -91,18 +91,18 @@
         "rate": null
       },
       {
-        "agree": 86,
+        "agree": 81,
         "label": "unclassifiable",
         "n": 92,
-        "rate": 0.9347826086956522
+        "rate": 0.8804347826086957
       }
     ],
     "triangle": [
       {
         "counts": [
-          7,
+          6,
           0,
-          0
+          1
         ],
         "n": 7,
         "other": 0,
@@ -111,11 +111,11 @@
       {
         "counts": [
           0,
-          14,
+          13,
           0
         ],
         "n": 24,
-        "other": 10,
+        "other": 11,
         "reference": "criminal-law"
       },
       {
@@ -231,9 +231,29 @@
       "policy_published": 58,
       "published": 202,
       "superseded": 0
+    },
+    {
+      "agree": 214,
+      "batch": 6,
+      "disagreements": 2,
+      "fired": 2,
+      "floor": 0.3817427385892116,
+      "frame_rows": 2242,
+      "labeler": "claude-code/claude-opus-5-5",
+      "labeler_rows": 11,
+      "measured": 252,
+      "n": 241,
+      "policy_agree": 181,
+      "policy_gate_passed": true,
+      "policy_gate_rule": "policy-gate-v2",
+      "policy_n": 263,
+      "policy_prompt_sha256": "82dbc5c23227773977cbfec7c9828e23728a3ad63bbc529880416bbf0d18c1ab",
+      "policy_published": 4,
+      "published": 11,
+      "superseded": 0
     }
   ],
-  "cases": 2231,
+  "cases": 2242,
   "entries": [
     {
       "batch": 2,
@@ -28277,6 +28297,19 @@
       "vehicle": false
     },
     {
+      "batch": 6,
+      "case_id": "scotus/9526000349",
+      "docket_number": "26A349",
+      "input_kind": "docket-only",
+      "label": "unclassifiable",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
       "batch": 2,
       "case_id": "scotus/9526000353",
       "docket_number": "26A353",
@@ -28323,6 +28356,19 @@
       "label": "administrative-law-and-benefit-programs",
       "policy_area": "other",
       "policy_batch": 4,
+      "policy_source": "labeler",
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000364",
+      "docket_number": "26A364",
+      "input_kind": "docket-only",
+      "label": "criminal-law",
+      "policy_area": "other",
+      "policy_batch": 6,
       "policy_source": "labeler",
       "secondary": null,
       "source": "labeler",
@@ -28443,6 +28489,19 @@
       "policy_source": null,
       "secondary": null,
       "source": "reference",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000400",
+      "docket_number": "26A400",
+      "input_kind": "docket-only",
+      "label": "immigration",
+      "policy_area": "immigration",
+      "policy_batch": 6,
+      "policy_source": "labeler",
+      "secondary": null,
+      "source": "labeler",
       "vehicle": false
     },
     {
@@ -28771,6 +28830,19 @@
       "vehicle": false
     },
     {
+      "batch": 6,
+      "case_id": "scotus/9526000500",
+      "docket_number": "26A500",
+      "input_kind": "docket-only",
+      "label": "unclassifiable",
+      "policy_area": "other",
+      "policy_batch": 6,
+      "policy_source": "labeler",
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
       "batch": 1,
       "case_id": "scotus/9526000508",
       "docket_number": "26A508",
@@ -28789,6 +28861,19 @@
       "docket_number": "26A509",
       "input_kind": "docket-only",
       "label": "employment-and-antidiscrimination",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000510",
+      "docket_number": "26A510",
+      "input_kind": "docket-only",
+      "label": "unclassifiable",
       "policy_area": null,
       "policy_batch": null,
       "policy_source": null,
@@ -29237,31 +29322,109 @@
       "secondary": null,
       "source": "labeler",
       "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000680",
+      "docket_number": "26A680",
+      "input_kind": "application-text",
+      "label": "employment-and-antidiscrimination",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000684",
+      "docket_number": "26A684",
+      "input_kind": "application-text",
+      "label": "civil-procedure",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000686",
+      "docket_number": "26A686",
+      "input_kind": "application-text",
+      "label": "habeas-and-postconviction",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000688",
+      "docket_number": "26A688",
+      "input_kind": "docket-only",
+      "label": "criminal-law",
+      "policy_area": "other",
+      "policy_batch": 6,
+      "policy_source": "labeler",
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000698",
+      "docket_number": "26A698",
+      "input_kind": "application-text",
+      "label": "civil-procedure",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
+    },
+    {
+      "batch": 6,
+      "case_id": "scotus/9526000701",
+      "docket_number": "26A701",
+      "input_kind": "docket-only",
+      "label": "unclassifiable",
+      "policy_area": null,
+      "policy_batch": null,
+      "policy_source": null,
+      "secondary": null,
+      "source": "labeler",
+      "vehicle": false
     }
   ],
   "extract_rule": "application-extract-v1",
   "labeler": "claude-code/claude-opus-5-5",
   "policy_agreement": {
-    "agree": 198,
-    "answer_rate": 0.6735751295336787,
-    "answered": 130,
-    "answered_agree": 128,
-    "answered_named": 130,
-    "batch": 5,
-    "certain_agree": 139,
+    "agree": 181,
+    "answer_rate": 0.5854922279792746,
+    "answered": 113,
+    "answered_agree": 111,
+    "answered_named": 113,
+    "batch": 6,
+    "certain_agree": 124,
     "certain_n": 166,
     "floor": 0.2661596958174905,
     "gate_passed": true,
     "gate_rule": "policy-gate-v2",
     "n": 263,
-    "named_agree": 128,
+    "named_agree": 111,
     "named_n": 193,
     "off_frame": 0,
     "per_area": [
       {
-        "agree": 37,
+        "agree": 35,
         "area": "immigration",
-        "labeled_other": 11,
+        "labeled_other": 13,
         "n": 48
       },
       {
@@ -29271,9 +29434,9 @@
         "n": 15
       },
       {
-        "agree": 4,
+        "agree": 2,
         "area": "foreign-affairs",
-        "labeled_other": 6,
+        "labeled_other": 8,
         "n": 10
       },
       {
@@ -29283,21 +29446,21 @@
         "n": 16
       },
       {
-        "agree": 6,
+        "agree": 3,
         "area": "personnel-removal",
-        "labeled_other": 12,
+        "labeled_other": 15,
         "n": 18
       },
       {
-        "agree": 9,
+        "agree": 5,
         "area": "education",
-        "labeled_other": 2,
+        "labeled_other": 6,
         "n": 11
       },
       {
-        "agree": 32,
+        "agree": 26,
         "area": "health",
-        "labeled_other": 5,
+        "labeled_other": 11,
         "n": 39
       },
       {
@@ -29319,10 +29482,10 @@
         "n": 70
       }
     ],
-    "precision": 0.9846153846153847,
-    "precision_floor": 0.2846153846153846,
+    "precision": 0.9823008849557522,
+    "precision_floor": 0.30973451327433627,
     "prompt_sha256": "82dbc5c23227773977cbfec7c9828e23728a3ad63bbc529880416bbf0d18c1ab",
-    "rate": 0.752851711026616,
+    "rate": 0.688212927756654,
     "reference_rows": 263,
     "reference_rule": "policy-area-v1",
     "reference_total": 282,
@@ -29332,7 +29495,7 @@
   "shadow": {
     "disagreements": 2,
     "fired": 2,
-    "texts": 443
+    "texts": 252
   },
   "vocabulary": "qp-topic-v1"
 }
