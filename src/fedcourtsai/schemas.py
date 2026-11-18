@@ -3271,9 +3271,9 @@ class BlindingRecord(_Strict):
     )
     names_present: list[BlindingCount] = Field(
         description="Identity terms already in the judge's own text BEFORE un-aliasing: predictor "
-        "and evaluator ids, engine names, model ids and the bare family words the "
-        "staging scrub masks (`fedcourtsai.blinding.identity_terms`), less the "
-        "evaluator's own id, engine and model, which its `evaluation.json` carries "
+        "and evaluator ids, engine names, model ids, engine cell accounts and the bare "
+        "family words the staging scrub masks (`fedcourtsai.blinding.identity_terms`), "
+        "less the evaluator's own id, engine, model and cell account, which it writes "
         "about itself — so a candidate that shares the judge's engine or model is not "
         "counted under that shared term, only under its own id. The judge was staged "
         "text with every such term redacted, so one here is a name the judge wrote "

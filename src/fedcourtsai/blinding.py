@@ -206,8 +206,11 @@ ENGINE_TERMS: Final[tuple[str, ...]] = (
 #: engine's own name does — and the family words above do not cover it, because
 #: the trailing boundary refuses a match a letter follows. The shared runner
 #: account every other engine runs as is the same for all of them and is left
-#: alone. ``test_blinding.py`` holds this list to the workflows' own values.
-CELL_ACCOUNT_TERMS: Final[tuple[str, ...]] = ("codexcell",)
+#: alone. Keyed by engine, since a judge on that engine runs as the same account
+#: and may name its own (:func:`_own_identity`). ``test_blinding.py`` holds the
+#: accounts to the workflows' own values.
+CELL_ACCOUNTS: Final[Mapping[str, str]] = {"codex": "codexcell"}
+CELL_ACCOUNT_TERMS: Final[tuple[str, ...]] = tuple(sorted(CELL_ACCOUNTS.values()))
 
 #: The prose documents are staged under **harness-chosen** names rather than the
 #: names the prediction's pointers happen to carry, because a pointer is the
@@ -1668,10 +1671,12 @@ HARNESS_CELL_FILES: Final[frozenset[str]] = frozenset(
 
 
 def _own_identity(config_root: Path, evaluator_id: str) -> frozenset[str]:
-    """The evaluator's own id, engine and model, lowercase.
+    """The evaluator's own id, engine, model and cell account, lowercase.
 
     The judge writes these about itself as a matter of course — its
-    ``evaluation.json`` carries ``evaluator_id``, ``engine`` and ``model`` — so
+    ``evaluation.json`` carries ``evaluator_id``, ``engine`` and ``model``, and
+    a judge whose engine runs as an account of its own
+    (:data:`CELL_ACCOUNTS`) quotes that account in its own home path — so
     they are not names of a candidate, and the names-present count leaves them
     out. Everything else in the identity set stays in, the engine family words
     included: the record is per term, so a reader can discount a judge's
@@ -1682,6 +1687,7 @@ def _own_identity(config_root: Path, evaluator_id: str) -> frozenset[str]:
         if entry.id == evaluator_id:
             engine = str(entry.engine)
             terms.update({engine, entry.model or DEFAULT_MODELS.get(engine, "")})
+            terms.add(CELL_ACCOUNTS.get(engine, ""))
     return frozenset(term.lower() for term in terms if term)
 
 

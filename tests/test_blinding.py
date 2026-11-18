@@ -452,6 +452,13 @@ def test_a_cell_account_home_path_is_scrubbed(text: str) -> None:
     )
 
 
+def test_a_judge_naming_its_own_cell_account_is_not_counted_as_naming_a_candidate() -> None:
+    """A judge on an engine with its own account quotes that account's home path freely."""
+    assert "codexcell" in blinding._own_identity(CONFIG_ROOT, "codex-judge")
+    assert "codexcell" not in blinding._own_identity(CONFIG_ROOT, "claude-judge")
+    assert set(blinding.CELL_ACCOUNTS) <= set(ENGINE_TERMS)
+
+
 def test_the_shared_runner_home_path_is_left_alone() -> None:
     """Every engine but one runs as the runner account, so its home path names nobody."""
     pattern = blinding.scrub_pattern(blinding.identity_terms(CONFIG_ROOT))

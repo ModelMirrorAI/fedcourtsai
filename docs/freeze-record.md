@@ -21142,10 +21142,16 @@ freeze commit is recorded here.
     print('decision-below-consolidated-search' in {b.name for b in H})"`
     prints `True`.
 - **The blinding identity scrub masks the codex cell account's name,
-  2026-11-18.** A **masking-surface** entry. No freeze commit and no label
-  bump: no prompt byte, registry field, stamp or score moves, and no harness
-  boundary is registered, since the boundary registry splits predictor cells
-  only and this change reaches no predict cell.
+  2026-11-18.** A **masking-surface** entry. No freeze commit: no prompt
+  byte, registry field, stamp or score moves.
+
+  **Why no label bump and no harness-boundary row.** No digest moves, so a
+  label bump would partition nothing: the six digests read the same before
+  and after this change (`fedcourts process-digest --all`). The boundary
+  registry (`process_version.HARNESS_BOUNDARIES`) registers changes to what
+  a predict cell reads and splits predictor cells only, and no predict cell
+  reads anything different. The change is dated by this entry and by the
+  carrying merge below.
 
   **The change.** `blinding.identity_terms` gains the accounts a workflow runs
   an engine's cell as (`blinding.CELL_ACCOUNT_TERMS`, today `codexcell`, the
@@ -21163,7 +21169,8 @@ freeze commit is recorded here.
   (`/home/codexcell/.cache/…`) were staged with the account name legible.
   The account is fixed per engine, so it names the candidate's engine to a
   grader. `claude-judge` flagged it in evaluate run `20261117T154407Z` on
-  `scotus/9026000369`.
+  `scotus/9026000369`; the flag is in that run's roll-up on the
+  agent-feedback issue, not in a committed file.
 
   **Population**, over the committed predictor files a staging reads
   (`prediction.json`, the two prose documents, `retrieval.md` and
@@ -21178,14 +21185,25 @@ freeze commit is recorded here.
   `gemini-judge`). They stay as graded: nothing is re-scored, de-counted or
   set aside, and the count is stated so a reader of `reasoning_quality` on
   those cells knows the candidate's account was legible when the grade was
-  formed. A staging takes each predictor's latest prediction, so a cell among
-  the 37 graded after the carrying merge is graded from the masked copy.
+  formed. A staging takes each predictor's latest prediction on an event, so
+  one of the 37 runs that is still its event's latest `codex-baseline` run
+  when it is graded after the carrying merge is graded from the masked copy.
 
   **Evaluate cells are dated by this entry, not partitioned.** An evaluate
   cell provisioned after the carrying merge reads the narrower text under the
-  same evaluator digests. The evaluate prompt does not describe which terms
-  the scrub removes, so no prompt statement is made stale and no amendment
-  debt is added.
+  same evaluator digests. The evaluate prompt tells a judge that the staged
+  text has had "predictor ids, evaluator ids, and engine/model names"
+  replaced. The account name is not on that list by its own class, and it
+  embeds an engine name, so before this change the staged copy fell short of
+  that sentence and after it the sentence holds for this spelling. No prompt
+  byte is edited and no amendment debt is added.
+
+  **The un-aliasing count.** The names-present count in a cell's
+  `blinding.json` reads the same term set, so the account name is counted
+  where a judge writes it, less a judge's own: a judge whose engine runs as
+  that account (`codex-judge`) may quote its own home path, and its own
+  account is left out as its own id, engine and model are. No committed
+  evaluation file carries the account name at this commit.
 
   **What the change does not reach.** The shared runner account every other
   engine runs as is left legible, since it is the same for all of them. A
