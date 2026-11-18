@@ -4,9 +4,9 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 
 **How to read this.** A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast — the cell's raw value, unstratified, unexcluded and unscored — and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.
 
-**The rank column.** The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is. Here the median gap between neighbouring rows is **0.002** and the median spread inside a row's own panel is **0.195**.
+**The rank column.** The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is. Here the median gap between neighbouring rows is **0.002** and the median spread inside a row's own panel is **0.190**.
 
-**Leakage.** A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too — and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event. 4 of 414 row(s) carry the mark, shown in the `leak` column.
+**Leakage.** A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too — and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event. 4 of 418 row(s) carry the mark, shown in the `leak` column.
 
 **The collapse.** The scope first, then the moment, then the predictors on it, so the reads a row averages are answers to the same question asked under the same contract. Eligibility comes first and everything below is over the eligible runs only: a run counts as a current read only where it is in `process_scope` (see *Process scope*), so a case's moment is the newest event carrying at least one eligible run, and an out-of-scope run can neither become a current read nor move the moment. The case's current moment (`moment`, with `moment_opened_at` beside it) is chosen from the **docket** rather than from run times — with the one fallback named below, where the docket gives no date at all: the newest **predicted** event by its `opened_at`, which lags the docket wherever no cell has been dispatched on a newer event; ties broken by the docket's stage progression — the petition's arrival, then its distribution, any call for a response to it and its first relist, then the interim application's arrival, the response requested on it and the response filed, then the CVSG and the Solicitor General's invited brief, then the merits moments — and then by event id, so a date collision never inverts the order a case is actually walked in. An event whose definition records no `opened_at` is ordered by the **day** of its first prediction's harness clock, which therefore falls through to the same tie-break. One exception the pre-registration records (`docs/freeze-record.md`): the cert petition baseline's `opened_at` is **docketing**, while the moment it declares is the distribution, so on those rows `moment_opened_at` is the day the petition reached the docket rather than the day its moment arrived. It is used as an ordering key regardless, because it is still the docket's own date and still moves only when the docket does. A re-predict of an older moment cannot move the case's moment; only a newly predicted moment can. Each predictor's read is then its newest run **on that moment**, newest by the harness-written cell clock (the process stamp, else `created_at`) rather than by directory name, ties broken by run id. A predictor with no run on that moment is excluded from `n` and from the mean exactly as a declared no view is — never carried over from an older moment, never imputed, never counted as a zero; its earlier read is history, listed under its own event and never averaged in. **The coverage consequence to read for**: where a fresh moment has been minted for some predictors and not others, the row shows the newest moment at a small `n` rather than a fuller `n` on a stage the docket has left behind. That is the honest reading, and the fuller panel on the previous moment is in the per-event entries.
 
@@ -20,46 +20,46 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 
 **Captions.** The caption is the `event.yaml` title of the case's **current moment** — the event `moment` names, which `caption_event_id` repeats so the rule is checkable against the row without a join. A case read at two moments therefore displays under the one its panel was collapsed to, and a row is on the board at all only where that moment carries a score, so the caption never advertises a moment no number came from. A case whose event definition is absent displays no caption. `case_id` is the identifier and the caption is the human handle.
 
-**Coverage.** 414 case(s) ranked over 1240 current read(s) from 3 predictor(s) (claude-baseline, codex-baseline, gemini-baseline), of which 1204 carry a score. The other 36 are excluded from every mean and render as an em dash in the predictor columns — **not as a zero**, which would fabricate a panel opinion. They split into 27 declared no view(s), where the cell weighed the stakes and said it could not place them, and 9 missing read(s) with no rationale — mostly elicited under the earlier prompt, where the field was optional, since this build reads cells either side of that amendment — but a post-amendment cell that simply omitted the rationale lands here too, and this count does not separate them. 1 predicted case(s) carry no scored read on their current moment and are off the board. A **blank** predictor column is different again: that predictor has no run on the case's current moment, which is a coverage gap on that moment rather than a withheld view — it may hold a read of an earlier moment, carried in the per-event entries as history. Cases by scoring predictors: 3 → 378 case(s), 2 → 34 case(s), 1 → 2 case(s).
+**Coverage.** 418 case(s) ranked over 1243 current read(s) from 3 predictor(s) (claude-baseline, codex-baseline, gemini-baseline), of which 1207 carry a score. The other 36 are excluded from every mean and render as an em dash in the predictor columns — **not as a zero**, which would fabricate a panel opinion. They split into 27 declared no view(s), where the cell weighed the stakes and said it could not place them, and 9 missing read(s) with no rationale — mostly elicited under the earlier prompt, where the field was optional, since this build reads cells either side of that amendment — but a post-amendment cell that simply omitted the rationale lands here too, and this count does not separate them. 1 predicted case(s) carry no scored read on their current moment and are off the board. A **blank** predictor column is different again: that predictor has no run on the case's current moment, which is a coverage gap on that moment rather than a withheld view — it may hold a read of an earlier moment, carried in the per-event entries as history. Cases by scoring predictors: 3 → 373 case(s), 2 → 43 case(s), 1 → 2 case(s).
 
 | # | case | caption | moment | mean | n | range | claude-baseline | codex-baseline | gemini-baseline | status | leak |
 | --: | --- | --- | --- | --: | --: | --: | --: | --: | --: | --- | --- |
 | 1 | `scotus/73279009` | Eddie Grant, Jr., et al. v. Ronnell Higgins, in His Official Capacity as Commissioner of the Connecticut Department of Emergency Services and Public Transportation, et al. | `evt-order-judgment` | 0.953 | 3 | 0.030 | 0.97 | 0.94 | 0.95 | pending | — |
-| 2 | `scotus/9026000142` | United States v. E. Jean Carroll, et al. | `evt-petition-arrival-disposition` | 0.953 | 3 | 0.010 | 0.95 | 0.96 | 0.95 | pending | — |
-| 3 | `scotus/9526000124` | Donald J. Trump, President of the United States, et al. v. California, et al. | `evt-brief-response-disposition` | 0.953 | 3 | 0.030 | 0.97 | 0.94 | 0.95 | resolved | — |
-| 4 | `scotus/9026000272` | United States, et al. v. Nicolas Talbott, et al. | `evt-petition-arrival-disposition` | 0.950 | 3 | 0.000 | 0.95 | 0.95 | 0.95 | pending | — |
-| 5 | `scotus/73275179` | Cutberto Viramontes, et al. v. Cook County, Illinois, et al. | `evt-brief-judgment` | 0.943 | 3 | 0.020 | 0.93 | 0.95 | 0.95 | pending | — |
-| 6 | `scotus/9026000013` | Khalid Shaikh Mohammad, et al. v. United States | `evt-petition-disposition` | 0.940 | 3 | 0.070 | 0.90 | 0.97 | 0.95 | resolved | — |
-| 7 | `scotus/9526000203` | National Park Service, et al. v. National Trust for Historic Preservation in the United States | `evt-brief-response-disposition` | 0.930 | 2 | 0.020 | 0.92 | 0.94 | — | resolved | — |
-| 8 | `scotus/73274882` | Virginia Duncan, et al. v. Rob Bonta, Attorney General of California | `evt-petition-disposition` | 0.923 | 3 | 0.050 | 0.92 | 0.90 | 0.95 | pending | — |
-| 9 | `scotus/9026000426` | Department of Homeland Security, et al. v. D. V. D., et al. | `evt-order-judgment` | 0.923 | 3 | 0.050 | 0.90 | 0.92 | 0.95 | pending | — |
-| 10 | `scotus/73274859` | Suncor Energy (U.S.A.) Inc., et al. v. County Commissioners of Boulder County, et al. | `evt-argument-judgment` | 0.920 | 3 | 0.060 | 0.95 | 0.89 | 0.92 | pending | — |
-| 11 | `scotus/73500212` | Apple Inc. v. Epic Games, Inc. | `evt-order-judgment` | 0.900 | 3 | 0.000 | 0.90 | 0.90 | 0.90 | pending | — |
-| 12 | `scotus/9026000239` | Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al. | `evt-order-judgment` | 0.900 | 3 | 0.080 | 0.90 | 0.94 | 0.86 | partly_resolved | — |
-| 13 | `scotus/9026000491` | Department of Health and Human Services, et al. v. Texas Medical Association, et al. | `evt-petition-arrival-disposition` | 0.900 | 3 | 0.100 | 0.85 | 0.90 | 0.95 | pending | — |
-| 14 | `scotus/9526000139` | Alabama, et al. v. California, et al. | `evt-brief-response-disposition` | 0.890 | 2 | 0.020 | 0.90 | 0.88 | — | resolved | — |
-| 15 | `scotus/73281056` | Republican National Committee v. Mi Familia Vota, et al. | `evt-brief-judgment` | 0.883 | 3 | 0.050 | 0.85 | 0.90 | 0.90 | pending | — |
-| 16 | `scotus/73500235` | Walid bin ‘Atash v. United States | `evt-petition-disposition` | 0.877 | 3 | 0.170 | 0.78 | 0.90 | 0.95 | resolved | — |
-| 17 | `scotus/9026000049` | Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al. | `evt-order-cvsg-disposition` | 0.877 | 3 | 0.150 | 0.80 | 0.88 | 0.95 | pending | — |
-| 18 | `scotus/73275185` | Wes Allen, Alabama Secretary of State, et al. v. Marcus Caster, et al. | `evt-petition-disposition` | 0.867 | 3 | 0.050 | 0.85 | 0.90 | 0.85 | resolved | yes |
-| 19 | `scotus/73279026` | St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al. | `evt-argument-judgment` | 0.863 | 3 | 0.030 | 0.85 | 0.86 | 0.88 | pending | — |
-| 20 | `scotus/9026000589` | Lee M. Zeldin, Administrator, Environmental Protection Agency, et al. v. Climate United Fund, et al. | `evt-petition-arrival-disposition` | 0.860 | 3 | 0.100 | 0.80 | 0.88 | 0.90 | pending | — |
-| 21 | `scotus/9526000406` | Department of Homeland Security, et al., v. D.V.D., et al. | `evt-order-response-requested-disposition` | 0.857 | 3 | 0.160 | 0.78 | 0.94 | 0.85 | resolved | — |
-| 22 | `scotus/73281059` | Warren Petersen, President of the Arizona Senate, et al. v. Mi Familia Vota, et al. | `evt-petition-disposition` | 0.850 | 3 | 0.250 | 0.70 | 0.90 | 0.95 | pending | — |
-| 23 | `scotus/9026000210` | Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al. | `evt-petition-disposition` | 0.850 | 3 | 0.100 | 0.80 | 0.90 | 0.85 | resolved | — |
-| 24 | `scotus/73278426` | National Association for Gun Rights, et al. v. Ned Lamont, in His Official Capacity as Governor of Connecticut, et al. | `evt-petition-disposition` | 0.847 | 3 | 0.240 | 0.70 | 0.94 | 0.90 | pending | — |
-| 25 | `scotus/73500261` | Cade Brumley, Superintendent, Louisiana State Education, et al. v. Darcy Roake, Reverend, Individually and on Behalf of Their Minor Children, Real Parties in Interest A. V. and S. V., et al. | `evt-order-call-for-response-disposition` | 0.843 | 3 | 0.080 | 0.80 | 0.88 | 0.85 | pending | — |
-| 26 | `scotus/9026000117` | Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al. | `evt-order-relist-disposition` | 0.843 | 3 | 0.120 | 0.85 | 0.90 | 0.78 | pending | — |
-| 27 | `scotus/73282277` | Hamed Kian v. Florida | `evt-brief-judgment` | 0.840 | 3 | 0.030 | 0.85 | 0.82 | 0.85 | pending | — |
-| 28 | `scotus/9026000116` | Wes Allen, Alabama Secretary of State, et al. v. Marcus Caster, et al. | `evt-order-relist-disposition` | 0.840 | 3 | 0.160 | 0.80 | 0.94 | 0.78 | pending | — |
-| 29 | `scotus/9026000304` | United States v. Devonte Devon Jackson, et al. | `evt-petition-arrival-disposition` | 0.837 | 3 | 0.060 | 0.80 | 0.86 | 0.85 | pending | — |
-| 30 | `scotus/73281002` | Republican National Committee, et al. v. Bette Eakin, et al. | `evt-order-cvsg-disposition` | 0.833 | 3 | 0.150 | 0.75 | 0.85 | 0.90 | pending | — |
-| 31 | `scotus/73514289` | StandWithUs Center for Legal Justice, et al. v. Massachusetts Institute of Technology | `evt-petition-disposition` | 0.823 | 3 | 0.150 | 0.75 | 0.82 | 0.90 | pending | — |
-| 32 | `scotus/9026000599` | National Park Service, et al. v. National Trust for Historic Preservation in the United States | `evt-petition-arrival-disposition` | 0.823 | 3 | 0.180 | 0.72 | 0.90 | 0.85 | pending | — |
-| 33 | `scotus/73274837` | Gator's Custom Guns, Inc., et al. v. Washington | `evt-petition-disposition` | 0.817 | 3 | 0.150 | 0.75 | 0.90 | 0.80 | pending | — |
-| 34 | `scotus/9026000012` | Association for Education Fairness v. Montgomery County Board of Education, et al. | `evt-order-judgment` | 0.817 | 3 | 0.050 | 0.80 | 0.80 | 0.85 | partly_resolved | — |
-| 35 | `scotus/9026000380` | Donald J. Trump, President of the United States, et al. v. Badar Khan Suri | `evt-petition-arrival-disposition` | 0.813 | 3 | 0.040 | 0.80 | 0.84 | 0.80 | pending | — |
-| 36 | `scotus/9026000118` | Wes Allen, Alabama Secretary of State, et al. v. Bobby Singleton, et al. | `evt-order-relist-disposition` | 0.810 | 3 | 0.180 | 0.70 | 0.88 | 0.85 | pending | — |
+| 2 | `scotus/9526000124` | Donald J. Trump, President of the United States, et al. v. California, et al. | `evt-brief-response-disposition` | 0.953 | 3 | 0.030 | 0.97 | 0.94 | 0.95 | resolved | — |
+| 3 | `scotus/9026000272` | United States, et al. v. Nicolas Talbott, et al. | `evt-petition-arrival-disposition` | 0.950 | 3 | 0.000 | 0.95 | 0.95 | 0.95 | pending | — |
+| 4 | `scotus/73275179` | Cutberto Viramontes, et al. v. Cook County, Illinois, et al. | `evt-brief-judgment` | 0.943 | 3 | 0.020 | 0.93 | 0.95 | 0.95 | pending | — |
+| 5 | `scotus/9026000013` | Khalid Shaikh Mohammad, et al. v. United States | `evt-petition-disposition` | 0.940 | 3 | 0.070 | 0.90 | 0.97 | 0.95 | resolved | — |
+| 6 | `scotus/9526000203` | National Park Service, et al. v. National Trust for Historic Preservation in the United States | `evt-brief-response-disposition` | 0.930 | 2 | 0.020 | 0.92 | 0.94 | — | resolved | — |
+| 7 | `scotus/73274882` | Virginia Duncan, et al. v. Rob Bonta, Attorney General of California | `evt-petition-disposition` | 0.923 | 3 | 0.050 | 0.92 | 0.90 | 0.95 | pending | — |
+| 8 | `scotus/9026000426` | Department of Homeland Security, et al. v. D. V. D., et al. | `evt-order-judgment` | 0.923 | 3 | 0.050 | 0.90 | 0.92 | 0.95 | pending | — |
+| 9 | `scotus/73274859` | Suncor Energy (U.S.A.) Inc., et al. v. County Commissioners of Boulder County, et al. | `evt-argument-judgment` | 0.920 | 3 | 0.060 | 0.95 | 0.89 | 0.92 | pending | — |
+| 10 | `scotus/73500212` | Apple Inc. v. Epic Games, Inc. | `evt-order-judgment` | 0.900 | 3 | 0.000 | 0.90 | 0.90 | 0.90 | pending | — |
+| 11 | `scotus/9026000239` | Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al. | `evt-order-judgment` | 0.900 | 3 | 0.080 | 0.90 | 0.94 | 0.86 | partly_resolved | — |
+| 12 | `scotus/9026000491` | Department of Health and Human Services, et al. v. Texas Medical Association, et al. | `evt-petition-arrival-disposition` | 0.900 | 3 | 0.100 | 0.85 | 0.90 | 0.95 | pending | — |
+| 13 | `scotus/9526000139` | Alabama, et al. v. California, et al. | `evt-brief-response-disposition` | 0.890 | 2 | 0.020 | 0.90 | 0.88 | — | resolved | — |
+| 14 | `scotus/73281056` | Republican National Committee v. Mi Familia Vota, et al. | `evt-brief-judgment` | 0.883 | 3 | 0.050 | 0.85 | 0.90 | 0.90 | pending | — |
+| 15 | `scotus/73500235` | Walid bin ‘Atash v. United States | `evt-petition-disposition` | 0.877 | 3 | 0.170 | 0.78 | 0.90 | 0.95 | resolved | — |
+| 16 | `scotus/9026000049` | Brenna Bird, Attorney General of Iowa v. Iowa Migrant Movement for Justice, et al. | `evt-order-cvsg-disposition` | 0.877 | 3 | 0.150 | 0.80 | 0.88 | 0.95 | pending | — |
+| 17 | `scotus/73275185` | Wes Allen, Alabama Secretary of State, et al. v. Marcus Caster, et al. | `evt-petition-disposition` | 0.867 | 3 | 0.050 | 0.85 | 0.90 | 0.85 | resolved | yes |
+| 18 | `scotus/73279026` | St. Mary Catholic Parish, Littleton, Colorado, et al. v. Lisa Roy, in Her Official Capacity as Executive Director of the Colorado Department of Early Childhood, et al. | `evt-argument-judgment` | 0.863 | 3 | 0.030 | 0.85 | 0.86 | 0.88 | pending | — |
+| 19 | `scotus/9026000589` | Lee M. Zeldin, Administrator, Environmental Protection Agency, et al. v. Climate United Fund, et al. | `evt-petition-arrival-disposition` | 0.860 | 3 | 0.100 | 0.80 | 0.88 | 0.90 | pending | — |
+| 20 | `scotus/9526000406` | Department of Homeland Security, et al., v. D.V.D., et al. | `evt-order-response-requested-disposition` | 0.857 | 3 | 0.160 | 0.78 | 0.94 | 0.85 | resolved | — |
+| 21 | `scotus/73281059` | Warren Petersen, President of the Arizona Senate, et al. v. Mi Familia Vota, et al. | `evt-petition-disposition` | 0.850 | 3 | 0.250 | 0.70 | 0.90 | 0.95 | pending | — |
+| 22 | `scotus/9026000210` | Donald J. Trump, President of the United States, et al. v. Neeta Thakur, Individually and on Behalf of All Others Similarly Situated, et al. | `evt-petition-disposition` | 0.850 | 3 | 0.100 | 0.80 | 0.90 | 0.85 | resolved | — |
+| 23 | `scotus/73278426` | National Association for Gun Rights, et al. v. Ned Lamont, in His Official Capacity as Governor of Connecticut, et al. | `evt-petition-disposition` | 0.847 | 3 | 0.240 | 0.70 | 0.94 | 0.90 | pending | — |
+| 24 | `scotus/73500261` | Cade Brumley, Superintendent, Louisiana State Education, et al. v. Darcy Roake, Reverend, Individually and on Behalf of Their Minor Children, Real Parties in Interest A. V. and S. V., et al. | `evt-order-call-for-response-disposition` | 0.843 | 3 | 0.080 | 0.80 | 0.88 | 0.85 | pending | — |
+| 25 | `scotus/9026000117` | Wes Allen, Alabama Secretary of State, et al. v. Evan Milligan, et al. | `evt-order-relist-disposition` | 0.843 | 3 | 0.120 | 0.85 | 0.90 | 0.78 | pending | — |
+| 26 | `scotus/73282277` | Hamed Kian v. Florida | `evt-brief-judgment` | 0.840 | 3 | 0.030 | 0.85 | 0.82 | 0.85 | pending | — |
+| 27 | `scotus/9026000116` | Wes Allen, Alabama Secretary of State, et al. v. Marcus Caster, et al. | `evt-order-relist-disposition` | 0.840 | 3 | 0.160 | 0.80 | 0.94 | 0.78 | pending | — |
+| 28 | `scotus/9026000304` | United States v. Devonte Devon Jackson, et al. | `evt-petition-arrival-disposition` | 0.837 | 3 | 0.060 | 0.80 | 0.86 | 0.85 | pending | — |
+| 29 | `scotus/73281002` | Republican National Committee, et al. v. Bette Eakin, et al. | `evt-order-cvsg-disposition` | 0.833 | 3 | 0.150 | 0.75 | 0.85 | 0.90 | pending | — |
+| 30 | `scotus/73514289` | StandWithUs Center for Legal Justice, et al. v. Massachusetts Institute of Technology | `evt-petition-disposition` | 0.823 | 3 | 0.150 | 0.75 | 0.82 | 0.90 | pending | — |
+| 31 | `scotus/9026000599` | National Park Service, et al. v. National Trust for Historic Preservation in the United States | `evt-petition-arrival-disposition` | 0.823 | 3 | 0.180 | 0.72 | 0.90 | 0.85 | pending | — |
+| 32 | `scotus/73274837` | Gator's Custom Guns, Inc., et al. v. Washington | `evt-petition-disposition` | 0.817 | 3 | 0.150 | 0.75 | 0.90 | 0.80 | pending | — |
+| 33 | `scotus/9026000012` | Association for Education Fairness v. Montgomery County Board of Education, et al. | `evt-order-judgment` | 0.817 | 3 | 0.050 | 0.80 | 0.80 | 0.85 | partly_resolved | — |
+| 34 | `scotus/9026000380` | Donald J. Trump, President of the United States, et al. v. Badar Khan Suri | `evt-petition-arrival-disposition` | 0.813 | 3 | 0.040 | 0.80 | 0.84 | 0.80 | pending | — |
+| 35 | `scotus/9026000118` | Wes Allen, Alabama Secretary of State, et al. v. Bobby Singleton, et al. | `evt-order-relist-disposition` | 0.810 | 3 | 0.180 | 0.70 | 0.88 | 0.85 | pending | — |
+| 36 | `scotus/9026000142` | United States v. E. Jean Carroll, et al. | `evt-petition-disposition` | 0.810 | 2 | 0.020 | 0.80 |  | 0.82 | pending | — |
 | 37 | `scotus/73281063` | Arizona, et al. v. Promise Arizona, et al. | `evt-petition-disposition` | 0.807 | 3 | 0.100 | 0.75 | 0.82 | 0.85 | pending | — |
 | 38 | `scotus/9026000104` | Philip L. Rhoney, Acting Director of the Buffalo Field Office of U.S. Immigration and Customs Enforcement v. Ricardo Aparecido Barbosa da Cunha | `evt-order-judgment` | 0.807 | 3 | 0.320 | 0.92 | 0.90 | 0.60 | partly_resolved | — |
 | 39 | `scotus/9026000568` | Andre Quinones, Acting Director of the Seattle Field Office of U.S. Immigration and Customs Enforcement, et al. v. Ramon Rodriguez Vazquez, Individually and on Behalf of All Others Similarly Situated | `evt-petition-arrival-disposition` | 0.807 | 3 | 0.180 | 0.80 | 0.90 | 0.72 | pending | — |
@@ -76,49 +76,49 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 | 50 | `scotus/73281687` | Michael Mendenhall v. City and County of Denver, Colorado | `evt-petition-disposition` | 0.777 | 3 | 0.150 | 0.70 | 0.78 | 0.85 | resolved | — |
 | 51 | `scotus/73280341` | International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al. | `evt-brief-judgment` | 0.773 | 3 | 0.100 | 0.72 | 0.82 | 0.78 | pending | — |
 | 52 | `scotus/73281386` | U.S. DOGE Service, et al. v. United States District Court for the District of Columbia, et al. | `evt-order-judgment` | 0.773 | 3 | 0.300 | 0.60 | 0.82 | 0.90 | partly_resolved | — |
-| 53 | `scotus/73351824` | N. R., et al. v. Keith M. Ellison, Attorney General of Minnesota, et al. | `evt-petition-disposition` | 0.767 | 3 | 0.200 | 0.65 | 0.80 | 0.85 | resolved | — |
-| 54 | `scotus/9026000201` | Federal Trade Commission, et al. v. National Horsemen's Benevolent and Protective Association, et al. | `evt-petition-disposition` | 0.767 | 3 | 0.080 | 0.72 | 0.80 | 0.78 | pending | — |
-| 55 | `scotus/9026000208` | George Anibowei v. Todd Blanche, Attorney General, et al. | `evt-order-call-for-response-disposition` | 0.767 | 3 | 0.140 | 0.80 | 0.82 | 0.68 | pending | — |
-| 56 | `scotus/9526000370` | Ryan Thornell, et al. v. Shawn Jensen, et al. | `evt-brief-response-disposition` | 0.767 | 3 | 0.400 | 0.55 | 0.80 | 0.95 | resolved | — |
-| 57 | `scotus/9026000164` | A. A., et al. v. Joshua Mast, et al. | `evt-petition-disposition` | 0.757 | 3 | 0.150 | 0.70 | 0.72 | 0.85 | resolved | — |
-| 58 | `scotus/73281042` | Rajeh A. Saadeh v. New Jersey State Bar Association | `evt-order-cvsg-disposition` | 0.753 | 3 | 0.080 | 0.72 | 0.74 | 0.80 | pending | — |
-| 59 | `scotus/9026000076` | Michael James Jackson v. Florida | `evt-petition-disposition` | 0.747 | 3 | 0.120 | 0.70 | 0.82 | 0.72 | pending | — |
-| 60 | `scotus/9026000292` | Fiona Havlish, et al. v. The Taliban, et al. | `evt-order-cvsg-disposition` | 0.747 | 3 | 0.220 | 0.60 | 0.82 | 0.82 | pending | — |
-| 61 | `scotus/9026000293` | Kathleen Ashton, et al. v. The Taliban, et al. | `evt-order-cvsg-disposition` | 0.747 | 3 | 0.240 | 0.60 | 0.80 | 0.84 | pending | — |
+| 53 | `scotus/9026000294` | James Owens, et al. v. The Taliban, et al. | `evt-order-call-for-response-disposition` | 0.770 | 2 | 0.100 | 0.72 |  | 0.82 | pending | — |
+| 54 | `scotus/73351824` | N. R., et al. v. Keith M. Ellison, Attorney General of Minnesota, et al. | `evt-petition-disposition` | 0.767 | 3 | 0.200 | 0.65 | 0.80 | 0.85 | resolved | — |
+| 55 | `scotus/9026000201` | Federal Trade Commission, et al. v. National Horsemen's Benevolent and Protective Association, et al. | `evt-petition-disposition` | 0.767 | 3 | 0.080 | 0.72 | 0.80 | 0.78 | pending | — |
+| 56 | `scotus/9026000208` | George Anibowei v. Todd Blanche, Attorney General, et al. | `evt-order-call-for-response-disposition` | 0.767 | 3 | 0.140 | 0.80 | 0.82 | 0.68 | pending | — |
+| 57 | `scotus/9526000370` | Ryan Thornell, et al. v. Shawn Jensen, et al. | `evt-brief-response-disposition` | 0.767 | 3 | 0.400 | 0.55 | 0.80 | 0.95 | resolved | — |
+| 58 | `scotus/9026000164` | A. A., et al. v. Joshua Mast, et al. | `evt-petition-disposition` | 0.757 | 3 | 0.150 | 0.70 | 0.72 | 0.85 | resolved | — |
+| 59 | `scotus/73281042` | Rajeh A. Saadeh v. New Jersey State Bar Association | `evt-order-cvsg-disposition` | 0.753 | 3 | 0.080 | 0.72 | 0.74 | 0.80 | pending | — |
+| 60 | `scotus/9026000292` | Fiona Havlish, et al. v. The Taliban, et al. | `evt-order-call-for-response-disposition` | 0.750 | 2 | 0.060 | 0.72 |  | 0.78 | pending | — |
+| 61 | `scotus/9026000076` | Michael James Jackson v. Florida | `evt-petition-disposition` | 0.747 | 3 | 0.120 | 0.70 | 0.82 | 0.72 | pending | — |
 | 62 | `scotus/9026000005` | Gwynne A. Wilcox v. Donald J. Trump, President of the United States, et al. | `evt-petition-disposition` | 0.743 | 3 | 0.380 | 0.50 | 0.88 | 0.85 | resolved | — |
 | 63 | `scotus/9026000379` | Kenneth Genalo, in His Official Capacity as Director of the New York Field Office of U.S. Immigration and Customs Enforcement, et al. v. D. C. | `evt-petition-arrival-disposition` | 0.743 | 3 | 0.250 | 0.60 | 0.85 | 0.78 | pending | — |
 | 64 | `scotus/9026000461` | Catherine Herridge v. Yanping Chen | `evt-petition-disposition` | 0.743 | 3 | 0.200 | 0.65 | 0.73 | 0.85 | pending | — |
 | 65 | `scotus/9526000416` | Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al. | `evt-brief-response-disposition` | 0.743 | 3 | 0.250 | 0.60 | 0.78 | 0.85 | resolved | — |
-| 66 | `scotus/9026000294` | James Owens, et al. v. The Taliban, et al. | `evt-order-cvsg-disposition` | 0.737 | 3 | 0.330 | 0.55 | 0.78 | 0.88 | pending | — |
-| 67 | `scotus/9026000093` | John Ream v. Department of the Treasury, et al. | `evt-petition-disposition` | 0.733 | 3 | 0.250 | 0.60 | 0.75 | 0.85 | pending | — |
-| 68 | `scotus/73281007` | Department of Labor, et al. v. Sun Valley Orchards, LLC | `evt-argument-judgment` | 0.730 | 3 | 0.170 | 0.62 | 0.79 | 0.78 | pending | — |
-| 69 | `scotus/9026000594` | Citibank, N.A. v. Climate United Fund, et al. | `evt-petition-arrival-disposition` | 0.730 | 3 | 0.130 | 0.65 | 0.76 | 0.78 | pending | — |
-| 70 | `scotus/9526000560` | Markwayne Mullin, Secretary of Homeland Security, et al. v. Friends of the Ruidosa Church, et al. | `evt-brief-response-disposition` | 0.730 | 3 | 0.170 | 0.62 | 0.79 | 0.78 | resolved | — |
-| 71 | `scotus/73279903` | Youth 71Five Ministries v. Charlene Williams, Individually and as Director of Oregon Department of Education, et al. | `evt-petition-disposition` | 0.727 | 3 | 0.250 | 0.60 | 0.73 | 0.85 | pending | — |
-| 72 | `scotus/9026000199` | Horseracing Integrity and Safety Authority, Incorporated, et al. v. National Horsemen's Benevolent and Protective Association, et al. | `evt-petition-disposition` | 0.727 | 3 | 0.160 | 0.62 | 0.78 | 0.78 | pending | — |
-| 73 | `scotus/9026000457` | Novartis Pharmaceuticals Corporation v. Lynn Fitch, Attorney General of Mississippi | `evt-order-call-for-response-disposition` | 0.723 | 3 | 0.010 | 0.72 | 0.73 | 0.72 | pending | — |
-| 74 | `scotus/9526000428` | Kenneth Nelsen, Warden v. Christa Gail Pike | `evt-brief-response-disposition` | 0.717 | 3 | 0.400 | 0.45 | 0.85 | 0.85 | resolved | — |
-| 75 | `scotus/9026000240` | Cameron Johnson, et al. v. A. Scott Fleming, Director of the State Council of Higher Education for Virginia, et al. | `evt-order-call-for-response-disposition` | 0.713 | 3 | 0.020 | 0.70 | 0.72 | 0.72 | pending | — |
-| 76 | `scotus/73500223` | Majestic Realty Co., et al. v. Alex Salazar | `evt-petition-disposition` | 0.710 | 3 | 0.070 | 0.70 | 0.68 | 0.75 | resolved | — |
-| 77 | `scotus/73274866` | Thomas Crowther, et al. v. Board of Regents of the University System of Georgia, et al. | `evt-brief-judgment` | 0.707 | 3 | 0.300 | 0.55 | 0.72 | 0.85 | pending | — |
-| 78 | `scotus/73279966` | The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al. | `evt-order-relist-disposition` | 0.707 | 3 | 0.180 | 0.60 | 0.74 | 0.78 | pending | — |
-| 79 | `scotus/9026000223` | Donald J. Trump v. Cable News Network, Inc. | `evt-order-call-for-response-disposition` | 0.703 | 3 | 0.260 | 0.60 | 0.86 | 0.65 | pending | — |
-| 80 | `scotus/9026000297` | Patrick Morrisey, Governor of West Virginia, et al. v. Jonathan R., Minor, by Next Friend, Sarah Dixon, et al. | `evt-order-call-for-response-disposition` | 0.700 | 3 | 0.140 | 0.62 | 0.76 | 0.72 | pending | — |
-| 81 | `scotus/9026000394` | Michael Herlihy, et al. v. DBMP, LLC | `evt-order-call-for-response-disposition` | 0.700 | 3 | 0.180 | 0.60 | 0.78 | 0.72 | pending | — |
-| 82 | `scotus/73275168` | Raymond Poore v. United States | `evt-petition-disposition` | 0.697 | 3 | 0.350 | 0.50 | 0.74 | 0.85 | pending | — |
-| 83 | `scotus/73279552` | Calvary Chapel San Jose, et al. v. California, et al. | `evt-petition-disposition` | 0.693 | 3 | 0.230 | 0.55 | 0.78 | 0.75 | pending | — |
-| 84 | `scotus/73278422` | Francis Nielsen v. Kekai Watanabe | `evt-argument-judgment` | 0.687 | 3 | 0.180 | 0.60 | 0.78 | 0.68 | pending | — |
-| 85 | `scotus/9026000245` | AstraZeneca UK Limited, et al. v. Joshua Atchley, et al. | `evt-order-cvsg-disposition` | 0.687 | 3 | 0.100 | 0.62 | 0.72 | 0.72 | pending | — |
-| 86 | `scotus/9026000060` | Daniel Defense, LLC, et al. v. Karen Lowy, Individually and as Parent and Next Friend of N. T., et al. | `evt-order-call-for-response-disposition` | 0.683 | 3 | 0.130 | 0.60 | 0.73 | 0.72 | pending | — |
-| 87 | `scotus/73281057` | Pharmaceutical Research and Manufacturers of America v. Sean O'Day, in His Official Capacity as Director of the Oregon Department of Consumer and Business Services | `evt-order-cvsg-disposition` | 0.680 | 3 | 0.130 | 0.62 | 0.67 | 0.75 | pending | — |
-| 88 | `scotus/73279523` | City of Cleveland, Ohio v. Albert Pickett, Jr., Individually and on Behalf of All Others Similarly Situated, et al. | `evt-petition-disposition` | 0.680 | 2 | 0.160 | 0.60 | 0.76 | — | pending | — |
-| 89 | `scotus/9026000071` | The GEO Group, Inc., a Florida Corporation v. Bob Ferguson, Governor of Washington, et al. | `evt-order-relist-disposition` | 0.677 | 3 | 0.140 | 0.62 | 0.76 | 0.65 | pending | — |
-| 90 | `scotus/73280426` | Jose A. Trevino, et al. v. Steven Hobbs, Secretary of State of Washington, et al. | `evt-petition-disposition` | 0.673 | 3 | 0.400 | 0.45 | 0.72 | 0.85 | resolved | — |
-| 91 | `scotus/9026000008` | Kimberly Ann Polk v. Montgomery County Public Schools, et al. | `evt-petition-disposition` | 0.673 | 3 | 0.160 | 0.62 | 0.78 | 0.62 | pending | — |
-| 92 | `scotus/9026000348` | United States v. Office of the New York State Attorney General | `evt-petition-arrival-disposition` | 0.673 | 3 | 0.270 | 0.55 | 0.82 | 0.65 | pending | — |
-| 93 | `scotus/73277583` | Kendrick Jarrell Beaird v. United States | `evt-argument-judgment` | 0.670 | 3 | 0.230 | 0.60 | 0.59 | 0.82 | pending | — |
-| 94 | `scotus/73248556` | United States v. Charles Hembree | `evt-petition-disposition` | 0.667 | 3 | 0.350 | 0.50 | 0.65 | 0.85 | resolved | — |
-| 95 | `scotus/73500293` | BMG Rights Management (US) LLC, et al. v. Cyril E. Vetter, et al. | `evt-petition-disposition` | 0.667 | 3 | 0.400 | 0.45 | 0.70 | 0.85 | pending | — |
+| 66 | `scotus/9026000093` | John Ream v. Department of the Treasury, et al. | `evt-petition-disposition` | 0.733 | 3 | 0.250 | 0.60 | 0.75 | 0.85 | pending | — |
+| 67 | `scotus/73281007` | Department of Labor, et al. v. Sun Valley Orchards, LLC | `evt-argument-judgment` | 0.730 | 3 | 0.170 | 0.62 | 0.79 | 0.78 | pending | — |
+| 68 | `scotus/9026000594` | Citibank, N.A. v. Climate United Fund, et al. | `evt-petition-arrival-disposition` | 0.730 | 3 | 0.130 | 0.65 | 0.76 | 0.78 | pending | — |
+| 69 | `scotus/9526000560` | Markwayne Mullin, Secretary of Homeland Security, et al. v. Friends of the Ruidosa Church, et al. | `evt-brief-response-disposition` | 0.730 | 3 | 0.170 | 0.62 | 0.79 | 0.78 | resolved | — |
+| 70 | `scotus/73279903` | Youth 71Five Ministries v. Charlene Williams, Individually and as Director of Oregon Department of Education, et al. | `evt-petition-disposition` | 0.727 | 3 | 0.250 | 0.60 | 0.73 | 0.85 | pending | — |
+| 71 | `scotus/9026000199` | Horseracing Integrity and Safety Authority, Incorporated, et al. v. National Horsemen's Benevolent and Protective Association, et al. | `evt-petition-disposition` | 0.727 | 3 | 0.160 | 0.62 | 0.78 | 0.78 | pending | — |
+| 72 | `scotus/9026000457` | Novartis Pharmaceuticals Corporation v. Lynn Fitch, Attorney General of Mississippi | `evt-order-call-for-response-disposition` | 0.723 | 3 | 0.010 | 0.72 | 0.73 | 0.72 | pending | — |
+| 73 | `scotus/9526000428` | Kenneth Nelsen, Warden v. Christa Gail Pike | `evt-brief-response-disposition` | 0.717 | 3 | 0.400 | 0.45 | 0.85 | 0.85 | resolved | — |
+| 74 | `scotus/9026000240` | Cameron Johnson, et al. v. A. Scott Fleming, Director of the State Council of Higher Education for Virginia, et al. | `evt-order-call-for-response-disposition` | 0.713 | 3 | 0.020 | 0.70 | 0.72 | 0.72 | pending | — |
+| 75 | `scotus/73500223` | Majestic Realty Co., et al. v. Alex Salazar | `evt-petition-disposition` | 0.710 | 3 | 0.070 | 0.70 | 0.68 | 0.75 | resolved | — |
+| 76 | `scotus/73274866` | Thomas Crowther, et al. v. Board of Regents of the University System of Georgia, et al. | `evt-brief-judgment` | 0.707 | 3 | 0.300 | 0.55 | 0.72 | 0.85 | pending | — |
+| 77 | `scotus/73279966` | The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al. | `evt-order-relist-disposition` | 0.707 | 3 | 0.180 | 0.60 | 0.74 | 0.78 | pending | — |
+| 78 | `scotus/9026000223` | Donald J. Trump v. Cable News Network, Inc. | `evt-order-call-for-response-disposition` | 0.703 | 3 | 0.260 | 0.60 | 0.86 | 0.65 | pending | — |
+| 79 | `scotus/9026000297` | Patrick Morrisey, Governor of West Virginia, et al. v. Jonathan R., Minor, by Next Friend, Sarah Dixon, et al. | `evt-order-call-for-response-disposition` | 0.700 | 3 | 0.140 | 0.62 | 0.76 | 0.72 | pending | — |
+| 80 | `scotus/9026000394` | Michael Herlihy, et al. v. DBMP, LLC | `evt-order-call-for-response-disposition` | 0.700 | 3 | 0.180 | 0.60 | 0.78 | 0.72 | pending | — |
+| 81 | `scotus/73275168` | Raymond Poore v. United States | `evt-petition-disposition` | 0.697 | 3 | 0.350 | 0.50 | 0.74 | 0.85 | pending | — |
+| 82 | `scotus/73279552` | Calvary Chapel San Jose, et al. v. California, et al. | `evt-petition-disposition` | 0.693 | 3 | 0.230 | 0.55 | 0.78 | 0.75 | pending | — |
+| 83 | `scotus/73278422` | Francis Nielsen v. Kekai Watanabe | `evt-argument-judgment` | 0.687 | 3 | 0.180 | 0.60 | 0.78 | 0.68 | pending | — |
+| 84 | `scotus/9026000245` | AstraZeneca UK Limited, et al. v. Joshua Atchley, et al. | `evt-order-cvsg-disposition` | 0.687 | 3 | 0.100 | 0.62 | 0.72 | 0.72 | pending | — |
+| 85 | `scotus/9026000060` | Daniel Defense, LLC, et al. v. Karen Lowy, Individually and as Parent and Next Friend of N. T., et al. | `evt-order-call-for-response-disposition` | 0.683 | 3 | 0.130 | 0.60 | 0.73 | 0.72 | pending | — |
+| 86 | `scotus/73281057` | Pharmaceutical Research and Manufacturers of America v. Sean O'Day, in His Official Capacity as Director of the Oregon Department of Consumer and Business Services | `evt-order-cvsg-disposition` | 0.680 | 3 | 0.130 | 0.62 | 0.67 | 0.75 | pending | — |
+| 87 | `scotus/73279523` | City of Cleveland, Ohio v. Albert Pickett, Jr., Individually and on Behalf of All Others Similarly Situated, et al. | `evt-petition-disposition` | 0.680 | 2 | 0.160 | 0.60 | 0.76 | — | pending | — |
+| 88 | `scotus/9026000071` | The GEO Group, Inc., a Florida Corporation v. Bob Ferguson, Governor of Washington, et al. | `evt-order-relist-disposition` | 0.677 | 3 | 0.140 | 0.62 | 0.76 | 0.65 | pending | — |
+| 89 | `scotus/73280426` | Jose A. Trevino, et al. v. Steven Hobbs, Secretary of State of Washington, et al. | `evt-petition-disposition` | 0.673 | 3 | 0.400 | 0.45 | 0.72 | 0.85 | resolved | — |
+| 90 | `scotus/9026000008` | Kimberly Ann Polk v. Montgomery County Public Schools, et al. | `evt-petition-disposition` | 0.673 | 3 | 0.160 | 0.62 | 0.78 | 0.62 | pending | — |
+| 91 | `scotus/9026000348` | United States v. Office of the New York State Attorney General | `evt-petition-arrival-disposition` | 0.673 | 3 | 0.270 | 0.55 | 0.82 | 0.65 | pending | — |
+| 92 | `scotus/73277583` | Kendrick Jarrell Beaird v. United States | `evt-argument-judgment` | 0.670 | 3 | 0.230 | 0.60 | 0.59 | 0.82 | pending | — |
+| 93 | `scotus/73248556` | United States v. Charles Hembree | `evt-petition-disposition` | 0.667 | 3 | 0.350 | 0.50 | 0.65 | 0.85 | resolved | — |
+| 94 | `scotus/73500293` | BMG Rights Management (US) LLC, et al. v. Cyril E. Vetter, et al. | `evt-petition-disposition` | 0.667 | 3 | 0.400 | 0.45 | 0.70 | 0.85 | pending | — |
+| 95 | `scotus/9026000293` | Kathleen Ashton, et al. v. The Taliban, et al. | `evt-order-call-for-response-disposition` | 0.665 | 2 | 0.230 | 0.55 |  | 0.78 | pending | — |
 | 96 | `scotus/9526000458` | K.M.K., By Her Next Friend and Mother, Stephanie Lynne Brown v. Washington Interscholastic Activities Association, et al. | `evt-brief-response-disposition` | 0.663 | 3 | 0.240 | 0.55 | 0.79 | 0.65 | pending | — |
 | 97 | `scotus/73281630` | D. A., a Minor, By and Through his Mother, B. A., et al. v. Tri County Area Schools, et al. | `evt-petition-disposition` | 0.660 | 3 | 0.200 | 0.55 | 0.68 | 0.75 | resolved | — |
 | 98 | `scotus/73548979` | Clemente Properties, Inc., et al. v. Pedro R. Pierluisi-Urrutia, et al. | `evt-petition-disposition` | 0.660 | 3 | 0.400 | 0.45 | 0.68 | 0.85 | resolved | — |
@@ -237,206 +237,210 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 | 211 | `scotus/9026000355` | Julio del Rio, et al. v. CrowdStrike, Incorporated, et al. | `evt-order-call-for-response-disposition` | 0.450 | 3 | 0.330 | 0.30 | 0.63 | 0.42 | pending | — |
 | 212 | `scotus/73281102` | William Maxwell v. Sandra Dinis, Acting Warden | `evt-argument-judgment` | 0.443 | 3 | 0.080 | 0.40 | 0.48 | 0.45 | pending | — |
 | 213 | `scotus/73527306` | Benjamin M. Bauer v. Anne Elizabeth Alma Marks | `evt-petition-disposition` | 0.440 | 3 | 0.220 | 0.35 | 0.57 | 0.40 | pending | — |
-| 214 | `scotus/9526000273` | Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al. | `evt-motion-disposition` | 0.435 | 2 | 0.570 | 0.15 | 0.72 | — | resolved | — |
-| 215 | `scotus/73281345` | Holly Ann Elkins v. United States | `evt-petition-disposition` | 0.433 | 3 | 0.400 | 0.50 | 0.60 | 0.20 | resolved | — |
-| 216 | `scotus/9026000107` | Garnell Walls v. Prince George's County, Maryland, et al. | `evt-order-call-for-response-disposition` | 0.433 | 3 | 0.220 | 0.30 | 0.52 | 0.48 | resolved | — |
-| 217 | `scotus/9026000398` | Sherhonda Golden v. NBCUniversal Media, LLC | `evt-order-call-for-response-disposition` | 0.433 | 3 | 0.220 | 0.35 | 0.57 | 0.38 | pending | — |
-| 218 | `scotus/73281004` | Oregon, et al. v. Paul Maney, et al. | `evt-petition-disposition` | 0.427 | 3 | 0.280 | 0.40 | 0.58 | 0.30 | resolved | — |
-| 219 | `scotus/73281327` | Nicole Pileggi v. Washington Newspaper Publishing Company, LLC | `evt-petition-disposition` | 0.427 | 3 | 0.480 | 0.20 | 0.68 | 0.40 | pending | — |
-| 220 | `scotus/9026000023` | TMX Finance Corporate Services, Incorporated v. Wendy S. Spicher, Secretary, Pennsylvania Department of Banking and Securities | `evt-order-call-for-response-disposition` | 0.427 | 3 | 0.200 | 0.35 | 0.55 | 0.38 | pending | — |
-| 221 | `scotus/73281376` | Davie County, North Carolina, et al. v. Juiliana Swink, Administratrix of the Estate of David Ray Gunter, et al. | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.40 | 0.57 | 0.30 | resolved | — |
-| 222 | `scotus/73281401` | Christopher Zook, et al. v. Scott Fuqua | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.30 | 0.57 | 0.40 | resolved | — |
-| 223 | `scotus/73283862` | Corey Duran Berry v. United States | `evt-order-judgment` | 0.423 | 3 | 0.350 | 0.30 | 0.65 | 0.32 | pending | — |
-| 224 | `scotus/9026000238` | Broadcast Music, Inc. v. North American Concert Promoters Association | `evt-order-call-for-response-disposition` | 0.423 | 3 | 0.320 | 0.45 | 0.57 | 0.25 | pending | — |
-| 225 | `scotus/73277388` | Genesis Financial Solutions, Inc. v. Steve Ford, et al. | `evt-order-call-for-response-disposition` | 0.420 | 3 | 0.310 | 0.45 | 0.56 | 0.25 | pending | — |
-| 226 | `scotus/9026000231` | Mario Delaine v. United States | `evt-order-call-for-response-disposition` | 0.420 | 3 | 0.210 | 0.35 | 0.56 | 0.35 | pending | — |
-| 227 | `scotus/73389781` | Christy Ann Martin v. John Fredrick Martin | `evt-petition-disposition` | 0.417 | 3 | 0.450 | 0.20 | 0.40 | 0.65 | resolved | — |
-| 228 | `scotus/73522552` | Eric Alan Isaacson v. Maribel Moses, et al. | `evt-order-call-for-response-disposition` | 0.417 | 3 | 0.150 | 0.40 | 0.50 | 0.35 | resolved | — |
-| 229 | `scotus/9026000377` | Frank Parasmo v. United States | `evt-order-call-for-response-disposition` | 0.413 | 3 | 0.190 | 0.35 | 0.54 | 0.35 | pending | — |
-| 230 | `scotus/73500240` | Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez | `evt-order-relist-disposition` | 0.410 | 3 | 0.280 | 0.30 | 0.58 | 0.35 | pending | — |
-| 231 | `scotus/73500284` | Indian Harbor Insurance Company, et al. v. Town of Vinton, Louisiana, et al. | `evt-order-call-for-response-disposition` | 0.410 | 3 | 0.180 | 0.45 | 0.48 | 0.30 | pending | — |
-| 232 | `scotus/9526000499` | Louisiana, et al. v. Devon Energy Production Company, L.P. | `evt-brief-response-disposition` | 0.410 | 3 | 0.280 | 0.30 | 0.58 | 0.35 | resolved | — |
-| 233 | `scotus/73281704` | Fred Davis Clark, Jr. v. United States | `evt-petition-disposition` | 0.403 | 3 | 0.260 | 0.30 | 0.56 | 0.35 | pending | — |
-| 234 | `scotus/73500229` | Jane Elizabeth Roberts, et al. v. Bob Ferguson, Governor of Washington, et al. | `evt-petition-disposition` | 0.400 | 3 | 0.100 | 0.35 | 0.45 | 0.40 | resolved | — |
-| 235 | `scotus/9026000034` | Catherine L. Hanaway, in Her Official Capacity as Attorney General of Missouri, et al. v. Thomas L. Sanderson | `evt-petition-disposition` | 0.400 | 3 | 0.200 | 0.30 | 0.50 | 0.40 | resolved | — |
-| 236 | `scotus/9026000100` | Shannon Cross v. Central Contra Costa Transit Authority | `evt-order-call-for-response-disposition` | 0.400 | 3 | 0.250 | 0.30 | 0.55 | 0.35 | resolved | — |
-| 237 | `scotus/73292081` | Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division | `evt-order-relist-disposition` | 0.397 | 3 | 0.440 | 0.20 | 0.64 | 0.35 | pending | — |
-| 238 | `scotus/73500243` | Donna Birks v. Clemente Javier Aguirre-Jarquin | `evt-petition-disposition` | 0.397 | 3 | 0.140 | 0.35 | 0.49 | 0.35 | resolved | — |
-| 239 | `scotus/9026000018` | Gary Westcott, Secretary, Louisiana Department of Public Safety and Corrections, et al. v. Voice of the Experienced, et al. | `evt-order-call-for-response-disposition` | 0.393 | 3 | 0.130 | 0.35 | 0.48 | 0.35 | resolved | — |
-| 240 | `scotus/73281346` | Jessica Pitts, Officer, et al. v. Taylor Burke, as Special Administrator of the Estate of Thomas Gay, Deceased | `evt-petition-disposition` | 0.387 | 3 | 0.160 | 0.30 | 0.46 | 0.40 | resolved | — |
-| 241 | `scotus/73500251` | Roxane M. Marschner v. Richard A. Marschner | `evt-order-judgment` | 0.387 | 3 | 0.260 | 0.30 | 0.56 | 0.30 | pending | — |
-| 242 | `scotus/9026000433` | Karen Brookins, Individually and as Administratrix of the Estate of Marcus Richard Boone v. City of Philadelphia, Pennsylvania, et al. | `evt-petition-disposition` | 0.387 | 3 | 0.310 | 0.35 | 0.56 | 0.25 | resolved | — |
-| 243 | `scotus/73338270` | Sara Boysen, et al. v. PeaceHealth, et al. | `evt-petition-disposition` | 0.383 | 3 | 0.350 | 0.40 | 0.55 | 0.20 | resolved | — |
-| 244 | `scotus/9026000002` | Independent Specialty Insurance Company, et al. v. Lower Cameron Hospital Service District, et al. | `evt-petition-disposition` | 0.383 | 3 | 0.150 | 0.30 | 0.45 | 0.40 | resolved | — |
-| 245 | `scotus/9026000353` | Richard Vasquez, Jr. v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division | `evt-petition-disposition` | 0.383 | 3 | 0.350 | 0.30 | 0.60 | 0.25 | pending | — |
-| 246 | `scotus/73500257` | City of North Las Vegas, Nevada, et al. v. Genoa Jones, et al. | `evt-order-relist-disposition` | 0.377 | 3 | 0.180 | 0.30 | 0.48 | 0.35 | pending | — |
-| 247 | `scotus/73521973` | Jimmy Davis, Jr. v. Greg Lovelace, Commissioner, Alabama Department of Corrections | `evt-petition-disposition` | 0.377 | 3 | 0.380 | 0.35 | 0.58 | 0.20 | resolved | — |
-| 248 | `scotus/9026000226` | Joshua Mast, et al. v. John Doe, et al. | `evt-petition-disposition` | 0.373 | 3 | 0.470 | 0.45 | 0.57 | 0.10 | resolved | — |
-| 249 | `scotus/73266074` | Hastings College Conservation Committee, et al. v. California, et al. | `evt-petition-disposition` | 0.370 | 3 | 0.160 | 0.30 | 0.46 | 0.35 | resolved | — |
-| 250 | `scotus/73281674` | PG Publishing Company, Inc., dba Pittsburgh Post-Gazette v. National Labor Relations Board, et al. | `evt-petition-disposition` | 0.367 | 3 | 0.350 | 0.35 | 0.55 | 0.20 | resolved | — |
-| 251 | `scotus/73500260` | TitleMax of Virginia, Inc., et al. v. Wendy S. Spicher, Secretary, Pennsylvania Department of Banking and Securities | `evt-order-call-for-response-disposition` | 0.367 | 3 | 0.360 | 0.30 | 0.58 | 0.22 | pending | — |
-| 252 | `scotus/9026000459` | Marshall Grace v. United States | `evt-order-call-for-response-disposition` | 0.367 | 3 | 0.300 | 0.30 | 0.55 | 0.25 | pending | — |
-| 253 | `scotus/73281703` | Brandi Greer v. Benton School District | `evt-petition-disposition` | 0.363 | 3 | 0.190 | 0.25 | 0.44 | 0.40 | resolved | — |
-| 254 | `scotus/73550516` | Independent Specialty Insurance Company v. Apex Hospitality Group, L.L.C. | `evt-petition-disposition` | 0.360 | 3 | 0.180 | 0.25 | 0.43 | 0.40 | resolved | — |
-| 255 | `scotus/9026000037` | New Mexico v. Samuel Neal | `evt-order-call-for-response-disposition` | 0.360 | 3 | 0.230 | 0.35 | 0.48 | 0.25 | pending | — |
-| 256 | `scotus/9026000624` | Randall Williams, as Personal Representative of the Estates of Shanice R. Dantzler-Williams and Miranda R. Dantzler-Williams, et al. v. Charleston County Sheriff’s Office | `evt-petition-arrival-disposition` | 0.360 | 3 | 0.130 | 0.30 | 0.43 | 0.35 | pending | — |
-| 257 | `scotus/73281412` | Ronnie Alexander v. Philip R. Taft Psy D and Associates, P.L.L.C., et al. | `evt-petition-disposition` | 0.357 | 3 | 0.270 | 0.30 | 0.52 | 0.25 | resolved | — |
-| 258 | `scotus/73500215` | Eric Gomez v. David Saccoccio | `evt-petition-disposition` | 0.357 | 3 | 0.170 | 0.25 | 0.42 | 0.40 | resolved | — |
-| 259 | `scotus/9526000661` | James Dwight Pavatt v. Oklahoma | `evt-motion-disposition` | 0.357 | 3 | 0.520 | 0.15 | 0.67 | 0.25 | resolved | — |
-| 260 | `scotus/9026000019` | Allison Nguyen v. Louisiana | `evt-order-call-for-response-disposition` | 0.353 | 3 | 0.200 | 0.30 | 0.48 | 0.28 | pending | — |
-| 261 | `scotus/73500239` | Bryan Pesta v. Laura Bloomberg, Individually and as President, Cleveland State University, et al. | `evt-petition-disposition` | 0.350 | 3 | 0.450 | 0.30 | 0.60 | 0.15 | resolved | — |
-| 262 | `scotus/73500287` | Endure Industries, Incorporated v. Vizient Incorporated, a Delaware corporation, et al. | `evt-petition-disposition` | 0.350 | 3 | 0.350 | 0.30 | 0.55 | 0.20 | resolved | — |
-| 263 | `scotus/9026000170` | Federal Express Corporation v. Qualcomm Incorporated, et al. | `evt-order-call-for-response-disposition` | 0.350 | 3 | 0.100 | 0.30 | 0.40 | 0.35 | pending | — |
-| 264 | `scotus/9026000176` | Cynthia Davis, Warden v. David M. Smith | `evt-order-call-for-response-disposition` | 0.350 | 3 | 0.100 | 0.30 | 0.40 | 0.35 | pending | — |
-| 265 | `scotus/9526000623` | Jesse Guardado v. Florida | `evt-brief-response-disposition` | 0.350 | 3 | 0.460 | 0.12 | 0.58 | 0.35 | resolved | — |
-| 266 | `scotus/72483489` | RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc. | `evt-brief-judgment` | 0.343 | 3 | 0.170 | 0.30 | 0.45 | 0.28 | pending | — |
-| 267 | `scotus/73286453` | Denise Hughes, as Administrator of the Estate of Edwin Dewayne Moss v. Monique N. Locure, Administratrix of the Estate of Darian K. Locure | `evt-petition-disposition` | 0.343 | 3 | 0.280 | 0.35 | 0.48 | 0.20 | resolved | — |
-| 268 | `scotus/9026000218` | Juan Matthews v. Louisiana | `evt-order-call-for-response-disposition` | 0.343 | 3 | 0.230 | 0.30 | 0.48 | 0.25 | pending | — |
-| 269 | `scotus/73272488` | James P. Abrams v. United States | `evt-order-call-for-response-disposition` | 0.340 | 3 | 0.120 | 0.30 | 0.42 | 0.30 | pending | — |
-| 270 | `scotus/9026000114` | Frederick L. Allen, et al. v. Joshua Stein, Governor of North Carolina, et al. | `evt-petition-disposition` | 0.340 | 3 | 0.120 | 0.30 | 0.42 | 0.30 | resolved | — |
-| 271 | `scotus/9026000194` | Mei Guo, et al. v. Luc A. Despins, Chapter 11 Trustee | `evt-order-call-for-response-disposition` | 0.340 | 3 | 0.220 | 0.30 | 0.47 | 0.25 | pending | — |
-| 272 | `scotus/73277468` | Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia | `evt-argument-judgment` | 0.337 | 3 | 0.260 | 0.20 | 0.46 | 0.35 | pending | — |
-| 273 | `scotus/73299074` | In Re Richard Devillier, et al. | `evt-petition-disposition` | 0.333 | 3 | 0.350 | 0.25 | 0.55 | 0.20 | resolved | — |
-| 274 | `scotus/73281629` | Mark Zavislak v. Netflix, Inc. | `evt-petition-disposition` | 0.327 | 3 | 0.180 | 0.25 | 0.43 | 0.30 | resolved | — |
-| 275 | `scotus/9026000171` | Galesburg Community Unit School District No. 205 v. N. T., Individually and as Parent and Next Friend of C. T., et al. | `evt-order-call-for-response-disposition` | 0.327 | 3 | 0.120 | 0.30 | 0.40 | 0.28 | pending | — |
-| 276 | `scotus/9526000634` | Jesse Guardado v. Richard Comerford, Secretary, Florida Department of Corrections, et al. | `evt-motion-disposition` | 0.323 | 3 | 0.490 | 0.15 | 0.64 | 0.18 | resolved | — |
-| 277 | `scotus/9526000686` | Thomas M. Overton v. Florida, et al. | `evt-motion-disposition` | 0.323 | 3 | 0.450 | 0.15 | 0.60 | 0.22 | pending | — |
-| 278 | `scotus/73500219` | Erik Charles Maund, aka Erik Moore v. United States | `evt-petition-disposition` | 0.317 | 3 | 0.250 | 0.30 | 0.45 | 0.20 | resolved | — |
-| 279 | `scotus/73500220` | Nita Patel, et vir v. United States | `evt-petition-disposition` | 0.317 | 3 | 0.350 | 0.40 | 0.45 | 0.10 | resolved | — |
-| 280 | `scotus/9026000315` | Amy L. Goldman v. Tammy R. Phillips, et al. | `evt-order-call-for-response-disposition` | 0.317 | 3 | 0.210 | 0.30 | 0.43 | 0.22 | pending | — |
-| 281 | `scotus/73500216` | Donnie Ray Pearson v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division | `evt-petition-disposition` | 0.307 | 3 | 0.020 | 0.30 | 0.32 | 0.30 | resolved | — |
-| 282 | `scotus/9026000145` | Warden, Moshannon Valley Correctional Center, et al. v. Adolph Michelin, et al. | `evt-order-call-for-response-disposition` | 0.307 | 3 | 0.320 | 0.20 | 0.52 | 0.20 | pending | — |
-| 283 | `scotus/9026000221` | Theodore James Purdy v. Kansas | `evt-petition-disposition` | 0.307 | 3 | 0.220 | 0.30 | 0.42 | 0.20 | partly_resolved | — |
-| 284 | `scotus/73500222` | Kevin Scott Karsjens, Individually and on Behalf of All Others Similarly Situated, et al. v. Shireen Gandhi, et al. | `evt-petition-disposition` | 0.303 | 3 | 0.310 | 0.15 | 0.46 | 0.30 | resolved | — |
-| 285 | `scotus/9026000285` | Christopher Ponzo v. United States | `evt-order-call-for-response-disposition` | 0.303 | 3 | 0.160 | 0.20 | 0.36 | 0.35 | pending | — |
-| 286 | `scotus/73281680` | Abrahim Mohamed Fofana v. Markwayne Mullin, Secretary, Department of Homeland Security, et al. | `evt-petition-disposition` | 0.300 | 3 | 0.350 | 0.35 | 0.45 | 0.10 | resolved | — |
-| 287 | `scotus/9026000339` | FS Medical Supplies, LLC v. Tanner Pharma UK Limited, et al. | `evt-order-call-for-response-disposition` | 0.300 | 3 | 0.200 | 0.30 | 0.40 | 0.20 | pending | — |
-| 288 | `scotus/9026000446` | Jawan N. Tarquinii v. Hung Cao, Acting Secretary of the Navy | `evt-petition-disposition` | 0.297 | 3 | 0.130 | 0.22 | 0.35 | 0.32 | pending | — |
-| 289 | `scotus/9026000139` | Monsanto Company v. Mike Dennis | `evt-petition-disposition` | 0.293 | 3 | 0.380 | 0.30 | 0.48 | 0.10 | resolved | — |
-| 290 | `scotus/73281624` | Cherry Grove Beach Gear, LLC, et al. v. City of North Myrtle Beach, South Carolina | `evt-petition-disposition` | 0.283 | 3 | 0.300 | 0.35 | 0.40 | 0.10 | resolved | — |
-| 291 | `scotus/73281635` | Angelo Pesavento, et al. v. Eddie L. Bolden | `evt-petition-disposition` | 0.283 | 3 | 0.200 | 0.25 | 0.40 | 0.20 | resolved | — |
-| 292 | `scotus/9526000447` | Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial District Court of New Mexico, Santa Fe County, et al. | `evt-motion-disposition` | 0.280 | 2 | 0.160 | 0.20 | 0.36 |  | resolved | — |
-| 293 | `scotus/9026000094` | City of Santa Maria, California, et al. v. Adolfo Cardenas | `evt-order-call-for-response-disposition` | 0.277 | 3 | 0.140 | 0.22 | 0.36 | 0.25 | pending | — |
-| 294 | `scotus/73281654` | Winnemucca Indian Colony v. United States | `evt-petition-disposition` | 0.273 | 3 | 0.470 | 0.15 | 0.57 | 0.10 | resolved | — |
-| 295 | `scotus/9026000351` | Justin Paul Dreiling v. United States | `evt-petition-disposition` | 0.273 | 3 | 0.370 | 0.05 | 0.42 | 0.35 | resolved | — |
-| 296 | `scotus/9026000435` | Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board | `evt-petition-disposition` | 0.273 | 3 | 0.200 | 0.15 | 0.32 | 0.35 | resolved | — |
-| 297 | `scotus/9026000526` | Lane Douglas Mitchell v. Mississippi | `evt-petition-disposition` | 0.273 | 3 | 0.200 | 0.20 | 0.40 | 0.22 | resolved | — |
-| 298 | `scotus/73538544` | Christina Casarez v. Irigoyen Farms, Inc., et al. | `evt-order-call-for-response-disposition` | 0.267 | 3 | 0.250 | 0.25 | 0.40 | 0.15 | resolved | — |
-| 299 | `scotus/9026000053` | Indian Harbor Insurance Company, et al. v. One Lakeside Plaza, L.L.C. | `evt-petition-disposition` | 0.267 | 3 | 0.350 | 0.25 | 0.45 | 0.10 | pending | — |
-| 300 | `scotus/9026000440` | Mohammed Jabateh v. United States | `evt-petition-disposition` | 0.263 | 3 | 0.300 | 0.12 | 0.42 | 0.25 | resolved | — |
-| 301 | `scotus/73500248` | Michael Webb v. Edmund Trombley, Corrections Officer, Great Meadow Correctional Facility, et al. | `evt-petition-disposition` | 0.260 | 3 | 0.300 | 0.18 | 0.45 | 0.15 | resolved | — |
-| 302 | `scotus/73500250` | Miguel Angel Delgado, Jr. v. United States | `evt-order-call-for-response-disposition` | 0.260 | 3 | 0.220 | 0.20 | 0.40 | 0.18 | pending | — |
-| 303 | `scotus/73279493` | Stanley Kappell Watson v. Shenekka Bradsher, et al. | `evt-order-call-for-response-disposition` | 0.253 | 3 | 0.110 | 0.20 | 0.31 | 0.25 | pending | — |
-| 304 | `scotus/73317900` | Burford German Funding LLC, et al. v. financialright claims GmbH | `evt-petition-disposition` | 0.250 | 3 | 0.310 | 0.12 | 0.43 | 0.20 | resolved | — |
-| 305 | `scotus/73329541` | Michael St. Clair v. Willis Pettit, Warden | `evt-petition-disposition` | 0.250 | 3 | 0.150 | 0.20 | 0.35 | 0.20 | resolved | — |
-| 306 | `scotus/73372500` | Citizens Alliance for Government Integrity v. York County, By and Through Its Manager, Joshua Edwards, et al. | `evt-petition-disposition` | 0.250 | 3 | 0.250 | 0.15 | 0.40 | 0.20 | resolved | — |
-| 307 | `scotus/73452191` | Walter A. Bernard v. Philip A. Ignelzi, Individually and as Judge, Court of Common Pleas, Allegheny County, Pennsylvania | `evt-petition-disposition` | 0.250 | 3 | 0.300 | 0.15 | 0.45 | 0.15 | resolved | — |
-| 308 | `scotus/73281628` | Jason Tywann Bell v. John Gilley, Warden | `evt-petition-disposition` | 0.245 | 2 | 0.190 | 0.15 | 0.34 | — | resolved | — |
-| 309 | `scotus/9026000274` | Francisco Xavier Ortiz-Colón v. United States | `evt-order-call-for-response-disposition` | 0.233 | 3 | 0.200 | 0.20 | 0.35 | 0.15 | pending | — |
-| 310 | `scotus/9026000241` | Fred Rahdar, et al. v. City of Friendswood, Texas, et al. | `evt-petition-disposition` | 0.230 | 2 | 0.300 | 0.08 | 0.38 | — | resolved | — |
-| 311 | `scotus/9026000424` | Beckie Boddie v. United States District Court for the District of Maryland | `evt-petition-disposition` | 0.227 | 3 | 0.300 | 0.08 | 0.38 | 0.22 | pending | — |
-| 312 | `scotus/73300246` | Judith L. Harvey, as Trustee of the David T. & Judith L. Harvey Trust, and as Personal Representative of the Estate of David T. Harvey, Deceased v. City of Reno, Nevada, et al. | `evt-petition-disposition` | 0.223 | 3 | 0.230 | 0.12 | 0.35 | 0.20 | resolved | — |
-| 313 | `scotus/73500217` | Melanie Crites-Bachert v. Providence Health & Services - Oregon | `evt-petition-disposition` | 0.223 | 3 | 0.350 | 0.12 | 0.45 | 0.10 | resolved | — |
-| 314 | `scotus/73500233` | Mark A. Pitzka v. Wisconsin | `evt-petition-disposition` | 0.220 | 3 | 0.300 | 0.08 | 0.38 | 0.20 | resolved | — |
-| 315 | `scotus/9026000369` | John Torsten Loop v. Washington, et al. | `evt-petition-disposition` | 0.220 | 3 | 0.270 | 0.15 | 0.39 | 0.12 | resolved | — |
-| 316 | `scotus/73281318` | Christopher R. Cummins v. Illinois | `evt-petition-disposition` | 0.217 | 3 | 0.250 | 0.20 | 0.35 | 0.10 | resolved | — |
-| 317 | `scotus/73500236` | Colorado Bondshares, et al. v. Marin Metropolitan District, et al. | `evt-petition-disposition` | 0.217 | 3 | 0.300 | 0.15 | 0.40 | 0.10 | resolved | — |
-| 318 | `scotus/9026000119` | Guam v. Richard Y. Ybanez, et al. | `evt-petition-disposition` | 0.217 | 3 | 0.300 | 0.15 | 0.40 | 0.10 | resolved | — |
-| 319 | `scotus/9026000631` | Linda Kay Robison v. Douglas A. Collins, Secretary, Department of Veterans Affairs | `evt-petition-arrival-disposition` | 0.210 | 3 | 0.210 | 0.12 | 0.33 | 0.18 | pending | — |
-| 320 | `scotus/73500242` | Blessing Nwosu v. 1600 West Loop South, L.L.C., et al. | `evt-petition-disposition` | 0.207 | 3 | 0.300 | 0.12 | 0.40 | 0.10 | resolved | — |
-| 321 | `scotus/9026000115` | Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc. | `evt-petition-disposition` | 0.207 | 3 | 0.360 | 0.08 | 0.44 | 0.10 | resolved | — |
-| 322 | `scotus/9026000527` | Cesari S.R.L. v. Peju Province Winery L.P., et al. | `evt-petition-disposition` | 0.207 | 3 | 0.230 | 0.12 | 0.35 | 0.15 | pending | — |
-| 323 | `scotus/73292885` | Bart Xavier Pestarino v. Danielle Tetrault Pestarino | `evt-petition-disposition` | 0.203 | 3 | 0.440 | 0.15 | 0.45 | 0.01 | resolved | — |
-| 324 | `scotus/73500234` | Larry Steven Wilkins v. United States, et al. | `evt-petition-disposition` | 0.200 | 3 | 0.250 | 0.15 | 0.35 | 0.10 | resolved | — |
-| 325 | `scotus/9026000455` | Leanda Chaffins v. Shannon Sharp, et al. | `evt-petition-disposition` | 0.200 | 3 | 0.400 | 0.10 | 0.45 | 0.05 | pending | — |
-| 326 | `scotus/73369987` | Samuel Collin Robinson v. Katherine Lyman Freeman, fka Katherine Lyman Robinson | `evt-petition-disposition` | 0.190 | 3 | 0.450 | 0.12 | 0.45 | 0.00 | resolved | — |
-| 327 | `scotus/73500241` | David Greene, Jr., et al. v. Kansas Department of Revenue, et al. | `evt-petition-disposition` | 0.190 | 3 | 0.260 | 0.08 | 0.34 | 0.15 | resolved | — |
-| 328 | `scotus/9026000405` | Gengshu Scott He, et al. v. Marco Rubio, Secretary of State, et al. | `evt-petition-disposition` | 0.190 | 3 | 0.180 | 0.12 | 0.30 | 0.15 | resolved | — |
-| 329 | `scotus/9026000441` | Christopher Rydberg v. United States | `evt-petition-disposition` | 0.190 | 3 | 0.180 | 0.12 | 0.30 | 0.15 | pending | — |
-| 330 | `scotus/9026000296` | Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al. | `evt-petition-disposition` | 0.183 | 3 | 0.330 | 0.12 | 0.38 | 0.05 | resolved | — |
-| 331 | `scotus/73309407` | Ricky Darnell Patterson v. Michigan | `evt-petition-disposition` | 0.180 | 3 | 0.220 | 0.12 | 0.32 | 0.10 | resolved | — |
-| 332 | `scotus/9026000501` | Connie L. Reguli, et al. v. Tracy Hetzel, et al. | `evt-petition-arrival-disposition` | 0.180 | 3 | 0.420 | 0.12 | 0.42 | 0.00 | pending | — |
-| 333 | `scotus/73500237` | Stephanie M. Redding v. Markwayne Mullin, Secretary of Homeland Security | `evt-petition-disposition` | 0.170 | 3 | 0.160 | 0.10 | 0.26 | 0.15 | resolved | — |
-| 334 | `scotus/73500221` | John Rogne v. City of Catoosa, Oklahoma | `evt-petition-disposition` | 0.167 | 3 | 0.200 | 0.10 | 0.30 | 0.10 | resolved | — |
-| 335 | `scotus/9026000516` | Catherine Elizabeth Chollet, aka Liza Chollet, and Michael Elliot Kohn v. United States | `evt-petition-disposition` | 0.167 | 3 | 0.180 | 0.10 | 0.28 | 0.12 | resolved | — |
-| 336 | `scotus/73363395` | Yesit Campo, as Personal Representative of the Estate of Arlevys Molina, et al. v. Uber Technologies, Inc., et al. | `evt-petition-disposition` | 0.165 | 2 | 0.230 | 0.05 | 0.28 | — | resolved | — |
-| 337 | `scotus/73364890` | F.E.B. Corp. v. United States | `evt-petition-disposition` | 0.163 | 3 | 0.170 | 0.12 | 0.27 | 0.10 | resolved | — |
-| 338 | `scotus/73318742` | Douglas Wain, et ux. v. Kimberly Nell Bunnell, Chief Regional Judge, 22nd Judicial Circuit Division 9, Fayette County, Kentucky, et al. | `evt-petition-disposition` | 0.160 | 3 | 0.340 | 0.12 | 0.35 | 0.01 | resolved | — |
-| 339 | `scotus/73358594` | Tomasa Gabriella Bolanos-Reynoso v. Department of Agriculture | `evt-petition-disposition` | 0.160 | 3 | 0.180 | 0.10 | 0.28 | 0.10 | resolved | — |
-| 340 | `scotus/73281677` | Parker C. Myslow v. United States | `evt-petition-disposition` | 0.157 | 3 | 0.250 | 0.12 | 0.30 | 0.05 | resolved | — |
-| 341 | `scotus/9026000337` | Denise J. Child v. Unum Life Insurance Company of America | `evt-petition-disposition` | 0.157 | 3 | 0.270 | 0.10 | 0.32 | 0.05 | resolved | — |
-| 342 | `scotus/73500268` | Roofing Designs by JR, L.L.C., dba Roofing Designs v. Royal American Construction, Incorporated, et al. | `evt-petition-disposition` | 0.153 | 3 | 0.200 | 0.08 | 0.28 | 0.10 | resolved | — |
-| 343 | `scotus/73369988` | Patrice Honeycutt v. JPMorgan Chase Bank, N.A., et al. | `evt-petition-disposition` | 0.150 | 3 | 0.250 | 0.05 | 0.30 | 0.10 | resolved | — |
-| 344 | `scotus/9026000079` | Rene Acosta-Tapia v. Todd Blanche, Attorney General | `evt-petition-disposition` | 0.150 | 2 | 0.200 | 0.25 | — | 0.05 | resolved | — |
-| 345 | `scotus/9026000087` | Diana Stevens-Reynolds v. Wilshire Insurance Company, et al. | `evt-petition-disposition` | 0.145 | 2 | 0.210 | 0.04 | 0.25 | — | resolved | — |
-| 346 | `scotus/9026000006` | Jerry Merritt v. Texas Farm Bureau, et al. | `evt-petition-disposition` | 0.143 | 3 | 0.250 | 0.08 | 0.30 | 0.05 | resolved | — |
-| 347 | `scotus/9026000529` | Craig R. Becker v. United States | `evt-petition-disposition` | 0.143 | 3 | 0.170 | 0.07 | 0.24 | 0.12 | pending | — |
-| 348 | `scotus/73344703` | Moneesha Kamani v. Michael A. Stone, DVM, and His Marital Community/Domestic Partnership, et al. | `evt-petition-disposition` | 0.140 | 3 | 0.160 | 0.04 | 0.18 | 0.20 | resolved | — |
-| 349 | `scotus/73378855` | Robert T. Wilson, Jr. v. Charles Randall Watts, et al. | `evt-petition-disposition` | 0.140 | 3 | 0.170 | 0.05 | 0.22 | 0.15 | resolved | — |
-| 350 | `scotus/9026000359` | Rubicon Real Estate Holdings, LLC, et al. v. City of Pontiac, Michigan, et al. | `evt-petition-disposition` | 0.137 | 3 | 0.250 | 0.06 | 0.30 | 0.05 | resolved | — |
-| 351 | `scotus/9026000367` | Venky Venkatraman v. Bank of America, N.A. | `evt-petition-disposition` | 0.137 | 3 | 0.280 | 0.04 | 0.32 | 0.05 | pending | — |
-| 352 | `scotus/9026000512` | Muhammad Saeed v. Arizona | `evt-petition-disposition` | 0.137 | 3 | 0.280 | 0.04 | 0.32 | 0.05 | pending | — |
-| 353 | `scotus/9026000562` | James C. "Chris" McNeil, et al. v. Court of Common Pleas of South Carolina, Ninth Judicial Circuit, Charleston County | `evt-petition-arrival-disposition` | 0.133 | 3 | 0.330 | 0.03 | 0.35 | 0.02 | pending | — |
-| 354 | `scotus/9026000561` | Haroon I. Hameed v. Drug Enforcement Administration, et al. | `evt-petition-disposition` | 0.130 | 3 | 0.190 | 0.08 | 0.25 | 0.06 | pending | — |
-| 355 | `scotus/73392441` | Alvin B. White, Individually and as Trustee for the White Revocable Living Trust dated January 6, 2010 v. U.S. Bank National Association, as Legal Title Trustee for Truman 2016 SC6 Title Trust | `evt-petition-disposition` | 0.127 | 3 | 0.240 | 0.12 | 0.25 | 0.01 | resolved | — |
-| 356 | `scotus/9026000173` | William David Jones v. Defense Supply Center, Defense Logistics Agency, Richmond, Virginia | `evt-petition-disposition` | 0.120 | 3 | 0.200 | 0.06 | 0.25 | 0.05 | resolved | — |
-| 357 | `scotus/9026000249` | Randy Quaid, et ux. v. Craig Granet, et al. | `evt-petition-disposition` | 0.120 | 3 | 0.180 | 0.04 | 0.22 | 0.10 | resolved | — |
-| 358 | `scotus/73391039` | David W. Foley, Jr., et ux. v. Orange County, Florida, et al. | `evt-petition-disposition` | 0.117 | 3 | 0.190 | 0.03 | 0.22 | 0.10 | resolved | — |
-| 359 | `scotus/9026000378` | Charles Kakembo Sessanga v. City of DeSoto Police Department, et al. | `evt-petition-disposition` | 0.117 | 3 | 0.250 | 0.04 | 0.28 | 0.03 | pending | — |
-| 360 | `scotus/9026000462` | Ryan Hauber v. Honkamp Krueger & Co., P.C. | `evt-petition-disposition` | 0.115 | 2 | 0.170 | 0.03 | — | 0.20 | resolved | — |
-| 361 | `scotus/73291758` | Ronald Dittmer, et ux. v. Katie Dittmer | `evt-petition-disposition` | 0.113 | 3 | 0.290 | 0.03 | 0.30 | 0.01 | resolved | — |
-| 362 | `scotus/73500263` | David Gasper v. EIDP, Inc., fka, E. I. DuPont De Nemours & Company, et al. | `evt-petition-disposition` | 0.113 | 3 | 0.190 | 0.05 | 0.24 | 0.05 | resolved | — |
-| 363 | `scotus/9026000121` | Joseph Basso v. Jose Rodriguez, et al. | `evt-petition-disposition` | 0.113 | 3 | 0.190 | 0.05 | 0.24 | 0.05 | resolved | — |
-| 364 | `scotus/9026000314` | Albert Ekladyous v. National Highway Traffic Safety Administration, et al. | `evt-petition-disposition` | 0.110 | 3 | 0.279 | 0.05 | 0.28 | 0.00 | resolved | — |
-| 365 | `scotus/73361381` | Naren Chaganti v. Cincinnati Insurance Company | `evt-petition-disposition` | 0.110 | 3 | 0.200 | 0.04 | 0.24 | 0.05 | resolved | — |
-| 366 | `scotus/9026000464` | Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army | `evt-petition-disposition` | 0.110 | 3 | 0.110 | 0.04 | 0.14 | 0.15 | pending | — |
-| 367 | `scotus/9026000027` | Rachel E. Goodley v. Supreme Rice, L.L.C., et al. | `evt-petition-disposition` | 0.100 | 3 | 0.150 | 0.05 | 0.20 | 0.05 | resolved | — |
-| 368 | `scotus/9026000432` | Houssam Eddine Hamrit v. Citigroup Global Markets, Inc., et al. | `evt-petition-disposition` | 0.100 | 3 | 0.190 | 0.03 | 0.22 | 0.05 | pending | — |
-| 369 | `scotus/9026000545` | Diana Y. Lugo v. Birmingham Jefferson County Transit Authority | `evt-petition-arrival-disposition` | 0.100 | 3 | 0.190 | 0.05 | 0.22 | 0.03 | pending | — |
-| 370 | `scotus/9526000606` | Gina Silva, et al. v. Todd Blanche, Attorney General | `evt-motion-disposition` | 0.100 | 3 | 0.230 | 0.03 | 0.25 | 0.02 | resolved | — |
-| 371 | `scotus/9026000531` | John O. Green v. United States | `evt-petition-disposition` | 0.097 | 3 | 0.150 | 0.03 | 0.18 | 0.08 | pending | — |
-| 372 | `scotus/73303792` | John Paul Gomez v. David Ryan, et al. | `evt-petition-disposition` | 0.090 | 3 | 0.210 | 0.04 | 0.22 | 0.01 | resolved | — |
-| 373 | `scotus/9026000290` | Mihal Emberton v. Superior Court of California, City and County of San Francisco, et al. | `evt-petition-disposition` | 0.090 | 3 | 0.200 | 0.03 | 0.22 | 0.02 | resolved | — |
-| 374 | `scotus/9026000427` | Richard W. Coleman, Jr. v. Merit Systems Protection Board | `evt-petition-disposition` | 0.090 | 3 | 0.160 | 0.03 | 0.19 | 0.05 | resolved | — |
-| 375 | `scotus/9026000055` | Sohilbhai Shaukatali Momin v. Todd Blanche, Attorney General | `evt-petition-disposition` | 0.090 | 2 | 0.020 | 0.08 | — | 0.10 | resolved | — |
-| 376 | `scotus/9026000080` | Felicia Scroggins v. City of Shreveport, Louisiana | `evt-petition-disposition` | 0.087 | 3 | 0.210 | 0.03 | 0.22 | 0.01 | resolved | — |
-| 377 | `scotus/9026000383` | Felicia Scroggins v. City of Shreveport, Louisiana | `evt-petition-disposition` | 0.087 | 3 | 0.180 | 0.04 | 0.20 | 0.02 | resolved | — |
-| 378 | `scotus/73335108` | Henry L. Watson, III v. Kenya Mason, Warden | `evt-petition-disposition` | 0.080 | 3 | 0.130 | 0.03 | 0.16 | 0.05 | resolved | — |
-| 379 | `scotus/9026000095` | John Zhong, et al. v. Superior Court of California, Los Angeles County, et al. | `evt-petition-disposition` | 0.080 | 3 | 0.190 | 0.03 | 0.20 | 0.01 | resolved | — |
-| 380 | `scotus/73363408` | Dan Schmidt v. City of Omro, Wisconsin, et al. | `evt-petition-disposition` | 0.077 | 3 | 0.200 | 0.03 | 0.20 | 0.00 | resolved | — |
-| 381 | `scotus/9526000680` | Nancy Roncati Dowden v. Deutsche Bank National Trust Company, as Trustee | `evt-motion-disposition` | 0.077 | 3 | 0.120 | 0.03 | 0.15 | 0.05 | resolved | — |
-| 382 | `scotus/73318133` | Christopher Veto v. The Boeing Company | `evt-petition-disposition` | 0.073 | 3 | 0.170 | 0.03 | 0.18 | 0.01 | resolved | — |
-| 383 | `scotus/73500232` | Mark Mazza, et ux. v. Bank of New York Mellon | `evt-petition-disposition` | 0.073 | 3 | 0.180 | 0.04 | 0.18 | 0.00 | resolved | — |
-| 384 | `scotus/9026000386` | Marlin D. Lowery v. Cheboygan Area Schools, et al. | `evt-petition-disposition` | 0.073 | 3 | 0.160 | 0.02 | 0.18 | 0.02 | pending | — |
-| 385 | `scotus/73246321` | Andron Miguel Francis v. Allstate Insurance Company | `evt-petition-disposition` | 0.070 | 3 | 0.170 | 0.02 | 0.18 | 0.01 | resolved | — |
-| 386 | `scotus/73372297` | Jane Doe v. Robert F. Kennedy, Jr., Secretary of Health and Human Services | `evt-petition-disposition` | 0.067 | 3 | 0.180 | 0.02 | 0.18 | 0.00 | resolved | — |
-| 387 | `scotus/73500245` | Jerry M. Blevins v. Alabama State Bar | `evt-petition-disposition` | 0.067 | 3 | 0.090 | 0.03 | 0.12 | 0.05 | resolved | — |
-| 388 | `scotus/9026000066` | Michelet Michael Smith v. Keeley Anne Smith | `evt-petition-disposition` | 0.067 | 3 | 0.180 | 0.02 | 0.18 | 0.00 | resolved | — |
-| 389 | `scotus/73374809` | Kenneth Matsumura v. Court of Appeal of California, First Appellate District, Division Five, et al. | `evt-petition-disposition` | 0.063 | 3 | 0.140 | 0.03 | 0.15 | 0.01 | resolved | — |
-| 390 | `scotus/73272489` | Leslie Sanders v. City of Long Beach, California | `evt-petition-disposition` | 0.060 | 3 | 0.150 | 0.03 | 0.15 | 0.00 | resolved | — |
-| 391 | `scotus/9026000352` | Jarin M. Wray v. RTX Corporation | `evt-petition-disposition` | 0.060 | 3 | 0.090 | 0.03 | 0.12 | 0.03 | resolved | — |
-| 392 | `scotus/73500231` | Tatyana Evgenievna Drevaleva v. United States, et al. | `evt-petition-disposition` | 0.057 | 3 | 0.150 | 0.02 | 0.15 | 0.00 | resolved | — |
-| 393 | `scotus/9026000152` | Dora L. Adkins v. Rosslyn Syndicate, LC | `evt-petition-disposition` | 0.053 | 3 | 0.120 | 0.02 | 0.13 | 0.01 | resolved | — |
-| 394 | `scotus/9026000602` | Palanikumar V. Gnanam, et ux. v. Nathaniel Chibuzor Keita, et al. | `evt-petition-arrival-disposition` | 0.053 | 3 | 0.100 | 0.02 | 0.12 | 0.02 | pending | — |
-| 395 | `scotus/9526000684` | Paul Schultz v. BOFK, N.A. | `evt-motion-disposition` | 0.047 | 3 | 0.050 | 0.03 | 0.08 | 0.03 | resolved | — |
-| 396 | `scotus/73279700` | Allen Watkins v. United States District Court for District of Arizona | `evt-motion-disposition` | 0.035 | 2 | 0.030 | 0.02 | — | 0.05 | pending | — |
-| 397 | `scotus/9526000256` | Cassandra Perkins v. United States District Court for the Northern District of Georgia, et al. | `evt-motion-disposition` | 0.035 | 2 | 0.030 | 0.02 | 0.05 | — | resolved | yes |
-| 398 | `scotus/73389313` | Joan E. Farr v. Alexandra Grant, et al. | `evt-petition-disposition` | 0.033 | 3 | 0.080 | 0.02 | 0.08 | 0.00 | resolved | — |
-| 399 | `scotus/9026000542` | Timothy Hall v. Eastern Panhandle Anesthesia Associates, et al. | `evt-petition-arrival-disposition` | 0.030 | 2 | 0.000 | 0.03 | — | 0.03 | pending | — |
-| 400 | `scotus/9526000245` | Katherine L. Hobbins Forester, et al. v. Adam Gerol, et al. | `evt-motion-disposition` | 0.030 | 2 | 0.020 | 0.02 | 0.04 | — | resolved | — |
-| 401 | `scotus/9526000612` | Martin Akerman v. Merit Systems Protection Board, et al. | `evt-motion-disposition` | 0.025 | 2 | 0.010 | 0.03 | — | 0.02 | resolved | — |
-| 402 | `scotus/9026000517` | Alejandro Evaristo Perez v. Disney Corporation, et al. | `evt-petition-arrival-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | pending | — |
-| 403 | `scotus/9026000538` | Samuel Collin Robinson v. Katherine Lyman Freeman | `evt-petition-arrival-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | pending | — |
-| 404 | `scotus/9526000532` | Frank Michael Monte, III v. United States | `evt-motion-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | resolved | — |
-| 405 | `scotus/9526000602` | Micahiel Nichloson, et al. v. U.S. Bank National Association | `evt-motion-disposition` | 0.020 | 2 | 0.000 | 0.02 | — | 0.02 | resolved | — |
-| 406 | `scotus/9526000619` | Denise Smith v. Brown, Savage, Britto, Stitely & Callahan, LLP, et al. | `evt-motion-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | resolved | — |
-| 407 | `scotus/9526000657` | Paul Schultz v. Kevin McCarthy | `evt-motion-disposition` | 0.020 | 2 | 0.000 | 0.02 | — | 0.02 | resolved | — |
-| 408 | `scotus/9526000163` | Bridget Gilmore v. Walmart, Incorporated | `evt-motion-disposition` | 0.020 | 1 | 0.000 | 0.02 | — | — | pending | — |
-| 409 | `scotus/73500218` | In Re Joan Farr | `evt-petition-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | — |
-| 410 | `scotus/9026000583` | Ahmed Shaikh v. Fox News Network, LLC, et al. | `evt-petition-arrival-disposition` | 0.015 | 2 | 0.010 | 0.01 | — | 0.02 | pending | — |
-| 411 | `scotus/9526000434` | Ryan P. Givey v. Todd Blanche, Attorney General, et al. | `evt-motion-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | yes |
-| 412 | `scotus/9526000437` | In Re Nikolay M. Valov | `evt-motion-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | yes |
-| 413 | `scotus/9526000658` | Paul Schultz v. H. Jason Gold | `evt-motion-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | — |
-| 414 | `scotus/9526000449` | Elisha Holloway v. Bryan Polk | `evt-motion-disposition` | 0.010 | 2 | 0.020 | 0.02 | — | 0.00 | resolved | — |
+| 214 | `scotus/9026000103` | All Petroleum-Product Cargo Onboard the M/T Arina with International Maritime Organization Number 9189952, et al. v. United States | `evt-petition-disposition` | 0.440 | 2 | 0.280 | 0.30 |  | 0.58 | pending | — |
+| 215 | `scotus/9526000273` | Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al. | `evt-motion-disposition` | 0.435 | 2 | 0.570 | 0.15 | 0.72 | — | resolved | — |
+| 216 | `scotus/73281345` | Holly Ann Elkins v. United States | `evt-petition-disposition` | 0.433 | 3 | 0.400 | 0.50 | 0.60 | 0.20 | resolved | — |
+| 217 | `scotus/9026000107` | Garnell Walls v. Prince George's County, Maryland, et al. | `evt-order-call-for-response-disposition` | 0.433 | 3 | 0.220 | 0.30 | 0.52 | 0.48 | resolved | — |
+| 218 | `scotus/9026000398` | Sherhonda Golden v. NBCUniversal Media, LLC | `evt-order-call-for-response-disposition` | 0.433 | 3 | 0.220 | 0.35 | 0.57 | 0.38 | pending | — |
+| 219 | `scotus/73281004` | Oregon, et al. v. Paul Maney, et al. | `evt-petition-disposition` | 0.427 | 3 | 0.280 | 0.40 | 0.58 | 0.30 | resolved | — |
+| 220 | `scotus/73281327` | Nicole Pileggi v. Washington Newspaper Publishing Company, LLC | `evt-petition-disposition` | 0.427 | 3 | 0.480 | 0.20 | 0.68 | 0.40 | pending | — |
+| 221 | `scotus/9026000023` | TMX Finance Corporate Services, Incorporated v. Wendy S. Spicher, Secretary, Pennsylvania Department of Banking and Securities | `evt-order-call-for-response-disposition` | 0.427 | 3 | 0.200 | 0.35 | 0.55 | 0.38 | pending | — |
+| 222 | `scotus/73281376` | Davie County, North Carolina, et al. v. Juiliana Swink, Administratrix of the Estate of David Ray Gunter, et al. | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.40 | 0.57 | 0.30 | resolved | — |
+| 223 | `scotus/73281401` | Christopher Zook, et al. v. Scott Fuqua | `evt-petition-disposition` | 0.423 | 3 | 0.270 | 0.30 | 0.57 | 0.40 | resolved | — |
+| 224 | `scotus/73283862` | Corey Duran Berry v. United States | `evt-order-judgment` | 0.423 | 3 | 0.350 | 0.30 | 0.65 | 0.32 | pending | — |
+| 225 | `scotus/9026000238` | Broadcast Music, Inc. v. North American Concert Promoters Association | `evt-order-call-for-response-disposition` | 0.423 | 3 | 0.320 | 0.45 | 0.57 | 0.25 | pending | — |
+| 226 | `scotus/73277388` | Genesis Financial Solutions, Inc. v. Steve Ford, et al. | `evt-order-call-for-response-disposition` | 0.420 | 3 | 0.310 | 0.45 | 0.56 | 0.25 | pending | — |
+| 227 | `scotus/9026000231` | Mario Delaine v. United States | `evt-order-call-for-response-disposition` | 0.420 | 3 | 0.210 | 0.35 | 0.56 | 0.35 | pending | — |
+| 228 | `scotus/73389781` | Christy Ann Martin v. John Fredrick Martin | `evt-petition-disposition` | 0.417 | 3 | 0.450 | 0.20 | 0.40 | 0.65 | resolved | — |
+| 229 | `scotus/73522552` | Eric Alan Isaacson v. Maribel Moses, et al. | `evt-order-call-for-response-disposition` | 0.417 | 3 | 0.150 | 0.40 | 0.50 | 0.35 | resolved | — |
+| 230 | `scotus/9026000377` | Frank Parasmo v. United States | `evt-order-call-for-response-disposition` | 0.413 | 3 | 0.190 | 0.35 | 0.54 | 0.35 | pending | — |
+| 231 | `scotus/73500240` | Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez | `evt-order-relist-disposition` | 0.410 | 3 | 0.280 | 0.30 | 0.58 | 0.35 | pending | — |
+| 232 | `scotus/73500284` | Indian Harbor Insurance Company, et al. v. Town of Vinton, Louisiana, et al. | `evt-order-call-for-response-disposition` | 0.410 | 3 | 0.180 | 0.45 | 0.48 | 0.30 | pending | — |
+| 233 | `scotus/9526000499` | Louisiana, et al. v. Devon Energy Production Company, L.P. | `evt-brief-response-disposition` | 0.410 | 3 | 0.280 | 0.30 | 0.58 | 0.35 | resolved | — |
+| 234 | `scotus/73281704` | Fred Davis Clark, Jr. v. United States | `evt-petition-disposition` | 0.403 | 3 | 0.260 | 0.30 | 0.56 | 0.35 | pending | — |
+| 235 | `scotus/73500229` | Jane Elizabeth Roberts, et al. v. Bob Ferguson, Governor of Washington, et al. | `evt-petition-disposition` | 0.400 | 3 | 0.100 | 0.35 | 0.45 | 0.40 | resolved | — |
+| 236 | `scotus/9026000034` | Catherine L. Hanaway, in Her Official Capacity as Attorney General of Missouri, et al. v. Thomas L. Sanderson | `evt-petition-disposition` | 0.400 | 3 | 0.200 | 0.30 | 0.50 | 0.40 | resolved | — |
+| 237 | `scotus/9026000100` | Shannon Cross v. Central Contra Costa Transit Authority | `evt-order-call-for-response-disposition` | 0.400 | 3 | 0.250 | 0.30 | 0.55 | 0.35 | resolved | — |
+| 238 | `scotus/73292081` | Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division | `evt-order-relist-disposition` | 0.397 | 3 | 0.440 | 0.20 | 0.64 | 0.35 | pending | — |
+| 239 | `scotus/73500243` | Donna Birks v. Clemente Javier Aguirre-Jarquin | `evt-petition-disposition` | 0.397 | 3 | 0.140 | 0.35 | 0.49 | 0.35 | resolved | — |
+| 240 | `scotus/9026000018` | Gary Westcott, Secretary, Louisiana Department of Public Safety and Corrections, et al. v. Voice of the Experienced, et al. | `evt-order-call-for-response-disposition` | 0.393 | 3 | 0.130 | 0.35 | 0.48 | 0.35 | resolved | — |
+| 241 | `scotus/73281346` | Jessica Pitts, Officer, et al. v. Taylor Burke, as Special Administrator of the Estate of Thomas Gay, Deceased | `evt-petition-disposition` | 0.387 | 3 | 0.160 | 0.30 | 0.46 | 0.40 | resolved | — |
+| 242 | `scotus/73500251` | Roxane M. Marschner v. Richard A. Marschner | `evt-order-judgment` | 0.387 | 3 | 0.260 | 0.30 | 0.56 | 0.30 | pending | — |
+| 243 | `scotus/9026000433` | Karen Brookins, Individually and as Administratrix of the Estate of Marcus Richard Boone v. City of Philadelphia, Pennsylvania, et al. | `evt-petition-disposition` | 0.387 | 3 | 0.310 | 0.35 | 0.56 | 0.25 | resolved | — |
+| 244 | `scotus/73338270` | Sara Boysen, et al. v. PeaceHealth, et al. | `evt-petition-disposition` | 0.383 | 3 | 0.350 | 0.40 | 0.55 | 0.20 | resolved | — |
+| 245 | `scotus/9026000002` | Independent Specialty Insurance Company, et al. v. Lower Cameron Hospital Service District, et al. | `evt-petition-disposition` | 0.383 | 3 | 0.150 | 0.30 | 0.45 | 0.40 | resolved | — |
+| 246 | `scotus/9026000353` | Richard Vasquez, Jr. v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division | `evt-petition-disposition` | 0.383 | 3 | 0.350 | 0.30 | 0.60 | 0.25 | pending | — |
+| 247 | `scotus/73500257` | City of North Las Vegas, Nevada, et al. v. Genoa Jones, et al. | `evt-order-relist-disposition` | 0.377 | 3 | 0.180 | 0.30 | 0.48 | 0.35 | pending | — |
+| 248 | `scotus/73521973` | Jimmy Davis, Jr. v. Greg Lovelace, Commissioner, Alabama Department of Corrections | `evt-petition-disposition` | 0.377 | 3 | 0.380 | 0.35 | 0.58 | 0.20 | resolved | — |
+| 249 | `scotus/9026000226` | Joshua Mast, et al. v. John Doe, et al. | `evt-petition-disposition` | 0.373 | 3 | 0.470 | 0.45 | 0.57 | 0.10 | resolved | — |
+| 250 | `scotus/73266074` | Hastings College Conservation Committee, et al. v. California, et al. | `evt-petition-disposition` | 0.370 | 3 | 0.160 | 0.30 | 0.46 | 0.35 | resolved | — |
+| 251 | `scotus/73281674` | PG Publishing Company, Inc., dba Pittsburgh Post-Gazette v. National Labor Relations Board, et al. | `evt-petition-disposition` | 0.367 | 3 | 0.350 | 0.35 | 0.55 | 0.20 | resolved | — |
+| 252 | `scotus/73500260` | TitleMax of Virginia, Inc., et al. v. Wendy S. Spicher, Secretary, Pennsylvania Department of Banking and Securities | `evt-order-call-for-response-disposition` | 0.367 | 3 | 0.360 | 0.30 | 0.58 | 0.22 | pending | — |
+| 253 | `scotus/9026000459` | Marshall Grace v. United States | `evt-order-call-for-response-disposition` | 0.367 | 3 | 0.300 | 0.30 | 0.55 | 0.25 | pending | — |
+| 254 | `scotus/73281703` | Brandi Greer v. Benton School District | `evt-petition-disposition` | 0.363 | 3 | 0.190 | 0.25 | 0.44 | 0.40 | resolved | — |
+| 255 | `scotus/73550516` | Independent Specialty Insurance Company v. Apex Hospitality Group, L.L.C. | `evt-petition-disposition` | 0.360 | 3 | 0.180 | 0.25 | 0.43 | 0.40 | resolved | — |
+| 256 | `scotus/9026000037` | New Mexico v. Samuel Neal | `evt-order-call-for-response-disposition` | 0.360 | 3 | 0.230 | 0.35 | 0.48 | 0.25 | pending | — |
+| 257 | `scotus/9026000624` | Randall Williams, as Personal Representative of the Estates of Shanice R. Dantzler-Williams and Miranda R. Dantzler-Williams, et al. v. Charleston County Sheriff’s Office | `evt-petition-arrival-disposition` | 0.360 | 3 | 0.130 | 0.30 | 0.43 | 0.35 | pending | — |
+| 258 | `scotus/73281412` | Ronnie Alexander v. Philip R. Taft Psy D and Associates, P.L.L.C., et al. | `evt-petition-disposition` | 0.357 | 3 | 0.270 | 0.30 | 0.52 | 0.25 | resolved | — |
+| 259 | `scotus/73500215` | Eric Gomez v. David Saccoccio | `evt-petition-disposition` | 0.357 | 3 | 0.170 | 0.25 | 0.42 | 0.40 | resolved | — |
+| 260 | `scotus/9526000661` | James Dwight Pavatt v. Oklahoma | `evt-motion-disposition` | 0.357 | 3 | 0.520 | 0.15 | 0.67 | 0.25 | resolved | — |
+| 261 | `scotus/9026000019` | Allison Nguyen v. Louisiana | `evt-order-call-for-response-disposition` | 0.353 | 3 | 0.200 | 0.30 | 0.48 | 0.28 | pending | — |
+| 262 | `scotus/73500239` | Bryan Pesta v. Laura Bloomberg, Individually and as President, Cleveland State University, et al. | `evt-petition-disposition` | 0.350 | 3 | 0.450 | 0.30 | 0.60 | 0.15 | resolved | — |
+| 263 | `scotus/73500287` | Endure Industries, Incorporated v. Vizient Incorporated, a Delaware corporation, et al. | `evt-petition-disposition` | 0.350 | 3 | 0.350 | 0.30 | 0.55 | 0.20 | resolved | — |
+| 264 | `scotus/9026000170` | Federal Express Corporation v. Qualcomm Incorporated, et al. | `evt-order-call-for-response-disposition` | 0.350 | 3 | 0.100 | 0.30 | 0.40 | 0.35 | pending | — |
+| 265 | `scotus/9026000176` | Cynthia Davis, Warden v. David M. Smith | `evt-order-call-for-response-disposition` | 0.350 | 3 | 0.100 | 0.30 | 0.40 | 0.35 | pending | — |
+| 266 | `scotus/9526000623` | Jesse Guardado v. Florida | `evt-brief-response-disposition` | 0.350 | 3 | 0.460 | 0.12 | 0.58 | 0.35 | resolved | — |
+| 267 | `scotus/72483489` | RiseandShine Corporation, dba Rise Brewing v. PepsiCo, Inc. | `evt-brief-judgment` | 0.343 | 3 | 0.170 | 0.30 | 0.45 | 0.28 | pending | — |
+| 268 | `scotus/73286453` | Denise Hughes, as Administrator of the Estate of Edwin Dewayne Moss v. Monique N. Locure, Administratrix of the Estate of Darian K. Locure | `evt-petition-disposition` | 0.343 | 3 | 0.280 | 0.35 | 0.48 | 0.20 | resolved | — |
+| 269 | `scotus/9026000218` | Juan Matthews v. Louisiana | `evt-order-call-for-response-disposition` | 0.343 | 3 | 0.230 | 0.30 | 0.48 | 0.25 | pending | — |
+| 270 | `scotus/73272488` | James P. Abrams v. United States | `evt-order-call-for-response-disposition` | 0.340 | 3 | 0.120 | 0.30 | 0.42 | 0.30 | pending | — |
+| 271 | `scotus/9026000114` | Frederick L. Allen, et al. v. Joshua Stein, Governor of North Carolina, et al. | `evt-petition-disposition` | 0.340 | 3 | 0.120 | 0.30 | 0.42 | 0.30 | resolved | — |
+| 272 | `scotus/9026000194` | Mei Guo, et al. v. Luc A. Despins, Chapter 11 Trustee | `evt-order-call-for-response-disposition` | 0.340 | 3 | 0.220 | 0.30 | 0.47 | 0.25 | pending | — |
+| 273 | `scotus/73277468` | Jasmine Younge v. Fulton Judicial Circuit District Attorney's Office, Georgia | `evt-argument-judgment` | 0.337 | 3 | 0.260 | 0.20 | 0.46 | 0.35 | pending | — |
+| 274 | `scotus/73299074` | In Re Richard Devillier, et al. | `evt-petition-disposition` | 0.333 | 3 | 0.350 | 0.25 | 0.55 | 0.20 | resolved | — |
+| 275 | `scotus/73281629` | Mark Zavislak v. Netflix, Inc. | `evt-petition-disposition` | 0.327 | 3 | 0.180 | 0.25 | 0.43 | 0.30 | resolved | — |
+| 276 | `scotus/9026000171` | Galesburg Community Unit School District No. 205 v. N. T., Individually and as Parent and Next Friend of C. T., et al. | `evt-order-call-for-response-disposition` | 0.327 | 3 | 0.120 | 0.30 | 0.40 | 0.28 | pending | — |
+| 277 | `scotus/9526000634` | Jesse Guardado v. Richard Comerford, Secretary, Florida Department of Corrections, et al. | `evt-motion-disposition` | 0.323 | 3 | 0.490 | 0.15 | 0.64 | 0.18 | resolved | — |
+| 278 | `scotus/9026000492` | Marilyn Coudrain, as Administrator of the Estate of Ellen Smith, Deceased, et al. v. Boehringer Ingelheim Pharmaceuticals, Inc., et al. | `evt-petition-disposition` | 0.320 | 2 | 0.200 | 0.22 |  | 0.42 | pending | — |
+| 279 | `scotus/73500219` | Erik Charles Maund, aka Erik Moore v. United States | `evt-petition-disposition` | 0.317 | 3 | 0.250 | 0.30 | 0.45 | 0.20 | resolved | — |
+| 280 | `scotus/73500220` | Nita Patel, et vir v. United States | `evt-petition-disposition` | 0.317 | 3 | 0.350 | 0.40 | 0.45 | 0.10 | resolved | — |
+| 281 | `scotus/9026000315` | Amy L. Goldman v. Tammy R. Phillips, et al. | `evt-order-call-for-response-disposition` | 0.317 | 3 | 0.210 | 0.30 | 0.43 | 0.22 | pending | — |
+| 282 | `scotus/73500216` | Donnie Ray Pearson v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division | `evt-petition-disposition` | 0.307 | 3 | 0.020 | 0.30 | 0.32 | 0.30 | resolved | — |
+| 283 | `scotus/9026000145` | Warden, Moshannon Valley Correctional Center, et al. v. Adolph Michelin, et al. | `evt-order-call-for-response-disposition` | 0.307 | 3 | 0.320 | 0.20 | 0.52 | 0.20 | pending | — |
+| 284 | `scotus/9026000221` | Theodore James Purdy v. Kansas | `evt-petition-disposition` | 0.307 | 3 | 0.220 | 0.30 | 0.42 | 0.20 | partly_resolved | — |
+| 285 | `scotus/73500222` | Kevin Scott Karsjens, Individually and on Behalf of All Others Similarly Situated, et al. v. Shireen Gandhi, et al. | `evt-petition-disposition` | 0.303 | 3 | 0.310 | 0.15 | 0.46 | 0.30 | resolved | — |
+| 286 | `scotus/9026000285` | Christopher Ponzo v. United States | `evt-order-call-for-response-disposition` | 0.303 | 3 | 0.160 | 0.20 | 0.36 | 0.35 | pending | — |
+| 287 | `scotus/73281680` | Abrahim Mohamed Fofana v. Markwayne Mullin, Secretary, Department of Homeland Security, et al. | `evt-petition-disposition` | 0.300 | 3 | 0.350 | 0.35 | 0.45 | 0.10 | resolved | — |
+| 288 | `scotus/9026000339` | FS Medical Supplies, LLC v. Tanner Pharma UK Limited, et al. | `evt-order-call-for-response-disposition` | 0.300 | 3 | 0.200 | 0.30 | 0.40 | 0.20 | pending | — |
+| 289 | `scotus/9026000446` | Jawan N. Tarquinii v. Hung Cao, Acting Secretary of the Navy | `evt-petition-disposition` | 0.297 | 3 | 0.130 | 0.22 | 0.35 | 0.32 | pending | — |
+| 290 | `scotus/9026000139` | Monsanto Company v. Mike Dennis | `evt-petition-disposition` | 0.293 | 3 | 0.380 | 0.30 | 0.48 | 0.10 | resolved | — |
+| 291 | `scotus/73281624` | Cherry Grove Beach Gear, LLC, et al. v. City of North Myrtle Beach, South Carolina | `evt-petition-disposition` | 0.283 | 3 | 0.300 | 0.35 | 0.40 | 0.10 | resolved | — |
+| 292 | `scotus/73281635` | Angelo Pesavento, et al. v. Eddie L. Bolden | `evt-petition-disposition` | 0.283 | 3 | 0.200 | 0.25 | 0.40 | 0.20 | resolved | — |
+| 293 | `scotus/9526000447` | Swift Transportation of Arizona, LLC v. Francis J. Mathew, Judge, First Judicial District Court of New Mexico, Santa Fe County, et al. | `evt-motion-disposition` | 0.280 | 2 | 0.160 | 0.20 | 0.36 |  | resolved | — |
+| 294 | `scotus/9026000094` | City of Santa Maria, California, et al. v. Adolfo Cardenas | `evt-order-call-for-response-disposition` | 0.277 | 3 | 0.140 | 0.22 | 0.36 | 0.25 | pending | — |
+| 295 | `scotus/73281654` | Winnemucca Indian Colony v. United States | `evt-petition-disposition` | 0.273 | 3 | 0.470 | 0.15 | 0.57 | 0.10 | resolved | — |
+| 296 | `scotus/9026000351` | Justin Paul Dreiling v. United States | `evt-petition-disposition` | 0.273 | 3 | 0.370 | 0.05 | 0.42 | 0.35 | resolved | — |
+| 297 | `scotus/9026000435` | Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board | `evt-petition-disposition` | 0.273 | 3 | 0.200 | 0.15 | 0.32 | 0.35 | resolved | — |
+| 298 | `scotus/9026000526` | Lane Douglas Mitchell v. Mississippi | `evt-petition-disposition` | 0.273 | 3 | 0.200 | 0.20 | 0.40 | 0.22 | resolved | — |
+| 299 | `scotus/73538544` | Christina Casarez v. Irigoyen Farms, Inc., et al. | `evt-order-call-for-response-disposition` | 0.267 | 3 | 0.250 | 0.25 | 0.40 | 0.15 | resolved | — |
+| 300 | `scotus/9026000053` | Indian Harbor Insurance Company, et al. v. One Lakeside Plaza, L.L.C. | `evt-petition-disposition` | 0.267 | 3 | 0.350 | 0.25 | 0.45 | 0.10 | pending | — |
+| 301 | `scotus/9026000440` | Mohammed Jabateh v. United States | `evt-petition-disposition` | 0.263 | 3 | 0.300 | 0.12 | 0.42 | 0.25 | resolved | — |
+| 302 | `scotus/73500248` | Michael Webb v. Edmund Trombley, Corrections Officer, Great Meadow Correctional Facility, et al. | `evt-petition-disposition` | 0.260 | 3 | 0.300 | 0.18 | 0.45 | 0.15 | resolved | — |
+| 303 | `scotus/73500250` | Miguel Angel Delgado, Jr. v. United States | `evt-order-call-for-response-disposition` | 0.260 | 3 | 0.220 | 0.20 | 0.40 | 0.18 | pending | — |
+| 304 | `scotus/73279493` | Stanley Kappell Watson v. Shenekka Bradsher, et al. | `evt-order-call-for-response-disposition` | 0.253 | 3 | 0.110 | 0.20 | 0.31 | 0.25 | pending | — |
+| 305 | `scotus/73317900` | Burford German Funding LLC, et al. v. financialright claims GmbH | `evt-petition-disposition` | 0.250 | 3 | 0.310 | 0.12 | 0.43 | 0.20 | resolved | — |
+| 306 | `scotus/73329541` | Michael St. Clair v. Willis Pettit, Warden | `evt-petition-disposition` | 0.250 | 3 | 0.150 | 0.20 | 0.35 | 0.20 | resolved | — |
+| 307 | `scotus/73372500` | Citizens Alliance for Government Integrity v. York County, By and Through Its Manager, Joshua Edwards, et al. | `evt-petition-disposition` | 0.250 | 3 | 0.250 | 0.15 | 0.40 | 0.20 | resolved | — |
+| 308 | `scotus/73452191` | Walter A. Bernard v. Philip A. Ignelzi, Individually and as Judge, Court of Common Pleas, Allegheny County, Pennsylvania | `evt-petition-disposition` | 0.250 | 3 | 0.300 | 0.15 | 0.45 | 0.15 | resolved | — |
+| 309 | `scotus/73281628` | Jason Tywann Bell v. John Gilley, Warden | `evt-petition-disposition` | 0.245 | 2 | 0.190 | 0.15 | 0.34 | — | resolved | — |
+| 310 | `scotus/9026000274` | Francisco Xavier Ortiz-Colón v. United States | `evt-order-call-for-response-disposition` | 0.233 | 3 | 0.200 | 0.20 | 0.35 | 0.15 | pending | — |
+| 311 | `scotus/9026000241` | Fred Rahdar, et al. v. City of Friendswood, Texas, et al. | `evt-petition-disposition` | 0.230 | 2 | 0.300 | 0.08 | 0.38 | — | resolved | — |
+| 312 | `scotus/9026000424` | Beckie Boddie v. United States District Court for the District of Maryland | `evt-petition-disposition` | 0.227 | 3 | 0.300 | 0.08 | 0.38 | 0.22 | pending | — |
+| 313 | `scotus/73300246` | Judith L. Harvey, as Trustee of the David T. & Judith L. Harvey Trust, and as Personal Representative of the Estate of David T. Harvey, Deceased v. City of Reno, Nevada, et al. | `evt-petition-disposition` | 0.223 | 3 | 0.230 | 0.12 | 0.35 | 0.20 | resolved | — |
+| 314 | `scotus/73500217` | Melanie Crites-Bachert v. Providence Health & Services - Oregon | `evt-petition-disposition` | 0.223 | 3 | 0.350 | 0.12 | 0.45 | 0.10 | resolved | — |
+| 315 | `scotus/73500233` | Mark A. Pitzka v. Wisconsin | `evt-petition-disposition` | 0.220 | 3 | 0.300 | 0.08 | 0.38 | 0.20 | resolved | — |
+| 316 | `scotus/9026000369` | John Torsten Loop v. Washington, et al. | `evt-petition-disposition` | 0.220 | 3 | 0.270 | 0.15 | 0.39 | 0.12 | resolved | — |
+| 317 | `scotus/73281318` | Christopher R. Cummins v. Illinois | `evt-petition-disposition` | 0.217 | 3 | 0.250 | 0.20 | 0.35 | 0.10 | resolved | — |
+| 318 | `scotus/73500236` | Colorado Bondshares, et al. v. Marin Metropolitan District, et al. | `evt-petition-disposition` | 0.217 | 3 | 0.300 | 0.15 | 0.40 | 0.10 | resolved | — |
+| 319 | `scotus/9026000119` | Guam v. Richard Y. Ybanez, et al. | `evt-petition-disposition` | 0.217 | 3 | 0.300 | 0.15 | 0.40 | 0.10 | resolved | — |
+| 320 | `scotus/9026000631` | Linda Kay Robison v. Douglas A. Collins, Secretary, Department of Veterans Affairs | `evt-petition-arrival-disposition` | 0.210 | 3 | 0.210 | 0.12 | 0.33 | 0.18 | pending | — |
+| 321 | `scotus/73500242` | Blessing Nwosu v. 1600 West Loop South, L.L.C., et al. | `evt-petition-disposition` | 0.207 | 3 | 0.300 | 0.12 | 0.40 | 0.10 | resolved | — |
+| 322 | `scotus/9026000115` | Cara Elizabeth Liberto Dodson v. The Lutheran Village at Millers Grant, Inc. | `evt-petition-disposition` | 0.207 | 3 | 0.360 | 0.08 | 0.44 | 0.10 | resolved | — |
+| 323 | `scotus/9026000527` | Cesari S.R.L. v. Peju Province Winery L.P., et al. | `evt-petition-disposition` | 0.207 | 3 | 0.230 | 0.12 | 0.35 | 0.15 | pending | — |
+| 324 | `scotus/73292885` | Bart Xavier Pestarino v. Danielle Tetrault Pestarino | `evt-petition-disposition` | 0.203 | 3 | 0.440 | 0.15 | 0.45 | 0.01 | resolved | — |
+| 325 | `scotus/73500234` | Larry Steven Wilkins v. United States, et al. | `evt-petition-disposition` | 0.200 | 3 | 0.250 | 0.15 | 0.35 | 0.10 | resolved | — |
+| 326 | `scotus/9026000455` | Leanda Chaffins v. Shannon Sharp, et al. | `evt-petition-disposition` | 0.200 | 3 | 0.400 | 0.10 | 0.45 | 0.05 | pending | — |
+| 327 | `scotus/73369987` | Samuel Collin Robinson v. Katherine Lyman Freeman, fka Katherine Lyman Robinson | `evt-petition-disposition` | 0.190 | 3 | 0.450 | 0.12 | 0.45 | 0.00 | resolved | — |
+| 328 | `scotus/73500241` | David Greene, Jr., et al. v. Kansas Department of Revenue, et al. | `evt-petition-disposition` | 0.190 | 3 | 0.260 | 0.08 | 0.34 | 0.15 | resolved | — |
+| 329 | `scotus/9026000405` | Gengshu Scott He, et al. v. Marco Rubio, Secretary of State, et al. | `evt-petition-disposition` | 0.190 | 3 | 0.180 | 0.12 | 0.30 | 0.15 | resolved | — |
+| 330 | `scotus/9026000441` | Christopher Rydberg v. United States | `evt-petition-disposition` | 0.190 | 3 | 0.180 | 0.12 | 0.30 | 0.15 | pending | — |
+| 331 | `scotus/9026000296` | Mike Singh Sethi v. United States Court of Appeals for the Ninth Circuit, et al. | `evt-petition-disposition` | 0.183 | 3 | 0.330 | 0.12 | 0.38 | 0.05 | resolved | — |
+| 332 | `scotus/73309407` | Ricky Darnell Patterson v. Michigan | `evt-petition-disposition` | 0.180 | 3 | 0.220 | 0.12 | 0.32 | 0.10 | resolved | — |
+| 333 | `scotus/9026000501` | Connie L. Reguli, et al. v. Tracy Hetzel, et al. | `evt-petition-arrival-disposition` | 0.180 | 3 | 0.420 | 0.12 | 0.42 | 0.00 | pending | — |
+| 334 | `scotus/73500237` | Stephanie M. Redding v. Markwayne Mullin, Secretary of Homeland Security | `evt-petition-disposition` | 0.170 | 3 | 0.160 | 0.10 | 0.26 | 0.15 | resolved | — |
+| 335 | `scotus/9526000686` | Thomas M. Overton v. Florida, et al. | `evt-brief-response-disposition` | 0.170 | 2 | 0.100 | 0.12 |  | 0.22 | pending | — |
+| 336 | `scotus/73500221` | John Rogne v. City of Catoosa, Oklahoma | `evt-petition-disposition` | 0.167 | 3 | 0.200 | 0.10 | 0.30 | 0.10 | resolved | — |
+| 337 | `scotus/9026000516` | Catherine Elizabeth Chollet, aka Liza Chollet, and Michael Elliot Kohn v. United States | `evt-petition-disposition` | 0.167 | 3 | 0.180 | 0.10 | 0.28 | 0.12 | resolved | — |
+| 338 | `scotus/73363395` | Yesit Campo, as Personal Representative of the Estate of Arlevys Molina, et al. v. Uber Technologies, Inc., et al. | `evt-petition-disposition` | 0.165 | 2 | 0.230 | 0.05 | 0.28 | — | resolved | — |
+| 339 | `scotus/73364890` | F.E.B. Corp. v. United States | `evt-petition-disposition` | 0.163 | 3 | 0.170 | 0.12 | 0.27 | 0.10 | resolved | — |
+| 340 | `scotus/73318742` | Douglas Wain, et ux. v. Kimberly Nell Bunnell, Chief Regional Judge, 22nd Judicial Circuit Division 9, Fayette County, Kentucky, et al. | `evt-petition-disposition` | 0.160 | 3 | 0.340 | 0.12 | 0.35 | 0.01 | resolved | — |
+| 341 | `scotus/73358594` | Tomasa Gabriella Bolanos-Reynoso v. Department of Agriculture | `evt-petition-disposition` | 0.160 | 3 | 0.180 | 0.10 | 0.28 | 0.10 | resolved | — |
+| 342 | `scotus/73281677` | Parker C. Myslow v. United States | `evt-petition-disposition` | 0.157 | 3 | 0.250 | 0.12 | 0.30 | 0.05 | resolved | — |
+| 343 | `scotus/9026000337` | Denise J. Child v. Unum Life Insurance Company of America | `evt-petition-disposition` | 0.157 | 3 | 0.270 | 0.10 | 0.32 | 0.05 | resolved | — |
+| 344 | `scotus/73500268` | Roofing Designs by JR, L.L.C., dba Roofing Designs v. Royal American Construction, Incorporated, et al. | `evt-petition-disposition` | 0.153 | 3 | 0.200 | 0.08 | 0.28 | 0.10 | resolved | — |
+| 345 | `scotus/73369988` | Patrice Honeycutt v. JPMorgan Chase Bank, N.A., et al. | `evt-petition-disposition` | 0.150 | 3 | 0.250 | 0.05 | 0.30 | 0.10 | resolved | — |
+| 346 | `scotus/9026000079` | Rene Acosta-Tapia v. Todd Blanche, Attorney General | `evt-petition-disposition` | 0.150 | 2 | 0.200 | 0.25 | — | 0.05 | resolved | — |
+| 347 | `scotus/9026000087` | Diana Stevens-Reynolds v. Wilshire Insurance Company, et al. | `evt-petition-disposition` | 0.145 | 2 | 0.210 | 0.04 | 0.25 | — | resolved | — |
+| 348 | `scotus/9026000006` | Jerry Merritt v. Texas Farm Bureau, et al. | `evt-petition-disposition` | 0.143 | 3 | 0.250 | 0.08 | 0.30 | 0.05 | resolved | — |
+| 349 | `scotus/9026000529` | Craig R. Becker v. United States | `evt-petition-disposition` | 0.143 | 3 | 0.170 | 0.07 | 0.24 | 0.12 | pending | — |
+| 350 | `scotus/73344703` | Moneesha Kamani v. Michael A. Stone, DVM, and His Marital Community/Domestic Partnership, et al. | `evt-petition-disposition` | 0.140 | 3 | 0.160 | 0.04 | 0.18 | 0.20 | resolved | — |
+| 351 | `scotus/73378855` | Robert T. Wilson, Jr. v. Charles Randall Watts, et al. | `evt-petition-disposition` | 0.140 | 3 | 0.170 | 0.05 | 0.22 | 0.15 | resolved | — |
+| 352 | `scotus/9026000359` | Rubicon Real Estate Holdings, LLC, et al. v. City of Pontiac, Michigan, et al. | `evt-petition-disposition` | 0.137 | 3 | 0.250 | 0.06 | 0.30 | 0.05 | resolved | — |
+| 353 | `scotus/9026000367` | Venky Venkatraman v. Bank of America, N.A. | `evt-petition-disposition` | 0.137 | 3 | 0.280 | 0.04 | 0.32 | 0.05 | pending | — |
+| 354 | `scotus/9026000512` | Muhammad Saeed v. Arizona | `evt-petition-disposition` | 0.137 | 3 | 0.280 | 0.04 | 0.32 | 0.05 | pending | — |
+| 355 | `scotus/9026000562` | James C. "Chris" McNeil, et al. v. Court of Common Pleas of South Carolina, Ninth Judicial Circuit, Charleston County | `evt-petition-arrival-disposition` | 0.133 | 3 | 0.330 | 0.03 | 0.35 | 0.02 | pending | — |
+| 356 | `scotus/9026000561` | Haroon I. Hameed v. Drug Enforcement Administration, et al. | `evt-petition-disposition` | 0.130 | 3 | 0.190 | 0.08 | 0.25 | 0.06 | pending | — |
+| 357 | `scotus/73392441` | Alvin B. White, Individually and as Trustee for the White Revocable Living Trust dated January 6, 2010 v. U.S. Bank National Association, as Legal Title Trustee for Truman 2016 SC6 Title Trust | `evt-petition-disposition` | 0.127 | 3 | 0.240 | 0.12 | 0.25 | 0.01 | resolved | — |
+| 358 | `scotus/9026000173` | William David Jones v. Defense Supply Center, Defense Logistics Agency, Richmond, Virginia | `evt-petition-disposition` | 0.120 | 3 | 0.200 | 0.06 | 0.25 | 0.05 | resolved | — |
+| 359 | `scotus/9026000249` | Randy Quaid, et ux. v. Craig Granet, et al. | `evt-petition-disposition` | 0.120 | 3 | 0.180 | 0.04 | 0.22 | 0.10 | resolved | — |
+| 360 | `scotus/73391039` | David W. Foley, Jr., et ux. v. Orange County, Florida, et al. | `evt-petition-disposition` | 0.117 | 3 | 0.190 | 0.03 | 0.22 | 0.10 | resolved | — |
+| 361 | `scotus/9026000378` | Charles Kakembo Sessanga v. City of DeSoto Police Department, et al. | `evt-petition-disposition` | 0.117 | 3 | 0.250 | 0.04 | 0.28 | 0.03 | pending | — |
+| 362 | `scotus/9026000462` | Ryan Hauber v. Honkamp Krueger & Co., P.C. | `evt-petition-disposition` | 0.115 | 2 | 0.170 | 0.03 | — | 0.20 | resolved | — |
+| 363 | `scotus/73291758` | Ronald Dittmer, et ux. v. Katie Dittmer | `evt-petition-disposition` | 0.113 | 3 | 0.290 | 0.03 | 0.30 | 0.01 | resolved | — |
+| 364 | `scotus/73500263` | David Gasper v. EIDP, Inc., fka, E. I. DuPont De Nemours & Company, et al. | `evt-petition-disposition` | 0.113 | 3 | 0.190 | 0.05 | 0.24 | 0.05 | resolved | — |
+| 365 | `scotus/9026000121` | Joseph Basso v. Jose Rodriguez, et al. | `evt-petition-disposition` | 0.113 | 3 | 0.190 | 0.05 | 0.24 | 0.05 | resolved | — |
+| 366 | `scotus/9026000314` | Albert Ekladyous v. National Highway Traffic Safety Administration, et al. | `evt-petition-disposition` | 0.110 | 3 | 0.279 | 0.05 | 0.28 | 0.00 | resolved | — |
+| 367 | `scotus/73361381` | Naren Chaganti v. Cincinnati Insurance Company | `evt-petition-disposition` | 0.110 | 3 | 0.200 | 0.04 | 0.24 | 0.05 | resolved | — |
+| 368 | `scotus/9026000464` | Hamp's Construction, LLC v. Adam R. Telle, Acting Secretary of the Army | `evt-petition-disposition` | 0.110 | 3 | 0.110 | 0.04 | 0.14 | 0.15 | pending | — |
+| 369 | `scotus/9026000027` | Rachel E. Goodley v. Supreme Rice, L.L.C., et al. | `evt-petition-disposition` | 0.100 | 3 | 0.150 | 0.05 | 0.20 | 0.05 | resolved | — |
+| 370 | `scotus/9026000432` | Houssam Eddine Hamrit v. Citigroup Global Markets, Inc., et al. | `evt-petition-disposition` | 0.100 | 3 | 0.190 | 0.03 | 0.22 | 0.05 | pending | — |
+| 371 | `scotus/9026000545` | Diana Y. Lugo v. Birmingham Jefferson County Transit Authority | `evt-petition-arrival-disposition` | 0.100 | 3 | 0.190 | 0.05 | 0.22 | 0.03 | pending | — |
+| 372 | `scotus/9526000606` | Gina Silva, et al. v. Todd Blanche, Attorney General | `evt-motion-disposition` | 0.100 | 3 | 0.230 | 0.03 | 0.25 | 0.02 | resolved | — |
+| 373 | `scotus/9026000531` | John O. Green v. United States | `evt-petition-disposition` | 0.097 | 3 | 0.150 | 0.03 | 0.18 | 0.08 | pending | — |
+| 374 | `scotus/73303792` | John Paul Gomez v. David Ryan, et al. | `evt-petition-disposition` | 0.090 | 3 | 0.210 | 0.04 | 0.22 | 0.01 | resolved | — |
+| 375 | `scotus/9026000290` | Mihal Emberton v. Superior Court of California, City and County of San Francisco, et al. | `evt-petition-disposition` | 0.090 | 3 | 0.200 | 0.03 | 0.22 | 0.02 | resolved | — |
+| 376 | `scotus/9026000427` | Richard W. Coleman, Jr. v. Merit Systems Protection Board | `evt-petition-disposition` | 0.090 | 3 | 0.160 | 0.03 | 0.19 | 0.05 | resolved | — |
+| 377 | `scotus/9026000055` | Sohilbhai Shaukatali Momin v. Todd Blanche, Attorney General | `evt-petition-disposition` | 0.090 | 2 | 0.020 | 0.08 | — | 0.10 | resolved | — |
+| 378 | `scotus/9026000080` | Felicia Scroggins v. City of Shreveport, Louisiana | `evt-petition-disposition` | 0.087 | 3 | 0.210 | 0.03 | 0.22 | 0.01 | resolved | — |
+| 379 | `scotus/9026000383` | Felicia Scroggins v. City of Shreveport, Louisiana | `evt-petition-disposition` | 0.087 | 3 | 0.180 | 0.04 | 0.20 | 0.02 | resolved | — |
+| 380 | `scotus/73335108` | Henry L. Watson, III v. Kenya Mason, Warden | `evt-petition-disposition` | 0.080 | 3 | 0.130 | 0.03 | 0.16 | 0.05 | resolved | — |
+| 381 | `scotus/9026000095` | John Zhong, et al. v. Superior Court of California, Los Angeles County, et al. | `evt-petition-disposition` | 0.080 | 3 | 0.190 | 0.03 | 0.20 | 0.01 | resolved | — |
+| 382 | `scotus/73363408` | Dan Schmidt v. City of Omro, Wisconsin, et al. | `evt-petition-disposition` | 0.077 | 3 | 0.200 | 0.03 | 0.20 | 0.00 | resolved | — |
+| 383 | `scotus/9526000680` | Nancy Roncati Dowden v. Deutsche Bank National Trust Company, as Trustee | `evt-motion-disposition` | 0.077 | 3 | 0.120 | 0.03 | 0.15 | 0.05 | resolved | — |
+| 384 | `scotus/73318133` | Christopher Veto v. The Boeing Company | `evt-petition-disposition` | 0.073 | 3 | 0.170 | 0.03 | 0.18 | 0.01 | resolved | — |
+| 385 | `scotus/73500232` | Mark Mazza, et ux. v. Bank of New York Mellon | `evt-petition-disposition` | 0.073 | 3 | 0.180 | 0.04 | 0.18 | 0.00 | resolved | — |
+| 386 | `scotus/9026000386` | Marlin D. Lowery v. Cheboygan Area Schools, et al. | `evt-petition-disposition` | 0.073 | 3 | 0.160 | 0.02 | 0.18 | 0.02 | pending | — |
+| 387 | `scotus/73246321` | Andron Miguel Francis v. Allstate Insurance Company | `evt-petition-disposition` | 0.070 | 3 | 0.170 | 0.02 | 0.18 | 0.01 | resolved | — |
+| 388 | `scotus/73372297` | Jane Doe v. Robert F. Kennedy, Jr., Secretary of Health and Human Services | `evt-petition-disposition` | 0.067 | 3 | 0.180 | 0.02 | 0.18 | 0.00 | resolved | — |
+| 389 | `scotus/73500245` | Jerry M. Blevins v. Alabama State Bar | `evt-petition-disposition` | 0.067 | 3 | 0.090 | 0.03 | 0.12 | 0.05 | resolved | — |
+| 390 | `scotus/9026000066` | Michelet Michael Smith v. Keeley Anne Smith | `evt-petition-disposition` | 0.067 | 3 | 0.180 | 0.02 | 0.18 | 0.00 | resolved | — |
+| 391 | `scotus/73374809` | Kenneth Matsumura v. Court of Appeal of California, First Appellate District, Division Five, et al. | `evt-petition-disposition` | 0.063 | 3 | 0.140 | 0.03 | 0.15 | 0.01 | resolved | — |
+| 392 | `scotus/73272489` | Leslie Sanders v. City of Long Beach, California | `evt-petition-disposition` | 0.060 | 3 | 0.150 | 0.03 | 0.15 | 0.00 | resolved | — |
+| 393 | `scotus/9026000352` | Jarin M. Wray v. RTX Corporation | `evt-petition-disposition` | 0.060 | 3 | 0.090 | 0.03 | 0.12 | 0.03 | resolved | — |
+| 394 | `scotus/73500231` | Tatyana Evgenievna Drevaleva v. United States, et al. | `evt-petition-disposition` | 0.057 | 3 | 0.150 | 0.02 | 0.15 | 0.00 | resolved | — |
+| 395 | `scotus/9026000152` | Dora L. Adkins v. Rosslyn Syndicate, LC | `evt-petition-disposition` | 0.053 | 3 | 0.120 | 0.02 | 0.13 | 0.01 | resolved | — |
+| 396 | `scotus/9026000602` | Palanikumar V. Gnanam, et ux. v. Nathaniel Chibuzor Keita, et al. | `evt-petition-arrival-disposition` | 0.053 | 3 | 0.100 | 0.02 | 0.12 | 0.02 | pending | — |
+| 397 | `scotus/9526000684` | Paul Schultz v. BOFK, N.A. | `evt-motion-disposition` | 0.047 | 3 | 0.050 | 0.03 | 0.08 | 0.03 | resolved | — |
+| 398 | `scotus/73279700` | Allen Watkins v. United States District Court for District of Arizona | `evt-motion-disposition` | 0.035 | 2 | 0.030 | 0.02 | — | 0.05 | pending | — |
+| 399 | `scotus/9526000256` | Cassandra Perkins v. United States District Court for the Northern District of Georgia, et al. | `evt-motion-disposition` | 0.035 | 2 | 0.030 | 0.02 | 0.05 | — | resolved | yes |
+| 400 | `scotus/73389313` | Joan E. Farr v. Alexandra Grant, et al. | `evt-petition-disposition` | 0.033 | 3 | 0.080 | 0.02 | 0.08 | 0.00 | resolved | — |
+| 401 | `scotus/9026000542` | Timothy Hall v. Eastern Panhandle Anesthesia Associates, et al. | `evt-petition-arrival-disposition` | 0.030 | 2 | 0.000 | 0.03 | — | 0.03 | pending | — |
+| 402 | `scotus/9526000245` | Katherine L. Hobbins Forester, et al. v. Adam Gerol, et al. | `evt-motion-disposition` | 0.030 | 2 | 0.020 | 0.02 | 0.04 | — | resolved | — |
+| 403 | `scotus/9026000646` | Alvin E. Williams, et ux. v. Superior Court of California, Los Angeles County, et al. | `evt-petition-arrival-disposition` | 0.025 | 2 | 0.010 | 0.03 |  | 0.02 | pending | — |
+| 404 | `scotus/9526000612` | Martin Akerman v. Merit Systems Protection Board, et al. | `evt-motion-disposition` | 0.025 | 2 | 0.010 | 0.03 | — | 0.02 | resolved | — |
+| 405 | `scotus/9026000517` | Alejandro Evaristo Perez v. Disney Corporation, et al. | `evt-petition-arrival-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | pending | — |
+| 406 | `scotus/9026000538` | Samuel Collin Robinson v. Katherine Lyman Freeman | `evt-petition-arrival-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | pending | — |
+| 407 | `scotus/9526000532` | Frank Michael Monte, III v. United States | `evt-motion-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | resolved | — |
+| 408 | `scotus/9526000602` | Micahiel Nichloson, et al. v. U.S. Bank National Association | `evt-motion-disposition` | 0.020 | 2 | 0.000 | 0.02 | — | 0.02 | resolved | — |
+| 409 | `scotus/9526000619` | Denise Smith v. Brown, Savage, Britto, Stitely & Callahan, LLP, et al. | `evt-motion-disposition` | 0.020 | 2 | 0.020 | 0.03 | — | 0.01 | resolved | — |
+| 410 | `scotus/9526000657` | Paul Schultz v. Kevin McCarthy | `evt-motion-disposition` | 0.020 | 2 | 0.000 | 0.02 | — | 0.02 | resolved | — |
+| 411 | `scotus/9526000698` | David Simpkins, et al. v. Tennessee, et al. | `evt-motion-disposition` | 0.020 | 2 | 0.020 | 0.03 |  | 0.01 | resolved | — |
+| 412 | `scotus/9526000163` | Bridget Gilmore v. Walmart, Incorporated | `evt-motion-disposition` | 0.020 | 1 | 0.000 | 0.02 | — | — | pending | — |
+| 413 | `scotus/73500218` | In Re Joan Farr | `evt-petition-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | — |
+| 414 | `scotus/9026000583` | Ahmed Shaikh v. Fox News Network, LLC, et al. | `evt-petition-arrival-disposition` | 0.015 | 2 | 0.010 | 0.01 | — | 0.02 | pending | — |
+| 415 | `scotus/9526000434` | Ryan P. Givey v. Todd Blanche, Attorney General, et al. | `evt-motion-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | yes |
+| 416 | `scotus/9526000437` | In Re Nikolay M. Valov | `evt-motion-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | yes |
+| 417 | `scotus/9526000658` | Paul Schultz v. H. Jason Gold | `evt-motion-disposition` | 0.015 | 2 | 0.010 | 0.02 | — | 0.01 | resolved | — |
+| 418 | `scotus/9526000449` | Elisha Holloway v. Bryan Polk | `evt-motion-disposition` | 0.010 | 2 | 0.020 | 0.02 | — | 0.00 | resolved | — |
 
 Read `n` before quoting a mean, and read `range` beside it — a mean of 0.5 over reads of 0.5 and 0.5 is a panel that agrees, and one over 0.1 and 0.9 is a panel that does not. A `yes` in `leak` means at least one of the row's reads sits on a cell a judge flagged as having seen its own outcome; that row is evidence about the cell, not about the case. Read `moment` before comparing two rows: each row is one moment, so its mean is comparable across its own predictors, but two rows on different moments answer different questions and the `#` column orders across them regardless.
