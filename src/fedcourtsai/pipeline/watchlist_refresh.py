@@ -34,21 +34,24 @@ A docket is read three ways:
   pages older than ``onboard_resume_max_age_days`` are ignored, and they are
   emptied when the docket's first snapshot is stored. They are never a
   snapshot: nothing reads them but the onboard that goes on from them. A run
-  that may not write the content store keeps nothing and reads whole. Kept
-  pages only help past a page that answers on a later day. A page that times
-  out as asked is asked for once more without its documents' extracted text,
+  that may not write the content store keeps nothing and reads whole. A page
+  that times out as asked is asked for once more without its documents' extracted text,
   and so is every page after it in that read: upstream sets the page size, and
   a page of entries with hundreds of documents is megabytes of that text. Such
   a page is stored with its entries and documents whole but for that one
   field, which a later incremental read fills for an entry that changes. A
-  page that times out that way too stops the attempt there.
+  page that times out that way too stops every attempt at the same place
+  until the kept pages age out. The closing read of an onboard taken up again
+  may leave text out the same way; an incremental read of a stored docket
+  never does, so one whose changed entries make a page that heavy fails until
+  the docket's next whole read.
 - **full**, a whole re-read on a day the docket's id picks, once every
   ``full_read_every_days``, so the reads spread across the period. It catches
   what the incremental read cannot see: an entry deleted upstream, or a
   document attached without moving its entry's modification time. A page that
   times out is asked for again without document text, as on an onboard, and a
-  document read that way keeps the text the stored docket holds for it. A full read
-  is taken only when what is left of the run's share covers the docket's stored
+  document read that way keeps the text the stored docket holds for it. A
+  full read is taken only when what is left of the run's share covers the docket's stored
   length; a docket longer than that is read incrementally instead, and its
   full read waits for its next day.
 
@@ -466,7 +469,11 @@ class _OnboardKeeper:
                 max_pages=max_entry_pages,
                 date_modified_gte=since,
                 on_request=lambda: asked.page(since),
+                # An onboard has no stored text to lose, so its closing read
+                # may leave text out as its whole read may.
+                on_text_dropped=asked.text_dropped,
             )
+            asked.pages_without_text += closing.pages_without_text
         except Exception as exc:
             if kept.cursor is not None:
                 self._keep(exc, _KeptPages(started, pages, None, entries))
@@ -637,8 +644,12 @@ def _with_stored_text(
         if not isinstance(entry, Mapping):
             continue
         for document in entry.get("recap_documents") or []:
-            if isinstance(document, Mapping) and "plain_text" in document:
-                held[document.get("id")] = document["plain_text"]
+            if (
+                isinstance(document, Mapping)
+                and "plain_text" in document
+                and document.get("id") is not None
+            ):
+                held[document["id"]] = document["plain_text"]
 
     def filled(document: object) -> object:
         if (

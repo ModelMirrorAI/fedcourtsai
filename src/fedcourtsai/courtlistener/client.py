@@ -498,7 +498,10 @@ class CourtListenerClient:
             if not light:
                 try:
                     return self._get("docket-entries/", params)
-                except httpx.TimeoutException:
+                except httpx.ReadTimeout:
+                    # Upstream took the request and did not answer in time: the
+                    # sign of a heavy page. A connection that could not be made
+                    # says nothing of the page, and fails the read as before.
                     if on_text_dropped is None:
                         raise
                 asked["omit"] = _OMIT_DOCUMENT_TEXT
