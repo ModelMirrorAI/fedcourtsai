@@ -1,0 +1,13 @@
+claude-baseline correctly predicted `denied`. With P(grant) = 0.012 and actual_granted = 0, correct = 1 and Brier = (0.012 - 0)^2 = 0.000144. This cert cell carries no scored vote accuracy or semantic grades. Baseline, basis, skill, and quantitative claim scoring remain the harness's.
+
+Reasoning quality: **0.82**. The concise rationale identifies the central vehicle problem: an unreported settlement-enforcement order turning on contractual intent is an imperfect vehicle for the broader class-certification disagreement. App. 6a–9a supports that distinction and the clear-error discussion. The response waivers and distinction between a frozen risk set and the low-interest present posture also support a low grant probability. Related-petition status is treated as a possible hold/GVR tail rather than as this case's result.
+
+The analysis gives less attention to the petition's strongest response: it expressly raises legal eligibility at distribution and says the question was pressed below even though not addressed (Pet. 17–20). Its counsel-quality adjustment has no demonstrated empirical weight in this record. Terminal zero-relist and terminal-band rates describe where cases ended; recognizing the risk-set distinction does not make those rates estimates of this petition's present hazard. These limits reduce confidence in the precision of the downward adjustment, independently of the correct outcome.
+
+Historical figures were checked against the pinned sal-v6 statpack, build `dedb32b153e67d254af10083c3ee247cecd56116`, reconstructed with `statpack-at`. Its terminal-band range and zero-relist figures agree with that build; changes in today's sal-v8 pack are not candidate errors. Any skill comparison belongs to the stamped segment base rate. The denial supplies no explanation endorsing the rationale.
+
+**Predicted reasoning**
+
+Forecast quality: **0.95**. The forecast specifically called the November 16 denial after the November 13 conference, without a response request, another distribution, a CVSG, or a noted dissent. The staged proceedings and outcome match those central commitments. Alito's nonparticipation was unanticipated but does not undermine the forecast's central route. The conditional question-selection and hold/GVR discussion cannot be tested because review was denied, and earns neither credit nor penalty. The score rests on the forecast document alone.
+
+Leakage: **forward; not_applicable; not suspected**. All fourteen logged calls have captured results and the run predates this petition's resolution. Corpus lookups concern other petitions or generic examples. The October 5 denial in the transcript is Sunoco's legitimate forward context. No logged retrieval or reasoning reveals this petition's later denial.

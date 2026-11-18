@@ -1,0 +1,19 @@
+# Evaluation: codex-baseline
+
+The denial label is correct: correct = 1. P(grant) = 0.08 gives Brier = (0.08 - 0)^2 = 0.0064.
+
+This is a cert-stage petition-disposition cell at the response-requested moment. The target is the petition's ultimate disposition, not whether the Court requested a response. The committed outcome records denial on November 16, 2026, with actual_granted = 0. No cert vote accuracy is scored. No semantic_grades or mechanical claim_scores are supplied; the latter and the baseline/skill fields belong to the harness. Any comparison uses the stamped segment base rate.
+
+For base-rate use, I reconstructed each candidate's contemporaneous statpack with `fedcourts statpack-at`, rather than grading against today's changed salience tables. All three resolve to build `7bcde3b105cb212283905eda17b827efc188e80c`, landed October 28, 2026, digest `sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641`, with no alternative build. Their use of the sal-v4 baseline reached risk set and Terms strictly before OT2025 is consistent with that build. Differences from the current committed pack are not candidate errors. I do not independently restate an evaluation anchor.
+
+Reasoning quality: **0.92**. The rationale carefully distinguishes the petition's institutional importance from reviewworthiness, and the broad forfeited Title VII-exclusion argument from the as-applied due-process issues actually litigated. Petition Appendix 44a-45a supports its preservation concern; Appendix 7a-8a and 24a support its explanation of Chapter X procedures and the fact-dependent coercion issue. Its account of the statutory reporting requirement and later plan revisions is supported by petition pages 31-32 and footnote 1. It correctly avoids counting counsel listed for prospective amici as a filed brief at the baseline.
+
+The historical risk-set method is sound, and the document expressly treats terminal relist/CVSG/amicus cuts as overlapping descriptive populations rather than transition probabilities. The adjustment for a response request is candidly discretionary. The denial-filtered generic priors do not provide relevant affirmative calibration evidence, and the exact adjustment remains unvalidated; these limit an otherwise strong analysis. The Court's unexplained denial confirms the result, not the proposed vehicle-based explanation.
+
+## Predicted reasoning
+
+Forecast quality: **0.95**. The central claims are denial after the response, one further distribution without repeated substantive relists, no CVSG, and an unexplained denial without a separate writing. The record matches: opposition October 13, redistribution October 28 for November 13, denial November 16; total distributions are two, CVSG is absent, and no dissent is noted. These concrete procedural commitments distinguish the document from a generic denial prediction. The record identifies no separate writing but does not expose private cert votes. Conditional question selection, the plenary-versus-summary route, and possible alternative authors were never tested and earn neither credit nor penalty. No Supreme Court opinion or writings are staged; the Court's reasons cannot be inferred from the denial.
+
+Leakage: **not_applicable; leakage_suspected = false**. The log is forward and predates the disposition. Its four web rows are unobserved, so I assess their general-authority queries without accepting the candidate's claimed empty payloads as established. Nothing in those queries, the other calls, or the reasoning indicates retrieval of this petition's outcome. Collapsed tool names and redaction markers carry no adverse inference.
+
+My independent stakes assessment is **0.55**: judicial employment accountability has substantial institutional importance, while the vehicle is fact-bound and the denial creates no new Supreme Court rule.

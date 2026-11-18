@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000004",
+  "gaps": [],
+  "helpful": [
+    "Blinded prediction bundles and capture-aware retrieval logs",
+    "Staged petition appendix and opposition for checking factual predicates",
+    "Historical statpack reconstruction preserved the correct salience version"
+  ],
+  "notes": "No package installation or external case retrieval was needed. The plain cert denial supports the disposition and procedural path, while leaving the Court's actual rationale unobserved. gemini-baseline's outcome_only telemetry was assessed by query scope without treating null result dates as empty results.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "exec_command",
+    "Python",
+    "jsonschema",
+    "fedcourts statpack-at"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The question could affect nationwide substantive-due-process remedies for executive misconduct. The vehicle is an individual damages case with a nonprecedential qualified-immunity judgment; denial created no new rule."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": -4.5139578512396685,
+  "case_id": "scotus/9026000433",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": -0.01178844576101311
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.32,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.09,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.008,
+          "Jackson": 0.026,
+          "Kagan": 0.006,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.04,
+          "Thomas": 0.017
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.01178844576101311,
+    "total": -0.01178844576101311
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:17:17.751636Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on October 30; 34/35 results captured. Unobserved web query targets Lewis, while CourtListener calls target the older DeMarcus authority. The only non-null retrieved date is October 22, before this petition\u2019s November 16 disposition. No already-decided result for this case is evidenced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "One October 28 distribution for the November 13 conference is followed by the November 16 denial; outcome distribution_count=1.",
+        "claim": "The Court will most likely deny after the first conference, without another distribution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court denied without a response request or further distribution; the stated conditional branch was not reached.",
+        "claim": "If the Court pursues the petition, a requested response and roughly one or two additional distributions are more plausible than immediate review.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No CVSG appears in the docket, and outcome.signals.cvsg_date is null.",
+        "claim": "There will be no invitation to the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied; the question and route conditional on grant were not tested.",
+        "claim": "Any grant would probably take the constitutional-framework question for plenary review rather than summary disposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial=false and the docket records only \u201cPetition DENIED.\u201d That confirms no noted dissent but does not independently resolve every kind of statement respecting denial; writing_roles is null and no Supreme Court writing is staged.",
+        "claim": "The denial will most likely have no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:17:17.751636Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

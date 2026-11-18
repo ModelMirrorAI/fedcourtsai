@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Constitutional criminal venue and prison sentences give this petition substantial individual stakes. The relief requested is a case-specific GVR applying an existing decision to a tax prosecution; the staged record supports limited broader institutional or doctrinal significance."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": -4.351088592814995,
+  "case_id": "scotus/9026000516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": -0.011686469912894189
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.001,
+          "Gorsuch": 0.007,
+          "Jackson": 0.004,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.004,
+          "Thomas": 0.008
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.011686469912894189,
+    "total": -0.011686469912894189
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:21:53.237088Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The harness records forward mode and November 1 calls, before November 16 resolution. The 42 calls concern provisioned inputs, historical statistical context, other GVRs, Abouammo, and Lawrence. Three web calls are unobserved and are assessed from their precedent-only queries, not credited as empty. The sole parsed document date is June 9, 2026. No query or reasoning exposes this petition's own disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied on November 16, 2026.",
+        "claim": "The Court will deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome has distribution_count 1; the docket proceeds from the November 13 conference distribution to November 16 denial.",
+        "claim": "The petition will receive no further distribution and most likely resolve between November 16 and early December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records cvsg_date null and the staged docket contains no CVSG entry.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied, so the conditional grant route and scope were never tested.",
+        "claim": "If relief is granted, the Court will most likely issue a summary GVR for reconsideration under Abouammo rather than order plenary review.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome expressly records no noted dissent, but writing_roles is null and no order text or writing inventory is staged to settle the broader no-writing claim.",
+        "claim": "The denial will be unaccompanied by any separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261101T050708Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:21:53.237088Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

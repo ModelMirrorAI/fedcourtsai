@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000698",
+  "gaps": [],
+  "helpful": [
+    "CourtListener MCP read_document and docket-entries/recap-documents endpoints allowed exact verification of gemini-baseline's lower-court citations, separating genuinely verified D.D.C. FRAP 4(a) timeliness dates from four secondary factual confabulations.",
+    "fedcourts statpack-at confirmed in one call that both candidates' statpack_digest matched the committed statpack build."
+  ],
+  "notes": "Clean interim-stage arrival evaluation across two blinded forward candidates.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts statpack-at",
+    "mcp:courtlistener:call_endpoint",
+    "mcp:courtlistener:read_document",
+    "mcp:courtlistener:search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

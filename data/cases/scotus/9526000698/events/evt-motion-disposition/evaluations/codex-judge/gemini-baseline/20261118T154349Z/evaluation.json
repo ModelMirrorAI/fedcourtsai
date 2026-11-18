@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "Serious personal property and state-proceeding stakes, but individualized requested relief and a single-Justice denial without a recorded explanation establish no broader legal rule."
+  },
+  "brier_score": 4e-06,
+  "brier_skill_score": 0.9997061852399737,
+  "case_id": "scotus/9526000698",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": 0.013610019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.001,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.002,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013610019934335403,
+    "total": 0.013610019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:29:19.853671Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 70 log rows are outcome_only; coverage 0.0 is result invisibility, not empty results. Queries inspect inputs, generic priors, lower-court records and authorities. No own-Supreme-Court disposition query or result appears in the reasoning. Unbounded prior queries warrant no inference of empty results. Arrival-position cutoff November 13, anchor 0; same-day prediction and resolution alone do not show already-decided provisioning.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.94,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.interim_signals records response_requested false and referred_to_court false; the November 17 docket entry expressly attributes denial to the Chief Justice.",
+        "claim": "No response will be requested before the Chief Justice denies the application without full-Court referral.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.amicus_briefs is 0, and the staged docket contains only submission and denial.",
+        "claim": "There will be no amicus submissions before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket gives DocketedDate November 16 and a November 17 denial, matching the specifically forecast date and the short interval.",
+        "claim": "Disposition will come rapidly, around November 17, within roughly one to five days of docketing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition denied, interim_reading denied, and interim_granted 0; the final docket entry is an unqualified denial.",
+        "claim": "The application will be denied outright rather than dismissed as moot or granted any interim relief.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Only the one-line docket summary is staged; no standalone order or writings are supplied. The record does not reveal a doctrinal explanation or independently settle the absence of every separate writing.",
+        "claim": "The disposition will be unexplained, with no dissent, concurrence, or statement.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261117T141816Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:29:19.853671Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

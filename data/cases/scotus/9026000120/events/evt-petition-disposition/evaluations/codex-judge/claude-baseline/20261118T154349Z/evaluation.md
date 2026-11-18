@@ -1,0 +1,17 @@
+# Evaluation: claude-baseline
+
+The cert prediction correctly named denial: `correct = 1`. Its 0.12 grant probability against `actual_granted = 0` produces `(0.12 - 0)^2 = 0.0144`. The recorded resolution was November 16, 2026. Cert votes are not scored and no semantic grading applies. The harness owns the segment base rate, its basis, and Brier skill.
+
+`reasoning_quality = 0.65`. The rationale identifies meaningful obstacles to review: Consumers Union's protection of legislative activity against equitable claims, contested descriptions of the circuit split, and a panel unanimous in the judgment. It also correctly distinguishes the November 5 reschedule from a genuine post-conference relist and acknowledges that its numerical adjustment is subjective.
+
+A material vehicle premise is wrong. The district court found prospective claims moot, but the Tenth Circuit expressly rejected that ground and held that threatened future enforcement kept the claims live (petition printed p. 8; App. 11a-14a). Treating the district court's mootness ruling as a continuing independent obstacle understates the vehicle's viability. The rationale also attaches unsupported behavioral implications to a reschedule and describes federal interests too categorically: a constitutional section 1983 case can implicate federal interests without creating a distinctive need for Solicitor General input. These weaknesses lower the analysis grade despite the correct outcome; the denial reveals no actual judicial rationale.
+
+Calibration was checked against placement build `ca0c9e1a49e292692bdc5b092cd9f868561169b8`, digest `sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653`, recovered with statpack-at. Its amicus and reached-band references are consistent with that build. The loose description of a 1-2% paid baseline does not describe the displayed paid-segment grant family. No alternative skill anchor is supplied here; comparison uses the stamped segment base rate.
+
+## Predicted reasoning
+
+`predicted_reasoning_quality = 0.75`. The document specifically called denial on November 16 without an additional distribution, and expected no CVSG; those procedural predictions held. Its asserted mootness vehicle problem repeats a premise the staged appellate opinion contradicts, so the specific explanation only partly holds up. The Supreme Court's unexplained denial does not validate any proposed doctrinal reason. Conditional preference for QP2 and the non-summary grant route were never tested. A 30% chance of a denial writing is not a categorical prediction that one would occur; no noted dissent is recorded, and broader absence of statements cannot be established from the bare docket entry.
+
+Leakage: `forward`, outcome material `false`, influence `not_applicable`, suspected `false`. The November 9 run preceded the November 16 resolution. All 16 calls have captured results; the queries concern the then-provisioned record, calibration, and an unrelated grant-filtered sample. Neither the queries nor either prose document shows knowledge of this petition's outcome. Present evaluator inputs were not used to infer what the candidate had been given.
+
+My case-significance assessment is 0.58: potentially nationwide consequences for public-comment rights and legislative independence, within a confined legislative-procedure dispute that ended without a Supreme Court merits ruling.

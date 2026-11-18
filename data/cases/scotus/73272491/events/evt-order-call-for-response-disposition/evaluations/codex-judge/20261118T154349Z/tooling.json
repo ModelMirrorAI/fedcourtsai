@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272491",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell and local file reads",
+    "fedcourts statpack-at",
+    "Python jsonschema validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging and capture markers",
+    "Resolved docket and staged opposition",
+    "Historical statpack reconstruction"
+  ],
+  "gaps": [
+    "No staged order-writing text or complete writing-role record to verify absence of statements respecting denial"
+  ],
+  "notes": "The staged record sufficed to evaluate all three candidates. Outcome-only and unobserved calls were assessed from their queries, without treating absent result dates as empty retrievals. No external case-fact retrieval was needed."
+}

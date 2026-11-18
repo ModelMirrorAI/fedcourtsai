@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000062",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline's reasoning repeatedly asserts eleven cert-stage amicus briefs, initial response waivers, and an August 13, 2026 call for response, and uses those as positive grant signals. The staged docket shows three amicus briefs, response extensions, and no response waivers or call for response; the candidate's frozen context has amicus_briefs=null despite the prose quoting it as 11. Its appendix-completeness assertion also conflicts with the staged cut notes. These discrepancies reduce reasoning_quality. The original predictor snapshot and tool-result bodies are not staged, so their origin cannot be determined; no provisioning failure or outcome leakage is inferred.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0"
+}

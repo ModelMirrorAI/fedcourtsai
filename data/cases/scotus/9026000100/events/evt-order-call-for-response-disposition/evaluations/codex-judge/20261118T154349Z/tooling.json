@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/9026000100",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell and local file reads",
+    "fedcourts statpack-at",
+    "Python JSON/schema validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging and harness retrieval logs",
+    "Full docket snapshot and petition appendix",
+    "Prediction-time statpack reconstruction"
+  ],
+  "gaps": [
+    "Outcome writing_roles and order text do not settle every forecast about separate statements"
+  ],
+  "notes": "No external case retrieval was needed. Outcome-only candidate telemetry was assessed on query content without treating absent result bodies as empty results."
+}

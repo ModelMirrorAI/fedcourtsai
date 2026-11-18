@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000680",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local shell and file reads",
+    "Python",
+    "jsonschema"
+  ],
+  "helpful": [
+    "Blinded candidate documents and captured-query metadata",
+    "Recorded finer interim outcome and decided docket",
+    "Committed interim statpack and JSON schemas"
+  ],
+  "gaps": [],
+  "notes": "Used only staged case evidence and repository contracts/base-rate context. No external case facts were fetched. Result-capture differences were respected; outcome-only rows were assessed on queries, without treating null results as empty."
+}

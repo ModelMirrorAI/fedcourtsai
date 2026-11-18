@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "Consent by corporate registration raises a commercially significant interstate due-process issue; an individual default-judgment dispute with substantial preservation and procedural complications is a limited vehicle. Denial supplies no constitutional holding."
+  },
+  "brier_score": 0.019600000000000003,
+  "brier_skill_score": -6.505109297520661,
+  "case_id": "scotus/9026000004",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": -0.01698844576101311
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.025,
+          "Barrett": 0.02,
+          "Gorsuch": 0.004,
+          "Jackson": 0.003,
+          "Kagan": 0.004,
+          "Kavanaugh": 0.011,
+          "Roberts": 0.006,
+          "Sotomayor": 0.002,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.01698844576101311,
+    "total": -0.01698844576101311
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T15:57:08.535109Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction made October 29, before the November 16 disposition. Captured query scopes concern the provisioned record, statistical inputs, and Mallory. Five web calls are unobserved and are assessed on their queries, all directed to the 2023 Mallory opinion, not treated as failed or empty. No query or prose indicates access to this petition's later disposition. Later fetch dates for the preexisting petition do not make its text outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The outcome records denied and no noted dissent; the November 16 docket entry is a plain denial and lists no separate writing.",
+        "claim": "The Court will most likely deny the petition without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "After the October 14 opposition, the petition was distributed October 28 for November 13. outcome.json records two distributions in total, compared with one in the prediction's frozen context.",
+        "claim": "One additional distribution after the requested response is the modal course.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket contains no CVSG and outcome.json signals.cvsg_date is null.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied. The conditional grant route and question selection were not reached and earn neither credit nor penalty.",
+        "claim": "If review is granted, it will likely concern the notice question and open plenary merits proceedings rather than a summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T15:57:08.535109Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,113 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Federal access for independent section 1983 injuries and procedural safeguards in parental-rights arbitration could matter nationally. Five petition-stage amicus filings show interest beyond the litigant. The actual vehicle was an unpublished, individualized jurisdictional affirmance with alternative immunity barriers, and the routine denial established no new rule."
+  },
+  "brier_score": 1e-06,
+  "brier_skill_score": 0.9996170862603306,
+  "case_id": "scotus/9026000369",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": 0.00261055423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.00261055423898689,
+    "total": 0.00261055423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:10:38.614822Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log, with 23 unobserved calls and 0.0 capture coverage. Queries show local baseline reads and two attempted general Rooker-Feldman corpus commands; no query targets this petition's subsequent docket or outcome. Results cannot be inferred from null dates/digests. The retrieval note's claim of no retrieval is not evidence that those attempts returned nothing. No prose presupposes the later denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 16 entry records Petition DENIED without an annotation; outcome.noted_dissent_from_denial is false and no separate writing appears in the staged record.",
+        "claim": "The Court will deny review without a dissent or statement respecting denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The completed docket contains one initial distribution, October 28 for November 13, followed by denial. One initial distribution is not a subsequent conference relist.",
+        "claim": "The petition will receive no further conference relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null and there is no CVSG entry in the staged docket.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Review was denied. The conditional question-selection and GVR assertions, including the asserted absence of an intervening precedent, were not tested by a grant.",
+        "claim": "If granted, the Court might address QP1 rather than QP2; a summary GVR is highly unlikely.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:10:38.614822Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

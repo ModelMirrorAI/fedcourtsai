@@ -1,0 +1,25 @@
+# Evaluation of gemini-baseline
+
+This is a cert-stage evaluation of Mohammed Jabateh v. United States, No. 26-440. The prediction called denial with P(any grant) = 0.02. The recorded outcome is denial on November 16, 2026, so `correct = 1` and `brier_score = (0.02 - 0)^2 = 0.0004`.
+
+## Rationale
+
+`reasoning_quality = 0.87` grades reasoning.md alone. The rationale accurately identifies the case's unusual interaction between a favorable statutory construction on direct appeal, plain-error affirmance and the section 2255 relitigation bar. Its discussion of the same-appeal versus later-change distinction matches App. 6a–7a and 18a–19a. It also recognizes that the ineffective-assistance claim failed and that the two perjury convictions were separate. The nonprecedential status and the petition's express inability to identify a comparable case (petition pp. 19–20) provide concrete reasons to distinguish legal interest from likelihood of review.
+
+It fairly states the strongest counterargument: the twenty additional years on fraud counts outside the statutory text create a serious collateral-review anomaly. It weighs that against the government's waiver, lack of amici and lack of a circuit conflict rather than simply equating an asserted legal error with certworthiness. The basic posture and sentencing account are supported by App. 1a–9a.
+
+The main limitations concern weighting and certainty. An earlier cert denial is weak evidence about this different collateral question, and the assertion that the wartime atrocities strongly deter intervention is plausible speculation about discretion, not a demonstrated predictive relationship. The response-call probability multiplied by a conditional-grant estimate explains the headline number but does not independently validate it. The rationale also sometimes presents the petition's actual-innocence characterization more categorically than warranted: the appendix does not independently resolve an innocence gateway. The silent denial does not settle those doctrinal disputes or confirm the suggested motives for denying review.
+
+I assessed base-rate use against reconstructed statpack build `7bcde3b105cb212283905eda17b827efc188e80c` (landed October 28, 2026; digest `sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641`), obtained by `fedcourts statpack-at`. No alternative build was reported. The sal-v4 table and the circuit and amicus sections support the candidate's quoted historical inputs; these are not compared against today's changed pack. The rationale selects the correct reached population and excludes its own Term. The marginal cross-checks are not fitted conditional effects, so they cannot justify an exact adjustment. The stamped segment base rate and derived skill remain the harness's; no separate pooled evaluation anchor is supplied here.
+
+## Predicted reasoning
+
+`predicted_reasoning_quality = 0.95`. The principal forecast was denial without a call for a response on the November 16 order list, with no further distribution and no CVSG. The staged docket and outcome verify these procedural calls, including the specified denial date, one distribution and a null CVSG date. This earns strong credit for a discriminating procedural forecast, separately from the rationale grade.
+
+The absence of a noted dissent is confirmed by outcome.json. The stronger forecast of an unsigned denial with no statement or separate writing remains unresolved on the limited record, which contains no complete disposing order or writing inventory. Conditional predictions of summary disposition, a selected question, a vacatur ground and remand are untested because review was denied. Their specificity earns no credit or penalty on an unrealized condition.
+
+## Leakage and scope
+
+The log identifies forward mode and an October 30 prediction, preceding the November 16 resolution. All 55 calls are `outcome_only`, with coverage 0.0: their logged success does not expose their returned content, and null digests or document dates do not prove empty results. I assessed their visible queries and the prose instead. They concern the earlier petition No. 20-1369, extension 26A102, general 2020s rows and Jabateh opinions. The disclosed opinions and history predate the present petition's resolution, and the rationale does not presuppose its denial. A broad case-name search while the petition remained open is permissible forward retrieval. There is no affirmative evidence of a mis-provisioned decided case or current-outcome exposure. `retrieved_outcome_material = false`, `influenced_prediction = not_applicable`, and `leakage_suspected = false`, subject to the stated capture limit.
+
+My independent stakes assessment is 0.30: the twenty-year incremental sentence and possible implications for collateral-review doctrine are substantial, while the unusual facts, nonprecedential ruling and absence of an identified circuit conflict limit broader reach. Cert votes are unscored; no semantic set applies. Quantitative claims are left entirely to the harness.

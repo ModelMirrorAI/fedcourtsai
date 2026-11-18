@@ -1,0 +1,113 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "The questions concern constitutional safeguards and remedies throughout the federal judicial workforce, with substantial institutional accountability implications. The affected population is bounded, this vehicle has preservation and factual obstacles, and denial creates no new Supreme Court merits rule. This case-level assessment is the same for every candidate."
+  },
+  "brier_score": 0.0225,
+  "brier_skill_score": -7.293255668611025,
+  "case_id": "scotus/73377829",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": -0.019786952085034615
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.019786952085034615,
+    "total": -0.019786952085034615
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T15:50:10.867881Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log records forward mode and October 17 calls, before the November 16 resolution. Queries target the October 10 provisioned snapshot, petition, questions presented, workflow references and statpack, with no case-outcome lookup. All results are unobserved (capture coverage 0.0); null dates do not establish empty or failed results. The query text and reasoning show no exposure to this petition's disposition. The null cutoff is normal for this distribution-moment forward cell.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.25,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The frozen context has one distribution. The final docket adds only October 28 for the November 13 conference, then denies on November 16; outcome.signals.distribution_count is 2.",
+        "claim": "Expect at least two further distributions after the Solicitor General responds, with further relists reflecting strong interest.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The complete staged proceedings contain no CVSG, and outcome.signals.cvsg_date is null.",
+        "claim": "No CVSG is expected because the Solicitor General already represents the federal respondents.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied, so the conditional grant, question selection and route never occurred.",
+        "claim": "If granted, the Court will principally take QP 1 rather than the CAA question, through plenary review rather than summary disposition.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome expressly records no noted dissent. That component did not occur, but the alternative statement cannot be settled: the docket says only Petition DENIED, and no denial-order text or separate writing is staged.",
+        "claim": "If review is denied, expect a dissent from denial or a statement respecting denial by a liberal Justice.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261017T173457Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T15:50:10.867881Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,13 @@
+codex-baseline correctly predicted `denied`. With P(grant) = 0.03 and actual_granted = 0, correct = 1 and Brier = (0.03 - 0)^2 = 0.0009. This is a cert-stage cell: individual votes are not scored. Baseline, basis, skill, and mechanical claim scores are left to the harness; no semantic set applies.
+
+Reasoning quality: **0.92**. The rationale distinguishes the postjudgment interpretation of an existing settlement from certification of a class containing uninjured members, and separates disputed statutory direct-purchaser eligibility from Article III injury. The appendix supports its account of contractual intent, clear-error review, and compromise of the indirect-purchaser defense (App. 6a–9a). It also acknowledges the petition's strongest counterargument: eligibility at disbursement, rather than at certification. The preservation concern is expressed cautiously rather than treated as an absolute jurisdictional bar.
+
+Calibration starts from the frozen risk-set anchor and explicitly avoids multiplying overlapping terminal relist, CVSG, and amicus cuts. The downward adjustment for response waivers and vehicle limitations is coherent, although the exact magnitude remains judgmental. The silent denial confirms the prediction's direction; it does not establish that the Court adopted these legal objections.
+
+Base-rate use was checked against the candidate's pinned sal-v6 statpack, build `dedb32b153e67d254af10083c3ee247cecd56116`, reconstructed by `statpack-at`, rather than today's sal-v8 pack. The quoted historical counts and marginal cuts substantially match. The scored comparison is to the stamped segment base rate.
+
+**Predicted reasoning**
+
+Forecast quality: **0.95**. The central commitments were ordinary denial after the November 13 conference, no further distribution, no CVSG, and no noted separate writing or explanatory opinion. The November 16 docket and outcome bear these out. This supplies procedural specificity beyond merely naming denial. The unexpected notation that Justice Alito took no part is a minor omission. Question selection, plenary review, and a possible GVR were conditional on a grant that never occurred, so receive neither credit nor penalty. No substantive Supreme Court ground can be inferred from this denial.
+
+Leakage: **forward; not_applicable; not suspected**. The logged run predates resolution. The captured October 5 companion denial concerns Sunoco, and the other searches concern authorities or different petitions. Five web calls are unobserved: their null digests do not establish failed or empty results, but their queries do not target this petition's outcome. Nothing in the log or prose shows an already-decided version of this petition.

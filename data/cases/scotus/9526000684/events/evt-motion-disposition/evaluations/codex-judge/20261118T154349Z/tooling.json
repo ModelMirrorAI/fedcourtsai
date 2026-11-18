@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000684",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: scoped file reads",
+    "Python standard library",
+    "jsonschema"
+  ],
+  "helpful": [
+    "Blinded prediction and prose files",
+    "Harness-captured retrieval logs with capture markers",
+    "Realized outcome and complete staged two-entry docket",
+    "Committed interim statpack and schemas"
+  ],
+  "gaps": [],
+  "notes": "No external retrieval or package installation. Existing jsonschema validated every output JSON. The bare denial supports the procedural forecasts but does not establish the Chief Justice's doctrinal grounds."
+}

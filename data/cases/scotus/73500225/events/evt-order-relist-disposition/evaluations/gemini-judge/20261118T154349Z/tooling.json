@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500225",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed exact statpack build ca0c9e1a49e2 so candidate base-rate citations could be verified without false discrepancies against newer statpack commits",
+    "record/snapshots/2026-11-16.json order text naming Justice Thomas's statement respecting denial complemented outcome.json's noted_dissent_from_denial flag"
+  ],
+  "gaps": [
+    "Detached statement respecting certiorari denial (25-1324_0pm1.pdf) was not staged in record/opinion/, leaving joinders and substantive passages unresolved"
+  ],
+  "notes": null
+}

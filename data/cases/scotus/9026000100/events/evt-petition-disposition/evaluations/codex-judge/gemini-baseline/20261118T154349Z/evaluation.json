@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "The requested change to employment-discrimination proof could matter nationally. This vehicle is an individual discharge from an unpublished, fact-specific decision, and the denial creates no new precedent."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8468345041322314,
+  "case_id": "scotus/9026000100",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.00221155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.00221155423898689,
+    "total": 0.00221155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:03:02.568661Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction dated October 25, before the November 16 denial. All 44 logged calls have unobserved results (coverage 0.0), so null dates do not prove empty results. Queries show provisioned-input reads, general corpus queries and a Hittle docket lookup, not a request for this petition's outcome. Reasoning discloses no prior knowledge of the denial. No evidence that this already-decided petition was provisioned forward.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition=denied and actual_granted=0, resolved November 16, 2026.",
+        "claim": "The Court will deny certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "record/snapshots/2026-11-16.json records redistribution on October 28 for the November 13 conference, followed by denial on November 16; outcome.signals.distribution_count is 2. There is no intervening further distribution.",
+        "claim": "The Clerk will redistribute the completed briefing in late October or early November for a November conference, followed most likely by denial at that first post-opposition conference without another relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date and record/context.json.cvsg_date are null, and no invitation appears in the completed docket.",
+        "claim": "The Court will not call for the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false and the docket says only Petition DENIED. No order text or separate-writing record is staged, so absence of every possible statement cannot be independently established.",
+        "claim": "The leading denial path is a routine denial without a separate dissent or statement.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Certiorari was denied; the condition did not occur, so neither the question selected nor the conditional grant route was tested.",
+        "claim": "If review is granted, the Court will take the McDonnell Douglas/Rule 56 question, with plenary review more likely than a cert-order disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261025T012628Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:03:02.568661Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

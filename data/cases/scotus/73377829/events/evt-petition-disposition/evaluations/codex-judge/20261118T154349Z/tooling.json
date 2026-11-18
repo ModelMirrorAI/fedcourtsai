@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73377829",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "fedcourts statpack-at",
+    "Python jsonschema validation"
+  ],
+  "helpful": [
+    "Blinded predictions with frozen context",
+    "Captured retrieval logs and explicit result-capture markers",
+    "Historical statpack reconstruction",
+    "Final staged docket and outcome"
+  ],
+  "gaps": [
+    "No staged denial-order text or separate writings to settle forecasts of a statement respecting denial"
+  ],
+  "notes": "Historical sal-v4 packs were recovered for all candidates. The default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache with --no-sync resolved it. No additional case retrieval was needed."
+}

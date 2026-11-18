@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "The questions implicate federal civil-rights access and safeguards for parental rights in private arbitration, with potential reach beyond this family. This petition arises from an individual dispute, an unpublished jurisdictional affirmance, and substantial preservation, immunity, and remedial obstacles; denial establishes no new national rule."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9613880490861788,
+  "case_id": "scotus/9026000369",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.00251155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.001,
+          "Gorsuch": 0.004,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.001,
+          "Thomas": 0.008
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00251155423898689,
+    "total": 0.00251155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:08:34.479149Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on October 31, 2026, before the November 16 disposition; context.cutoff is null. All 40 logged calls are outcome_only (capture coverage 0.0): successful status and null dates do not reveal returned content. Queries concern provisioned inputs, generic priors, this then-open docket, the decision below, and T. M., an earlier precedent. Prose does not presuppose this petition's disposition. No affirmative evidence of outcome material; assessment rests on query scope, timing, and prose, with returned-content visibility limited.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, actual_granted=0, resolved_at=2026-11-16; the snapshot records the November 13 conference and November 16 denial.",
+        "claim": "The Court will deny the petition in the ordinary orders following the November 13 conference, most likely on November 16, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Each frozen context records one distribution; outcome.signals.distribution_count remains one, and the resolved snapshot has only the October 28 distribution before denial.",
+        "claim": "The modal path is denial without any further distribution or relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null, and the resolved docket has no CVSG entry.",
+        "claim": "The Court will not request the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.noted_dissent_from_denial is false. This supports absence of noted dissent, not an inference about private cert votes or every possible separate statement.",
+        "claim": "No Justice will note a dissent from denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied; no grant limited a question, and no merits ground or scope of review was announced.",
+        "claim": "If certiorari is granted, review will focus on QP1 rather than directly resolving the broader parental-rights arbitration question in QP2.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T010306Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:08:34.479149Z"
+  },
+  "reasoning_quality": 0.83,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050890782339271884,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
