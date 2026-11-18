@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000492",
+  "run_id": "20261118T010747Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition text"],
+  "helpful": ["context.json cert_anchor and cert_amicus_line", "statpack relist-count cut", "petition.txt"],
+  "gaps": ["A base-rate cut conditioned on response waived / no response requested at first distribution", "Subject-matter or free-text filtering of corpus priors (e.g. personal-jurisdiction petitions)"],
+  "notes": "The --era vocabulary is not guessable from the prompt ('modern' is rejected); one query was wasted on it."
+}

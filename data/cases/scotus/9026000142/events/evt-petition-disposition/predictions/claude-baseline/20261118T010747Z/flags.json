@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20261118T010747Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The brief in opposition entry (Oct 30 2026) is marked VIDED and is a consolidated response to Nos. 26-141 and 26-142, but context.vide_links is empty and no record/related/ was staged; the docket's Links field names only application 26A528. I read the companion's row through `fedcourts query --docket-number 26-141` instead. Also no decision-below.txt was staged (lower-court-docket.txt says CourtListener holds no opinion on the judgment date; the opinion issued Aug. 8, 2025, after the June 18, 2025 order)."
+    }
+  ]
+}

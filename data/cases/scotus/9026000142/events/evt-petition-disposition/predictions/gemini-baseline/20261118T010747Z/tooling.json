@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20261118T010747Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number (for companion petition 26-141 and prior Carroll II petition 25-573)",
+    "provisioned full-text briefs and appendix opinions in record/documents/",
+    "context.json cert_anchor and cert_amicus_line alongside raw snapshot ProceedingsandOrder",
+    "metrics/statpack.md salience-band by Term table"
+  ],
+  "gaps": [
+    "fedcourts query lacks a --salience-band or --petitioner-class filter to directly sample federal-band priors without scanning broader disposition slices"
+  ],
+  "notes": "Having --docket-number on fedcourts query made inspecting companion docket 26-141 and prior Carroll II docket 25-573 (16 distributions before denial) seamless."
+}

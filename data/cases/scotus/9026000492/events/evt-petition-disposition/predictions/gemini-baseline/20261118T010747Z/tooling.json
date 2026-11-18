@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000492",
+  "run_id": "20261118T010747Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "context.json cert_anchor and cert_amicus_line pre-pooled base rates",
+    "provisioned petition.txt, questions-presented.txt, and appendix.txt",
+    "same-question.json related-petition similarity screen",
+    "metrics/statpack.md originating-court and salience-band tables",
+    "CourtListener MCP opinion search for post-Ford precedent verification"
+  ],
+  "gaps": [
+    "A statpack cut conditioning baseline/zero-amicus grant and relist rates on respondent waiver vs. filed BIO at first distribution would sharpen waiver-petition calibration."
+  ],
+  "notes": "Provisioned case record and statpack tables were clean, complete, and consistent."
+}
