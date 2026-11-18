@@ -1493,6 +1493,30 @@ def test_writings_on_rehearing_leave_the_following_opinion_its_read() -> None:
     assert sum(len(ids) for ids in read.values()) == MAX_OPINIONS
 
 
+def test_no_opinion_is_marked_where_the_judgment_date_was_not_read_whole() -> None:
+    # A cluster list past one page, then an opinion search whose row is gone:
+    # either could hide the opinion on the judgment date.
+    truncated = _order_then_opinion_upstream(cluster_next=True)
+    faulted = _order_then_opinion_upstream(search_hits=[_hit(71)], docket_rows={})
+    for upstream in (truncated, faulted):
+        with _client(upstream) as client:
+            walk = decision_below._Walk(client)
+            found = decision_below._match(walk, _facts(), case_id="scotus/1")
+        assert found.status == "no_cluster_on_date"
+        assert not any(c.follows_judgment for c in found.clusters)
+        # The later opinions are still read and stored.
+        assert opinion_document(found, walk.texts, today=_TODAY, char_cap=10_000) is not None
+
+
+def test_a_cluster_filed_after_the_rehearing_denial_is_not_marked() -> None:
+    upstream = _order_then_opinion_upstream()
+    facts = _facts(LowerCourtRehearingDenied="May 1, 2025")
+    with _client(upstream) as client:
+        found = match_case(client, facts, case_id="scotus/1")
+    assert found.status == "no_cluster_on_date"
+    assert not any(c.follows_judgment for c in found.clusters)
+
+
 def test_a_later_cluster_is_not_read_without_a_docketing_date() -> None:
     upstream = _amended_upstream()
     with _client(upstream) as client:

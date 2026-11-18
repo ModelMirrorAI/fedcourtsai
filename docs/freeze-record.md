@@ -21457,6 +21457,10 @@ freeze commit is recorded here.
     before that date, when the cluster is a writing on rehearing and nothing
     is marked. No day window is set beyond those two bounds. Without a
     served docketing date no later cluster is read, so none is marked.
+    Nothing is marked either where a cluster list ran past one page or a
+    request of the opinion search was refused or failed, since the judgment
+    date was then not shown to hold no opinion; such a case stays
+    `no_cluster_on_date` with its later clusters read and stored.
   - A case with a marked cluster is `matched`, and its reason says no cluster
     is dated on the judgment date and names the date of the one read in its
     place.
@@ -21507,7 +21511,8 @@ freeze commit is recorded here.
   opinion, and 52 of those cases hold no `decision-below` row. 26 of the 54
   were stored on or after 2026-11-11, the day a record began to list later
   clusters: 2 list one, both dated before any stated rehearing denial, so
-  both would be marked (`scotus/72475426` and `scotus/9026000522`), and 24
+  both would be marked on the stored rows' dates (`scotus/72475426` and
+  `scotus/9026000522`; neither was read again upstream), and 24
   list none, though a row stored that day before the promotion merged would
   list none either way. The other 28, 26-142 among them, were stored before
   that day and list no later cluster either way, so how many of them have
@@ -21532,11 +21537,26 @@ freeze commit is recorded here.
   **What does not move.** No base rate re-prices, no membership rule moves
   and no scored figure moves. No skill movement is predicted, and a movement
   in **either** direction across this boundary may not be read as a model
-  effect. The predict prompt describes `decision-below.txt` as the court's
-  opinion on its judgment date with any later opinion under its own dated
-  heading, and tells a cell to check the opinion against the petition; the
-  marked opinion sits under a dated heading that says what it is, so no
-  amendment debt is added.
+  effect.
+
+  **The match rate's definition moves.** `matched` now counts a case whose
+  opinion was read by this rule beside one with a cluster on the judgment
+  date, so a rate printed after the carrying merge is not comparable with
+  one printed before it (the 18 of 35 `document-provisioning.md` quotes
+  among them). The report's counts are keyed by status alone; the inferred
+  share is read per case from `follows_judgment`. It is a monitoring figure
+  and no board reads it.
+
+  **The amendment debt.** One is added. The predict prompt says
+  `decision-below.txt` holds "that court's opinion on its judgment date"
+  and, "where the court issued one, a later opinion in the same case under
+  its own dated heading: an amended opinion, or a writing on the denial of
+  rehearing". A row whose opinion was read by this rule holds no opinion
+  dated on the judgment date, and its marked opinion is neither of the two
+  kinds named. The opinion's own header says what it is, and the prompt's
+  instruction to check the opinion against the petition still binds, but the
+  sentence is outgrown. Correcting it moves the three predictor digests, so
+  it is owed to the next re-bless.
 
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
   commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
