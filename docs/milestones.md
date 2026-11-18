@@ -18,7 +18,9 @@ at twelve declared moments across the cert, interim and merits stages
 reached apart from its late-Term moment; milestone 2's watchlist is followed
 and published as a feed, and none of its cases is forecast yet. Measured
 committed model spend runs at about $1,300 over the trailing 30 days against
-the $2,000 monthly envelope ([budget.md](budget.md), *Scenario 1*).
+the $2,000 monthly envelope, most of it on the engines' previous models; on
+the current ones a month projects above the envelope
+([budget.md](budget.md), *Scenario 1*).
 The dated record of process-version freezes is
 [freeze-record.md](freeze-record.md).
 
@@ -94,14 +96,14 @@ The column is the planning ceiling, and its event counts are the ones each
 step was sized at: 850–1,100 SCOTUS events a Term before milestone 1's
 moments, a few hundred more with them. Measurement moves both. The ledger's
 recent pace reads to roughly 1,400–2,000 events a Term,
-an extrapolation from six weeks, and a fully evaluated event measures about
-$4.90, and projects to about $11.35–13.40 from 2026-12-01, once gemini's
-rate doubles and with the claude and codex pairs on their current models
-([budget.md](budget.md)). At that count today's row is ≈$7–10K at the
-measured $4.90, inside the envelope, ≈$16–27K at the projection, whose top
-is not, and ≈$28–40K at the table's $20.09, which is not. So the envelope
-holds on measured cost, on the projection only toward its low end, and not
-on the planning ceiling. Milestone 3's event
+an extrapolation from six weeks, and a fully evaluated event on the current
+models comes to about $11.20, part measured and part projected, and to about
+$15.80 from 2026-12-01, once gemini's rate doubles
+([budget.md](budget.md)). At that count today's row is ≈$22–32K at the
+figure in force from that date, inside the envelope only at the low end of
+the count, and ≈$28–40K at the table's $20.09, which is not. So the envelope
+holds on the projection only toward its low end, and not on the planning
+ceiling. Milestone 3's event
 count rests on the same first sizing and is owed a re-count from a full Term
 on the ledger before that step is committed to. The table stays the planning
 ceiling until a round of measured cells re-anchors it.
