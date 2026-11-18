@@ -19545,6 +19545,11 @@ def watchlist_refresh_cmd(
             typer.echo(
                 f"  onboarded {done.case_id} from {done.resumed_pages} page(s) an earlier run kept"
             )
+        if done.pages_without_text:
+            typer.echo(
+                f"  read {done.pages_without_text} page(s) of {done.case_id} without document "
+                + "text, after a page timed out"
+            )
     for case_id, reason in sorted(result.failed.items()):
         typer.echo(f"  failed {case_id}: {reason}", err=True)
     if result.failed:
@@ -23476,8 +23481,8 @@ def _read_related(
 ) -> tuple[provision.RelatedRead, ...]:
     """The related dockets of the payload a cell was placed on.
 
-    Those it links as ``Vide``, then those sharing one of its VIDED amicus
-    briefs (:func:`provision.read_vided`). A read of its own, taken after the
+    Those it links as ``Vide``, then those sharing one of its VIDED
+    filings (:func:`provision.read_vided`). A read of its own, taken after the
     cell's gates and placement, so a refused cell spends nothing on companions
     and the links and briefs are the placed payload's. Each kind resolves
     through the corpus index in one scan. Under the casestore backend, which
@@ -23488,7 +23493,7 @@ def _read_related(
     VIDED companion the index could not find has no row to record.
     """
     numbers = vide_links.vide_docket_numbers(payload)
-    keys = vided.vided_amicus_keys(payload) or []
+    keys = vided.vided_keys(payload) or []
     if not numbers and not keys:
         return ()
     if backend == "casestore":
@@ -28796,31 +28801,37 @@ def _refuse_pilot_section(section: Path) -> None:
 #: here use three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
-        "The claude-code and codex rows are measured, but over one stamped "
+        "The claude-code row is measured, but over one stamped "
         + "fan-out (81 cells, 27 events) that "
         + "predates the current freeze instant — a shakedown figure for claims "
         + "purposes. "
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
-        "The codex row is PRE-CUTOVER, measured on gpt-5.6-sol, and projects "
-        + "HIGH: gpt-6.1-sol measures about $0.55 a prediction (134 cells) against "
-        + "the row's $1.88. The gemini row prices gemini-4-argon from its "
-        + "measured cells (137 predictions, about $1.34 each at the introductory "
+        "The codex row is a PROJECTION, not a measurement of gpt-6.2-astra: "
+        + "the gpt-6.1-sol cells (266 predictions) re-priced token for token at "
+        + "Astra's rate, four times Sol's, come to a mean of about $2.08, and "
+        + "the row's $3.00 is their 90th percentile rounded up. It holds only "
+        + "if Astra spends tokens as Sol did. The gemini row prices gemini-4-carbon from its "
+        + "measured cells (41 predictions, about $2.64 each at the introductory "
         + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01 and "
         + "rounded up, so until then it projects about twice the measured cost. "
         + "Only a deliberate "
         + "re-anchor of the pinned rows moves them.",
     ],
     "evaluate": [
-        "An ASSUMPTION, not a measurement: the claude-code and codex rates scale a pre-freeze "
-        + "anchor by the whole predict move (~+22%). The anchor they use "
+        "An ASSUMPTION, not a measurement: the claude-code rate scales a pre-freeze "
+        + "anchor by the whole predict move (~+22%). The anchor it uses "
         + "is the `proc-v2` grading — THREE graded events, the process-stamped "
         + "subset of the four pre-freeze gradings — taken as the better-matched "
         + "of the two pre-freeze anchors; the pooled four-grading figure is the "
-        + "more cautious one and is NOT what these rates carry. All four are "
-        + "cert-stage, so the anchor is stage-narrow either way. The gemini "
-        + "row does not use that anchor: it prices gemini-4-argon's measured "
-        + "grading runs (31, about $0.79 each at the introductory $2/$10, "
+        + "more cautious one and is NOT what this rate carries. All four are "
+        + "cert-stage, so the anchor is stage-narrow either way. The codex "
+        + "row does not use that anchor either: it is the 90th percentile, "
+        + "rounded up, of gpt-6.1-sol's grading runs (83) "
+        + "re-priced at gpt-6.2-astra's rate, four times Sol's, whose mean is "
+        + "about $1.78; no Astra grading is measured. The gemini "
+        + "row does not use that anchor: it prices gemini-4-carbon's measured "
+        + "grading runs (41, about $1.97 each at the introductory $2/$10, "
         + "mostly cert-stage) doubled for the $4/$20 rate in force from "
         + "2026-12-01 and rounded up, so a merits grading, which reads more, "
         + "has little margin under it.",
@@ -28910,8 +28921,8 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
     """Price a would-mint cell set at the per-(seam, engine) rates, with its basis.
 
     Summed cell by cell rather than multiplied by one blended rate, because the
-    engines differ by up to ~4.6x within a seam: a plan narrowed to one engine
-    priced at the design-mix average is wrong by up to ~2.2x in either direction, and a
+    engines differ by up to ~3.1x within a seam: a plan narrowed to one engine
+    priced at the design-mix average is wrong by up to ~1.8x in either direction, and a
     narrowed plan is exactly the shape a backfill re-queue takes. A cell whose
     engine the table does not name falls back to the design-mix rate and is
     counted, so an unrecognized engine shows up as a stated approximation rather
@@ -28951,14 +28962,14 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
                 "fedcourtsai.planning_rates.PLANNING_RATES_USD_PER_CELL — the predict "
                 "whole-run measurement, and the evaluate pre-freeze cert-stage "
                 "anchor (the proc-v2 grading, scaled by the predict move), with "
-                "the gemini rows at gemini-4-argon's measured cells repriced "
+                "the gemini rows at gemini-4-carbon's measured cells repriced "
                 "for its 2026-12-01 rate"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$18 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$25 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,

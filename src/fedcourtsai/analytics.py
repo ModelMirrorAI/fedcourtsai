@@ -584,8 +584,8 @@ class _SectionSpec:
     wrote (:func:`corpus.is_live_slice`) — the predictor-facing populations,
     whose dispositions come from parsed proceedings rather than the frozen bulk
     import. ``weighted`` is the published section flag, kept by name: every
-    section counts each row once, and the flag only selects the ``est. n=``
-    spelling of the denominator in the render. ``key_fn``
+    section counts each row once whatever the flag says, and no rendered text
+    reads it. ``key_fn``
     overrides the dimension's stock key function where a section wants richer
     keys under the same ``group_by``. ``row_filter`` narrows the population
     beyond the court/live/cert flags (the salience-band section restricts to the
@@ -615,8 +615,8 @@ _BY_COURT = _SectionSpec("Cases by court", None, False, False, False, GroupBy.co
 _SCOTUS_BY_ERA = _SectionSpec("SCOTUS cases by era", "scotus", False, False, False, GroupBy.era)
 # The same two cuts for the court-facing pack, carrying the `weighted` section
 # flag. The counts are the same row counts the statpack's specs produce: every
-# stored row stands for one petition, so the flag changes the rendered
-# denominator label and nothing else.
+# stored row stands for one petition, so the flag changes the published field
+# and nothing else.
 _BY_COURT_WEIGHTED = replace(_BY_COURT, weighted=True)
 _SCOTUS_BY_ERA_WEIGHTED = replace(_SCOTUS_BY_ERA, weighted=True)
 # The calibration anchor the predict prompts point at (and ops reads by its
@@ -789,8 +789,8 @@ _PETITIONS_BY_ORIGINATING_COURT = _SectionSpec(
     key_fn=_originating_court_or_name,
 )
 # The same reader cut for the court-facing artifact, carrying the `weighted`
-# section flag. The counts are the same row counts as the spec above; the flag
-# selects the docket pack's rendered denominator label. This is the only cut in
+# section flag. The counts are the same row counts as the spec above, and the
+# render is the same too. This is the only cut in
 # which a state court appears.
 _PETITIONS_BY_ORIGINATING_COURT_WEIGHTED = _SectionSpec(
     "Petitions by originating court (incl. state courts)",
@@ -1179,7 +1179,7 @@ def _qp_topic_scope_note(
         f"QP-bearing rows only — {rows.kept} of {rows.scoped} in-scope ingested rows "
         "labeled; "
         "grant-enriched; primaries only; not docket-representative. Those two counts are raw "
-        "rows; the bucket counts are denial-reweighted, and no reweighting recovers the "
+        "rows, and so are the bucket counts, each row counted once; no weighting recovers the "
         "docket — QP presence is itself outcome- and stream-correlated, so this stays a share "
         "of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, "
         "so the mix is not the whole slice's; the base-rate column is over a grant-enriched "
@@ -1251,7 +1251,7 @@ def _application_topic_scope_note(
         f"applications labeled, {docket_only} of the labeled read from the docket alone; "
         "primaries only; not docket-representative. Those counts are raw rows (the second "
         "includes the few duplicate rows the labeling frame folds into one per docket "
-        "number); the bucket counts are reweighted like every section here. The frame is "
+        "number); the bucket counts are rows too, each counted once. The frame is "
         "the live slice's non-extension application dockets, substantive asks and asks "
         "whose kind was never read alike, read from different inputs than the petition "
         "cut, so the two are never pooled. A docket-only row whose caption and entries name "
@@ -2373,8 +2373,8 @@ def _topic_support(scan: _CorpusScan, index: int) -> list[QpTopicSupport]:
     """Raw rows per bucket of the topic cut at ``index``, reference-sourced beside them.
 
     The cut's reference-only counter is the spec right after it. Raw rows come
-    from the same pass as the table, and the `est. n=` the table prints is the
-    same count of rows (the spelling is kept). The reference-sourced share
+    from the same pass as the table, whose `n=` is a count of resolved rows
+    from that pass too. The reference-sourced share
     rides along per bucket because it is not uniform across them.
     """
     reference_slices = scan.sections[index + 1]
@@ -2734,8 +2734,7 @@ def _scope_line(section: StatPackSection) -> str:
         scope += ", live/historical slice"
     else:
         scope += "; includes the frozen bulk import"
-    if section.weighted:
-        scope += "; counts are denial-reweighted estimates"
+    scope += "; counts are stored rows, each counted once"
     sentences = [f"Scope: {scope}."]
     if section.scope_note is not None:
         sentences.append(section.scope_note)
@@ -2748,9 +2747,8 @@ def _section_tables(sections: list[StatPackSection], *, sample_size: bool = Fals
     Shared by both published base-rate artifacts, so a section computed for each
     renders identically. ``sample_size`` appends the base rate's denominator to
     the cell, so a rate quoted out of the table keeps the count it was computed
-    over. On a section flagged ``weighted`` that denominator renders as
-    ``est. n=``: the flag and the spelling are kept, and the value is a count of
-    rows, as it is on every other section.
+    over. That denominator renders as ``n=`` on every section and is a count of
+    resolved rows, whatever the section's ``weighted`` flag says.
     """
     lines: list[str] = []
     for section in sections:
@@ -2768,8 +2766,7 @@ def _section_tables(sections: list[StatPackSection], *, sample_size: bool = Fals
             key = bucket.key or "—"
             rate = _disposition_summary(bucket)
             if sample_size and bucket.dispositions:
-                label = "est. n" if section.weighted else "n"
-                rate += f" ({label}={bucket.resolved})"
+                rate += f" (n={bucket.resolved})"
             lines.append(f"| {key} | {bucket.cases} | {bucket.resolved} | {bucket.open} | {rate} |")
         overflow = len(section.buckets) - _MARKDOWN_BUCKETS
         if overflow > 0:
@@ -2856,21 +2853,21 @@ def render_statpack_markdown(
         lines += [
             "",
             "## SCOTUS cert petitions by Term",
-            f"_Live/historical slice; denial-reweighted estimates. Most recent {len(shown)} "
-            + f"of {len(pack.terms)} Term(s); the JSON artifact carries every Term and the "
-            + "per-fee-class detail. The filings column is exact for docketed numbers and "
+            "_Live/historical slice; counts of stored rows, each counted once. Most recent "
+            + f"{len(shown)} of {len(pack.terms)} Term(s); the JSON artifact carries every Term "
+            + "and the per-fee-class detail. The filings column is exact for docketed numbers and "
             + "a slight upper bound on real petitions — withheld serials still count — and "
             + "is not nested with `ingested`, which can exceed it._",
             "",
             (
-                "| Term | filings (paid/IFP) | ingested | est. resolved | est. base rate "
-                + "| est. grant rate | grants | median days | complete |"
+                "| Term | filings (paid/IFP) | ingested | resolved | base rate "
+                + "| grant rate | grants | median days | complete |"
             ),
             "| --- | --- | --: | --: | --- | --- | --: | --: | --- |",
         ]
         for entry in shown:
             lines.append(_term_row(entry))
-        # The disposition split in the `est. base rate` column separates `granted`
+        # The disposition split in the `base rate` column separates `granted`
         # from `gvr`, so the comparability caveat rides directly under the table
         # that prints it — the same text the docket pack carries.
         lines += ["", _GVR_SPLIT_CAVEAT]
@@ -2881,8 +2878,8 @@ def render_statpack_markdown(
             f"### Segment base rate by salience band ({version})",
             (
                 "_Paid scored-segment grant rate per band, this Term's live slice only "
-                "(denial-reweighted); the leakage-safe base rate the predict prompt is designed "
-                "to anchor on and the evaluator will score skill against. `n` is the weighted "
+                "(stored rows, each counted once); the leakage-safe base rate the predict prompt "
+                "is designed to anchor on and the evaluator will score skill against. `n` is the "
                 "resolved denominator. The bracketed `reached` figure is the same band on a "
                 "**risk-set** denominator — every petition that ever reached the band, not "
                 "only those that ended in it — which is the rate a live petition actually "
@@ -2945,7 +2942,7 @@ def _interim_lines(interim: StatPackInterim) -> list[str]:
         (
             "_SCOTUS application dockets (`YYAnnn` — stays, injunctions, vacaturs, and the "
             + "time-extension requests that dominate the docket), split by application-Term "
-            + "year; raw counts, never reweighted, of application **numbers**: a number "
+            + "year; raw counts of application **numbers**: a number "
             + "the corpus stores under two case ids counts once, at its lowest-docket-id row "
             + "among those the live channel observed (parsed or live-polled), or among all "
             + "of them where none was. The rows below **ground the interim "
@@ -3131,8 +3128,7 @@ def _merits_lines(merits: StatPackMerits) -> list[str]:
             + "certiorari was granted in: a grant-date-keyed axis that does **not** align "
             + "with the cert tables' docket-number Terms (a petition docketed in Term T is "
             + "routinely granted in T+1), and Terms with no parsed judgment are omitted "
-            + "from the table. Raw counts, never reweighted (a grant is always "
-            + "ingested with certainty). The judgment distribution and disturbed rate cover "
+            + "from the table. Raw counts. The judgment distribution and disturbed rate cover "
             + "the **parsed** slice only — cases whose stored snapshot the deterministic "
             + "merits parser could read — and `parsed` against `granted` states that "
             + "coverage; the gap blends still-pending cases (granted, not yet decided) "
@@ -3282,8 +3278,8 @@ def _term_row(entry: StatPackTerm) -> str:
     # and the Markdown must publish the same grant-family pool (a GVR is a grant),
     # and `_grant_family_share` is that pool's one definition.
     grant_rate = entry.est_grant_family_rate
-    # `ingested` is every row on hand; the `est.` columns keep their names and
-    # are counts of resolved rows, each row counted once.
+    # `ingested` is every row on hand; `resolved` and the two rate columns are
+    # over the resolved rows among them, each row counted once.
     return (
         f"| {entry.term} | {_filings(paid)}/{_filings(ifp)} | {entry.ingested} "
         f"| {rates.resolved} | {_disposition_summary(rates)} "
@@ -3397,8 +3393,8 @@ def _qp_topic_provenance(topics: DocketPackQpTopics) -> list[str]:
 def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
     """The rows behind each bucket of the topic cut, stated beside the table.
 
-    The table's `est. n=` keeps its spelling and is a count of resolved rows;
-    this block states each bucket's rows on hand. The
+    The table's `n=` is a count of resolved rows; this block states each
+    bucket's rows on hand, resolved or not. The
     counts are printed rather than the shares suppressed because suppression
     would need the shared bucket renderer to know about this section; naming the
     rows beside the table answers the same question and leaves the table's
@@ -3419,10 +3415,8 @@ def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
     )
     lines = [
         "",
-        "_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows "
-        + "rather than by the table's reweighted count — the raw view the reweighted "
-        + f"`est. n=` above does not give: {counts}. A bucket's `est. n=` is an "
-        + "estimate of the population its rows stand for, so it runs above the rows read; the "
+        "_Rows on hand behind each bucket, reference-sourced in brackets: "
+        + f"{counts}. A bucket's `n=` above counts only its resolved rows; the "
         + "reference share is not uniform across buckets, and the block holds every QP-bearing "
         + "grant it could reach, so it inflates the grant-heavy topics most._",
     ]
@@ -3433,8 +3427,7 @@ def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
             "_Read the disposition split of "
             + ", ".join(f"`{label}`" for label in thin)
             + f" as the rows themselves, not as a rate: under {_QP_REFERENCE_SUPPORT_FLOOR} rows "
-            + "on hand one petition moves it by tens of points, and the `est. n=` beside it is "
-            + "what those rows stand for rather than what was read._",
+            + "on hand one petition moves it by tens of points._",
         ]
     return lines
 
@@ -3505,14 +3498,8 @@ def _topic_mix_lines(mix: DocketPackTopicMix) -> list[str]:
             if share.label not in labels:
                 labels.append(share.label)
     by_stage = [{share.label: share for share in stage.shares} for stage in mix.stages]
-    # A stage whose count equals its rows states `n=`; one where the two differ
-    # states `est. n=` and the rows beside it, the pack's convention.
-    header = " | ".join(
-        f"{stage.stage} (n={stage.cases})"
-        if stage.cases == stage.rows
-        else f"{stage.stage} (est. n={stage.cases}; {stage.rows} rows)"
-        for stage in mix.stages
-    )
+    # A stage's count is its rows, each counted once, so one figure heads the column.
+    header = " | ".join(f"{stage.stage} (n={stage.cases})" for stage in mix.stages)
     interim = next((stage for stage in mix.stages if stage.stage == "interim"), None)
     interim_shares: dict[str, TopicMixShare] = (
         {} if interim is None else {share.label: share for share in interim.shares}
@@ -3526,7 +3513,7 @@ def _topic_mix_lines(mix: DocketPackTopicMix) -> list[str]:
         + "petitions granted plenary review, interim every labeled emergency application. "
         + "Each column is a share of its own stage, never of the docket, and carries the scope "
         + "string under the table. The columns are **not stages of one funnel**: cert is a "
-        + "denial-reweighted share of a grant-enriched set, merits a share of the labeled "
+        + "share of a grant-enriched set, merits a share of the labeled "
         + "grants, and interim another frame read from other inputs, so a difference between "
         + "columns is not a grant propensity — the petition topic section's base-rate column "
         + "is where that is read._",
@@ -3550,7 +3537,7 @@ def _topic_mix_lines(mix: DocketPackTopicMix) -> list[str]:
     lines += [
         "",
         "_Rows on hand in parentheses; each header's count is the stage's count as its section "
-        + "publishes it, `est. n=` where that section reweights._",
+        + "publishes it, a count of rows with each row counted once._",
     ]
     if interim is not None:
         lines += [
@@ -3622,29 +3609,17 @@ def render_docket_markdown(pack: DocketPack) -> str:
         "also carries the interim application rows, which no cert statistic "
         f"aggregates, so a cert denominator can sit below this count; {census}.",
         "",
-        "**How to read the tables.** Each section states its own scope: the court, the "
-        + "population, and whether its counts are denial-reweighted. That reweighting "
-        + "matters. The historical walk ingests every decided petition except denials, "
-        + "which it samples on a committed frame, so a raw count would badly overstate "
-        + "the grant rate; a reweighted section counts each ingested petition for the "
-        + "number of petitions it stands in for. **Every section here is reweighted**, "
-        + "including the two overview cuts: nearly every labeled SCOTUS row is a "
-        + "sampled one, so a raw disposition split there would overstate the grant "
-        + "family several-fold, while a bulk-import circuit row carries weight 1 and is "
-        + "unchanged by it. So every count is a population **estimate** rather than rows "
-        + "on hand, and every denominator is written `est. n=`. In the breakdown tables "
-        + "that denominator is the `resolved` column beside the rate; the per-Term "
-        + "census states its own the same way.",
+        "**How to read the tables.** Each section states its own scope: the court and "
+        + "the population. **Every count in the breakdown tables is a count of stored "
+        + "rows, each row counted once**: no row stands in for another, so a count "
+        + "describes the rows on hand and nothing beyond them. Every rate carries its "
+        + "denominator, written `n=`. In the breakdown tables that denominator is the "
+        + "`resolved` column beside the rate; the per-Term census states its own the "
+        + "same way.",
         "",
-        "**In the breakdown tables the estimate does not tell you** how many "
-        + "petitions were actually read to produce it. An `est. n=` of a few hundred "
-        + "rests on a raw row count several times smaller, and a breakdown row carries "
-        + "no raw view of its own — so treat a small reweighted cell as weaker evidence "
-        + "than its denominator suggests, and read a rate against the whole-population "
-        + "figures above it rather than on its own. The per-Term census is the "
-        + "exception and the place to calibrate that gap: it prints the observed "
-        + "`ingested (rows)` beside the reweighted estimate, so the ratio between them "
-        + "is legible for every Term.",
+        "**A rate is only as strong as its `n=`.** A small cell is weak evidence, so "
+        + "read its rate against the whole-population figures above it rather than on "
+        + "its own.",
         "",
         "**Where a value is missing** the row still appears rather than being dropped, "
         + "so a coverage gap is never hidden inside a rate. A `(none)` bucket means "
@@ -3686,15 +3661,12 @@ def render_docket_markdown(pack: DocketPack) -> str:
             + "consolidated, prefixed, or dash-variant spelling), ingested under its "
             + "Term but belonging to no stream's census — so `ingested` can "
             + "exceed `filings`. `ingested` and `grants "
-            + "observed` are raw counts of rows on hand; the grant rate is the "
-            + "denial-reweighted estimate, and its `est. n` is the reweighted resolved "
-            + "count it divides by — which is why it too can exceed `ingested`. The "
-            + "plain `n` beside the pace to grant is different: that one is a raw count "
-            + "of the granted petitions carrying both dates. Dividing "
-            + "`grants observed` by `ingested` does **not** reproduce the rate and is "
-            + "not a rate at all; the raw grant count is comparable to the weighted "
-            + "denominator only because a grant is always kept at weight 1 while "
-            + "denials are sampled. The rate pools the paid and IFP streams, whose own "
+            + "observed` are counts of rows on hand; the grant rate is over the resolved "
+            + "rows among them, each counted once, and its `n` is that resolved count. "
+            + "The `n` beside the pace to grant is a different count: the granted "
+            + "petitions carrying both dates. Dividing `grants observed` by `ingested` "
+            + "does **not** reproduce the rate, because `ingested` includes rows not yet "
+            + "resolved. The rate pools the paid and IFP streams, whose own "
             + "grant rates differ several-fold, so a Term-over-Term move can be a shift "
             + "in that mix rather than in the Court's appetite. A Term reads `complete` "
             + "only "
@@ -3705,7 +3677,7 @@ def render_docket_markdown(pack: DocketPack) -> str:
             + "first._",
             "",
             (
-                "| Term | filings | ingested (rows) | est. grant rate (weighted) "
+                "| Term | filings | ingested (rows) | grant rate "
                 + "| grants observed (rows) | median days to grant | census |"
             ),
             "| --- | --: | --: | --- | --: | --- | --- |",
@@ -3732,11 +3704,11 @@ def render_docket_markdown(pack: DocketPack) -> str:
 
 def _docket_term_row(entry: DocketPackTerm) -> str:
     """One Term's row in the docket-pack census table."""
-    # `est. n` on the grant-rate column, plain `n` on the pace-to-grant subset: one
-    # spelling rule across the document, and this row shows both side by side.
+    # `n` on the grant-rate column is the resolved rows, `n` on the pace-to-grant
+    # column the granted rows carrying both dates.
     # The rate reads the pooled-family field, as the statpack's Term row does.
     rate = (
-        f"{_pct(entry.est_grant_family_rate)} (est. n={entry.weighted_resolved})"
+        f"{_pct(entry.est_grant_family_rate)} (n={entry.weighted_resolved})"
         if entry.est_grant_family_rate is not None
         else "—"
     )

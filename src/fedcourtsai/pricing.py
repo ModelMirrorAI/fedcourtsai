@@ -49,12 +49,13 @@ class ModelRate:
 
 
 # Keyed by the model id the engine actually ran. The production models are
-# claude-fable-5-2 (predict/evaluate), gpt-6.1-sol, and gemini-4-carbon (each
+# claude-fable-5-2 (predict/evaluate), gpt-6.2-astra, and gemini-4-carbon (each
 # engine's frontier tier, the like-for-like comparators). The Carbon and Argon
 # rates are Google's introductory ones, each scheduled to double to $4 / $20
 # on 2026-12-01 (the cached rate with it); re-price both rows then, since
 # record-usage prices every cell at the table's current rate. Carbon's row is
-# its rate as reported at release, to be confirmed against a billed cell. The
+# its rate as reported at release, to be confirmed against a billed cell, and
+# so is gpt-6.2-astra's. The
 # table is deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
 # and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the
@@ -63,7 +64,8 @@ class ModelRate:
 # cannot price rather than recording a zero. Both Flash rates are promotional;
 # re-check them after 2026-12-31, when the promotion is scheduled to end.
 # Superseded production models (claude-opus-5-5, claude-fable-5-1,
-# claude-fable-5, claude-opus-4-8, gpt-6-astra, gpt-5.6-sol, gpt-5.5,
+# claude-fable-5, claude-opus-4-8, gpt-6.1-sol, gpt-6-astra, gpt-5.6-sol,
+# gpt-5.5,
 # gemini-4-argon, gemini-3.1-pro-preview, gemini-3.5-flash) keep
 # their rates for the same reason: a re-recorded old cell (record-usage with an
 # explicit --model) must still price, and the committed ledger holds cells that
@@ -87,8 +89,10 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
     # each call's recorded usage from this row.
     "claude-sonnet-5": ModelRate(2.0, 10.0),
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
-    # Both new frontier rows carry their published cached-input rate, a
-    # twentieth of input, where the uniform multiplier would bill a tenth.
+    # Both rows carry their own cached-input rate, a twentieth of input, where
+    # the uniform multiplier would bill a tenth: cached reads are the largest
+    # share of a codex cell's input.
+    "gpt-6.2-astra": ModelRate(8.0, 40.0, cache_read_per_mtok=0.40),
     "gpt-6.1-sol": ModelRate(2.0, 10.0, cache_read_per_mtok=0.10),
     "gpt-6-astra": ModelRate(10.0, 50.0),
     "gpt-5.6-sol": ModelRate(5.0, 30.0),
@@ -113,7 +117,7 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 # the same commit (``docs/process-version.md``).
 DEFAULT_MODELS: Final[dict[str, str]] = {
     "claude-code": "claude-fable-5-2",
-    "codex": "gpt-6.1-sol",
+    "codex": "gpt-6.2-astra",
     "gemini": "gemini-4-carbon",
 }
 

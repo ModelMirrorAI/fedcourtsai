@@ -30,7 +30,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a stored-not-staged kind for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
 | Scrub | On a docket with a self-represented side, contact details are withheld from the staged text and the staged snapshot. Where the shape pass ran, a residual detector re-reads the scrubbed text's opening and closing, and any match records the document as **not** scrubbed. The document is still staged. | `pipeline/documents.py`: `scrub_contact_details`, `contact_residual_matches`, `scrub_snapshot_contacts`; `provision.py`: `staged_scrub` | live-sources.md, from the paragraph introducing the contact-detail scrub through *What the scrub does not reach*; data-sources.md, *PII stance* |
 | Stage | Each kept document is written to `record/documents/<kind>.txt`, with a manifest at `record/documents/documents.json`. | `provision.py`: `write_cell_record`, `document_manifest` | predicted-artifacts.md, *Where the files land*; cli.md, `provision-snapshot` |
-| Companions | Not a document: a predict cell also gets the snapshot of each docket its placed snapshot links as `Vide`, and of each docket sharing a VIDED amicus brief its placed snapshot shows (`vided-amicus`, with the number shared), cut by the date rule to its cutoff (or its own snapshot date where it has none) and redacted of undated outcome markers, under `record/related/` with a `related.json` listing every link and its relation. No filing text of a companion is staged. | `pipeline/vide_links.py`: `vide_docket_numbers`; `pipeline/vided.py`: `vided_amicus_keys`; `provision.py`: `read_vided`, `place_related`, `related_manifest` | cli.md, `provision-snapshot` |
+| Companions | Not a document: a predict cell also gets the snapshot of each docket its placed snapshot links as `Vide`, and of each docket sharing a VIDED filing its placed snapshot shows (`vided-amicus` for an amicus brief, `vided-party` for a party filing entered the same day on a petition from the same case below, each with the number shared), cut by the date rule to its cutoff (or its own snapshot date where it has none) and redacted of undated outcome markers, under `record/related/` with a `related.json` listing every link and its relation. No filing text of a companion is staged. | `pipeline/vide_links.py`: `vide_docket_numbers`; `pipeline/vided.py`: `vided_keys`, `companion_relation`; `provision.py`: `read_vided`, `place_related`, `related_manifest` | cli.md, `provision-snapshot` |
 
 ## What a cell can be given
 
@@ -54,7 +54,7 @@ transcript, which only a post-argument cell is given.
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
-| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener: the opinion on the judgment date and any amended opinion or opinion on rehearing filed after it and before the SCOTUS docketing, the newest first, dated by the newest it holds | Cert, Granted |
+| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener: the opinion on the judgment date (where the court entered judgment by order, the earliest opinion filed after it) and any amended opinion or opinion on rehearing filed after it and before the SCOTUS docketing, the newest first, dated by the newest it holds | Cert, Granted |
 | `lower-court-docket` | A short record of that court's docket: panel, the opinion clusters and their opinion ids, and whether rehearing en banc was sought, how it was disposed of and any dissent, with the date the entries read run through | Cert, Granted |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
@@ -104,8 +104,8 @@ which overrides the code's defaults.
 Each of these is stated, with its reason, where the code makes the choice:
 
 - **A petition raising the same question without a `Vide` link or a shared
-  VIDED brief is not staged.**
-  Only linked companions, and those sharing a VIDED amicus brief, reach
+  VIDED filing is not staged.**
+  Only linked companions, and those sharing a VIDED filing, reach
   `record/related/`. `fedcourts same-question`
   lists the unlinked ones by questions-presented text similarity, cut to a date,
   and `fedcourts same-question-lists` builds a cert cell's list at its own
@@ -176,7 +176,12 @@ Each of these is stated, with its reason, where the code makes the choice:
   lead cases together; such a row joins the case only where its docket number
   or the caption of its opinion on the judgment date lists one of the
   petition's case numbers, and the record says which. A petition with no
-  docket row found by number is not searched for. The record words an
+  docket row found by number is not searched for. Where the judgment date
+  still carries no opinion, the court may have entered judgment by order and
+  filed its opinion later: the earliest opinion filed after the judgment date
+  is then stored as the opinion on that judgment, under a header and a record
+  line that say the reading is an inference from the dates, unless the SCOTUS
+  docket states a rehearing denial on or before the day it was filed. The record words an
   absence as one among the entries read, names the date those entries run
   through, and says so where they stop before a rehearing denial the SCOTUS
   docket states, since CourtListener holds a circuit docket only as far as it

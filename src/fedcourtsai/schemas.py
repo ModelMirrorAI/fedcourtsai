@@ -3271,9 +3271,9 @@ class BlindingRecord(_Strict):
     )
     names_present: list[BlindingCount] = Field(
         description="Identity terms already in the judge's own text BEFORE un-aliasing: predictor "
-        "and evaluator ids, engine names, model ids and the bare family words the "
-        "staging scrub masks (`fedcourtsai.blinding.identity_terms`), less the "
-        "evaluator's own id, engine and model, which its `evaluation.json` carries "
+        "and evaluator ids, engine names, model ids, engine cell accounts and the bare "
+        "family words the staging scrub masks (`fedcourtsai.blinding.identity_terms`), "
+        "less the evaluator's own id, engine, model and cell account, which it writes "
         "about itself — so a candidate that shares the judge's engine or model is not "
         "counted under that shared term, only under its own id. The judge was staged "
         "text with every such term redacted, so one here is a name the judge wrote "
@@ -12049,8 +12049,8 @@ class StatPackSection(_Strict):
     weighted: bool = Field(
         default=False,
         description="A section flag whose name is kept. Every section counts each row "
-        "once, whatever the flag; where it is true the rendered tables label the "
-        "denominator `est. n=`",
+        "once, whatever the flag, and the rendered tables label every denominator "
+        "`n=`",
     )
     group_by: GroupBy = Field(description="The dimension the buckets break down by")
     scope_note: str | None = Field(
@@ -13359,7 +13359,7 @@ class DocketPackTerm(_Strict):
 class QpTopicSupport(_Strict):
     """The raw rows behind one bucket of the published topic distribution.
 
-    A bucket's `est. n=` in the topic table keeps its spelling and counts the
+    A bucket's `n=` in the topic table counts the
     bucket's resolved rows; this is the bucket's rows on hand, resolved or not.
     On a frame that is still accruing the smallest buckets
     publish a disposition split over a handful of rows, and the view is per label

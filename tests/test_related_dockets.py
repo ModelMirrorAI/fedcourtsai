@@ -19,7 +19,12 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import cell_context
 from fedcourtsai.pipeline.cascade import run_cascade
 from fedcourtsai.pipeline.vide_links import MAX_RELATED_DOCKETS, vide_docket_numbers
-from fedcourtsai.pipeline.vided import VIDED_AMICUS_RELATION, vided_key
+from fedcourtsai.pipeline.vided import (
+    VIDED_AMICUS_RELATION,
+    VIDED_PARTY_RELATION,
+    vided_key,
+    vided_keys,
+)
 from fedcourtsai.provision import (
     RelatedRead,
     place_related,
@@ -547,6 +552,27 @@ def test_a_vided_read_skips_what_the_cell_already_reads_and_stops_at_the_bound()
     assert {(r.relation, r.shared) for r in reads} == {(VIDED_AMICUS_RELATION, 1)}
 
 
+def test_a_vided_read_takes_a_party_tie_before_an_amicus_one() -> None:
+    party = "2026-10-30|a court|24 644"
+    found = [
+        *(_companion(f"scotus/{n}", f"24-{n}", "a", "b") for n in range(500, 504)),
+        _companion("scotus/600", "24-600", party),
+    ]
+    reads = read_vided(
+        ["a", "b", party],
+        own_case="scotus/305",
+        linked=[],
+        find=lambda _keys: found,
+        snapshot=lambda case_id: (date(2026, 7, 21), {"id": case_id}),
+    )
+    assert [(r.docket_number, r.relation, r.shared) for r in reads] == [
+        ("24-600", VIDED_PARTY_RELATION, 1),
+        ("24-500", VIDED_AMICUS_RELATION, 2),
+        ("24-501", VIDED_AMICUS_RELATION, 2),
+        ("24-502", VIDED_AMICUS_RELATION, 2),
+    ]
+
+
 def test_a_vided_read_with_no_keys_room_or_index_reads_nothing() -> None:
     def find(_keys: Any) -> list[corpus.VidedCompanion] | None:
         return None
@@ -621,6 +647,70 @@ def test_provision_stages_a_vided_companion_from_the_placed_briefs(
     staged = json.loads(paths.related_snapshot("24-450").read_text())
     assert _descriptions(staged) == ["Cross-petition filed.", "Petition GRANTED."]
     assert "24-450 [vided-amicus x1]" in result.output
+
+
+def test_provision_stages_a_companion_tied_by_a_vided_opposition(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """Two petitions from one case below, one opposition worded for each docket."""
+    _seed(fixture_corpus)
+    below = {"LowerCourt": "A Court of Appeals", "LowerCourtCaseNumbers": "(24-644)"}
+    cell = {
+        **_CELL,
+        **below,
+        "docket_entries": [
+            *_CELL["docket_entries"],
+            {
+                "id": 10,
+                "date_filed": "2025-06-02",
+                "description": "Brief of respondent Jane Roe in opposition filed.  VIDED.",
+            },
+        ],
+    }
+    companion = {
+        **below,
+        "docket_entries": [
+            {
+                "date_filed": "2025-06-02",
+                "description": "Brief of respondents Jane Roe, et al. in opposition filed. VIDED.",
+            }
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 20), cell)
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/450",
+                    court="scotus",
+                    docket_number="24-450",
+                    last_live_polled=date(2026, 7, 20),
+                    vided_amicus=vided_keys(companion),
+                )
+            ],
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/450",
+            date(2026, 7, 21),
+            {**_COMPANION, "id": 450, "docket_number": "24-450"},
+        )
+
+    result = _provision("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    manifest = json.loads(paths.related_manifest.read_text())
+    assert [
+        (row["docket_number"], row["relation"], row["shared_briefs"], row["staged"])
+        for row in manifest
+    ] == [
+        ("24-99", "Vide", None, True),
+        ("24-777", "Vide", None, False),
+        ("24-450", VIDED_PARTY_RELATION, 1, True),
+    ]
+    assert "24-450 [vided-party x1]" in result.output
 
 
 def test_the_local_cascade_stages_the_vided_companion(

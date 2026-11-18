@@ -534,27 +534,55 @@ def test_proc_v22_held_the_instant_and_moved_no_window() -> None:
     assert not [w for w in rows if w.label == "proc-v22"]
 
 
-def test_proc_v23_closes_every_predictor_window_and_opens_one_for_each() -> None:
+#: The predictor digests the proc-v23 entry registers, one proc-v23 window each.
+PROC_V23_PREDICTOR_DIGESTS = {
+    "claude-baseline": "sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138",
+    "codex-baseline": "sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319",
+    "gemini-baseline": "sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3",
+}
+
+
+def test_proc_v23_closed_every_predictor_window_and_opened_one_for_each() -> None:
     """proc-v23's registry shape, as the freeze record's proc-v23 entry registers it.
 
-    proc-v23 edits the predict prompt only, so the three predictor digests
-    move and no evaluator digest does. Each predictor's proc-v21 window closes
-    at the proc-v23 instant, and a proc-v23 window opens there for each live
-    digest. Pending rows compare by their null instants until the merge stamps
-    them.
+    proc-v23 edited the predict prompt only, so the three predictor digests
+    moved and no evaluator digest did. Each predictor's proc-v21 window closed
+    at the proc-v23 instant, and a proc-v23 window opened there for each new
+    digest.
     """
     v23 = _label_since("proc-v23")
+    assert v23 is not None
+    rows = process_version._REGISTRY.windows
+    by_label = {(w.label, w.predictor_id): w for w in rows}
+    for predictor, digest in PROC_V21_PREDICTOR_DIGESTS.items():
+        closed = by_label[("proc-v21", predictor)]
+        assert closed.digest == digest
+        assert closed.closes is not None and closed.closes.at == v23
+        opened = by_label[("proc-v23", predictor)]
+        assert opened.digest == PROC_V23_PREDICTOR_DIGESTS[predictor] != closed.digest
+        assert opened.opens.at == v23
+
+
+def test_proc_v24_closes_every_predictor_window_and_opens_one_for_each() -> None:
+    """proc-v24's registry shape, as the freeze record's proc-v24 entry registers it.
+
+    proc-v24 edits both prompts and moves the codex engine's default model, so
+    all six digests move. Each predictor's proc-v23 window closes at the
+    proc-v24 instant, and a proc-v24 window opens there for each live digest.
+    Pending rows compare by their null instants until the merge stamps them.
+    """
+    v24 = _label_since("proc-v24")
     live = _live_predictor_digests()
     rows = process_version._REGISTRY.windows
     by_label = {(w.label, w.predictor_id): w for w in rows}
-    for predictor, digest in live.items():
-        closed = by_label[("proc-v21", predictor)]
-        assert closed.digest == PROC_V21_PREDICTOR_DIGESTS[predictor]
-        assert closed.closes is not None and closed.closes.at == v23
-        opened = by_label[("proc-v23", predictor)]
-        assert opened.digest == digest != closed.digest
-        assert opened.opens.at == v23 and opened.closes is None
-    assert len(rows) == 42
+    for predictor, digest in PROC_V23_PREDICTOR_DIGESTS.items():
+        closed = by_label[("proc-v23", predictor)]
+        assert closed.digest == digest
+        assert closed.closes is not None and closed.closes.at == v24
+        opened = by_label[("proc-v24", predictor)]
+        assert opened.digest == live[predictor] != closed.digest
+        assert opened.opens.at == v24 and opened.closes is None
+    assert len(rows) == 45
 
 
 def test_the_counting_registry_is_well_formed() -> None:

@@ -21141,3 +21141,571 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('decision-below-consolidated-search' in {b.name for b in H})"`
     prints `True`.
+- **The blinding identity scrub masks the codex cell account's name,
+  2026-11-18.** A **masking-surface** entry. No freeze commit: no prompt
+  byte, registry field, stamp or score moves.
+
+  **Why no label bump and no harness-boundary row.** No digest moves, so a
+  label bump would partition nothing: the six digests read the same before
+  and after this change (`fedcourts process-digest --all`). The boundary
+  registry (`process_version.HARNESS_BOUNDARIES`) registers changes to what
+  a predict cell reads and splits predictor cells only, and no predict cell
+  reads anything different. The change is dated by this entry and by the
+  carrying merge below.
+
+  **The change.** `blinding.identity_terms` gains the accounts a workflow runs
+  an engine's cell as (`blinding.CELL_ACCOUNT_TERMS`, today `codexcell`, the
+  `codex-user` input of the codex account setup action). The staged copy of a
+  prediction (`record/blinded/<alias>/`) therefore carries
+  `[redacted:identity]` where the committed file carries that account name,
+  in the prose, `retrieval.md` and the transcript's strings. The committed
+  predictor files are not rewritten. A test holds the list to the values the
+  workflows pass, so a renamed or added account fails the suite until it is
+  listed.
+
+  **Why it passed before.** The scrub matches a term only where no letter
+  follows it, so the family word `codex` inside `codexcell` did not match,
+  and a predictor's notes that quoted its own home path
+  (`/home/codexcell/.cache/…`) were staged with the account name legible.
+  The account is fixed per engine, so it names the candidate's engine to a
+  grader. `claude-judge` flagged it in evaluate run `20261117T154407Z` on
+  `scotus/9026000369`; the flag is in that run's roll-up on the
+  agent-feedback issue, not in a committed file.
+
+  **Population**, over the committed predictor files a staging reads
+  (`prediction.json`, the two prose documents, `retrieval.md` and
+  `retrieval_log.json`; 11,398 files) at `staging` `77e2d3a53`, whose data is
+  `main`'s as of that sync: **37** files carry the account name, every one a
+  `codex-baseline` `retrieval.md`, from run `20261029T142045Z` through
+  `20261116T143731Z`, out of 831 committed `codex-baseline` prediction runs.
+  Run through the scrub before this change, all 37 keep it; after it, none
+  carries `codex` in any spelling, and no other file's scrubbed text differs.
+  **8** committed gradings name one of those runs as their
+  `prediction_run_id` (4 predictions; 4 by `claude-judge`, 4 by
+  `gemini-judge`). They stay as graded: nothing is re-scored, de-counted or
+  set aside, and the count is stated so a reader of `reasoning_quality` on
+  those cells knows the candidate's account was legible when the grade was
+  formed. A staging takes each predictor's latest prediction on an event, so
+  one of the 37 runs that is still its event's latest `codex-baseline` run
+  when it is graded after the carrying merge is graded from the masked copy.
+
+  **Evaluate cells are dated by this entry, not partitioned.** An evaluate
+  cell provisioned after the carrying merge reads the narrower text under the
+  same evaluator digests. The evaluate prompt tells a judge that the staged
+  text has had "predictor ids, evaluator ids, and engine/model names"
+  replaced. The account name is not on that list by its own class, and it
+  embeds an engine name, so before this change the staged copy fell short of
+  that sentence and after it the sentence holds for this spelling. No prompt
+  byte is edited and no amendment debt is added.
+
+  **The un-aliasing count.** The names-present count in a cell's
+  `blinding.json` reads the same term set, so the account name is counted
+  where a judge writes it, less a judge's own: a judge whose engine runs as
+  that account (`codex-judge`) may quote its own home path, and its own
+  account is left out as its own id, engine and model are. No committed
+  evaluation file carries the account name at this commit.
+
+  **What the change does not reach.** The shared runner account every other
+  engine runs as is left legible, since it is the same for all of them. A
+  home path of an account the workflows do not name is not masked by shape.
+  The residual routes the module docstring of `fedcourtsai.blinding` lists
+  (the recomputable permutation, the checkout's history, the call-class
+  profile, the query slice, style) are unchanged.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_blinding.py -k "cell_account"` is green;
+  - on `main` once the promotion has merged, `uv run python -c "from pathlib
+    import Path; from fedcourtsai import blinding as b; p =
+    b.scrub_pattern(b.identity_terms(Path('config')));
+    print(b.scrub_text('/home/codexcell/.cache/x', p))"` prints
+    `/home/[redacted:identity]/.cache/x`;
+  - in the artifact of the first evaluate cell after the promotion that
+    grades a `codex-baseline` prediction whose committed `retrieval.md`
+    carries `codexcell`, a search of `record/blinded/` for `codexcell`
+    returns nothing.
+
+- **`proc-v24`, the Codex pair moves to `gpt-6.2-astra`, and the packs and
+  both prompts state their counts as stored rows; recorded 2026-11-18.**
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v24`**. Registered under the merge-stamped rule, so its
+  counting instant, its six bless moments and every window edge it moves are
+  the carrying merge's committer time. Both prompts change and one engine's
+  default model changes, so all six digests move. No harness boundary is
+  registered here: the changes are to the prompts and a model, and the label
+  is their boundary. No committed prediction or grading is re-stamped and no
+  scored value is recomputed.
+
+  **What changes.**
+  - *The Codex pair's model.* `pricing.DEFAULT_MODELS["codex"]` moves from
+    `gpt-6.1-sol` to `gpt-6.2-astra`, which `codex-baseline` and
+    `codex-judge` both run. Its `MODEL_RATES` row is $8 / $40 per million
+    input / output tokens with cached input at $0.40, four times
+    `gpt-6.1-sol`'s row in every bucket.
+  - *The Codex CLI pin.* `engines/codex` moves from 0.169.0 to 0.169.1, the
+    first release whose bundled model catalog carries `gpt-6.2-astra`. The
+    pin is not a digest input; it is disclosed here because the CLI ships
+    its own per-model instructions and context settings, which a cell under
+    this label runs with. That catalog gives `gpt-6.2-astra` a
+    272,000-token context window against `gpt-6.1-sol`'s 500,000 and the
+    same default reasoning level, `low`; no cell sets a reasoning level of
+    its own.
+  - *Both prompts, the packs' counts.* The predict prompt (two passages) and
+    the evaluate prompt (one) described the statpack's cert figures as
+    denial-reweighted estimates. They now say the figures are counts of
+    stored rows, each row counted once, which is what every reader has
+    computed since the entry above headed *Every reader counts a stored row
+    once*. The statpack and docket pack are rendered to match in the same
+    change: every section's scope line says its counts are stored rows, each
+    counted once, and **every denominator is printed `n=`** where a section
+    flagged `weighted` printed `est. n=`. That label is the one a judge
+    transcribes a base-rate denominator from. The value under it is
+    unchanged. The markdown headings and every JSON field name
+    (`weighted_resolved` and the rest) are unchanged.
+  - *Both prompts, a cert cell's `correct`.* The evaluate prompt said
+    `correct` is an exact match on the label. It now states the two cert
+    readings the scorer applies, each registered by its own entry above:
+    `granted-in-part` reads as `granted`, and a `summary-reversal` call is
+    correct where the outcome's `disposition_route` is `summary-merits` (or
+    its label is itself `summary-reversal`). The predict prompt's
+    description of the cert `predicted_disposition` field states the same
+    rule. The scorer is unchanged.
+  - *Unchanged.* The claude and gemini pairs' models, their engine CLI pins
+    and every agent's configuration.
+
+  **Why.** The maintainer chose on 2026-11-18 to put the codex pair on its
+  vendor's flagship model, as the claude and gemini pairs were put on theirs
+  at `proc-v21`. No score motivates the move, and no back-test comparison
+  of `gpt-6.1-sol` against `gpt-6.2-astra` preceded this registration. The
+  prompt rewordings were held for a label that was moving for another
+  reason, so that a wording correction did not close three windows by
+  itself; this is that label.
+
+  **Pre-registered.** No direction of skill movement is predicted for any
+  predictor. Across this label `codex-baseline` changes model, CLI release
+  and prompt together, so a movement in its window is not split among them.
+  `claude-baseline` and `gemini-baseline` change only by the prompt
+  rewording, which changes the description of figures and of a scoring rule
+  and no figure or rule (the pack they read is re-rendered at the first
+  metrics refresh after the carrying merge, not at this label's instant, as
+  the amendment paragraph below states), and a movement in **either** direction across this
+  label in their windows is not read as an effect of the rewording. The
+  judge-authored grades (`reasoning_quality`, `predicted_reasoning_quality`,
+  and a claim a judge grades) from `codex-judge` are made by a different
+  grader model from this label on, one more that its series pools, so a
+  per-rubric reading
+  of that judge across this label compares graders as well as candidates.
+  A change in how often a judge writes `est. n=` in a transcribed base rate
+  is the label's renaming, not a change in what was read.
+
+  **What is not verified at registration.** No cell has run on
+  `gpt-6.2-astra` under this project's key and pinned CLI. That the model is
+  served to Codex CLI 0.169.1 on the production key, and at what rate
+  limit, is owed to the codex `engine-smoke` legs of the `integration-test`
+  suite, run from `staging` or the promotion candidate before the carrying
+  merge, and to the `served_models` their usage records. The model's
+  release and its price rest on press reports that agree with each other;
+  the vendor's own pages were unreachable from the session that registered
+  this label, and one aggregator lists a higher rate above 272,000 prompt
+  tokens, which the rate row does not carry. The model id is first-party:
+  it is read from the 0.169.1 package's bundled catalog. A leg that shows
+  the id unserved means this label is re-registered without the model move
+  before it is carried. Checked locally at 0.169.1, against the same checks
+  at 0.169.0: the four protected sandbox paths are the same four and the
+  sandbox starts in the cell posture; the exec-policy rules still forbid
+  `pip install` and leave `uv run fedcourts` unmatched; `codex login
+  --with-api-key` does not echo the key; and the code-mode literals the
+  retrieval parser keys on are present unchanged. A real rollout's item
+  shapes are owed to the same smoke.
+
+  **What it costs.** Token for token at Astra's rate, the `gpt-6.1-sol`
+  cells on `main` at `f3754248d` (266 prediction runs and 83 grading runs
+  from 2026-10-20 on, $175.30 in all) come to $701.20: a mean of about
+  $2.08 a prediction against $0.52 and $1.78 a grading run against $0.44.
+  Nearly all of those cells ran on Codex CLI releases before 0.169.0, so the
+  repricing assumes the model and the CLI release both leave token counts
+  where they were, which the smaller context window may not.
+  The codex planning rates rise with the move, to $3.00 and $2.20, the 90th
+  percentile of those repriced cells rounded up. `docs/budget.md` carries
+  the projection.
+
+  **The amendment debt.** Three are paid: the wording the entries headed
+  *Every reader counts a stored row once*, *On a cert cell `correct` reads
+  `granted-in-part` and `granted` as one label* and *On a cert cell `correct`
+  reads a `summary-reversal` call against the outcome's route* left in the
+  prompts. This entry adds no new token. `metrics/statpack.md` and `metrics/docket.md` carry the
+  earlier wording until the first metrics refresh after the carrying merge
+  regenerates them; a cell that reads the pack before then reads `est. n=`
+  under a prompt that no longer names it, and the value it reads is the
+  same row count.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v24`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'denial-reweighted' .github/prompts/predict.md
+    .github/prompts/evaluate.md` on `main` prints 0 for each (2 and 1 on
+    `proc-v23`);
+  - on the first predict run's collect PR after the carrying merge, a
+    `codex-baseline` `prediction.json` carries `"model": "gpt-6.2-astra"`
+    with the `proc-v24` digest below and its `usage.json` lists
+    `gpt-6.2-astra` alone in `served_models` with `engine_version`
+    `0.169.1`, and on the first evaluate run's the same holds for
+    `codex-judge`;
+  - after the first metrics refresh following the carrying merge, `grep -c
+    'est\. n=\|reweighted' metrics/statpack.md metrics/docket.md` prints 0
+    for each.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v24`, run 2026-11-18 over `staging` at `eb4a0d0ce` with `proc-v23`
+  stamped). Six digests move.
+
+  | Actor | Before | `proc-v24` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138` (`proc-v23`) | `sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4` (new) |
+  | `codex-baseline` | `sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319` (`proc-v23`) | `sha256:76886de4c60736d0541ca7743006913ed195947a5292e0db628b90833d9ed987` (new) |
+  | `gemini-baseline` | `sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3` (`proc-v23`) | `sha256:b4d3cf9384ea19f0ebd20a314ded6bfb6cad288a64f969b148cf832a2a3d2f32` (new) |
+  | `claude-judge` | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (`proc-v22`, `proc-v23`) | `sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5` (new) |
+  | `codex-judge` | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (`proc-v22`, `proc-v23`) | `sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022` (new) |
+  | `gemini-judge` | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (`proc-v22`, `proc-v23`) | `sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf` (new) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `f3754248d` (`2026-11-18T15:11:21Z`), committed files under `data/cases`
+  naming each retiring digest: 23, 22 and 23 for the `proc-v23` predictor
+  digests of `claude-baseline`, `codex-baseline` and `gemini-baseline`, and
+  120, 21 and 114 for the evaluator digests of `claude-judge`, `codex-judge`
+  and `gemini-judge`. Those evaluator files are gradings made under the
+  rubric text the replaced digests name; an evaluator digest records and
+  never partitions, so they keep counting on their timing, and each judge's
+  series pools across this label.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the six newly
+  blessed digests, and **4448** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`e266abac…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
+  | `codex-baseline` (`b1048550…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
+  | `gemini-baseline` (`5b3e9ae5…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
+  | `claude-baseline` (`6a8149a0…`) | `proc-v24` | this label's instant | open (new) |
+  | `codex-baseline` (`76886de4…`) | `proc-v24` | this label's instant | open (new) |
+  | `gemini-baseline` (`b4d3cf93…`) | `proc-v24` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them, and the registry
+  holds 45 windows where it held 42. The earliest-window rule is unchanged:
+  on an event a `proc-v23` cell already forecast, that cell stays the
+  counted forecast, and this entry declares no re-prediction.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-19T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `f3754248d`. `uv run fedcourts successor-disclosures --closed proc-v23
+  --successor proc-v24`:
+
+  ```
+  successor proc-v24 closes proc-v23 at 2026-11-19T00:00:00+00:00
+    closed proc-v23 gemini-baseline: 23 counted event(s) — 1 resolved, 22 pending at close
+    closed proc-v23 codex-baseline: 22 counted event(s) — 0 resolved, 22 pending at close
+    closed proc-v23 claude-baseline: 23 counted event(s) — 1 resolved, 22 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v23` window figure is quoted outside the committed
+  board.
+
+- **A predict cell also stages the petition a VIDED party filing ties to its
+  own under `record/related/`; recorded 2026-11-18.** A
+  **provisioning-cutoff** change with a harness boundary, recorded ahead of
+  the promotion that carries it. It extends the 2026-11-06
+  `vided-amicus-related-dockets` entry, which is not otherwise edited.
+
+  **Why.** In predict run `20261118T010747Z` the `claude-baseline` cell on
+  26-142 (`scotus/9026000142`) flagged that the brief in opposition answers
+  Nos. 26-141 and 26-142 together while no `record/related/` was staged. Read
+  from the content store on 2026-11-18: each docket carries one entry marked
+  `VIDED`, a brief in opposition dated 2026-10-30, neither lists a `Vide`
+  link, and the two entries are worded differently, each for its own docket's
+  caption. The VIDED read keyed amicus filings only, by the entry's text, so
+  it keyed neither entry, and a key on the text would not have matched them.
+  Both dockets name the same case below, ca2 `24-644`.
+
+  **What moved.** `pipeline.vided.vided_keys` reads a second kind of key
+  beside the amicus one. A proceedings entry that ends `VIDED`, says `filed`
+  and is not an amicus filing keys as `<ISO date>|<lower court>|<lower-court
+  number>`, one key for each number the docket's `LowerCourtCaseNumbers`
+  lists under its `LowerCourt`, each folded as an amicus key's text is. Two
+  dockets share such a key only where both took a VIDED party filing on one
+  day and both name that court and number below; the entry's wording plays no
+  part. A docket naming no court below or no number keys no party filing,
+  and a VIDED entry that does not say `filed` (an argument setting, a bare
+  grant, a judgment) is not keyed; the Court's action on a filed motion says
+  it and keys as the motion does, which the tie to the case below makes
+  harmless. The keys ride the same column
+  (`cases.vided_amicus`), the same partial index and the same read
+  (`corpus.vided_companions`, `provision.read_vided`), asked with the keys of
+  the **placed** snapshot, so a cell placed at a cutoff asks only about the
+  filings its own docket showed by then. A companion found through a party
+  key reads `vided-party` in `related.json`
+  (`pipeline.vided.companion_relation`), whether or not it shares an amicus
+  brief as well, and is read before a `vided-amicus` one within the unchanged
+  four-docket bound. `shared_briefs` counts filings: each shared amicus
+  brief, and each day on which both dockets took a VIDED party filing,
+  whatever number of lower-court numbers they share. A shared lower-court
+  number alone stages nothing.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
+  and the six digests the `proc-v24` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut: the pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect. Two things move for a figure that selects `vided-amicus` rows
+  across this boundary: a companion that shares an amicus brief and a party
+  key reads `vided-party` after it, with a `shared_briefs` one higher for
+  each shared party-filing day, and a `vided-party` companion read first can
+  take the room an amicus candidate had under the four-docket bound.
+  - **The registry row** is `vided-party-related-dockets`. It applies to
+    every predictor and its reach is `all`, because no narrower registered
+    reach names these dockets, so a figure reading its own effect selects
+    them by `related.json`. It is **gradual**: the column is written by the
+    live poll's cert branch at ingest, so a companion is found only once both
+    dockets have been polled after the carrying merge. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket and its companion were both re-polled stages none, so the
+    after-side `n` is an upper bound on exposure.
+
+  **The population.** `CHECK_SUMMARY=<file> uv run python
+  scripts/checks/vided_party_census.py`, read-only over blob
+  `fc208a4d386ca5791f6492b4c196b00872ce95413135551a195441069f6f1890` (newest
+  pull 2026-11-18, newest stored snapshot row 2026-07-13) with payloads from
+  the per-case content store, keying each docket's latest snapshot as the
+  column will hold it once re-polled. Of the live-polled OT2023 to OT2026
+  cert dockets, 1,964 share a lower-court number with another, in whatever
+  court, and were read, none without a snapshot. 96 carry a party key, and 43
+  pairs over 77 dockets share one. The Court links 32 of those pairs as
+  `Vide` on at least one of the two dockets; a cell on a docket that lists
+  the link reads it as such and the VIDED read skips it. Of the other 11, six share an amicus key
+  too, so their rows were `vided-amicus` candidates and read `vided-party`
+  from here. Five pairs are found by the party key alone: 23-726 and 23-727,
+  23-1229 and 23-1230, 24-582 and 24-612, 24-656 and 24-657, and 26-141 and
+  26-142. Only the last has no disposition. The `Vide` test reads each
+  docket's latest snapshot and counts a link listed on either docket, so a
+  cell placed before the Court added a link, or on the docket of a pair that
+  does not list it, can stage a `vided-party` row that the count above files
+  under `Vide`. No
+  pair was read by hand for whether the two petitions are in fact
+  companions; the tie is the case below, which the Court's own docket
+  states.
+
+  **What the change does not reach.** A docket whose snapshot names no court
+  below, or whose companion lists the case below under a number the two do
+  not share, keys nothing in common. A companion whose party filing was
+  entered on a different day, or was not marked `VIDED` on one of the two
+  dockets, is not found. The column is written on the cert branch alone, so
+  an application docket is never found as a companion.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. `context.vide_links` still lists the Court's
+  own links alone, so the leaderboard's linked stratum is unchanged. No skill
+  movement is predicted, and a movement in **either** direction across this
+  boundary may not be read as a model effect.
+
+  **The amendment debt.** One is added. The predict prompt names two
+  relations, `Vide` and `vided-amicus`. It describes the second as a shared
+  amicus brief, says `shared_briefs` counts briefs, and attaches "a
+  candidate, not the Court's link" and "read the docket before you treat it
+  as a companion" to `vided-amicus` by name. `vided-party` is a third
+  relation it does not name, so until the sentence lands a cell meets a
+  staged docket whose relation the prompt does not describe, and its
+  statement that an absent `record/related/` means no shared brief was found
+  is narrower than the read now made. Naming the relation moves the three
+  predictor digests. It cannot ride `proc-v24`, whose digests are registered
+  and pending, since `register-process` refuses a second label per
+  promotion; it is owed to the re-bless after that one.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_vided.py tests/test_related_dockets.py` is
+    green;
+  - where the corpus is pulled once the live poll has re-read 26-141 and
+    26-142 after the promotion, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000142 --event evt-petition-disposition` prints
+    `26-141 [vided-party x1]` on its `related` line, for as long as the Court
+    has not linked the two as `Vide`;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('vided-party-related-dockets' in {b.name for b in H})"` prints
+    `True`.
+- **The opinion that follows a judgment entered by order is read as the
+  decision below; recorded 2026-11-18.** A **provisioning** change with a
+  harness boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** A predict-cell flag in run `20261118T010747Z` on
+  `scotus/9026000142` (26-142) said no `decision-below.txt` was staged and
+  `lower-court-docket.txt` said CourtListener holds no opinion on the
+  judgment date. The SCOTUS docket names a judgment of 2025-06-18, which the
+  flag reads as an order; CourtListener docket 68985738 (ca2
+  `24-644`) carries clusters dated 2025-08-08, 2025-09-08 and 2026-04-29, the
+  last on the rehearing-denial date the SCOTUS docket states. Read against
+  CourtListener and the case store on 2026-11-18, the flag has two causes:
+  - The case's rows were stored on 2026-11-03, before the
+    `decision-below-later-opinions` boundary, when only a cluster on the
+    judgment date was read. Its stamp keeps it out of the rotation until
+    2026-12-03. A dry run of the fill at `staging` `a82cd82ba`, without this
+    change, already stores a `decision-below` row for it holding all three
+    opinions, so the missing file is the earlier rows, not a rule that
+    refuses the opinion.
+  - What that walk would store still misdescribes the case. The join reports
+    `no_cluster_on_date`, the record says "Opinion on the judgment date: none
+    on CourtListener" and lists the 2025-08-08 opinion as one of three later
+    clusters, and the opinion's header says only that it was filed after the
+    judgment. Nothing tells a cell that it is the court's opinion on that
+    judgment. The opinion read cap also holds no read for it: with no
+    cluster on the judgment date the cap falls on the oldest cluster first,
+    so an order on rehearing published with three writings would leave the
+    opinion unread.
+
+  **What moved.** In `pipeline.decision_below`, where no row, found by number
+  or by the opinion search, carries a cluster on the judgment date:
+  - The earliest cluster dated after the judgment date and on or before the
+    SCOTUS docketing is marked `follows_judgment`, with any other cluster of
+    that date, unless the SCOTUS docket states a rehearing denial on or
+    before that date, when the cluster is a writing on rehearing and nothing
+    is marked. No day window is set beyond those two bounds. Without a
+    served docketing date no later cluster is read, so none is marked.
+    Nothing is marked either where a cluster list ran past one page or a
+    request of the opinion search was refused or failed, since the judgment
+    date was then not shown to hold no opinion; such a case stays
+    `no_cluster_on_date` with its later clusters read and stored.
+  - A case with a marked cluster is `matched`, and its reason says no cluster
+    is dated on the judgment date and names the date of the one read in its
+    place.
+  - One opinion read is held for the marked cluster, as one is for a
+    judgment-date cluster, under the unchanged `MAX_OPINIONS` cap.
+  - The marked opinion's header in the `decision-below` row says it is the
+    earliest opinion after the judgment the SCOTUS docket names, which has
+    none of its own on CourtListener. The docket record lists the cluster as
+    "Opinion cluster", keeps the line that the judgment date holds none, and
+    adds a line naming the cluster as the one read as the court's opinion on
+    a judgment it entered by order, "an inference from the dates, to be
+    checked against the petition's appendix".
+  - No request is added: the clusters were already listed and read. The
+    opinion search still runs first, since a cluster on the judgment date on
+    a consolidated row outranks an inference from dates.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
+  and the six digests the `proc-v24` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `decision-below-opinion-follows-order`. It
+    applies to every predictor, and its reach is `all`, because no narrower
+    registered reach names petitions from the federal courts of appeals. It
+    is **gradual**: a stored row changes only when the fill walks its case,
+    on arrival or once its stamp is 30 days stale. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier rows, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `95439295c26d483bc3c8b28bd932b51a01214388f47ec25205d59997fed7129f` (newest
+  pull 2026-11-18, newest stored snapshot row 2026-07-13; `staging`'s
+  pointer, which differed from `main`'s that day) and the case store on
+  2026-11-18:
+  402 cases carry a fill stamp, 388 hold a `lower-court-docket` row and 334 a
+  `decision-below` row. 54 of the 388 records say the judgment date holds no
+  opinion, and 52 of those cases hold no `decision-below` row. 26 of the 54
+  were stored on or after 2026-11-11, the day a record began to list later
+  clusters: 2 list one, both dated before any stated rehearing denial, so
+  both would be marked on the stored rows' dates (`scotus/72475426` and
+  `scotus/9026000522`; neither was read again upstream), and 24
+  list none, though a row stored that day before the promotion merged would
+  list none either way. The other 28, 26-142 among them, were stored before
+  that day and list no later cluster either way, so how many of them have
+  this shape is not known from the stored rows; each is walked again once
+  its stamp is 30 days stale, which the last reaches by 2026-12-10, and the
+  rotation's case cap can hold a stale row longer. CourtListener was read for 26-142
+  and its companion 26-141 only. With this change 26-142 is `matched` on
+  cluster 10650428 (2025-08-08) with all three clusters read, and 26-141,
+  whose SCOTUS docket names the 2025-09-08 judgment, is `matched` on cluster
+  10667729 as before with nothing marked.
+
+  **What the change does not reach.** The rule reads dates, not the
+  documents: where CourtListener lacks the opinion a court did file on its
+  judgment date and holds a later amended opinion filed before any stated
+  rehearing denial, the amended opinion is marked, and the record's line
+  says the reading is an inference. Where the SCOTUS docket states no
+  rehearing denial, a writing on a denial it left out is marked the same
+  way. A case whose rows predate this change keeps them until the fill walks
+  it again, and no walk is brought forward: 26-142's three predictors
+  forecast `evt-petition-disposition` on 2026-11-18 without the opinion.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The match rate's definition moves.** `matched` now counts a case whose
+  opinion was read by this rule beside one with a cluster on the judgment
+  date, so a rate printed after the carrying merge is not comparable with
+  one printed before it (the 18 of 35 `document-provisioning.md` quotes
+  among them). The report's counts are keyed by status alone; the inferred
+  share is read per case from `follows_judgment`. It is a monitoring figure
+  and no board reads it.
+
+  **The amendment debt.** One is added. The predict prompt says
+  `decision-below.txt` holds "that court's opinion on its judgment date"
+  and, "where the court issued one, a later opinion in the same case under
+  its own dated heading: an amended opinion, or a writing on the denial of
+  rehearing". A row whose opinion was read by this rule holds no opinion
+  dated on the judgment date, and its marked opinion is neither of the two
+  kinds named. The opinion's own header says what it is, and the prompt's
+  instruction to check the opinion against the petition still binds, but the
+  sentence is outgrown. Correcting it moves the three predictor digests, so
+  it is owed to the next re-bless.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-142` prints one `matched` case whose cluster dated 2025-08-08
+    has `follows_judgment` true, while CourtListener still holds no cluster
+    dated 2025-06-18 on that docket;
+  - once the fill has walked `scotus/9026000142` again after the promotion
+    (its stamp goes stale on 2026-12-03), the case holds a stored
+    `decision-below` row, and its `lower-court-docket` row carries the line
+    "The earliest opinion filed after it is cluster 10650428";
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('decision-below-opinion-follows-order' in {b.name for b in H})"`
+    prints `True`.

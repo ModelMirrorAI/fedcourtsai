@@ -385,8 +385,8 @@ jobs:
             # a maintainer judging the hold needs the number in front of them; a
             # re-anchor of that table moves this line too, and a test holds the two
             # together.
-            bt_cost=$(awk -v n="$BT_LIMIT" 'BEGIN { printf "%.0f", n * 8.95 }')
-            printf 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. At the shipped predict rates as pinned in the planning rate table ($4.27 claude-code + $1.88 codex + $2.80 gemini, about $8.95 an event across the three engines), %s petitions is on the order of $%s; the off-ledger spend record this run leaves (`fedcourts off-ledger-spend-report`) measures what it actually spent. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.\n' \
+            bt_cost=$(awk -v n="$BT_LIMIT" 'BEGIN { printf "%.0f", n * 12.57 }')
+            printf 'Nothing has spent yet. Releasing the `review` hold below is what spends: up to the limit above x the routable predictors, one cert cell each. At the shipped predict rates as pinned in the planning rate table ($4.27 claude-code + $3.00 codex + $5.30 gemini, about $12.57 an event across the three engines), %s petitions is on the order of $%s; the off-ledger spend record this run leaves (`fedcourts off-ledger-spend-report`) measures what it actually spent. Declining the hold, or letting it expire, is a skipped fortnight — a first-class outcome of this lane, and the digest states the standing vintage either way.\n' \
               "$BT_LIMIT" "$bt_cost"
             echo ""
             echo 'One operational consequence of leaving this pending: a run waiting on a hold counts as an in-flight back-test for the promotion gate'"'"'s quiescence check, so a parked fortnight blocks promotions until it is released or declined.'

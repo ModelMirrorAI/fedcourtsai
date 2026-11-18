@@ -353,6 +353,58 @@ def test_docket_entries_start_at_a_cursor_and_hand_over_each_page() -> None:
     assert not capped.complete and [following for _, following in handed] == ["1", None]
 
 
+def test_docket_entries_ask_again_without_document_text_for_a_page_that_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A page that outlasts the resends is re-asked lighter, and so are the pages after it."""
+    get: Any = CourtListenerClient._get  # tenacity attaches the Retrying as `.retry`
+    monkeypatch.setattr(get.retry, "sleep", lambda _seconds: None)
+    seen: list[dict[str, str]] = []
+    drop_omit_from_link = False
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        seen.append(params)
+        index = int(params.get("cursor", "0"))
+        light = "omit" in params
+        if index >= 1 and not light:
+            raise httpx.ReadTimeout("The read operation timed out", request=request)
+        omit = "&omit=recap_documents__plain_text" if light and not drop_omit_from_link else ""
+        nxt = f"{_ENTRIES}?cursor={index + 1}&docket=7{omit}" if index < 2 else None
+        return httpx.Response(200, json={"next": nxt, "results": [{"id": index}]})
+
+    client = _client(httpx.MockTransport(handle))
+    events: list[str] = []
+    read = client.docket_entries(
+        7,
+        max_pages=10,
+        on_request=lambda: events.append("request"),
+        on_text_dropped=lambda: events.append("dropped"),
+    )
+    assert (read.pages, read.complete, read.pages_without_text) == (3, True, 2)
+    assert [e["id"] for e in read.entries] == [0, 1, 2]
+    # One request a page, the callback before the second request for page 1.
+    assert events == ["request", "request", "dropped", "request", "request"]
+    light = {"docket": "7", "omit": "recap_documents__plain_text"}
+    assert seen == [
+        {"docket": "7"},
+        *[{"docket": "7", "cursor": "1"}] * 4,
+        {**light, "cursor": "1"},
+        {**light, "cursor": "2"},
+    ]
+
+    # Without the callback a timeout fails the read, with no lighter request.
+    seen.clear()
+    with pytest.raises(httpx.ReadTimeout):
+        client.docket_entries(7, max_pages=10)
+    assert len(seen) == 5 and all("omit" not in p for p in seen)
+
+    # A next link that drops the omission asks another question, and is refused.
+    drop_omit_from_link = True
+    with pytest.raises(ValueError, match="asks another question"):
+        client.docket_entries(7, max_pages=10, cursor="1", on_text_dropped=lambda: None)
+
+
 def test_docket_entries_date_filter_rides_the_first_page() -> None:
     transport, seen = _cursor_entries(1)
     client = _client(transport)

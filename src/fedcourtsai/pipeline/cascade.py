@@ -350,14 +350,14 @@ def _read_related(
 ) -> dict[str, tuple[provision.RelatedRead, ...]]:
     """Each placed target's related dockets, read as ``provision-snapshot`` reads them.
 
-    Its ``Vide``-linked dockets, then those sharing one of its VIDED amicus
-    briefs, off the payload each target was placed on, after every target is
+    Its ``Vide``-linked dockets, then those sharing one of its VIDED
+    filings, off the payload each target was placed on, after every target is
     placed, on one connection opened only where some target has either.
     """
     linked = {
         event_id: (
             vide_links.vide_docket_numbers(placement.payload),
-            vided.vided_amicus_keys(placement.payload) or [],
+            vided.vided_keys(placement.payload) or [],
         )
         for event_id, placement in placed.items()
         if placement is not None

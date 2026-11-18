@@ -2904,6 +2904,16 @@ gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke -f e
 gh workflow run integration-test.yml --ref staging -f scenario=engine-actions-smoke -f engine=<engine>
 ```
 
+For codex the action smoke is also the first run of the sandbox in the cell's
+posture on the new CLI. `codex-user-setup` ends by running one no-op through `codex sandbox`
+as the cell account, from the read-only checkout root, under the cell's
+permission profile and with the pinned CLI. It does so in the predict and
+evaluate cells exactly as in the smoke, so a release whose sandbox no longer
+starts in that posture (one that protects a path the action does not
+pre-create, say, or that moves the native binary inside its package) fails the
+smoke at that step, and a cell it reaches anyway fails there too, before its
+turn spends anything.
+
 A bump that fails either smoke is reverted on `staging`, or fixed there,
 before a candidate is cut. Skipping the dispatch loses the early warning and
 not the check: a pin is an engine path to the cell-reach classifier, so the
@@ -3761,10 +3771,10 @@ that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
 driven by a sustained *rate* rather than a burst — a capacity knob left
 non-binding, running above the ceiling — does not clear that way: it re-trips
 each cycle, and the fix is the capacity knob or the ceiling, not waiting. The
-shipped ceiling sits above the measured rate of such a regression
-(`config/tracking.yaml`'s `spend` section carries both figures), so that band
-does not trip it at all; the auto-release budget in `config/review-hold.yaml`
-is what stops it running unattended.
+shipped ceiling sits above the auto-release budget in
+`config/review-hold.yaml` (`config/tracking.yaml`'s `spend` section says by
+how much and why), so a regression running between the two does not trip it
+at all; that budget is what stops it running unattended.
 
 On predict, `plan` also builds the round's **same-question lists**
 (`fedcourts same-question-lists`), one per cert-stage cell of the minted matrix,

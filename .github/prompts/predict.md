@@ -397,10 +397,9 @@ line as a floor on egress, not the total. Ask for `--full` only on the
 handful of priors you actually intend to read, not on a broad sweep. For aggregate
 disposition **base-rates**, read the committed `metrics/statpack.md`;
 `fedcourts stats` needs a locally pulled corpus and is not available in your cell.
-Its cert statistics are computed over the live/historical slice with
-denial-reweighted counts (each section's scope line says which population it
-describes), so they estimate the true petition population rather than raw
-ingested rows.
+Its cert statistics are computed over the live/historical slice as counts of
+stored rows, each row counted once (each section's scope line says which
+population it describes).
 If the `DECIDED_BEFORE` environment variable is set, you are replaying a decided
 case as of a past moment (a back-test): pass `--decided-before "$DECIDED_BEFORE"`
 on every `uv run fedcourts query` call so retrieval surfaces only priors that provably
@@ -1163,7 +1162,14 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     mootness/Munsingwear vacatur. Use `summary-reversal` where the Court would
     decide the merits itself, without argument, rather than remanding for
     reconsideration. Both count as grants, as does `granted-in-part`, so set
-    `granted=1` and let `probability` express P(any grant). On a **merits**
+    `granted=1` and let `probability` express P(any grant). The label still
+    decides `correct`: a `summary-reversal` call is right only where the
+    outcome records that route (`disposition_route` is `summary-merits`, the
+    judgment riding the grant order, or the outcome's own label is
+    `summary-reversal`) and wrong on a plenary grant or a GVR,
+    a `gvr` call is right only on a `gvr` outcome, and `granted` and
+    `granted-in-part` are each right on a `granted` outcome whatever its
+    route. On a **merits**
     cell all three fields change meaning — `probability` is P(disturbed),
     `granted` is that same binary, and `predicted_disposition` is `other` (see
     *Stage: merits* above).
@@ -1329,7 +1335,7 @@ forecasting *from*, then give your claim for what follows it.
 
 Read the statpack's **"Cert petitions by relist count (paid scored segment)"**
 and **"by CVSG status (paid scored segment)"** cuts rather than working from
-intuition. Both are denial-reweighted over the population the salience gate
+intuition. Both count stored rows, each once, over the population the salience gate
 actually predicts on, so their levels are yours to use directly — the pooled cuts
 of the same name in the court-facing docket pack include IFP petitions and sit
 well below.

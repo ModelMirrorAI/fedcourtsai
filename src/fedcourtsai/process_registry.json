@@ -129,72 +129,80 @@
         "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v24",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138",
+      "digest": "sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v23",
+      "label": "proc-v24",
       "blessed": {
-        "at": "2026-11-14T15:51:37Z",
-        "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319",
+      "digest": "sha256:76886de4c60736d0541ca7743006913ed195947a5292e0db628b90833d9ed987",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v23",
+      "label": "proc-v24",
       "blessed": {
-        "at": "2026-11-14T15:51:37Z",
-        "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3",
+      "digest": "sha256:b4d3cf9384ea19f0ebd20a314ded6bfb6cad288a64f969b148cf832a2a3d2f32",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v23",
+      "label": "proc-v24",
       "blessed": {
-        "at": "2026-11-14T15:51:37Z",
-        "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+      "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
       "role": "evaluator",
       "actor_id": "claude-judge",
-      "label": "proc-v22",
+      "label": "proc-v24",
       "blessed": {
-        "at": "2026-11-13T17:00:26Z",
-        "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+      "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
       "role": "evaluator",
       "actor_id": "codex-judge",
-      "label": "proc-v22",
+      "label": "proc-v24",
       "blessed": {
-        "at": "2026-11-13T17:00:26Z",
-        "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+      "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
       "role": "evaluator",
       "actor_id": "gemini-judge",
-      "label": "proc-v22",
+      "label": "proc-v24",
       "blessed": {
-        "at": "2026-11-13T17:00:26Z",
-        "merge": "f6441bcdaf6e8c8bc364c2f6048aa8c54c800af5",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -833,7 +841,11 @@
         "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -845,7 +857,11 @@
         "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -855,6 +871,46 @@
       "opens": {
         "at": "2026-11-14T15:51:37Z",
         "merge": "049afb2f5f2eb448773ed20f83b3d2f55e2428d4",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v24",
+      "digest": "sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v24",
+      "digest": "sha256:76886de4c60736d0541ca7743006913ed195947a5292e0db628b90833d9ed987",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v24",
+      "digest": "sha256:b4d3cf9384ea19f0ebd20a314ded6bfb6cad288a64f969b148cf832a2a3d2f32",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -965,6 +1021,15 @@
     "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a": [
       "proc-v22",
       "proc-v23"
+    ],
+    "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5": [
+      "proc-v24"
+    ],
+    "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022": [
+      "proc-v24"
+    ],
+    "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf": [
+      "proc-v24"
     ]
   },
   "harness_boundaries": [
@@ -1373,6 +1438,22 @@
       "name": "decision-below-consolidated-search",
       "merge": "67f0c7ab556c74d8bd1d5ec07cc7aa491f5b6053",
       "at": "2026-11-18T01:17:26Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "vided-party-related-dockets",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "decision-below-opinion-follows-order",
+      "merge": null,
+      "at": null,
       "predictors": null,
       "reach": "all",
       "gradual": true

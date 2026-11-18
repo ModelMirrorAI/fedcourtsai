@@ -28,8 +28,9 @@ def test_gemini_default_model_and_rate() -> None:
 
 
 def test_codex_default_model_and_rate() -> None:
-    assert DEFAULT_MODELS["codex"] == "gpt-6.1-sol"
-    assert MODEL_RATES["gpt-6.1-sol"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
+    # The frontier tier, priced at four times gpt-6.1-sol in every bucket.
+    assert DEFAULT_MODELS["codex"] == "gpt-6.2-astra"
+    assert MODEL_RATES["gpt-6.2-astra"] == ModelRate(8.0, 40.0, cache_read_per_mtok=0.40)
 
 
 def test_superseded_production_models_stay_priceable() -> None:
@@ -37,6 +38,7 @@ def test_superseded_production_models_stay_priceable() -> None:
     # re-recorded old cell (explicit --model) needs the superseded production
     # models to keep their entries.
     assert MODEL_RATES["gpt-6-astra"] == ModelRate(10.0, 50.0)
+    assert MODEL_RATES["gpt-6.1-sol"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
     assert MODEL_RATES["gemini-3.1-pro-preview"] == ModelRate(2.0, 12.0)
     assert MODEL_RATES["gemini-4-argon"] == ModelRate(2.0, 10.0, cache_read_per_mtok=0.10)
     assert "gpt-5.6-sol" in MODEL_RATES

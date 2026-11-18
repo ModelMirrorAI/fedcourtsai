@@ -687,16 +687,23 @@ spend:
   # re-forecast and re-grade campaigns drawing on this same ceiling — is in
   # `src/fedcourtsai/spend.py`.
   #
-  # The derivation above gives $2,500. The value below is that figure plus
-  # $500 of headroom: a long conference's forecast and grading campaign
-  # (~$930 over its three predict days, then daily grading) lifts the trailing
-  # sum toward $2,500 while it sits in the window, and a breach would defer
-  # the cohort's last gradings and every new forward cell with it. The price
-  # is the sustained-regression band: at $3,000 the backstop still stops a
-  # runaway burst within days but no longer trips on a $2.0-2.7K regression;
-  # through one, only the auto-release budget below it
-  # (config/review-hold.yaml) stops rounds running unattended.
-  ceiling_usd: 3000.0
+  # The derivation above gives $2,500, in dollars of the event cost it was
+  # measured at. An event on the current models costs more, projecting to
+  # about $15.80 from 2026-12-01, and an ordinary in-Term
+  # month to about $2,850-3,350 (docs/budget.md, *Scenario 1*), so the value
+  # below is set from that page's figures instead: the $3,000 model-API
+  # envelope, the $3,500 auto-release budget above it
+  # (config/review-hold.yaml), and $500 of headroom above that budget, which
+  # leaves room for the lagging ledger and part of a campaign in the window.
+  # It does not clear a long conference's forecast and grading campaign at
+  # that cost: one sitting in the window on top of a routine month can reach
+  # the ceiling, which defers the cohort's last gradings and every new forward
+  # cell until the window rolls or the ceiling is raised for it. The price is
+  # the sustained-regression band: at $4,000 the backstop still stops a runaway burst within days but
+  # does not trip on a sustained regression below it; through one, only the
+  # auto-release budget (config/review-hold.yaml) stops rounds running
+  # unattended.
+  ceiling_usd: 4000.0
   # The window the ceiling applies over, days. Sized to approximate the billing
   # period being protected, not a run (trailing, so it never aligns exactly
   # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
@@ -777,8 +784,8 @@ courtlistener_budget:
     # watchlist-refresh, the day's first pull window: one onboard leads, then
     # the AI watchlist's dockets at about two requests each once onboarded
     # (incremental reads), with whole reads taking what is left. At least
-    # watchlist_refresh.max_entry_pages + 2 (the entry count, the docket and
-    # the cap's pages), so the lead onboard can finish the longest read the
+    # watchlist_refresh.max_entry_pages + 3 (the entry count, the docket, the
+    # cap's pages and one page asked again without document text), so the lead onboard can finish the longest read the
     # page cap allows. `--once-a-day` keeps later windows
     # from spending it again.
     watchlist: {per_run: 160, runs_per_day: 1}
