@@ -1,16 +1,16 @@
 {
-  "cases": 414,
-  "cases_at_court_next_conference": 27,
+  "cases": 418,
+  "cases_at_court_next_conference": 30,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 378,
+      "cases": 373,
       "n": 3
     },
     {
-      "cases": 34,
+      "cases": 43,
       "n": 2
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1240,
+  "current_reads": 1243,
   "declared_no_view": 27,
   "frozen_process": {
     "digests": [
@@ -370,7 +370,7 @@
     ]
   },
   "median_adjacent_gap": 0.0017,
-  "median_score_range": 0.195,
+  "median_score_range": 0.19,
   "missing_reads": 9,
   "predictors": [
     "claude-baseline",
@@ -521,124 +521,6 @@
       "score_min": 0.94,
       "score_range": 0.03,
       "short_caption": "Grant v. Higgins",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "United States",
-      "caption": "United States v. E. Jean Carroll, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000142",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A sitting President's ~$100M personal defamation liability turns on whether the Westfall Act permits posttrial recertification; the decision would shape the scope-of-office shield for every future President.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "Review would affect presidential tort exposure, the finality of Westfall Act certifications, and a nationally prominent judgment.",
-          "big_case_score": 0.96,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "High-stakes constitutional issue involving the scope of presidential immunity and the Westfall Act.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 9026000142,
-      "docket_number": "26-142",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-142.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A sitting President's ~$100M personal defamation liability turns on whether the Westfall Act permits posttrial recertification; the decision would shape the scope-of-office shield for every future President.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.5,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.65,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "Review would affect presidential tort exposure, the finality of Westfall Act certifications, and a nationally prominent judgment.",
-              "big_case_score": 0.96,
-              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.74,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "High-stakes constitutional issue involving the scope of presidential immunity and the Westfall Act.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.82,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "United States v. E. Jean Carroll, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.9533,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-07-30",
-      "n": 3,
-      "other_party": "Carroll",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.96,
-      "score_min": 0.95,
-      "score_range": 0.01,
-      "short_caption": "United States v. Carroll",
       "status": "pending"
     },
     {
@@ -5965,6 +5847,159 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "United States",
+      "caption": "United States v. E. Jean Carroll, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000142",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Solicitor General asks the Court to wipe out an $83.3M defamation judgment against the sitting President via Westfall Act substitution; enormous public salience, modest doctrinal reach.",
+          "big_case_score": 0.8,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261118T010747Z"
+        },
+        {
+          "big_case_rationale": "DOJ seeks posttrial Westfall Act substitution to extinguish an $83.3M defamation judgment against the sitting President for in-office White House statements alongside companion petition No. 26-141, though the standalone QP turns on a narrow 28 U.S.C. 2679(d)(2) timing posture.",
+          "big_case_score": 0.82,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261118T010747Z"
+        }
+      ],
+      "docket_id": 9026000142,
+      "docket_number": "26-142",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-142.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A sitting President's ~$100M personal defamation liability turns on whether the Westfall Act permits posttrial recertification; the decision would shape the scope-of-office shield for every future President.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.5,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.65,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "Review would affect presidential tort exposure, the finality of Westfall Act certifications, and a nationally prominent judgment.",
+              "big_case_score": 0.96,
+              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.74,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "High-stakes constitutional issue involving the scope of presidential immunity and the Westfall Act.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.82,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. E. Jean Carroll, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Solicitor General asks the Court to wipe out an $83.3M defamation judgment against the sitting President via Westfall Act substitution; enormous public salience, modest doctrinal reach.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-disposition/predictions/claude-baseline/20261118T010747Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-disposition/predictions/claude-baseline/20261118T010747Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20261118T010747Z"
+            },
+            {
+              "big_case_rationale": "DOJ seeks posttrial Westfall Act substitution to extinguish an $83.3M defamation judgment against the sitting President for in-office White House statements alongside companion petition No. 26-141, though the standalone QP turns on a narrow 28 U.S.C. 2679(d)(2) timing posture.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000142/events/evt-petition-disposition/predictions/gemini-baseline/20261118T010747Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000142/events/evt-petition-disposition/predictions/gemini-baseline/20261118T010747Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.38,
+              "run_id": "20261118T010747Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. E. Jean Carroll, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.81,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-30",
+      "n": 2,
+      "other_party": "Carroll",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.82,
+      "score_min": 0.8,
+      "score_range": 0.02,
+      "short_caption": "United States v. Carroll",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Arizona",
       "caption": "Arizona, et al. v. Promise Arizona, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -8325,6 +8360,256 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Owens",
+      "caption": "James Owens, et al. v. The Taliban, et al.",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000294",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether courts must defer to the Executive on 'foreign state' status under the FSIA, with $3.5 billion in frozen Afghan central-bank assets and terrorism-victim judgments (embassy bombings, 9/11 companions) at stake; five-judge en banc dissent below.",
+          "big_case_score": 0.72,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        },
+        {
+          "big_case_rationale": "A merits decision would govern $3.5 billion in frozen Afghan central-bank reserves at the New York Fed and define the boundary between presidential recognition power and independent judicial interpretation under the FSIA.",
+          "big_case_score": 0.82,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        }
+      ],
+      "docket_id": 9026000294,
+      "docket_number": "26-294",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-294.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether courts must defer to the Executive on 'foreign state' status under the FSIA, with $3.5 billion in frozen Afghan central-bank assets and terrorism-victim judgments (embassy bombings, 9/11 companions) at stake; five-judge en banc dissent below.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.36,
+              "run_id": "20261117T214921Z"
+            },
+            {
+              "big_case_rationale": "A merits decision would govern $3.5 billion in frozen Afghan central-bank reserves at the New York Fed and define the boundary between presidential recognition power and independent judicial interpretation under the FSIA.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.31,
+              "run_id": "20261117T214921Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "James Owens, et al. v. The Taliban, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Terrorism-judgment creditors (1998 embassy bombings; 9/11 companions) seeking roughly $3.5 billion of Afghan central bank assets; turns on FSIA immunity versus the Executive's recognition power.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.27,
+              "run_id": "20261116T161636Z"
+            },
+            {
+              "big_case_rationale": "Access to billions in frozen Afghan central-bank assets and the boundary between presidential recognition and judicial sovereign-immunity determinations give this case substantial financial, foreign-relations, and separation-of-powers significance.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.39,
+              "run_id": "20261116T161636Z"
+            },
+            {
+              "big_case_rationale": "A merits decision would define the interplay between presidential recognition under Zivotofsky and foreign sovereign/central-bank immunity under the FSIA while determining whether U.S. terrorism victims can attach $3.5 billion in blocked Afghan central-bank reserves.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261116T161636Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "James Owens, et al. v. The Taliban, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Roughly $3.5B in frozen Afghan central-bank assets sought by 9/11 and terrorism victims, plus a general FSIA question on deference to Executive statements, with a five-judge en banc dissent below.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.27,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Multibillion-dollar terrorism-victim recovery, Afghan central-bank reserves, and the separation of judicial immunity determinations from executive recognition make the stakes unusually high independently of grant likelihood.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.27,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Controls whether terrorism victims can attach $3.5 billion in blocked Afghan central bank reserves at the NY Fed and tests executive recognition power and FSIA immunity after a 5-judge Second Circuit en banc dissent.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261109T171058Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "James Owens, et al. v. The Taliban, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Billions in frozen Afghan central-bank assets sought by terrorism-judgment creditors (9/11 and embassy-bombing victims), plus a separation-of-powers question about executive say over FSIA 'foreign state' status.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Access to $3.5 billion in blocked Afghan central-bank assets for terrorism victims, together with the allocation of sovereign-immunity decisions between courts and the Executive, gives this dispute substantial financial, humanitarian and foreign-relations stakes.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.32,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Roughly $3.5 billion in frozen Afghan central-bank reserves, major FSIA/TRIA statutory questions, and a 5-judge Second Circuit en banc dissent make this a high-stakes foreign-sovereign-immunity and terrorism-victim compensation dispute.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.44,
+              "run_id": "20261109T171058Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "James Owens, et al. v. The Taliban, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.77,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 2,
+      "other_party": "Taliban",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Owens' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Owens' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-17",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.82,
+      "score_min": 0.72,
+      "score_range": 0.1,
+      "short_caption": "Owens v. Taliban",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "N. R.",
       "caption": "N. R., et al. v. Keith M. Ellison, Attorney General of Minnesota, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -9296,156 +9581,29 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Michael James Jackson",
-      "caption": "Michael James Jackson v. Florida",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000076",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Whether the Sixth/Eighth Amendment requires a unanimous jury death recommendation; Florida's 8-4 rule governs one of the nation's most active death-penalty states.",
-          "big_case_score": 0.7,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261111T033130Z"
-        },
-        {
-          "big_case_rationale": "The constitutionality of nonunanimous capital-sentencing determinations has immediate life-or-death consequences and substantial implications for jury authority in Florida and Alabama.",
-          "big_case_score": 0.82,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261111T033130Z"
-        },
-        {
-          "big_case_rationale": "First direct-review constitutional challenge to Florida's 2023 nonunanimous (8-4) capital sentencing statute, raising major Sixth and Eighth Amendment questions over jury unanimity in death penalty sentencing.",
-          "big_case_score": 0.72,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261111T033130Z"
-        }
-      ],
-      "docket_id": 9026000076,
-      "docket_number": "26-76",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-76.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Whether the Sixth/Eighth Amendment requires a unanimous jury death recommendation; Florida's 8-4 rule governs one of the nation's most active death-penalty states.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/claude-baseline/20261111T033130Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/claude-baseline/20261111T033130Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.16,
-              "run_id": "20261111T033130Z"
-            },
-            {
-              "big_case_rationale": "The constitutionality of nonunanimous capital-sentencing determinations has immediate life-or-death consequences and substantial implications for jury authority in Florida and Alabama.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/codex-baseline/20261111T033130Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/codex-baseline/20261111T033130Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.24,
-              "run_id": "20261111T033130Z"
-            },
-            {
-              "big_case_rationale": "First direct-review constitutional challenge to Florida's 2023 nonunanimous (8-4) capital sentencing statute, raising major Sixth and Eighth Amendment questions over jury unanimity in death penalty sentencing.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/gemini-baseline/20261111T033130Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/gemini-baseline/20261111T033130Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.14,
-              "run_id": "20261111T033130Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Michael James Jackson v. Florida"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7467,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-07-16",
-      "n": 3,
-      "other_party": "Florida",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Michael James Jackson's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Michael James Jackson's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.82,
-      "score_min": 0.7,
-      "score_range": 0.12,
-      "short_caption": "Michael James Jackson v. Florida",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Havlish",
       "caption": "Fiona Havlish, et al. v. The Taliban, et al.",
-      "caption_event_id": "evt-order-cvsg-disposition",
+      "caption_event_id": "evt-order-call-for-response-disposition",
       "case_id": "scotus/9026000292",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "About $3.5 billion in blocked Afghan central-bank reserves, 9/11 families' judgments against the Taliban, 31 States as amici, and foreign-policy stakes; the legal question itself (TRIA timing) is narrow.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-cvsg-disposition",
+          "big_case_rationale": "Billions in blocked Afghan central-bank reserves, 9/11 families, 31 States as amici, foreign-policy and recognition stakes; but the legal question is a narrow TRIA timing rule.",
+          "big_case_score": 0.72,
+          "event_id": "evt-order-call-for-response-disposition",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20261116T161636Z"
+          "run_id": "20261117T214921Z"
         },
         {
-          "big_case_rationale": "Billions in Afghan central-bank reserves, compensation for terrorism victims, and the boundary between sanctions enforcement and sovereign-asset protection give a technical timing question substantial national and foreign-policy stakes.",
-          "big_case_score": 0.82,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261116T161636Z"
-        },
-        {
-          "big_case_rationale": "Determines whether 9/11 terrorism judgment creditors can execute under the Terrorism Risk Insurance Act on $3.5 billion in frozen Afghan central-bank reserves at the New York Fed, implicating major financial, foreign-relations, and central-bank custody stakes.",
-          "big_case_score": 0.82,
-          "event_id": "evt-order-cvsg-disposition",
+          "big_case_rationale": "If decided on the merits, this case would govern claims by thousands of 9/11 victims to $3.5 billion in blocked Afghan central-bank reserves under TRIA \u00a7 201(a), implicating major foreign-relations and sanctions equities.",
+          "big_case_score": 0.78,
+          "event_id": "evt-order-call-for-response-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20261116T230623Z"
+          "run_id": "20261117T214921Z"
         }
       ],
       "docket_id": 9026000292,
@@ -9453,6 +9611,42 @@
       "docket_number_source": "case_id",
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-292.html",
       "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Billions in blocked Afghan central-bank reserves, 9/11 families, 31 States as amici, foreign-policy and recognition stakes; but the legal question is a narrow TRIA timing rule.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000292/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000292/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.36,
+              "run_id": "20261117T214921Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, this case would govern claims by thousands of 9/11 victims to $3.5 billion in blocked Afghan central-bank reserves under TRIA \u00a7 201(a), implicating major foreign-relations and sanctions equities.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000292/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000292/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.38,
+              "run_id": "20261117T214921Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Fiona Havlish, et al. v. The Taliban, et al."
+        },
         {
           "actual_disposition": null,
           "event_id": "evt-order-cvsg-disposition",
@@ -9605,10 +9799,10 @@
         }
       ],
       "leakage_suspected": false,
-      "mean_big_case_score": 0.7467,
-      "moment": "evt-order-cvsg-disposition",
-      "moment_opened_at": "2026-11-16",
-      "n": 3,
+      "mean_big_case_score": 0.75,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 2,
       "other_party": "Taliban",
       "outcome_lines": [
         {
@@ -9622,230 +9816,135 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
+      "schedule": [
+        {
+          "date": "2026-12-17",
+          "kind": "response_due"
+        }
+      ],
       "scheduled": null,
-      "score_max": 0.82,
-      "score_min": 0.6,
-      "score_range": 0.22,
+      "score_max": 0.78,
+      "score_min": 0.72,
+      "score_range": 0.06,
       "short_caption": "Havlish v. Taliban",
       "status": "pending"
     },
     {
       "asking_declined": null,
-      "asking_party": "Ashton",
-      "caption": "Kathleen Ashton, et al. v. The Taliban, et al.",
-      "caption_event_id": "evt-order-cvsg-disposition",
-      "case_id": "scotus/9026000293",
+      "asking_party": "Michael James Jackson",
+      "caption": "Michael James Jackson v. Florida",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000076",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "Thousands of 9/11 judgment holders seeking about $3.5 billion in blocked Afghan central bank assets; FSIA/TRIA and recognition-power questions; 31 States as amici on the companion petition. This docket itself asks only for a GVR.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-cvsg-disposition",
+          "big_case_rationale": "Whether the Sixth/Eighth Amendment requires a unanimous jury death recommendation; Florida's 8-4 rule governs one of the nation's most active death-penalty states.",
+          "big_case_score": 0.7,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20261116T161636Z"
+          "run_id": "20261111T033130Z"
         },
         {
-          "big_case_rationale": "Access to billions in Afghan central-bank assets for terrorism judgments implicates victim compensation, sovereign immunity, and the allocation of foreign-relations authority.",
-          "big_case_score": 0.8,
-          "event_id": "evt-order-cvsg-disposition",
+          "big_case_rationale": "The constitutionality of nonunanimous capital-sentencing determinations has immediate life-or-death consequences and substantial implications for jury authority in Florida and Alabama.",
+          "big_case_score": 0.82,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "codex-baseline",
           "process_window": null,
-          "run_id": "20261116T161636Z"
+          "run_id": "20261111T033130Z"
         },
         {
-          "big_case_rationale": "Controls access to $3.5 billion in frozen Afghan central bank reserves for 9/11 terrorism judgment creditors and tests the interplay among Executive foreign-state recognition, FSIA central-bank immunity, and TRIA execution.",
-          "big_case_score": 0.84,
-          "event_id": "evt-order-cvsg-disposition",
+          "big_case_rationale": "First direct-review constitutional challenge to Florida's 2023 nonunanimous (8-4) capital sentencing statute, raising major Sixth and Eighth Amendment questions over jury unanimity in death penalty sentencing.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20261116T161636Z"
+          "run_id": "20261111T033130Z"
         }
       ],
-      "docket_id": 9026000293,
-      "docket_number": "26-293",
+      "docket_id": 9026000076,
+      "docket_number": "26-76",
       "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-293.html",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-76.html",
       "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-cvsg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Thousands of 9/11 judgment holders seeking about $3.5 billion in blocked Afghan central bank assets; FSIA/TRIA and recognition-power questions; 31 States as amici on the companion petition. This docket itself asks only for a GVR.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.37,
-              "run_id": "20261116T161636Z"
-            },
-            {
-              "big_case_rationale": "Access to billions in Afghan central-bank assets for terrorism judgments implicates victim compensation, sovereign immunity, and the allocation of foreign-relations authority.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.32,
-              "run_id": "20261116T161636Z"
-            },
-            {
-              "big_case_rationale": "Controls access to $3.5 billion in frozen Afghan central bank reserves for 9/11 terrorism judgment creditors and tests the interplay among Executive foreign-state recognition, FSIA central-bank immunity, and TRIA execution.",
-              "big_case_score": 0.84,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.25,
-              "run_id": "20261116T161636Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-relist-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "About $3.5B in Afghan central-bank reserves, 9/11 judgment creditors, and FSIA/TRIA questions entangled with Executive recognition and foreign policy.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.3,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Billions in Afghan central-bank reserves, compensation for terrorism victims, sovereign immunity, and the boundary between judicial power and diplomatic recognition.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.28,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Roughly $3.5 billion in frozen Afghan central-bank reserves and compensation for 9/11 and 1998 Embassy bombing victims are at stake across three consolidated petitions, implicating separation-of-powers questions under the FSIA and TRIA.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.22,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
-        },
         {
           "actual_disposition": null,
           "event_id": "evt-petition-disposition",
           "reads": [
             {
-              "big_case_rationale": "Billions in frozen Da Afghanistan Bank assets, 9/11 victims' TRIA execution rights, and FSIA treatment of an unrecognized regime; this petition itself asks only for a narrow GVR.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "big_case_rationale": "Whether the Sixth/Eighth Amendment requires a unanimous jury death recommendation; Florida's 8-4 rule governs one of the nation's most active death-penalty states.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/claude-baseline/20261111T033130Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/claude-baseline/20261111T033130Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "claude-baseline",
-              "probability": 0.27,
-              "run_id": "20261109T171058Z"
+              "probability": 0.16,
+              "run_id": "20261111T033130Z"
             },
             {
-              "big_case_rationale": "Access to billions in Afghan central-bank assets for thousands of terrorism victims raises substantial sovereign-immunity, recognition, and foreign-relations stakes, independently of review prospects.",
-              "big_case_score": 0.83,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "big_case_rationale": "The constitutionality of nonunanimous capital-sentencing determinations has immediate life-or-death consequences and substantial implications for jury authority in Florida and Alabama.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/codex-baseline/20261111T033130Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/codex-baseline/20261111T033130Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "codex-baseline",
-              "probability": 0.22,
-              "run_id": "20261109T171058Z"
+              "probability": 0.24,
+              "run_id": "20261111T033130Z"
             },
             {
-              "big_case_rationale": "High-stakes foreign-relations and sovereign-immunity dispute over whether 9/11 terrorism judgment creditors can attach $3.5 billion in blocked Afghan central bank reserves under the FSIA and TRIA.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "big_case_rationale": "First direct-review constitutional challenge to Florida's 2023 nonunanimous (8-4) capital sentencing statute, raising major Sixth and Eighth Amendment questions over jury unanimity in death penalty sentencing.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/gemini-baseline/20261111T033130Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000076/events/evt-petition-disposition/predictions/gemini-baseline/20261111T033130Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "gemini-baseline",
-              "probability": 0.13,
-              "run_id": "20261109T171058Z"
+              "probability": 0.14,
+              "run_id": "20261111T033130Z"
             }
           ],
           "resolved_at": null,
-          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
+          "title": "Michael James Jackson v. Florida"
         }
       ],
       "leakage_suspected": false,
       "mean_big_case_score": 0.7467,
-      "moment": "evt-order-cvsg-disposition",
-      "moment_opened_at": "2026-11-16",
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-16",
       "n": 3,
-      "other_party": "Taliban",
+      "other_party": "Florida",
       "outcome_lines": [
         {
           "action": "granted",
-          "line": "The Court takes up Ashton's case. A grant alone decides nothing yet about who is right.",
+          "line": "The Court takes up Michael James Jackson's case. A grant alone decides nothing yet about who is right.",
           "side": "granted"
         },
         {
           "action": "denied",
-          "line": "Ashton's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "line": "Michael James Jackson's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
         }
       ],
       "schedule": [],
       "scheduled": null,
-      "score_max": 0.84,
-      "score_min": 0.6,
-      "score_range": 0.24,
-      "short_caption": "Ashton v. Taliban",
+      "score_max": 0.82,
+      "score_min": 0.7,
+      "score_range": 0.12,
+      "short_caption": "Michael James Jackson v. Florida",
       "status": "pending"
     },
     {
@@ -10424,224 +10523,6 @@
       "score_range": 0.25,
       "short_caption": "Trump v. Alishea Sophia Kingdom",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Owens",
-      "caption": "James Owens, et al. v. The Taliban, et al.",
-      "caption_event_id": "evt-order-cvsg-disposition",
-      "case_id": "scotus/9026000294",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Terrorism-judgment creditors (1998 embassy bombings; 9/11 companions) seeking roughly $3.5 billion of Afghan central bank assets; turns on FSIA immunity versus the Executive's recognition power.",
-          "big_case_score": 0.55,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261116T161636Z"
-        },
-        {
-          "big_case_rationale": "Access to billions in frozen Afghan central-bank assets and the boundary between presidential recognition and judicial sovereign-immunity determinations give this case substantial financial, foreign-relations, and separation-of-powers significance.",
-          "big_case_score": 0.78,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261116T161636Z"
-        },
-        {
-          "big_case_rationale": "A merits decision would define the interplay between presidential recognition under Zivotofsky and foreign sovereign/central-bank immunity under the FSIA while determining whether U.S. terrorism victims can attach $3.5 billion in blocked Afghan central-bank reserves.",
-          "big_case_score": 0.88,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261116T161636Z"
-        }
-      ],
-      "docket_id": 9026000294,
-      "docket_number": "26-294",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-294.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-cvsg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Terrorism-judgment creditors (1998 embassy bombings; 9/11 companions) seeking roughly $3.5 billion of Afghan central bank assets; turns on FSIA immunity versus the Executive's recognition power.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.27,
-              "run_id": "20261116T161636Z"
-            },
-            {
-              "big_case_rationale": "Access to billions in frozen Afghan central-bank assets and the boundary between presidential recognition and judicial sovereign-immunity determinations give this case substantial financial, foreign-relations, and separation-of-powers significance.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.39,
-              "run_id": "20261116T161636Z"
-            },
-            {
-              "big_case_rationale": "A merits decision would define the interplay between presidential recognition under Zivotofsky and foreign sovereign/central-bank immunity under the FSIA while determining whether U.S. terrorism victims can attach $3.5 billion in blocked Afghan central-bank reserves.",
-              "big_case_score": 0.88,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.25,
-              "run_id": "20261116T161636Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "James Owens, et al. v. The Taliban, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-relist-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Roughly $3.5B in frozen Afghan central-bank assets sought by 9/11 and terrorism victims, plus a general FSIA question on deference to Executive statements, with a five-judge en banc dissent below.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.27,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Multibillion-dollar terrorism-victim recovery, Afghan central-bank reserves, and the separation of judicial immunity determinations from executive recognition make the stakes unusually high independently of grant likelihood.",
-              "big_case_score": 0.86,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.27,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Controls whether terrorism victims can attach $3.5 billion in blocked Afghan central bank reserves at the NY Fed and tests executive recognition power and FSIA immunity after a 5-judge Second Circuit en banc dissent.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.14,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "James Owens, et al. v. The Taliban, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Billions in frozen Afghan central-bank assets sought by terrorism-judgment creditors (9/11 and embassy-bombing victims), plus a separation-of-powers question about executive say over FSIA 'foreign state' status.",
-              "big_case_score": 0.62,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.3,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Access to $3.5 billion in blocked Afghan central-bank assets for terrorism victims, together with the allocation of sovereign-immunity decisions between courts and the Executive, gives this dispute substantial financial, humanitarian and foreign-relations stakes.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.32,
-              "run_id": "20261109T171058Z"
-            },
-            {
-              "big_case_rationale": "Roughly $3.5 billion in frozen Afghan central-bank reserves, major FSIA/TRIA statutory questions, and a 5-judge Second Circuit en banc dissent make this a high-stakes foreign-sovereign-immunity and terrorism-victim compensation dispute.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000294/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.44,
-              "run_id": "20261109T171058Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "James Owens, et al. v. The Taliban, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7367,
-      "moment": "evt-order-cvsg-disposition",
-      "moment_opened_at": "2026-11-16",
-      "n": 3,
-      "other_party": "Taliban",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Owens' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Owens' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.88,
-      "score_min": 0.55,
-      "score_range": 0.33,
-      "short_caption": "Owens v. Taliban",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -12109,12 +11990,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-17",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.7,
@@ -15235,6 +15111,256 @@
       "score_min": 0.45,
       "score_range": 0.4,
       "short_caption": "BMG Rights Management v. Vetter",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Ashton",
+      "caption": "Kathleen Ashton, et al. v. The Taliban, et al.",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000293",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Billions in frozen Afghan central-bank assets sought by 9/11 and embassy-bombing judgment holders, and who decides 'foreign state' status under the FSIA; this petition itself is a narrow GVR tag-along to the lead Havlish petition.",
+          "big_case_score": 0.55,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        },
+        {
+          "big_case_rationale": "Controls whether 9/11 and embassy-bombing victims can attach roughly $3.5 billion in frozen Afghan central-bank reserves at the New York Fed and tests Article II recognition deference under the FSIA and TRIA.",
+          "big_case_score": 0.78,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        }
+      ],
+      "docket_id": 9026000293,
+      "docket_number": "26-293",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-293.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Billions in frozen Afghan central-bank assets sought by 9/11 and embassy-bombing judgment holders, and who decides 'foreign state' status under the FSIA; this petition itself is a narrow GVR tag-along to the lead Havlish petition.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.32,
+              "run_id": "20261117T214921Z"
+            },
+            {
+              "big_case_rationale": "Controls whether 9/11 and embassy-bombing victims can attach roughly $3.5 billion in frozen Afghan central-bank reserves at the New York Fed and tests Article II recognition deference under the FSIA and TRIA.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.23,
+              "run_id": "20261117T214921Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Thousands of 9/11 judgment holders seeking about $3.5 billion in blocked Afghan central bank assets; FSIA/TRIA and recognition-power questions; 31 States as amici on the companion petition. This docket itself asks only for a GVR.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/claude-baseline/20261116T161636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.37,
+              "run_id": "20261116T161636Z"
+            },
+            {
+              "big_case_rationale": "Access to billions in Afghan central-bank assets for terrorism judgments implicates victim compensation, sovereign immunity, and the allocation of foreign-relations authority.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/codex-baseline/20261116T161636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.32,
+              "run_id": "20261116T161636Z"
+            },
+            {
+              "big_case_rationale": "Controls access to $3.5 billion in frozen Afghan central bank reserves for 9/11 terrorism judgment creditors and tests the interplay among Executive foreign-state recognition, FSIA central-bank immunity, and TRIA execution.",
+              "big_case_score": 0.84,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20261116T161636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20261116T161636Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "About $3.5B in Afghan central-bank reserves, 9/11 judgment creditors, and FSIA/TRIA questions entangled with Executive recognition and foreign policy.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Billions in Afghan central-bank reserves, compensation for terrorism victims, sovereign immunity, and the boundary between judicial power and diplomatic recognition.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.28,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Roughly $3.5 billion in frozen Afghan central-bank reserves and compensation for 9/11 and 1998 Embassy bombing victims are at stake across three consolidated petitions, implicating separation-of-powers questions under the FSIA and TRIA.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-order-relist-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.22,
+              "run_id": "20261109T171058Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Billions in frozen Da Afghanistan Bank assets, 9/11 victims' TRIA execution rights, and FSIA treatment of an unrecognized regime; this petition itself asks only for a narrow GVR.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/claude-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.27,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "Access to billions in Afghan central-bank assets for thousands of terrorism victims raises substantial sovereign-immunity, recognition, and foreign-relations stakes, independently of review prospects.",
+              "big_case_score": 0.83,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/codex-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.22,
+              "run_id": "20261109T171058Z"
+            },
+            {
+              "big_case_rationale": "High-stakes foreign-relations and sovereign-immunity dispute over whether 9/11 terrorism judgment creditors can attach $3.5 billion in blocked Afghan central bank reserves under the FSIA and TRIA.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000293/events/evt-petition-disposition/predictions/gemini-baseline/20261109T171058Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.13,
+              "run_id": "20261109T171058Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kathleen Ashton, et al. v. The Taliban, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.665,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 2,
+      "other_party": "Taliban",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Ashton's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Ashton's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-17",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.78,
+      "score_min": 0.55,
+      "score_range": 0.23,
+      "short_caption": "Ashton v. Taliban",
       "status": "pending"
     },
     {
@@ -33483,6 +33609,98 @@
       "status": "pending"
     },
     {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "All Petroleum-Product Cargo Onboard the M/T Arina with International Maritime Organization Number 9189952, et al. v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000103",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Scope of the Foreign Commerce Clause over wholly foreign transactions, in a $50M Iranian-oil terrorism forfeiture; doctrinally notable but a narrow pleading-stage vehicle with no amici.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261118T010747Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling defining whether the Foreign Commerce Clause incorporates Lopez's substantial-effects test would reshape extraterritorial federal criminal and sanctions-forfeiture jurisdiction, though the statutory posture could narrow its reach.",
+          "big_case_score": 0.58,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261118T010747Z"
+        }
+      ],
+      "docket_id": 9026000103,
+      "docket_number": "26-103",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-103.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Scope of the Foreign Commerce Clause over wholly foreign transactions, in a $50M Iranian-oil terrorism forfeiture; doctrinally notable but a narrow pleading-stage vehicle with no amici.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000103/events/evt-petition-disposition/predictions/claude-baseline/20261118T010747Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000103/events/evt-petition-disposition/predictions/claude-baseline/20261118T010747Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.025,
+              "run_id": "20261118T010747Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling defining whether the Foreign Commerce Clause incorporates Lopez's substantial-effects test would reshape extraterritorial federal criminal and sanctions-forfeiture jurisdiction, though the statutory posture could narrow its reach.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9026000103/events/evt-petition-disposition/predictions/gemini-baseline/20261118T010747Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000103/events/evt-petition-disposition/predictions/gemini-baseline/20261118T010747Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261118T010747Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "All Petroleum-Product Cargo Onboard the M/T Arina with International Maritime Organization Number 9189952, et al. v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.44,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-23",
+      "n": 2,
+      "other_party": null,
+      "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.58,
+      "score_min": 0.3,
+      "score_range": 0.28,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
       "asking_declined": null,
       "asking_party": "Stacey Ian Humphreys",
       "caption": "Stacey Ian Humphreys v. Georgia Board of Pardons and Paroles, et al.",
@@ -35827,9 +36045,9 @@
         }
       ],
       "docket_id": 73500240,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1338",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1338.html",
       "events": [
         {
           "actual_disposition": null,
@@ -39213,9 +39431,9 @@
         }
       ],
       "docket_id": 73550516,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1427",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1427.html",
       "events": [
         {
           "actual_disposition": "dismissed",
@@ -42502,120 +42720,105 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Overton",
-      "caption": "Thomas M. Overton v. Florida, et al.",
-      "caption_event_id": "evt-motion-disposition",
-      "case_id": "scotus/9526000686",
+      "asking_party": "Coudrain",
+      "caption": "Marilyn Coudrain, as Administrator of the Estate of Ellen Smith, Deceased, et al. v. Boehringer Ingelheim Pharmaceuticals, Inc., et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000492",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "A life is at stake, but this is a routine end-stage Florida death-warrant stay application raising clemency/warrant-process claims with no broader doctrinal reach.",
-          "big_case_score": 0.15,
-          "event_id": "evt-motion-disposition",
+          "big_case_rationale": "A 180-plaintiff Zantac mass-tort personal-jurisdiction dispute; the question (BMS vs. Ford for nonresident plaintiffs) matters to mass-tort forum selection, but the vehicle is an unpublished intermediate state-court order.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20261115T141636Z"
+          "run_id": "20261118T010747Z"
         },
         {
-          "big_case_rationale": "An imminent execution creates irreversible individual stakes, and the application challenges Florida's clemency and warrant processes, but the supplied filing develops no clear nationwide conflict.",
-          "big_case_score": 0.6,
-          "event_id": "evt-motion-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261115T141636Z"
-        },
-        {
-          "big_case_rationale": "Active capital execution-warrant stay application raising broad Woodard clemency-sham and warrant-secrecy claims that would reshape state clemency review if ever reached, but presented in a routine, procedurally barred post-warrant posture with no circuit split or amicus participation.",
-          "big_case_score": 0.22,
-          "event_id": "evt-motion-disposition",
+          "big_case_rationale": "If granted and decided on the merits, revisiting whether corporate packaging or retail distribution ties in a forum State sustain specific personal jurisdiction over mass-tort claims by nonresident plaintiffs injured elsewhere would materially reshape national product-liability forum selection after Bristol-Myers Squibb and Ford Motor Co.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-disposition",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20261115T141636Z"
+          "run_id": "20261118T010747Z"
         }
       ],
-      "docket_id": 9526000686,
-      "docket_number": "26A686",
+      "docket_id": 9026000492,
+      "docket_number": "26-492",
       "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a686.html",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-492.html",
       "events": [
         {
           "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
+          "event_id": "evt-petition-disposition",
           "reads": [
             {
-              "big_case_rationale": "A life is at stake, but this is a routine end-stage Florida death-warrant stay application raising clemency/warrant-process claims with no broader doctrinal reach.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/claude-baseline/20261115T141636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/claude-baseline/20261115T141636Z",
+              "big_case_rationale": "A 180-plaintiff Zantac mass-tort personal-jurisdiction dispute; the question (BMS vs. Ford for nonresident plaintiffs) matters to mass-tort forum selection, but the vehicle is an unpublished intermediate state-court order.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000492/events/evt-petition-disposition/predictions/claude-baseline/20261118T010747Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000492/events/evt-petition-disposition/predictions/claude-baseline/20261118T010747Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "claude-baseline",
-              "probability": 0.01,
-              "run_id": "20261115T141636Z"
+              "probability": 0.008,
+              "run_id": "20261118T010747Z"
             },
             {
-              "big_case_rationale": "An imminent execution creates irreversible individual stakes, and the application challenges Florida's clemency and warrant processes, but the supplied filing develops no clear nationwide conflict.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/codex-baseline/20261115T141636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/codex-baseline/20261115T141636Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.03,
-              "run_id": "20261115T141636Z"
-            },
-            {
-              "big_case_rationale": "Active capital execution-warrant stay application raising broad Woodard clemency-sham and warrant-secrecy claims that would reshape state clemency review if ever reached, but presented in a routine, procedurally barred post-warrant posture with no circuit split or amicus participation.",
-              "big_case_score": 0.22,
-              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/gemini-baseline/20261115T141636Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "big_case_rationale": "If granted and decided on the merits, revisiting whether corporate packaging or retail distribution ties in a forum State sustain specific personal jurisdiction over mass-tort claims by nonresident plaintiffs injured elsewhere would materially reshape national product-liability forum selection after Bristol-Myers Squibb and Ford Motor Co.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000492/events/evt-petition-disposition/predictions/gemini-baseline/20261118T010747Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000492/events/evt-petition-disposition/predictions/gemini-baseline/20261118T010747Z",
               "confidence": null,
               "granted": 0,
               "leakage_suspected": false,
               "mode": "forward",
               "predicted_disposition": "denied",
               "predictor_id": "gemini-baseline",
-              "probability": 0.008,
-              "run_id": "20261115T141636Z"
+              "probability": 0.006,
+              "run_id": "20261118T010747Z"
             }
           ],
           "resolved_at": null,
-          "title": "Thomas M. Overton v. Florida, et al."
+          "title": "Marilyn Coudrain, as Administrator of the Estate of Ellen Smith, Deceased, et al. v. Boehringer Ingelheim Pharmaceuticals, Inc., et al."
         }
       ],
       "leakage_suspected": false,
-      "mean_big_case_score": 0.3233,
-      "moment": "evt-motion-disposition",
-      "moment_opened_at": "2026-11-14",
-      "n": 3,
-      "other_party": "Florida",
+      "mean_big_case_score": 0.32,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-14",
+      "n": 2,
+      "other_party": "Boehringer Ingelheim Pharmaceuticals",
       "outcome_lines": [
         {
           "action": "granted",
-          "line": "Overton gets the relief requested for now, while the case continues in the lower courts.",
+          "line": "The Court takes up Coudrain's case. A grant alone decides nothing yet about who is right.",
           "side": "granted"
         },
         {
           "action": "denied",
-          "line": "Overton does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "line": "Coudrain's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.6,
-      "score_min": 0.15,
-      "score_range": 0.45,
-      "short_caption": "Overton v. Florida",
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.42,
+      "score_min": 0.22,
+      "score_range": 0.2,
+      "short_caption": "Coudrain v. Boehringer Ingelheim Pharmaceuticals",
       "status": "pending"
     },
     {
@@ -49047,9 +49250,9 @@
         }
       ],
       "docket_id": 73500234,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1332",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1332.html",
       "events": [
         {
           "actual_disposition": "denied",
@@ -50247,6 +50450,151 @@
       "score_range": 0.16,
       "short_caption": "Redding v. Mullin",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Overton",
+      "caption": "Thomas M. Overton v. Florida, et al.",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000686",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A life is at stake, but the legal questions (Florida clemency discretion and access to clemency records) are recurring end-stage warrant claims the Court has repeatedly declined; little doctrinal or public significance beyond the execution itself.",
+          "big_case_score": 0.12,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        },
+        {
+          "big_case_rationale": "Active death-warrant stay application whose underlying Woodard clemency due-process question would reshape state capital clemency administration if reached, though the posture is narrow and barred on state postconviction timeliness grounds.",
+          "big_case_score": 0.22,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        }
+      ],
+      "docket_id": 9526000686,
+      "docket_number": "26A686",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a686.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A life is at stake, but the legal questions (Florida clemency discretion and access to clemency records) are recurring end-stage warrant claims the Court has repeatedly declined; little doctrinal or public significance beyond the execution itself.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-brief-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-brief-response-disposition/predictions/claude-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261117T214921Z"
+            },
+            {
+              "big_case_rationale": "Active death-warrant stay application whose underlying Woodard clemency due-process question would reshape state capital clemency administration if reached, though the posture is narrow and barred on state postconviction timeliness grounds.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-brief-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-brief-response-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261117T214921Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Thomas M. Overton v. Florida, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A life is at stake, but this is a routine end-stage Florida death-warrant stay application raising clemency/warrant-process claims with no broader doctrinal reach.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/claude-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/claude-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "An imminent execution creates irreversible individual stakes, and the application challenges Florida's clemency and warrant processes, but the supplied filing develops no clear nationwide conflict.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/codex-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/codex-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261115T141636Z"
+            },
+            {
+              "big_case_rationale": "Active capital execution-warrant stay application raising broad Woodard clemency-sham and warrant-secrecy claims that would reshape state clemency review if ever reached, but presented in a routine, procedurally barred post-warrant posture with no circuit split or amicus participation.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000686/events/evt-motion-disposition/predictions/gemini-baseline/20261115T141636Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261115T141636Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Thomas M. Overton v. Florida, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.17,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 2,
+      "other_party": "Florida",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Overton gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Overton does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.22,
+      "score_min": 0.12,
+      "score_range": 0.1,
+      "short_caption": "Overton v. Florida",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -58910,6 +59258,106 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Williams",
+      "caption": "Alvin E. Williams, et ux. v. Superior Court of California, Los Angeles County, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000646",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Self-represented couple seeking review of a California Court of Appeal writ-stage ruling against a trial court; no filings staged, nothing on the docket suggests stakes beyond the parties.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        },
+        {
+          "big_case_rationale": "Private, fact-bound collateral writ challenge in a 20-year-old California consumer-warranty dispute with negligible national policy or doctrinal salience beyond the parties.",
+          "big_case_score": 0.02,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261117T214921Z"
+        }
+      ],
+      "docket_id": 9026000646,
+      "docket_number": "26-646",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-646.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Self-represented couple seeking review of a California Court of Appeal writ-stage ruling against a trial court; no filings staged, nothing on the docket suggests stakes beyond the parties.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000646/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000646/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.006,
+              "run_id": "20261117T214921Z"
+            },
+            {
+              "big_case_rationale": "Private, fact-bound collateral writ challenge in a 20-year-old California consumer-warranty dispute with negligible national policy or doctrinal salience beyond the parties.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9026000646/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000646/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261117T214921Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261117T214921Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Alvin E. Williams, et ux. v. Superior Court of California, Los Angeles County, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.025,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 2,
+      "other_party": "Superior Court of California",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Williams' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Williams' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-17",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.03,
+      "score_min": 0.02,
+      "score_range": 0.01,
+      "short_caption": "Williams v. Superior Court of California",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Akerman",
       "caption": "Martin Akerman v. Merit Systems Protection Board, et al.",
       "caption_event_id": "evt-motion-disposition",
@@ -59741,6 +60189,101 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Simpkins",
+      "caption": "David Simpkins, et al. v. Tennessee, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000698",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se, fact-bound application to stop a home foreclosure and state misdemeanor/HOA proceedings; no legal question of wider reach.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261117T141816Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se emergency injunction collaterally attacking Tennessee state-court civil/foreclosure and misdemeanor proceedings after an untimely D.C. Circuit appeal; narrow procedural defect and zero doctrinal or national policy stakes.",
+          "big_case_score": 0.01,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261117T141816Z"
+        }
+      ],
+      "docket_id": 9526000698,
+      "docket_number": "26A698",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a698.html",
+      "events": [
+        {
+          "actual_disposition": "denied",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se, fact-bound application to stop a home foreclosure and state misdemeanor/HOA proceedings; no legal question of wider reach.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000698/events/evt-motion-disposition/predictions/claude-baseline/20261117T141816Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000698/events/evt-motion-disposition/predictions/claude-baseline/20261117T141816Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261117T141816Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se emergency injunction collaterally attacking Tennessee state-court civil/foreclosure and misdemeanor proceedings after an untimely D.C. Circuit appeal; narrow procedural defect and zero doctrinal or national policy stakes.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9526000698/events/evt-motion-disposition/predictions/gemini-baseline/20261117T141816Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000698/events/evt-motion-disposition/predictions/gemini-baseline/20261117T141816Z",
+              "confidence": 0.98,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261117T141816Z"
+            }
+          ],
+          "resolved_at": "2026-11-17",
+          "title": "David Simpkins, et al. v. Tennessee, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.02,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-12",
+      "n": 2,
+      "other_party": "Tennessee",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Simpkins gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Simpkins does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.03,
+      "score_min": 0.01,
+      "score_range": 0.02,
+      "short_caption": "Simpkins v. Tennessee",
+      "status": "resolved"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Gilmore",
       "caption": "Bridget Gilmore v. Walmart, Incorporated",
       "caption_event_id": "evt-motion-disposition",
@@ -60551,5 +61094,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.5",
-  "scored_reads": 1204
+  "scored_reads": 1207
 }
