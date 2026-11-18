@@ -225,7 +225,7 @@ def test_repo_tracking_yaml_arms_the_spend_backstop() -> None:
     salience capacities do.
     """
     cfg = load_spend_config(Path("config"))
-    assert cfg.ceiling_usd == 3000.0
+    assert cfg.ceiling_usd == 4000.0
     assert cfg.window_days == 30
     # The window is *stated*: its field default is also 30, so deleting the
     # key would still pass the assertion above — require the literal key.

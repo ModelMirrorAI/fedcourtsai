@@ -13,12 +13,12 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-#: The **fallback** per-cell rate: the ~$20 a fully-tournamented case costs,
+#: The **fallback** per-cell rate: the ~$25 a fully-tournamented case costs,
 #: divided across its design mix of six cells. It prices a cell whose engine the
 #: table below does not name — a new engine, or a registry entry ahead of the
 #: table — so a plan never silently drops such a cell from its total. Re-anchor
 #: it when the table below moves.
-PLANNING_USD_PER_CELL = 3.35
+PLANNING_USD_PER_CELL = 4.11
 
 #: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
 #: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
@@ -36,26 +36,27 @@ PLANNING_USD_PER_CELL = 3.35
 #: cached, four times Sol's rate in every bucket, come to a mean of about
 #: $2.08 a prediction and $1.78 a grading run, and each row is the 90th
 #: percentile of those re-priced cells ($2.98 and $2.19), rounded up. The gemini
-#: cells price ``gemini-4-argon``: its measured cells on ``main`` at
-#: ``d7840ec19`` (230 predictions at about $1.40, 73 grading runs at about
-#: $0.93, at the introductory $2 / $10) doubled for the $4 / $20 rate in force
-#: from 2026-12-01 and rounded up, so the row holds across that change. See the
+#: cells price ``gemini-4-carbon``: its measured cells on ``main`` at
+#: ``f3754248d`` (41 predictions at about $2.64, 41 grading runs at about
+#: $1.97, at the introductory $2 / $10) doubled for the $4 / $20 rate in force
+#: from 2026-12-01 and rounded up, so the row holds across that change and
+#: until then prices a gemini cell at about twice its cost. See the
 #: spend-basis caveats every plan carries (``fedcourtsai.cli``). The two seams
-#: sum to $10.07 + $10.02 = $20.09 a case, which the $3.35 fallback is the
+#: sum to $12.57 + $12.07 = $24.64 a case, which the $4.11 fallback is the
 #: six-cell rounding of — so a full three-engine, both-seam fan-out prices
 #: within a few cents either way.
 #: ``docs/milestones.md``'s ~$17 per fully evaluated event is that total as it
-#: stood when the plan was priced, about 15% below it. What
+#: stood when the plan was priced, about 30% below it. What
 #: conditioning buys is the *narrowed* plan: within a seam the engines differ
-#: up to ~3.1x, so an engine-narrowed backfill priced at the flat rate is wrong
-#: by up to ~1.8x.
+#: up to ~2.7x, so an engine-narrowed backfill priced at the flat rate is wrong
+#: by up to ~1.9x.
 #:
 #: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
 #: per-actor measurements behind these rows are one actor per engine in the
 #: shipped registries.
 PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
-    "predict": {"claude-code": 4.27, "codex": 3.00, "gemini": 2.80},
-    "evaluate": {"claude-code": 5.92, "codex": 2.20, "gemini": 1.90},
+    "predict": {"claude-code": 4.27, "codex": 3.00, "gemini": 5.30},
+    "evaluate": {"claude-code": 5.92, "codex": 2.20, "gemini": 3.95},
 }
 
 

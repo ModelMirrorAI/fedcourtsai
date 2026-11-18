@@ -3771,10 +3771,10 @@ that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
 driven by a sustained *rate* rather than a burst — a capacity knob left
 non-binding, running above the ceiling — does not clear that way: it re-trips
 each cycle, and the fix is the capacity knob or the ceiling, not waiting. The
-shipped ceiling sits above the measured rate of such a regression
-(`config/tracking.yaml`'s `spend` section carries both figures), so that band
-does not trip it at all; the auto-release budget in `config/review-hold.yaml`
-is what stops it running unattended.
+shipped ceiling sits above the auto-release budget in
+`config/review-hold.yaml` (`config/tracking.yaml`'s `spend` section says by
+how much and why), so a regression running between the two does not trip it
+at all; that budget is what stops it running unattended.
 
 On predict, `plan` also builds the round's **same-question lists**
 (`fedcourts same-question-lists`), one per cert-stage cell of the minted matrix,
