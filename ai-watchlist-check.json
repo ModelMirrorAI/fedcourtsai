@@ -1,6 +1,6 @@
 {
   "ok": false,
-  "generated_at": "2026-11-17T19:24:36+00:00",
+  "generated_at": "2026-11-18T01:32:47+00:00",
   "listed": 37,
   "stale_after_days": 7,
   "scotus": [],
@@ -10,7 +10,7 @@
       "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
       "docket_number": "1:23-cv-11195",
       "last_pulled": null,
-      "days": 18
+      "days": 19
     }
   ],
   "reading_age_days": null
