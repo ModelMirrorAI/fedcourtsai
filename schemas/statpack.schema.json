@@ -1570,7 +1570,7 @@
         },
         "weighted": {
           "default": false,
-          "description": "A section flag whose name is kept. Every section counts each row once, whatever the flag; where it is true the rendered tables label the denominator `est. n=`",
+          "description": "A section flag whose name is kept. Every section counts each row once, whatever the flag, and the rendered tables label every denominator `n=`",
           "title": "Weighted",
           "type": "boolean"
         }

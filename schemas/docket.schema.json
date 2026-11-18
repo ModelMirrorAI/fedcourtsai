@@ -524,7 +524,7 @@
     },
     "QpTopicSupport": {
       "additionalProperties": false,
-      "description": "The raw rows behind one bucket of the published topic distribution.\n\nA bucket's `est. n=` in the topic table keeps its spelling and counts the\nbucket's resolved rows; this is the bucket's rows on hand, resolved or not.\nOn a frame that is still accruing the smallest buckets\npublish a disposition split over a handful of rows, and the view is per label\nrather than pooled because the thin buckets are not the ones a reader would\nguess.\n\n``reference_rows`` is carried beside it because the two populations enter on\ndifferent terms: a reference-set member rides in every batch, so a bucket\nthat is mostly reference rows is the block's mix rather than the frame's.",
+      "description": "The raw rows behind one bucket of the published topic distribution.\n\nA bucket's `n=` in the topic table counts the\nbucket's resolved rows; this is the bucket's rows on hand, resolved or not.\nOn a frame that is still accruing the smallest buckets\npublish a disposition split over a handful of rows, and the view is per label\nrather than pooled because the thin buckets are not the ones a reader would\nguess.\n\n``reference_rows`` is carried beside it because the two populations enter on\ndifferent terms: a reference-set member rides in every batch, so a bucket\nthat is mostly reference rows is the block's mix rather than the frame's.",
       "properties": {
         "label": {
           "description": "The primary `qp-topic-v0` label this bucket counts",
@@ -666,7 +666,7 @@
         },
         "weighted": {
           "default": false,
-          "description": "A section flag whose name is kept. Every section counts each row once, whatever the flag; where it is true the rendered tables label the denominator `est. n=`",
+          "description": "A section flag whose name is kept. Every section counts each row once, whatever the flag, and the rendered tables label every denominator `n=`",
           "title": "Weighted",
           "type": "boolean"
         }

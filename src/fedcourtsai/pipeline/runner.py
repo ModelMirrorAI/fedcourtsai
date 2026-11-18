@@ -1003,7 +1003,7 @@ def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
         # stdio is inherited (like the agent spawn) so a login failure explains
         # itself in the run log; the success message is one line of noise, and
         # the CLI masks the key in its own output — verified at the pinned
-        # 0.169.0, so a version bump re-checks that log-safety claim.
+        # 0.169.1, so a version bump re-checks that log-safety claim.
         return subprocess.run(
             ["codex", "login", "--with-api-key"],
             env=dict(env),

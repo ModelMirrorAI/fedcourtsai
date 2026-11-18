@@ -807,11 +807,17 @@ def test_render_statpack_markdown_non_empty(fixture_corpus: FixtureCorpus) -> No
     assert "**Dated share:** 5 of 5 machine-readable resolved case(s)" in md
     # Full-corpus sections say so; live-slice sections state their slice.
     assert "## Cases by court" in md
-    assert "_Scope: all courts; includes the frozen bulk import._" in md
+    assert (
+        "_Scope: all courts; includes the frozen bulk import; "
+        "counts are stored rows, each counted once._" in md
+    )
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
-        "counts are denial-reweighted estimates._" in md
+        "counts are stored rows, each counted once._" in md
     )
+    # No count is described as reweighted or as an estimate of a population.
+    assert "reweight" not in md
+    assert "est. n" not in md
     assert "median 319d, p90 546d (mean 316.0d over 5 dated case(s))" in md
     # The per-Term table: filings census, ingested count, resolved count and
     # rates, completeness. OT22 ingested exactly one live row, a denial counted

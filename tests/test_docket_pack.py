@@ -71,8 +71,8 @@ def test_docket_sections_are_court_facing_only() -> None:
     # only while every scope flag agrees — the drift this catches.
     assert set(_DOCKET_SECTIONS) & set(_STATPACK_SECTIONS)
     # EVERY section carries the `weighted` flag, not merely the cert-stage ones,
-    # so the whole artifact renders its denominators one way (`est. n=`). Every
-    # row counts once, so the flag selects the rendering and not the arithmetic.
+    # so the published flag reads one way across the artifact. Every row counts
+    # once, so the flag selects neither the rendering nor the arithmetic.
     unweighted = [spec.title for spec in _DOCKET_SECTIONS if not spec.weighted]
     assert not unweighted, f"court-facing sections must carry the weighted flag: {unweighted}"
 
@@ -333,21 +333,23 @@ def test_render_docket_markdown_carries_scope_and_sample_size(
     assert "## Cert petitions by fee class (paid vs IFP)" in md
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
-        "counts are denial-reweighted estimates._" in md
+        "counts are stored rows, each counted once._" in md
     )
-    assert "| paid | 2 | 1 | 1 | denied 100.0% (est. n=1) |" in md
+    # No count is described as reweighted or as an estimate of a population.
+    assert "reweight" not in md
+    assert "est. n" not in md
+    assert "| paid | 2 | 1 | 1 | denied 100.0% (n=1) |" in md
     # The relist cut's scope note travels here too: this pack shares the
     # section spec with the statpack, so the parse label renders on both.
     assert "upper bound on true relists" in md
     # The per-Term census pools the streams and states the sample size inline.
     assert "## SCOTUS cert petitions by Term" in md
-    assert "| 2022 | 1310 | 1 | 0.0% (est. n=1) | 0 | — | partial |" in md
+    assert "| 2022 | 1310 | 1 | 0.0% (n=1) | 0 | — | partial |" in md
     assert "| 2024 | 12 | 1 | — | 0 | — | partial |" in md
-    # The overview cuts carry the weighted flag too, so they say `est. n=` like
-    # the rest: one denominator rendering across the whole artifact.
+    # The overview cuts render their denominators as `n=`, like the rest: one
+    # denominator rendering across the whole artifact.
     overview = md.split("## Cases by court")[1].split("##")[0]
-    assert "est. n=" in overview
-    assert "(n=" not in overview
+    assert "(n=" in overview
 
 
 def test_render_docket_markdown_makes_no_prediction_claim(fixture_corpus: FixtureCorpus) -> None:
@@ -674,10 +676,12 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
     # counts are ingested rows, which this document distinguishes from walked ones.
     assert (
         "_Scope: scotus, modern discretionary-cert dockets, live/historical slice; "
-        "counts are denial-reweighted estimates. QP-bearing rows only — 2 of 3 in-scope "
+        "counts are stored rows, each counted once. QP-bearing rows only — 2 of 3 in-scope "
         "ingested rows labeled; grant-enriched; primaries only; not docket-representative." in md
     )
-    assert "no reweighting recovers the docket" in md
+    assert "no weighting recovers the docket" in md
+    assert "reweight" not in md
+    assert "est. n" not in md
     assert "not comparable to the sections above" in md
     # The gap between the two counts is two gaps at once, and the labels artifact
     # records neither size: a reader who takes it all for a fetch gap reads the
@@ -720,8 +724,8 @@ def test_qp_topic_cut_renders_with_its_mandatory_scope_string(tmp_path: Path) ->
         "A naive share partly counts coordinated filing campaigns rather than subjects; "
         "no de-duplicated companion is published._" in md
     )
-    # Flagged weighted like every other section, so its denominators render `est. n=`.
-    assert "| unclassifiable | 1 | 1 | 0 | denied 100.0% (est. n=1) |" in md
+    # Its denominators render `n=`, as every section's do.
+    assert "| unclassifiable | 1 | 1 | 0 | denied 100.0% (n=1) |" in md
     # Agreement, never accuracy, and never without the constant-labeler floor: on a
     # sixteen-label vocabulary most of any rate is the floor, and only the distance
     # from it is skill.
@@ -771,12 +775,12 @@ def test_qp_topic_cut_publishes_the_raw_rows_behind_every_bucket(tmp_path: Path)
     ]
     md = analytics.render_docket_markdown(pack)
     assert (
-        "_Rows on hand behind each bucket, reference-sourced in brackets, ordered by rows "
-        "rather than by the table's reweighted count — the raw view the reweighted "
-        "`est. n=` above does not give: `criminal-law` 1 [1], `unclassifiable` 1 [0]." in md
+        "_Rows on hand behind each bucket, reference-sourced in brackets: "
+        "`criminal-law` 1 [1], `unclassifiable` 1 [0]. A bucket's `n=` above counts only "
+        "its resolved rows;" in md
     )
     # The denominator the table prints for that one row equals its support count.
-    assert "| unclassifiable | 1 | 1 | 0 | denied 100.0% (est. n=1) |" in md
+    assert "| unclassifiable | 1 | 1 | 0 | denied 100.0% (n=1) |" in md
     assert (
         "_Read the disposition split of `criminal-law`, `unclassifiable` as the rows "
         "themselves, not as a rate: under 10 rows on hand one petition moves it by tens of "
