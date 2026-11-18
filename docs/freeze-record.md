@@ -21709,3 +21709,40 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('decision-below-opinion-follows-order' in {b.name for b in H})"`
     prints `True`.
+
+- **Readings the `proc-v24` entry owes, recorded 2026-11-18.** No rule moves
+  here. The `proc-v24` entry (dated 2026-11-18), carried to `main` by
+  `promotion/2026-11-18-2` (merge `3482e88e7`, registry stamped by
+  `0478f8655`) and tagged `prereg/proc-v24`, quoted its
+  `successor-disclosures` lines at a provisional instant and owed them again
+  once the carrying merge had stamped the registry, before any figure of a
+  `proc-v23` window is quoted outside the committed board. That entry is not
+  otherwise edited.
+
+  The run reads the stamped registry and the ledger at `origin/main`'s
+  `0478f8655` (`2026-11-18T22:04:07Z`).
+
+  **`proc-v24` closes `proc-v23`.** `uv run fedcourts successor-disclosures
+  --closed proc-v23 --successor proc-v24` prints:
+
+  ```
+  successor proc-v24 closes proc-v23 at 2026-11-18T22:03:05+00:00
+    closed proc-v23 gemini-baseline: 23 counted event(s) — 1 resolved, 22 pending at close
+    closed proc-v23 codex-baseline: 22 counted event(s) — 0 resolved, 22 pending at close
+    closed proc-v23 claude-baseline: 23 counted event(s) — 1 resolved, 22 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08: 2 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5: 2 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a: 2 grading(s), 0 at or after the instant
+  ```
+
+  The provisional run, at an instant of `2026-11-19T00:00:00Z` over the
+  ledger at `f3754248d`, printed the same three window lines. At the stamped
+  instant, `2026-11-18T22:03:05Z`, the `claude-baseline` and
+  `gemini-baseline` windows each hold 23 counted events, 1 of them resolved
+  at the close, and the `codex-baseline` window holds 22, none resolved,
+  which are the counts the provisional run printed. No split event prints,
+  and no successor-counted line prints because no prediction under a
+  `proc-v24` digest is on `main` at this read. The three `graded by` lines, which the provisional entry did
+  not quote, each count 2 gradings of the windows' events, all made before
+  the instant.
