@@ -367,16 +367,24 @@ so is a sealed certiorari petition. It is the scope input of `sal-v5`,
 `sal-v6`, `sal-v7`, `sal-v8` and `sal-v9` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
 the `query` rows, and null on a row polled before the column existed.
 
-`vided_amicus` keys each amicus filing the docket marks `VIDED` — one brief the
-Clerk enters on several dockets — as `<ISO date>|<filer text>`
-(`pipeline.vided.vided_amicus_keys`). The Court does not always link such
-dockets as `Vide`, and each serves its own copy of the brief under its own
-path, so the shared entry is the trace: two dockets carrying one key share the
-brief, and `corpus.vided_companions` finds them through a partial index over
-the rows that carry any, which is how a predict cell's `record/related/`
-stages such a companion (`provision.read_vided`). Only amicus filings are keyed, because a filer's name
-is specific to the brief while a VIDED argument setting or a respondent's
-opposition by a repeat litigant can read alike across unrelated cases. Cert
+`vided_amicus` keys each filing the docket marks `VIDED` — one filing the
+Clerk enters on several dockets (`pipeline.vided.vided_keys`). The Court does
+not always link such dockets as `Vide`, and each serves its own copy of the
+filing under its own path, so the shared entry is the trace: two dockets
+carrying one key share the filing, and `corpus.vided_companions` finds them
+through a partial index over the rows that carry any, which is how a predict
+cell's `record/related/` stages such a companion (`provision.read_vided`). An
+amicus filing keys as `<ISO date>|<filer text>`, because a filer's name is
+specific to the brief. A party filing (a brief in opposition, a reply, a
+motion) does not key on its text: the Clerk words one consolidated opposition
+for each docket's own caption, and a repeat litigant's oppositions to
+unrelated petitions read alike. It keys as `<ISO date>|<lower court>|<lower-court
+number>`, one key for each number in the docket's `LowerCourtCaseNumbers`, so
+it matches only a petition from the same case below that took a VIDED party
+filing the same day; a docket naming no court below or no number keys none.
+The Court's own VIDED entries (an argument setting, a grant, a judgment) are
+not keyed. A companion found through a party key reads `vided-party` in
+`related.json`, one found through amicus keys alone `vided-amicus`. Cert
 branch only, fill-in latched, withheld from the `query` rows, and null on a row
 polled before the column existed.
 
