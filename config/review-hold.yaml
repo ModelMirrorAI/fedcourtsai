@@ -33,7 +33,8 @@
 # leaves out a rejected response's retry; a topic-label round's is its plan's
 # upper estimate too, its batch's rows at the labeler's per-row planning rate
 # (the merits side coder's own provisional table on its frame).
-# Those rates sit at or above each engine's measured mean, but a cell's spend varies around its mean and
+# Those rates sit at or above each engine's measured or projected mean (the gemini rows at the rate in force
+# from 2026-12-01), but a cell's spend varies around its mean and
 # retries spend more than a cell's rate, so actual spend can exceed the
 # estimate. The budget is a projection over a ledger that lags — a manually
 # released round in flight, an auto-released round whose collect PR is still
@@ -53,19 +54,23 @@
 # $0.41-$97.25 each (predict) and $1.82-$90.48 (evaluate) by actual spend;
 # full-size campaign rounds cost ~$99-$196.
 #
-# - Budget $2,500: the $2,000 model-API envelope in docs/budget.md plus $500,
+# - Budget $3,500: the $3,000 model-API envelope in docs/budget.md plus $500,
 #   so routine rounds keep releasing while a long-conference campaign's spend
-#   sits in the window (the trailing figure was $2,302 on 2026-10-19 and falls
-#   under $2,000 only as that campaign ages out). The backstop's ceiling is
-#   $3,000 (tracking.yaml `spend:`), so the standing room above the budget is
+#   sits in the window, and through an in-Term month at the top of that page's
+#   projection (about $2,850-3,350 from 2026-12-01, when gemini's rate
+#   doubles). The backstop's ceiling is
+#   $4,000 (tracking.yaml `spend:`), so the standing room above the budget is
 #   $500. The budget and the backstop read one base: agent cells, case
-#   summaries and topic-labeler runs. The steady state since the campaign
-#   runs at ~$1,425 per 30 days on the budget's base (cells ~$1,320 + summaries ~$105), extrapolated from 9
-#   days, two of which carry over a third of the cell spend.
+#   summaries and topic-labeler runs. Measured on that base the trailing 30
+#   days came to $1,330 on 2026-11-18, most of it on the engines' previous
+#   models.
 # - Per round $75: releases most steady-state rounds (14 of the 16 since
 #   2026-10-08 by actual spend; the cap applies to the planning-rate price,
 #   which differs from actual by engine mix) and holds a campaign-sized one
-#   for a human read.
+#   for a human read. At the planning table a predict round of up to five
+#   events and an evaluate round of up to six price within it: of the 72
+#   predict and 16 evaluate rounds committed in the 30 days to 2026-11-18, 59
+#   and 12 do.
 # - Six rounds a day: the four scheduled slots (two predict, one evaluate, one
 #   summarize) plus two chained predict rounds. The chain can dispatch far more
 #   than two — after any of the sixteen pull and live windows that changes a
@@ -78,4 +83,4 @@
 #   practice stops a few hundred dollars short of the budget.
 auto_release_usd_per_round: 75
 auto_release_rounds_per_day: 6
-auto_release_budget_usd: 2500
+auto_release_budget_usd: 3500

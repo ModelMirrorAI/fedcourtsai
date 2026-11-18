@@ -28811,8 +28811,8 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "the gpt-6.1-sol cells (266 predictions) re-priced token for token at "
         + "Astra's rate, four times Sol's, come to a mean of about $2.08, and "
         + "the row's $3.00 is their 90th percentile rounded up. It holds only "
-        + "if Astra spends tokens as Sol did. The gemini row prices gemini-4-argon from its "
-        + "measured cells (137 predictions, about $1.34 each at the introductory "
+        + "if Astra spends tokens as Sol did. The gemini row prices gemini-4-carbon from its "
+        + "measured cells (41 predictions, about $2.64 each at the introductory "
         + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01 and "
         + "rounded up, so until then it projects about twice the measured cost. "
         + "Only a deliberate "
@@ -28830,8 +28830,8 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "rounded up, of gpt-6.1-sol's grading runs (83) "
         + "re-priced at gpt-6.2-astra's rate, four times Sol's, whose mean is "
         + "about $1.78; no Astra grading is measured. The gemini "
-        + "row does not use that anchor: it prices gemini-4-argon's measured "
-        + "grading runs (31, about $0.79 each at the introductory $2/$10, "
+        + "row does not use that anchor: it prices gemini-4-carbon's measured "
+        + "grading runs (41, about $1.97 each at the introductory $2/$10, "
         + "mostly cert-stage) doubled for the $4/$20 rate in force from "
         + "2026-12-01 and rounded up, so a merits grading, which reads more, "
         + "has little margin under it.",
@@ -28962,14 +28962,14 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
                 "fedcourtsai.planning_rates.PLANNING_RATES_USD_PER_CELL — the predict "
                 "whole-run measurement, and the evaluate pre-freeze cert-stage "
                 "anchor (the proc-v2 grading, scaled by the predict move), with "
-                "the gemini rows at gemini-4-argon's measured cells repriced "
+                "the gemini rows at gemini-4-carbon's measured cells repriced "
                 "for its 2026-12-01 rate"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$20 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$25 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,

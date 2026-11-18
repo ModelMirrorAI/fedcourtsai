@@ -31,10 +31,10 @@ Model spend is `events × cost per event`, and two dials set it:
   $2.08 on the codex one.
 
 At today's `P = 3` with three evaluators, one fully predicted and evaluated
-event is budgeted at roughly **$10**, the basis everything below scales from.
-The figure sits below the current cost:
-an event on the current models comes to about $11.20, and to about $15.80
-from 2026-12-01, when gemini's rate doubles. Those two figures are part
+event is budgeted at roughly **$16**, the basis everything below scales from.
+It is the projected cost from 2026-12-01, when gemini's rate doubles: an
+event on the current models comes to about $11.20 until then and to about
+$15.80 from that date. Those two figures are part
 measured and part projected, engine by engine.
 
 - **Claude, measured.** The `claude-fable-5-2` cells on `main` (at
@@ -79,7 +79,7 @@ up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
 moves them. That table (`src/fedcourtsai/planning_rates.py`) prices a fully
-predicted and evaluated event at about $20.09, above both figures. The review
+predicted and evaluated event at about $24.64, above both figures. The review
 hold's per-round auto-release reads the table, and a round priced above
 `auto_release_usd_per_round` waits for a release, so a row above its engine's
 cost errs toward holding and a row below it lets a larger round through. The
@@ -88,11 +88,10 @@ rows, $4.27 a prediction and $5.92 a grading run, are set from the
 pre-cutover measurements and anchors, about three and four times the measured
 cells. Its codex rows, $3.00 and $2.20, are the 90th percentile of the
 `gpt-6.1-sol` cells repriced at Astra's rate as above ($2.98 and $2.19),
-rounded up. Its gemini rows, $2.80 and $1.90, are Argon's measured cells
-doubled for the rate in force from 2026-12-01: Carbon's grading run already
-measures just above its row, and from that date both rows are about half of
-what a Carbon cell is projected to cost. So the table's total holds only
-because the claude rows carry it, and a gemini-heavy round prices low.
+rounded up. Its gemini rows, $5.30 and $3.95, are Carbon's measured cells
+doubled for the rate in force from 2026-12-01 and rounded up, so they hold
+across that change and until then price a gemini cell at about twice its
+cost.
 [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
@@ -152,9 +151,9 @@ the topic labeler's runs are what that window counts.)
 - **The replay** (`run-backtest`, `replay: merits`) runs every routable
   predictor on each drawn case at two moments, the grant and the briefed
   moment, so with the three engine predictors a case is two events. At the
-  planning table's predict rows ($4.27 claude-code + $3.00 codex + $2.80
-  gemini, $10.07 an event) a case prices at about $20.14, and the dispatch cap
-  of 20 cases at about $403. The
+  planning table's predict rows ($4.27 claude-code + $3.00 codex + $5.30
+  gemini, $12.57 an event) a case prices at about $25.14, and the dispatch cap
+  of 20 cases at about $503. The
   arm has no `review` hold, so the dispatch is the release: the 1–20 case cap,
   which the job's timeout sets, is its only bound.
 - **A back-test comparison** (`fedcourts cert-backtest-compare`,
@@ -169,15 +168,15 @@ the topic labeler's runs are what that window counts.)
   defaults and has no `review` hold, so the dispatch is the release.
 - **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
-  evaluator per event. At the table's evaluate rows ($5.92 + $2.20 + $1.90,
-  $10.02 an event) that is about $150. The round is always held for a release
+  evaluator per event. At the table's evaluate rows ($5.92 + $2.20 + $3.95,
+  $12.07 an event) that is about $181. The round is always held for a release
   and never auto-released. It reads every writing of the decision, as every
   evaluate cell does, and the evaluate rows were measured on cert-stage
   gradings that read no opinion and graded no forecast document, so the figure
   reads low.
 
 Together, a 20-case replay and its pilot round (grading 15 of those cases)
-come to roughly $555, once. Both rates come from the planning table, not a
+come to roughly $685, once. Both rates come from the planning table, not a
 measurement, and neither round's cells reach the committed ledger, so
 `fedcourts usage-summary` never counts what they spent. What they spent is
 measured apart, with the rest of the test and staging spend below. No merits
@@ -274,9 +273,9 @@ in one week) may be start-up fill, and a full Term on the ledger settles it.
 
 | | Monthly | Yearly |
 |---|---:|---:|
-| Model API spend | $2,000 | $24,000 |
+| Model API spend | $3,000 | $36,000 |
 | Other spend | $600 | $7,200 |
-| **Total** | **$2,600** | **$31,200** |
+| **Total** | **$3,600** | **$43,200** |
 
 The model line is the **envelope**, not today's run rate. Measured committed
 spend over the trailing 30 days, the one total the `spend` backstop and the
@@ -303,7 +302,7 @@ month whose cells came to $2,283. It first forecast 257 events and graded
 Projected, not measured, at the per-run figures above. The window's runs
 (about 270 predictions and 85 to 115 gradings an engine) at the current
 models' cost come to about $2,190 of cells once Astra is live, and with the
-window's summaries and labeler runs to about $2,400 a month, above this line.
+window's summaries and labeler runs to about $2,400 a month, inside this line.
 From 2026-12-01 gemini's share doubles and the same runs come to about $3,140
 of cells and $3,350 in all. The last seven days ran slower (41 events
 forecast, 43 graded), and their spend on every lane, with the cells repriced
@@ -311,19 +310,21 @@ the same way, comes to about $1,950 a month before that date and $2,850
 after; that week holds 10 codex gradings against 43 claude ones, so it reads
 low by the missing codex runs. Every figure here rests on a week of cells
 whose cost varies widely run to run, and is rounded to the nearest $50. So an
-in-Term month projects to roughly $1,950–2,400 until 2026-12-01
-and $2,850–3,350 from it: at or above this line until December, and from
-then above the auto-release budget below and, at its top, above the `spend`
-backstop's ceiling, where minting stops. The trailing window reaches those figures gradually, since each day at
-the new cost replaces one at the old; at the last week's pace, with Astra live and the gemini
-rate rows edited on 2026-12-01 (below), it passes the point where routine
-rounds wait for a release during the first half of December. Over a Term, 1,400–2,000 events at $11.20–15.80 is ≈$16–32K before
-retries, and ≈$22–32K at the figure in force for most of it, against the $24K
-envelope and before the summaries and the labeler add their ≈$1.3–2.1K a year
-at the rates above; the annual figure sits below twelve in-Term months
-because the summer forecasts little. On the projection the envelope holds, if at all, only at the very bottom of
-the event count, and not once retries and the summaries are added; it has no headroom for milestone
-2's AI-case watchlist ([milestones.md](milestones.md)).
+in-Term month projects to roughly $1,950–2,400 until 2026-12-01 and
+$2,850–3,350 from it: inside this line until December, and from then on
+either side of it, inside the auto-release budget below and under the
+`spend` backstop's ceiling. The trailing window reaches those figures
+gradually, since each day at the new cost replaces one at the old. A month
+above the range's top, a long conference's campaign among them, passes the
+point where routine rounds wait for a release. Over a Term, 1,400–2,000
+events at $11.20–15.80 is ≈$16–32K before retries, and ≈$22–32K at the
+figure in force for most of it, against the $36K envelope and before the
+summaries and the labeler add their ≈$1.3–2.1K a year at the rates above;
+the annual figure sits below twelve in-Term months because the summer
+forecasts little. On the projection the envelope holds across the event
+count, with a few thousand dollars to spare at its top once retries are
+added; that margin is what milestone 2's AI-case watchlist
+([milestones.md](milestones.md)) has to fit in.
 
 The limits read the ledger, and the ledger prices each cell's tokens at the
 rate table in `src/fedcourtsai/pricing.py` as it stands when the cell is
@@ -338,13 +339,13 @@ measured spend over the trailing 30 days (the committed `usage.json` ledger,
 each committed summary's recorded usage, and each topic-labeler run's spend
 record — the same total the `spend` backstop sums), plus an allowance for rounds released in
 the last day, plus the round's own estimate, stays within
-`auto_release_budget_usd` in `config/review-hold.yaml`, $2,500, set $500
+`auto_release_budget_usd` in `config/review-hold.yaml`, $3,500, set $500
 above this monthly figure so a campaign's spend still in the window does not
 hold every routine round; past it, every round waits for a human release. A single round
 also auto-releases only when its estimate is within
 `auto_release_usd_per_round`, $75, which at the planning table is a predict
-round of seven events. The `spend` backstop
-in `config/tracking.yaml` sits above the budget, at $3,000 over the same
+round of five events. The `spend` backstop
+in `config/tracking.yaml` sits above the budget, at $4,000 over the same
 30-day window, and stops minting outright
 ([pipeline.md](pipeline.md), *Auto-release*).
 
