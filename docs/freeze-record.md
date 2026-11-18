@@ -21122,8 +21122,8 @@ freeze commit is recorded here.
   the opinion against the petition; both still hold, so no amendment debt is
   added.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-18` (merge
+  commit `67f0c7ab556c74d8bd1d5ec07cc7aa491f5b6053`, merged `2026-11-18T01:17:26Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_decision_below.py` is green;

@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000435",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts statpack-at",
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "statpack-at made it possible to tell a stale-pack difference from figures that match no build"
+  ],
+  "gaps": [
+    "No direct way to confirm a candidate's pinpoint citation into the petition appendix; the extracted text carries no reliable appendix page markers"
+  ],
+  "notes": "All three candidates resolved to the same statpack build, which made one candidate's non-matching figures easy to isolate."
+}

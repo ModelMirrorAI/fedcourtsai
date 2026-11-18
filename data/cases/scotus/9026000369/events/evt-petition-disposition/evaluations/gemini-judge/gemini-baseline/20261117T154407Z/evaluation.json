@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Although five advocacy and academic amici filed in support of the abstract question of due-process floors in state-confirmed family-law arbitration and Supreme Court counsel entered an appearance post-filing, the actual case is a fact-bound pro se \u00a7 1983 collateral challenge to an expired marital-dissolution restraining order, affirmed in an unpublished Ninth Circuit memorandum with alternative judicial and arbitral immunity dismissals below, and summarily denied on a first distribution after waivers."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9613880490861788,
+  "case_id": "scotus/9026000369",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.00251155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.001,
+          "Gorsuch": 0.004,
+          "Jackson": 0.001,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.001,
+          "Thomas": 0.008
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00251155423898689,
+    "total": 0.00251155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:58:14.268768Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-31T01:27Z-01:31Z (run_id 20261031T010306Z), sixteen days before the 2026-11-16 denial. Captured retrieval_log.json (all rows outcome_only) shows reads of provisioned case files and statpack, structured fedcourts corpus queries, and CourtListener MCP lookups of T. M. v. University of Maryland Medical System Corp. (opinion 11345156, decided 2026-06-18) and the Ninth Circuit docket below; no access to data/qp-topics/ and no outcome-revealing material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition='denied', resolved_at='2026-11-16' (the Monday after the Nov. 13 Conference), and signals.distribution_count=1; snapshot 2026-11-16.json shows 'Nov 16 2026 | Petition DENIED.' with no intermediate CFR or relist.",
+        "claim": "The petition will be denied on the Monday order list immediately following the November 13, 2026 Conference without being relisted, redistributed, or drawing a call for a response (4% redistribution probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null and snapshot 2026-11-16.json contains no CVSG entry.",
+        "claim": "The Court will not issue a Call for the Views of the Solicitor General (0.2% probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_basis='standard', noted_dissent_from_denial=false, and votes=[]; snapshot 2026-11-16.json records a bare 'Petition DENIED.' entry.",
+        "claim": "The Court will issue a standard, unsigned order denying certiorari without any noted dissent or separate statement respecting denial (1.5% probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition='denied' (actual_granted=0), so the conditional grant scope was never tested.",
+        "claim": "Conditional on a grant, the Court would limit review to Question 1 (Rooker-Feldman) and decline to reach Question 2 (Fourteenth Amendment constraints on family-law arbitration) in the first instance.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records actual_disposition='denied' (disposition_route=null), leaving the conditional grant-route forecast untested.",
+        "claim": "Conditional on a grant, plenary review (75%) is likelier than summary disposition (25%) because T. M. v. University of Maryland Medical System Corp. offers no ground for a GVR and alternative immunity holdings block summary reversal.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T010306Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:58:14.268768Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050890782339271884,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000420",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "fedcourts query"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v6 statpack build (dedb32b153e6) against which all three forward candidates ran, preventing false base-rate discrepancies against the sal-v8 checkout statpack",
+    "fedcourts query quickly verified the status and dates of companion dockets (26-1, 25-677, 25-625, 24-304) cited across the candidates' rationales"
+  ],
+  "gaps": [],
+  "notes": " Note: the Gemini read_file tool restricts reads to the workspace and /home/runner/.gemini/tmp/fedcourtsai, so directing fedcourts statpack-at --out-dir into the session temporary directory allowed direct inspection via read_file."
+}

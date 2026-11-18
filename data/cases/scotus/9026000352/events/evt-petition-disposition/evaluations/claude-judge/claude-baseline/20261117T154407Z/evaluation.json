@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726",
+  "big_case": {
+    "evaluator_score": 0.03,
+    "notes": "Self-represented petition from an unpublished Fourth Circuit per curiam affirming a Rule 12 dismissal of an individual whistleblower-retaliation suit on threshold grounds; the questions presented are abstract and present no split or question of general importance. No response, no amicus, denied at first conference without a writing. The defendant's size and the petition's national-security allegations do not give the legal dispute wider stakes."
+  },
+  "brier_score": 9e-06,
+  "brier_skill_score": 0.9965249244177561,
+  "case_id": "scotus/9026000352",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": 0.00260255423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.002,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.003,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.0005,
+          "Barrett": 0.0003,
+          "Gorsuch": 0.001,
+          "Jackson": 0.001,
+          "Kagan": 0.0003,
+          "Kavanaugh": 0.0003,
+          "Roberts": 0.0003,
+          "Sotomayor": 0.001,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00260255423898689,
+    "total": 0.00260255423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:24:05.643224Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Log mode forward; prediction created 2026-10-31, before the 2026-11-13 conference and the 2026-11-16 denial. 15 fully captured calls: prompt and provisioned-record reads, a statpack grep and two corpus queries for unrelated denials; no web or MCP lookups. Nothing in the log or prose shows this petition's disposition; the reasoning treats the conference as still future.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.68,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Staged docket snapshot 2026-11-16: 'Nov 16 2026 Petition DENIED. Justice Alito took no part in the consideration or decision of this petition.'; outcome.json actual_disposition=denied.",
+        "claim": "The Court will deny the petition on the order list following the November 13, 2026 conference, by a routine order without opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.distribution_count=1; the docket shows the single Oct 28 distribution followed directly by the Nov 16 denial.",
+        "claim": "No further distribution or relist (and no call for a response) before the denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date=null; no CVSG entry on the docket.",
+        "claim": "No call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial=false; the denial entry records only Justice Alito's non-participation, which is not a writing.",
+        "claim": "No noted dissent from, or statement respecting, the denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was simply denied (outcome.json disposition_basis=standard, actual_granted=0).",
+        "claim": "No GVR or summary reversal, since no intervening decision bears on the case.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T010306Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:24:05.643224Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050890782339271884,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

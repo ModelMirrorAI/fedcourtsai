@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73538544",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts statpack-at",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "fedcourts statpack-at reconstructed the exact sal-v4 placement statpack (7bcde3b105cb) all three candidates anchored on prior to the sal-v8 refresh",
+    "Full untruncated petition.txt and brief-in-opposition.txt in record/documents/ enabled exact verification of quoted passages and lower-court citations"
+  ],
+  "gaps": [],
+  "notes": "Clean cert-stage GVR evaluation; the staged briefs, lower-court appendix, and November 16, 2026 docket snapshot resolved every central claim without requiring corpus queries or external lookups."
+}

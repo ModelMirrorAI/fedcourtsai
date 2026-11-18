@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Individual federal prisoner's \u00a7 2255 appeal from a non-precedential Third Circuit ruling with no circuit split, zero amicus briefs, a Solicitor General waiver, and a clean first-conference denial; the 20-year sentence on counts held inapplicable to oral statements and the clean \u00a7 2255 relitigation-bar / plain-error procedural puzzle place it slightly above routine fact-bound petitions."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8468345041322314,
+  "case_id": "scotus/9026000440",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.00221155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.018,
+          "Jackson": 0.015,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.015,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00221155423898689,
+    "total": 0.00221155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:33:56.634613Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created 2026-10-30T01:36:20Z, 17 days before the November 16, 2026 denial. All 55 calls carry outcome_only capture (the engine's standing capture shape, coverage 0.0); auditing every logged query confirms reads were restricted to prompt/schema files, metrics/statpack.md, the provisioned 2026-10-30 case record, prior dockets 20-1369 and 26A102 and 2020s-era rows via fedcourts query, and one CourtListener opinion lookup returning the 2018 and 2020 lower-court Jabateh rulings. No qp-topics or post-cutoff queries occurred.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied', actual_granted 0, and resolved_at '2026-11-16', matching the 2026-11-16 docket entry 'Nov 16 2026: Petition DENIED.' with no call for response.",
+        "claim": "The Court will deny certiorari without calling for a response, most likely on the November 16, 2026 order list immediately following the November 13, 2026 Conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals record distribution_count 1, confirming zero additional distributions after the October 28 distribution.",
+        "claim": "The petition will not be distributed again after its first conference (8% probability of any further distribution via CFR or relist).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals record cvsg_date null.",
+        "claim": "The Court will not issue a CVSG because the United States is already the respondent represented by the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records disposition_basis 'standard', noted_dissent_from_denial false, writing_roles null, and votes [].",
+        "claim": "Upon denying certiorari, the Court will issue a standard unsigned summary denial order with no noted dissent or separate statement (96% modal call).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on first conference without a response call, leaving conditional grant-stage route and ground claims untested.",
+        "claim": "Conditional on calling for a response and granting review, there is a 45% probability of summary disposition (GVR or per curiam reversal) versus plenary review on the narrow \u00a7 2255 relitigation-bar question.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:33:56.634613Z"
+  },
+  "reasoning_quality": 0.91,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

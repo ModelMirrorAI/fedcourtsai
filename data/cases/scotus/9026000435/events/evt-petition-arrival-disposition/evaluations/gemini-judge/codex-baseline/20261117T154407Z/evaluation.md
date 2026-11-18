@@ -1,0 +1,36 @@
+# Evaluation of `codex-baseline` — `scotus/9026000435` (`evt-petition-arrival-disposition`)
+
+## Outcome and Quantitative Summary
+
+- **Outcome**: Certiorari `denied` on `2026-11-16` (`actual_granted = 0`, `distribution_count = 1`, `cvsg_date = null`, `noted_dissent_from_denial = false`). Following docketing on October 1, 2026, the Solicitor General waived the federal respondent's right to respond on October 23, 2026; the petition was distributed on October 28, 2026 for the November 13, 2026 Conference and denied without separate writing on November 16, 2026.
+- **Prediction**: `predicted_disposition = "denied"` (`correct = 1`), `probability = 0.12`, `brier_score = 0.0144`. Skill against the baseline is recorded mechanically by the harness against the stamped segment base rate.
+- **Base-rate build graded against**: Reconstructed via `fedcourts statpack-at` at build `1c4f550b7b758c0f5dbb4d505b8159cd8e93fee5` (`sha256:6686e96900da7521a4a61b621aa78c4a04231c24a834f547cd36848f501f675e`, landed `2026-09-28`), which carried the `sal-v4` segment table matching `codex-baseline`'s frozen `context.salience_version` rather than the later committed pack.
+
+## Reasoning Quality (`reasoning.md` — `0.68`)
+
+`codex-baseline` produced a careful, text-grounded legal and empirical analysis of the arrival record, marred primarily by a poorly calibrated upward adjustment from its base-rate anchor.
+
+**What `codex-baseline` got right:**
+1. **Base-rate selection and arithmetic**: Correctly recognized that a private employer petitioning against a federal agency respondent sits in the `private` caption class (`band: baseline`) rather than the federal-petitioner class, and accurately pooled the `sal-v4` `baseline` bracketed `reached` rows over strictly prior Terms OT2017–OT2025 in statpack build `1c4f550b7b75` (`5.01%` over `12,720` weighted cases), excluding OT2026 and avoiding the terminal/zero-relist trap.
+2. **Close reading of the Second Circuit order (`App. 1a–13a`) and cited authorities**: Read both the petition and the unpublished summary order carefully and checked *Loper Bright Enterprises v. Raimondo*, 603 U.S. 369, 392 (2024), and *Multimedia KSDK, Inc. v. NLRB*, 303 F.3d 896, 899–900 (8th Cir. 2002) (en banc), via CourtListener. `codex-baseline` pinpointed the exact evidentiary defects on `App. 6a–8a` (missing examples of discretionary assignment for news producers, digital content producers acting at higher management's direction, a single designer and editor in creative services leaving only one self-evident choice, and no evidence of accountability for responsible direction) and explained why *Multimedia KSDK* turned on record-specific proof under *Kentucky River* rather than establishing a categorical rule for all broadcast producers.
+3. **Auxiliary claim mechanics**: Properly understood that from `distribution_count = 0`, `relist-increment` (`0.97`) measures reaching at least one conference distribution rather than a post-conference relist, that a federal respondent makes `cvsg-increment` (`0.005`) near-vacuous, that any grant on this posture would overwhelmingly favor a summary GVR (`0.80` conditional), and that a noted dissent from denial was unlikely (`0.03`).
+
+**Where `codex-baseline` fell short:**
+- **Directional miscalibration of the headline probability (`0.12`)**: After demonstrating why the summary order rested on substantial-evidence failures rather than statutory interpretation, why the Eighth Circuit conflict was illusory, why the Second Circuit had already moved to independent review in *Siren Retail Corp. v. NLRB* (`Pet. 13–14`), and why a *Hospital Menonita*-style GVR analogy was weak for a June 2026 summary order decided two years after *Loper Bright* that explicitly recited de novo review (`App. 3a`), `codex-baseline` still more than doubled the risk-set anchor to `12%` based on a single boilerplate pre-*Loper Bright* deference quotation on `App. 3a`. In reality, an unpublished fact-bound summary order from a circuit that had already self-corrected in published precedent was weaker — not more than twice stronger — than the average paid private petition, leaving `codex-baseline`'s Brier score (`0.0144`) worse than the stamped segment base rate.
+- **Unverified treatment of *Siren Retail***: Although `codex-baseline` used CourtListener MCP for *Loper Bright* and *Multimedia KSDK*, it treated the petition's account of *Siren Retail Corp. v. NLRB* (2d Cir. Sept. 2, 2026) as unverified advocacy rather than confirming its published status on CourtListener, which may have contributed to under-weighting how thoroughly *Siren Retail* eliminated any reason for Supreme Court intervention.
+
+## Forecast Document Quality (`predicted_reasoning.md` — `0.72`)
+
+Evaluated strictly against the staged record (`outcome.json` and `record/snapshots/2026-11-16.json`), `codex-baseline`'s forecast document got the modal procedural and substantive trajectory mostly right, with one clear miss on government-response/disposition timing:
+
+- **Borne-out central claims**: Correctly forecast denial of certiorari; specifically and accurately called the conference trajectory — one initial distribution added to the arrival zero followed by denial *without* a repeat conference (`distribution_count = 1`); correctly called no CVSG (`cvsg_date = null`); and accurately predicted an unexplained routine denial with no noted dissent or statement (`noted_dissent_from_denial = false`).
+- **Failed claim**: Assumed ordinary opposition briefing / post-response-period distribution and forecast disposition between **December 2026 and March 2027**, missing that the Solicitor General would waive on October 23, 2026 without filing an opposition brief and that the Court would deny certiorari on November 16, 2026.
+- **Unresolved conditional content**: Its conditional grant discussion (80% summary GVR route vs. narrowed plenary review of Question 2) was untested given the denial and neither helps nor hurts the grade.
+
+## Leakage Audit (`not_applicable` / `leakage_suspected = false`)
+
+This was a `forward` cell executed on `2026-10-01` (`run_id: 20261001T215439Z`), six weeks before the `2026-11-16` resolution and three weeks before the `2026-10-23` waiver. Audit of `retrieval_log.json` (`result_capture_coverage = 0.9375` across 32 calls) confirms that all local commands read only the provisioned record, prompts, schemas, and `metrics/statpack.md` (explicitly excluding `data/qp-topics/` via `-not -path`), the two unobserved web attempts targeted the 2024 *Loper Bright* slip opinion, and the CourtListener MCP calls retrieved only *Loper Bright* (2024) and *Multimedia KSDK* (2002). No outcome material existed or was accessed.
+
+## Big-Case Read (`evaluator_score = 0.18`)
+
+Independent of the candidates' scores, this case carries low institutional and doctrinal stakes (`0.18`). Beneath the petition's *Loper Bright* framing lies a single-station technical refusal-to-bargain dispute resolved in a non-precedential summary order on record-specific evidentiary gaps under Section 2(11), after the Second Circuit had already adopted non-deferential *Loper Bright* review in *Siren Retail*. The Solicitor General's waiver, absence of amicus participation, single distribution, and routine denial reflect those narrow stakes.

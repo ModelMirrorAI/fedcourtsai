@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.45,
+    "notes": "Single-question First Amendment petition on whether privately delivered, licensure-required CME instruction is government speech; six cert-stage amici including a multistate coalition, a called-for response, four further distributions, and a denial over a Thomas dissent joined by Alito with Gorsuch noting he would grant. Real doctrinal interest and visible division at the Court, but a state-specific licensing rule that the Court ultimately declined to review; mid-range stakes, not a blockbuster."
+  },
+  "brier_score": 0.16000000000000003,
+  "brier_skill_score": -4.284368846314036,
+  "case_id": "scotus/73286452",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": -0.1297220226949897
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1297220226949897,
+    "total": -0.1297220226949897
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T15:51:26.608467Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell: prediction created 2026-09-18 from the 2026-09-17 snapshot, with the petition pending for the 9/28/2026 conference; the event resolved 2026-11-16. Log is fully captured (coverage 1.0): local record/statpack reads, one corpus query, and CourtListener lookups for the Ninth Circuit opinion below (dated 2025-07-25) and Chiles v. Salazar (2026-03-31), all predating resolution. No retrieved_doc_date on or after 2026-11-16 and nothing in the prose reads the outcome as decided.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: actual_disposition denied; docket entry Nov 16 2026 'Petition DENIED'.",
+        "claim": "Denial is the modal outcome, with a substantial minority chance of a grant (P(grant)=0.40).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket shows four further distributions (conferences of 10/9, 10/16, 11/6, 11/13/2026) before disposition; outcome signals distribution_count 6.",
+        "claim": "The first order after the September 28 long conference is the likeliest disposal point; P(further distribution)=0.45, and any relisting would be one or two, not a long string.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Nov 16 2026 entry: denial accompanied by a dissent from denial after the repeated redistributions.",
+        "claim": "A further distribution would most likely come because a Justice is writing on a denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome signals cvsg_date null; no invitation on the docket.",
+        "claim": "No CVSG (0.03).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Nov 16 2026 entry: Justice Thomas, joined by Justice Alito, dissenting from denial; Justice Gorsuch would grant. The identity call held exactly, though the document rated a writing less likely than not.",
+        "claim": "Conditional on denial, a noted dissent or statement is a minority possibility (0.35); the likeliest author is Justice Thomas or Justice Alito, possibly joined by Justice Gorsuch.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T15:51:26.608467Z"
+  },
+  "reasoning_quality": 0.8,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

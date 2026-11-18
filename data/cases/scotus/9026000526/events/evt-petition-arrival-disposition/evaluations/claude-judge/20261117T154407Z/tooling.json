@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000526",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The staged retrieval logs with result_capture markers",
+    "The decided-docket snapshot under record/snapshots, which settled the distribution and waiver timing the forecast documents were graded on",
+    "record/documents/petition.txt for spot-checking the facts a rationale relied on"
+  ],
+  "gaps": [],
+  "notes": "Straightforward forward cert denial; three candidates, all predicting denial. No corpus query, statpack lookup or external retrieval was needed."
+}

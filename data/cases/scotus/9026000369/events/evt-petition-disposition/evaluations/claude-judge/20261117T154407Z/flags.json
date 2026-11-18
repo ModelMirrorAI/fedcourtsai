@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000369",
+  "flags": [
+    {
+      "category": "provisioning",
+      "event_id": "evt-petition-disposition",
+      "message": "The staged retrieval.md for codex-baseline retains a runner home-directory path naming a cell user, which the identity scrub did not mask. It was given no weight in any grade and no attempt was made to resolve it; the scrub may want to cover home-directory path components.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0"
+}

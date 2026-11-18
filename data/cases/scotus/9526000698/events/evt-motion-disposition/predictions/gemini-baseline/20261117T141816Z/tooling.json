@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000698",
+  "run_id": "20261117T141816Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp:courtlistener"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "metrics/statpack.md and metrics/statpack.json finer interim counts and applicant_cuts",
+    "record/documents/application.txt full OCR text of pro se emergency application",
+    "CourtListener MCP RECAP docket-entries/recap-documents and opinion reader for prior D.D.C. suits (1:26-cv-00304, 1:26-cv-00310, 1:25-cv-04566)",
+    "fedcourts query --include-applications with --decided-before to inspect comparable mid-week substantive application denials"
+  ],
+  "gaps": [
+    "An --application-kind (or --interim-only) filter and --originating-court filter on fedcourts query would let interim cells retrieve resolved substantive applications directly without paging past Monday cert order lists"
+  ],
+  "notes": "CourtListener RECAP dockets for D.D.C. 1:26-cv-00304 and Judge Ali's opinion in 1:25-cv-04566 cleanly verified the exact procedural dates and OCR-affected references in application.txt."
+}

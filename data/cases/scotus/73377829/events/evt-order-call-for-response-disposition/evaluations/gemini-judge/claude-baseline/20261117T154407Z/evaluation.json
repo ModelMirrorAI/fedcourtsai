@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.38,
+    "notes": "Challenges to how the federal judiciary adjudicates internal workplace sexual harassment and discrimination complaints carry genuine institutional sensitivity\u2014reflected here in the recusal of the entire Fourth Circuit, a 127-page post-trial district court opinion, an amicus filing by legal accountability groups, and the Court's call for a response after an initial government waiver. At the same time, the substantive reach is confined to internal judicial-branch employment governance, the 2013 Fourth Circuit EDR Plan at issue had already been superseded, both questions presented suffered from severe preservation defects below, and the petition ended in a routine, unremarked certiorari denial without relist or separate statement."
+  },
+  "brier_score": 0.0025000000000000005,
+  "brier_skill_score": 0.07852714793210813,
+  "case_id": "scotus/73377829",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.00021304791496538434
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.01,
+          "Gorsuch": 0.02,
+          "Jackson": 0.07,
+          "Kagan": 0.01,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.005,
+          "Sotomayor": 0.05,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00021304791496538434,
+    "total": 0.00021304791496538434
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:23:38.097355Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed on 2026-10-29, eighteen days before the 2026-11-16 denial order. All 14 calls in retrieval_log.json are captured (coverage 1.0). The candidate fetched the live supremecourt.gov docket page for No. 25-1303 on 2026-10-29 and transparently disclosed seeing post-cutoff filings through the October 28, 2026 distribution for the November 13, 2026 conference; because the event was genuinely unresolved at prediction time, that pre-resolution docket check is legitimate forward signal rather than outcome leakage.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.76,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied' and actual_granted 0, and the 2026-11-16 snapshot records 'Petition DENIED.' on November 16, 2026 after the October 13, 2026 Brief in Opposition.",
+        "claim": "The Court will deny the petition for a writ of certiorari once the requested response is filed.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 2, and the 2026-11-16 snapshot shows a single post-response distribution on October 28, 2026 for the November 13, 2026 conference followed by denial on November 16, 2026.",
+        "claim": "After being redistributed once the response is filed, the petition will go to one conference and be denied without a further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date as null and the 2026-11-16 docket contains no CVSG order.",
+        "claim": "No CVSG will be called for because the federal government is the respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied (actual_granted = 0), so conditional claims regarding grant scope and summary disposition were never tested.",
+        "claim": "If granted, the Court would take Question Presented 1 while leaving Question Presented 2 aside and would not dispose of the case summarily.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial as false and votes as empty, and the November 16, 2026 docket entry is an unexplained 'Petition DENIED.' order with no separate writing.",
+        "claim": "The denial is expected to issue without a dissent or statement respecting denial, though a separate writing by Justice Jackson or Justice Sotomayor is possible.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T142045Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:23:38.097355Z"
+  },
+  "reasoning_quality": 0.72,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

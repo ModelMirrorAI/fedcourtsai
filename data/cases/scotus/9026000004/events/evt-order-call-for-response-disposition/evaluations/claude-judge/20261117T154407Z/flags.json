@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9026000004",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "gemini-baseline's reasoning.md and predicted_reasoning.md describe a record that does not match the provisioned one: an interlocutory Fulton County discovery dispute with a Texas plaintiff, a 1989 registration, Mayer Brown as counsel, trial-court orders quoted at Pet. App. 3a-6a, and a Georgia Supreme Court denial on Mar. 3, 2026. The staged petition and docket show a $10.86M default judgment, a reasoned Georgia Court of Appeals opinion (June 23, 2025), a 1985 registration, Greenberg Traurig as counsel of record, and a March 31, 2026 denial. Its statpack figures (363/7,940 baseline) also match neither the committed pack nor the build in force at its run. Its transcript shows it opened the same petition.txt path, so this looks like the candidate's error, not a provisioning mix-up, but a maintainer may want to confirm. The disposition and Brier are unaffected; I graded reasoning_quality 0.2 on it.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0"
+}

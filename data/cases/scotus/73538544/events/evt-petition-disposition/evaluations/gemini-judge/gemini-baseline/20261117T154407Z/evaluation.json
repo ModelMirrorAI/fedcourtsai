@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.22,
+    "notes": "Wrongful-death FAAAA preemption dispute from a published California Court of Appeal decision (114 Cal. App. 5th 873) involving a major national retail receiver (Walmart) and agricultural shipper (Irigoyen Farms). Although Question 2 raises a recurring statutory threshold question on shipper/receiver coverage under 49 U.S.C. \u00a7 14501(c)(1), no circuit split had matured on that issue and the Court resolved the petition via a routine follow-on GVR under Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026), without plenary briefing or new Supreme Court doctrine."
+  },
+  "brier_score": 0.006399999999999993,
+  "brier_skill_score": 0.9906195028867288,
+  "case_id": "scotus/73538544",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": 0.6758666136686466
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.99,
+        "score": 0.4284443284517951
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.001,
+          "Gorsuch": 0.004,
+          "Jackson": 0.003,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.002,
+          "Thomas": 0.005
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 1.1043109421204418,
+    "total": 1.1043109421204418
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:45:35.847299Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-29 (run_id 20261029T180303Z), 18 days before the November 16, 2026 GVR resolution. All calls in retrieval_log.json carry outcome_only capture (result_capture_coverage = 0.0, the engine's standing shape); inspection of every logged query confirms reads were restricted to provisioned inputs up to 2026-10-29, pre-decision corpus queries (including docket 25-1421 while open and distributed for the 2026-11-13 conference), and two throttled CourtListener searches for Montgomery v. Caribe Transport. The petition was genuinely undecided when predicted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.72,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'gvr' and disposition_route = 'gvr', and the November 16, 2026 docket entry vacates and remands for further consideration in light of Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026).",
+        "claim": "The Court will dispose of the petition in the cert order itself via a grant, vacatur, and remand (GVR) in light of Montgomery v. Caribe Transport II, LLC, 608 U.S. 219 (2026), rather than granting plenary review or summarily reversing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "While the Court entered a Montgomery GVR, the staged record (petition.txt App-1 to App-20 and 2026-11-16.json) shows a published September 10, 2025 opinion (114 Cal. App. 5th 873, certified for publication September 30, 2025) that relied on Aspen American Ins. Co. v. Landstar Ranger, Inc., 65 F.4th 1261 (11th Cir. 2023), and never cited Ye or 124 F.4th 1053.",
+        "claim": "The target decision below was an unpublished October 7, 2025 California Court of Appeal ruling that expressly adopted the Seventh Circuit's holdings in Ye v. GlobalTranz Enterprises, Inc. and Montgomery v. Caribe Transport II, LLC, 124 F.4th 1053 (7th Cir. 2025), requiring direct ownership or operation of a motor vehicle.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 2 and resolved_at = '2026-11-16', the order list immediately following the November 13, 2026 conference.",
+        "claim": "The Court is unlikely to relist the petition past the November 13, 2026 conference and will issue the GVR order immediately out of that conference with distribution_count remaining 2.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and no CVSG appears on the November 16, 2026 docket snapshot.",
+        "claim": "The Court will not call for the views of the Solicitor General (CVSG) before disposing of the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 16, 2026 docket entry records an unsigned GVR order with no noted dissents or statements, and outcome.json records votes = [] and writing_roles = null.",
+        "claim": "The order will be a routine, unsigned GVR with no Justice authoring a separate concurrence, dissent, or statement.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:45:35.847299Z"
+  },
+  "reasoning_quality": 0.48,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

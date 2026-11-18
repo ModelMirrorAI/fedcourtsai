@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20261118T010747Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "WebFetch (supremecourt.gov docket of sibling case)"],
+  "helpful": ["cert_anchor in context.json", "--docket-number lookup for the companion and sibling dockets", "provisioned BIO and cert reply"],
+  "gaps": ["The BIO is marked VIDED with No. 26-141 but context.vide_links is empty and no record/related/ was staged", "No decision-below.txt for the Second Circuit opinion", "No cut of the federal band by whether the petition presents a split or seeks error correction"],
+  "notes": "The amicus-line reference counts a serial pro se amicus brief as a stakes signal; here it is not one."
+}

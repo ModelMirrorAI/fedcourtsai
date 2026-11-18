@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.42,
+    "notes": "A $655.5M ATA judgment against the PLO/PA with foreign-relations sensitivity and a novel mandate-recall/finality question, but a party-specific sequel to Fuld resting on a one-off statute; both respondents waived, no amici, and the Court denied at first conference without calling for a response or any separate writing."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.4054346007983338,
+  "case_id": "scotus/9026000372",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.0011135300871058104
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.003,
+          "Gorsuch": 0.008,
+          "Jackson": 0.002,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.002,
+          "Thomas": 0.007
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0011135300871058104,
+    "total": 0.0011135300871058104
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:44:01.657758Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-10-31, before the 2026-11-13 conference and 2026-11-16 denial. Log shows provisioned-input reads, statpack, one corpus query for four earlier-Term denials (retrieved_doc_date 2026-04-29, before resolution; none is this petition), CourtListener reads of the 2025 Fuld opinion, and one unobserved web search whose query targets the 2025 Fuld opinion, not this petition. No qp-topics read; reasoning treats the conference as future and discloses its retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket: 'Nov 16 2026 Petition DENIED', a bare denial.",
+        "claim": "The Court will deny certiorari, most likely on the order list following the November 13, 2026 conference, without an explanatory opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome distribution_count 1; no response request or relist on the docket.",
+        "claim": "The modal path is zero additional distributions and no response request (12% for any further distribution).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome signals cvsg_date null.",
+        "claim": "There will be no new CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome noted_dissent_from_denial false.",
+        "claim": "No dissent or statement respecting denial is expected (2.5%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Conditional on a grant that did not happen.",
+        "claim": "If granted, the Court takes a narrowed version of the single question with plenary review far likelier than a summary route.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T173439Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:44:01.657758Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

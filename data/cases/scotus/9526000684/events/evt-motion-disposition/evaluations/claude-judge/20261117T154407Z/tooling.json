@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000684",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "file reads of the staged record",
+    "shell (python) for schema inspection and validation"
+  ],
+  "helpful": [
+    "outcome.json interim_signals made the response/referral/amicus claims checkable directly",
+    "the staged snapshot's docket entries gave the exact denial wording and dates"
+  ],
+  "gaps": [],
+  "notes": "Straightforward interim cell; the provisioned record was sufficient and no corpus or statpack lookup was needed."
+}

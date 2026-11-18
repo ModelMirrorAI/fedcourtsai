@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726",
+  "big_case": {
+    "evaluator_score": 0.1,
+    "notes": "Although five advocacy and academic amici filed in support of the abstract question of due-process floors in state-confirmed family-law arbitration and Supreme Court counsel entered an appearance post-filing, the actual case is a fact-bound pro se \u00a7 1983 collateral challenge to an expired marital-dissolution restraining order, affirmed in an unpublished Ninth Circuit memorandum with alternative judicial and arbitral immunity dismissals below, and summarily denied on a first distribution after waivers."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.8455521963447152,
+  "case_id": "scotus/9026000369",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.00221155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.006,
+          "Barrett": 0.003,
+          "Gorsuch": 0.012,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.004,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00221155423898689,
+    "total": 0.00221155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:58:14.268768Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-31T01:27Z-01:28Z (run_id 20261031T010306Z), sixteen days before the 2026-11-16 denial. All 12 tool calls in retrieval_log.json are fully captured (result_capture_coverage=1.0), consisting of local reads of provisioned case files and statpack plus two generic fedcourts denied-prior queries; no web searches, no MCP calls, no access to data/qp-topics/, and no outcome-revealing material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.76,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition='denied', actual_granted=0, and resolved_at='2026-11-16'; snapshot 2026-11-16.json shows 'Nov 16 2026 | Petition DENIED.'",
+        "claim": "The petition will be denied, most likely on the November 16, 2026 order list following the November 13, 2026 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count=1 with no intermediate call for response or relist on snapshot 2026-11-16.json, bearing out the modal zero-relist call despite substantial hedging.",
+        "claim": "Modal outcome is no further distribution, though a call for response or reschedule carries a substantial (~25%) probability and represents the main uncertainty.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date=null.",
+        "claim": "The Court will not invite the Solicitor General to file a brief (<1% CVSG probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false and votes=[].",
+        "claim": "No dissent from the denial of certiorari is expected (~3% probability).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition='denied' (disposition_route=null), leaving conditional grant scope and route untested.",
+        "claim": "Conditional on a grant, review would be limited to QP 1, with a ~12% conditional chance of a per curiam vacatur holding the Ninth Circuit applied Rooker-Feldman's 'inextricably intertwined' test too broadly after Exxon.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261031T010306Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:58:14.268768Z"
+  },
+  "reasoning_quality": 0.62,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.050890782339271884,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

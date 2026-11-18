@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.38,
+    "notes": "Whether registration under a statute silent on jurisdiction can supply consent to general jurisdiction after Mallory matters to every multistate corporation and to forum choice in Georgia and a few other States, so a merits ruling would have real commercial reach. But the vehicle was one plaintiff's default-judgment tort suit from a state intermediate court, it drew a single cert-stage amicus, and the Court denied at the first post-response conference without comment."
+  },
+  "brier_score": 0.0064,
+  "brier_skill_score": -1.450647933884297,
+  "case_id": "scotus/9026000004",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": -0.0037884457610131103
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.025,
+          "Barrett": 0.005,
+          "Gorsuch": 0.02,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.005,
+          "Roberts": 0.002,
+          "Sotomayor": 0.005,
+          "Thomas": 0.015
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.0037884457610131103,
+    "total": -0.0037884457610131103
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:36:14.658211Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Log mode is forward; the prediction was written 2026-10-29, before the 2026-11-16 denial. Logged calls are provisioned-file reads, three corpus queries (a Mallory citation lookup, a generic recent-grants listing, a grep over recent rows) and two throttled CourtListener searches; all rows are outcome_only, so graded on their queries, none of which reaches this petition's disposition. No retrieved document date on or after resolution; the reasoning does not presuppose the outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.55,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: denied, disposition_basis standard, noted_dissent_from_denial false; docket entry Nov 16 2026 'Petition DENIED.'",
+        "claim": "The Court will deny the petition by a standard unreasoned order with no noted dissent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: BIO Oct 14, reply and redistribution Oct 28 for the 11/13/2026 conference, denied Nov 16; outcome distribution_count 2.",
+        "claim": "After the brief in opposition and a reply, the petition is distributed a second time and denied at that conference or after at most one relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date is null; no CVSG entry on the docket.",
+        "claim": "The Court will not call for the views of the Solicitor General.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged petition and BIO show a final $10.86M default judgment reviewed by the Georgia Court of Appeals, not an interlocutory discovery order; the BIO does argue s.1257(a) and waiver, but on different facts than the document describes. The Court's reasons are not in the record.",
+        "claim": "The brief in opposition will press the interlocutory discovery posture, a trial-court waiver finding and a term-of-court bar, and the Court denies because of those s.1257(a) and state-ground defects.",
+        "status": "not-borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:36:14.658211Z"
+  },
+  "reasoning_quality": 0.2,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

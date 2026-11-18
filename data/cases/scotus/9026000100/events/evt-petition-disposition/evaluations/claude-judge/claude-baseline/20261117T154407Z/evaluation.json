@@ -1,0 +1,113 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "The abstract question (whether McDonnell Douglas burden-shifting belongs at Rule 56 summary judgment in Title VII cases) matters to employment-discrimination litigation nationwide and drew four cert-stage amicus briefs and a call for response. But the vehicle was a fact-bound challenge to an unpublished Ninth Circuit memorandum in a single-employee discharge against a local transit agency, with no alleged circuit split, and the Court denied without any noted dissent at the first post-opposition conference. Modest stakes as presented."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.38733801652892574,
+  "case_id": "scotus/9026000100",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.00101155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.00101155423898689,
+    "total": 0.00101155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:55:54.410179Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; prediction created 2026-10-25, snapshot 2026-10-25, event resolved 2026-11-16). All 11 logged calls are captured shell calls reading the prompt, the provisioned snapshot/context/documents, the committed statpack and the schema, then writing its own output. No web or corpus retrieval, no retrieved_doc_date, no read under data/qp-topics. Reasoning treats the outcome as open and discloses that Hittle/Ames references come from the briefs and general knowledge.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: actual_disposition denied, resolved 2026-11-16, noted_dissent_from_denial false; docket entry 'Nov 16 2026 Petition DENIED.'",
+        "claim": "Disposition: cert denied.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket: 'Oct 28 2026 DISTRIBUTED for Conference of 11/13/2026'; 'Nov 16 2026 Petition DENIED.' - the order list following that conference, with no intervening relist; distribution_count 2.",
+        "claim": "The petition will be redistributed after the opposition for a November 2026 conference and most likely denied at that first post-BIO conference with no further relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json signals.cvsg_date null; no CVSG entry on the docket.",
+        "claim": "No CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json noted_dissent_from_denial false; votes empty; the docket entry notes no dissent or statement.",
+        "claim": "Most likely no separate writing on denial (Thomas, possibly with Gorsuch, the likeliest source if any).",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261025T012628Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:55:54.410179Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

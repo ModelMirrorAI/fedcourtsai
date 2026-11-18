@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.14,
+    "notes": "Fact-bound criminal venue petition seeking only a summary GVR under Abouammo v. United States, 608 U.S. 597 (2026), on 26 U.S.C. \u00a7 7206(2) counts after the Fourth Circuit already denied rehearing en banc without a poll. While constitutional venue and multi-year prison sentences (84 and 48 months) carry real stakes for the two defendants, the Solicitor General waived a response, no amici participated, and the Court denied certiorari without comment or dissent, leaving zero broader doctrinal or public impact."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": -4.351088592814995,
+  "case_id": "scotus/9026000516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": -0.011686469912894189
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.001,
+          "Gorsuch": 0.007,
+          "Jackson": 0.004,
+          "Kagan": 0.001,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.001,
+          "Sotomayor": 0.004,
+          "Thomas": 0.008
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.011686469912894189,
+    "total": -0.011686469912894189
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T18:36:33.075515Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-11-01T05:15Z-05:19Z, fifteen days before the 2026-11-16 cert denial. Of 42 logged calls in retrieval_log.json (coverage 0.929), 39 are captured and 3 web-search queries targeting Abouammo (608 U.S. 597) are unobserved; retrieved_doc_date '2026-06-09' reflects reading the Fourth Circuit decision in provisioned petition.txt. No call touched data/qp-topics/ or sought post-cutoff disposition data for this genuinely open petition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied', actual_granted 0, and noted_dissent_from_denial false; snapshot 2026-11-16.json records a summary 'Petition DENIED.' entry.",
+        "claim": "The Court will deny the petition without a separate writing, supplying no majority rationale.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count 1 (zero additional distributions after the initial Oct. 28 distribution) and resolved_at '2026-11-16', the opening date of the stated modal window.",
+        "claim": "The petition will receive zero additional distributions (20% chance of at least one more) and resolve in a modal window from November 16 through early December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date null and snapshot 2026-11-16.json shows no CVSG entry.",
+        "claim": "No CVSG will be called (0.1% probability) because the United States is already the respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied (actual_granted 0, disposition_route null), leaving the conditional grant path untested.",
+        "claim": "Conditional on any grant, the Court will dispose of the case in the cert order via a GVR (96% conditional probability) on the single question presented under Abouammo rather than plenary review or summary reversal.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261101T050708Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T18:36:33.075515Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

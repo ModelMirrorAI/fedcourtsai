@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000100",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with prose, retrieval.md and retrieval_log.json side by side",
+    "Staged cert-stage documents (BIO) for spot-checking a candidate's cited record facts",
+    "result_capture markers on the retrieval log"
+  ],
+  "gaps": [
+    "A corpus lookup's result is unobserved on some logs, so facts a candidate drew from it (an analog docket's history) cannot be confirmed from the staged record"
+  ],
+  "notes": "Straightforward forward cert cell: three denials predicted, denial realized. No corpus query or statpack consultation was needed to grade."
+}

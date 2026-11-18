@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/9026000100",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval logs and result_capture markers",
+    "Decided-docket snapshot in record/ for checking procedural forecasts"
+  ],
+  "gaps": [],
+  "notes": "Straightforward cert denial; graded from the staged record and outcome alone. Petition text was used to spot-check candidates' record citations."
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000680",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-motion-disposition",
+      "message": "Forward cell ran after its event resolved: outcome.json resolved_at is 2026-11-13 (application denied by Justice Sotomayor), while all three candidates' predictions (run 20261114T033825Z) were created 2026-11-14 on a 2026-11-12 snapshot holding only the submission entry. I found no logged call or prose in any candidate showing this application's disposition, so leakage is graded not_applicable / not suspected for codex-baseline, claude-baseline and gemini-baseline. Two limits on that finding: gemini-baseline's log is entirely outcome_only, and claude-baseline's generic recent-denials corpus query is visible only as a digest. A maintainer should decide whether these cells count as forward-stratum predictions.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0"
+}

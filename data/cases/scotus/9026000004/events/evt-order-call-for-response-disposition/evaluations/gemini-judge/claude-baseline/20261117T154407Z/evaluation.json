@@ -1,0 +1,133 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.28,
+    "notes": "Paid certiorari petition from the Georgia Court of Appeals presenting a recurring post-Mallory Fourteenth Amendment question\u2014whether corporate registration under a statute lacking express jurisdictional notice (Georgia's Cooper Tire regime) constitutes valid consent to general personal jurisdiction, especially where registration predated the judicial construction. While the abstract doctrinal issue carries meaningful commercial salience across roughly three dozen states and drew an Atlantic Legal Foundation amicus brief plus a Call for a Response, this specific case arose from a procedurally encumbered $10.86M Chatham County default judgment with severe state-law preservation and deemed-admission complications, and ended in a routine summary denial on the first conference after briefing with no noted dissents."
+  },
+  "brier_score": 0.004900000000000001,
+  "brier_skill_score": -0.8762773243801651,
+  "case_id": "scotus/9026000004",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": -0.0022884457610131107
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.02,
+          "Barrett": 0.015,
+          "Gorsuch": 0.02,
+          "Jackson": 0.005,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.01,
+          "Roberts": 0.005,
+          "Sotomayor": 0.005,
+          "Thomas": 0.01
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.0022884457610131107,
+    "total": -0.0022884457610131107
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T17:01:53.521260Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-10-29T18:32:03Z, prior to the November 13, 2026 conference and November 16, 2026 denial. retrieval_log.json (mode: forward, result_capture_coverage: 1.0) shows reads of provisioned pre-cutoff files, statpack.md, and three fedcourts query commands (including docket 21-926 Cooper Tire decided 2023-06-30), with no MCP or web lookups and no post-resolution material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.86,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition = 'denied' (actual_granted = 0) and 2026-11-16.json logs 'Nov 16 2026: Petition DENIED.'",
+        "claim": "The Court will deny Samsung's petition for a writ of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "2026-11-16.json and outcome.json show Respondent filed the BIO on Oct 14 2026, the petition was redistributed on Oct 28 2026 for the Nov 13 2026 autumn conference (signals.distribution_count = 2), and the Court resolved it without a CVSG (cvsg_date = null).",
+        "claim": "Once the requested Brief in Opposition is filed, the petition will be redistributed at least once for an autumn conference and disposed of without a CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial = false and writing_roles = null, and 2026-11-16.json shows an unadorned denial order.",
+        "claim": "The denial will be silent, with no noted dissent or separate statement respecting the denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 16, 2026 order is an unreasoned summary denial (disposition_basis = 'standard'), so the staged record does not state the Court's internal grounds, though brief-in-opposition.txt pressed these exact points.",
+        "claim": "Denial rests on the lack of a post-Mallory split, the Court's prior post-Mallory denial of Georgia's Cooper Tire rule, and the intermediate-court default-judgment posture.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T17:01:53.521260Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

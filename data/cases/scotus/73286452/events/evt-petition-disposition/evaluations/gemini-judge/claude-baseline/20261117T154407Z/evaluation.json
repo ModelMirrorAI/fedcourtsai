@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "Doctrinally consequential First Amendment dispute over whether state-mandated continuing education taught by private instructors is government speech exempt from scrutiny, drawing six cert-stage amici (including a multistate coalition) and three public grant/dissent votes (Gorsuch, Thomas, Alito), though cabined in immediate scope by California-specific narrowing below and the cert denial."
+  },
+  "brier_score": 0.16000000000000003,
+  "brier_skill_score": -4.284368846314036,
+  "case_id": "scotus/73286452",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17400568181818182,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.4,
+        "score": -0.1297220226949897
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1297220226949897,
+    "total": -0.1297220226949897
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:06:00.708729Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-09-18 (nearly two months before the 2026-11-16 denial), while the petition was genuinely pending for the 2026-09-28 conference. All 28 logged calls were captured (coverage 1.0); retrieval touched only provisioned pre-conference inputs, committed statpack/code, a general corpus query, and prior CourtListener opinions (Khatibi CA9 2025-07-25; Chiles 2026-03-31), with no data/qp-topics/ access or post-cutoff outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.58,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records actual_disposition 'denied' and actual_granted 0 on 2026-11-16.",
+        "claim": "The Court will most likely deny certiorari (with a 0.40 minority chance of a plenary grant on petitioners' framing).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.distribution_count = 6; the 2026-11-16 snapshot shows four additional distributions after the September 28 conference (10/9, 10/16, 11/6, and 11/13) before denial on November 16, 2026.",
+        "claim": "The first order list after the September 28, 2026 long conference is the likeliest disposal point (0.45 probability of any further distribution), and any relist would be one or two conferences rather than a long string.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records signals.cvsg_date = null, and the 2026-11-16 docket snapshot contains no CVSG entry.",
+        "claim": "The Court is very unlikely (0.03) to call for the views of the Solicitor General because the petition challenges a state licensing curriculum requirement implicating no federal statute, program, or party.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "While the specific trio of dissenting Justices matched remarkably well, the modal silent-denial call was not borne out: outcome.json records noted_dissent_from_denial = true, and the November 16, 2026 order notes Justice Gorsuch would grant and Justice Thomas, joined by Justice Alito, dissented from denial.",
+        "claim": "Conditional on denial, silent denial is the modal outcome (0.35 probability of a separate dissent or statement), though if a separate dissent is filed it would most likely be authored by Justice Thomas or Justice Alito, possibly joined by Justice Gorsuch.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Certiorari was denied on 2026-11-16, so conditional grant-route and merits-ground forecasts were never tested.",
+        "claim": "If granted, the Court is much likelier to grant plenary review than a Chiles GVR or summary reversal (0.25 conditional) and would reverse and remand on the ground that regulation and curricular topic mandates do not make private CME courses government speech under Shurtleff and Matal v. Tam.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20260918T174135Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:06:00.708729Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17400568181818182,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

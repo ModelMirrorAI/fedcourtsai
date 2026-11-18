@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "Petition asking the Court to overrule Libretti v. United States, 516 U.S. 29 (1995), and extend Apprendi/Southern Union jury-factfinding rules to federal criminal forfeiture. While a grant overruling Libretti would have reshaped criminal-forfeiture procedure nationwide and the petition drew a response request plus two notable amicus briefs (Former Federal Judges; WLF/NACDL/Due Process Institute/NAPD), there was no circuit split across eleven circuits, the case arose from a fact-bound nonprecedential summary order following over a dozen prior cert denials on the same question, and the Court denied certiorari cleanly without noted dissent."
+  },
+  "brier_score": 0.04000000000000001,
+  "brier_skill_score": -13.74356563308627,
+  "case_id": "scotus/73272491",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": -0.03728695208503462
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.03728695208503462,
+    "total": -0.03728695208503462
+  },
+  "correct": 1,
+  "created_at": "2026-11-17T16:30:49.079109Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-17, thirty days before the 2026-11-16 denial, with 94.7% result capture (36/38 calls captured). Captured calls read only prompt/schema files, provisioned case inputs (snapshot 2026-10-10.json, petition.txt, questions-presented.txt, documents.json), the prediction-time statpack, and 2024 CourtListener opinion excerpts for Erlinger v. United States (602 U.S. 821); the two unobserved web-search calls likewise targeted the 2024 Erlinger decision.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Order list of November 16, 2026 denied certiorari (outcome.json actual_disposition='denied', actual_granted=0).",
+        "claim": "The Court will most likely deny the petition for a writ of certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Snapshot 2026-11-16.json and outcome.json record exactly one additional distribution on October 28, 2026 for the November 13, 2026 conference (distribution_count=2), followed directly by denial on November 16, 2026.",
+        "claim": "The modal procedural path is one additional post-briefing conference distribution followed by denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records cvsg_date=null, the BIO was filed October 13, 2026, and the petition was denied on November 16, 2026.",
+        "claim": "There will be no CVSG because the United States is already the respondent, and disposition will occur between November 2026 and January 2027.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false, and snapshot 2026-11-16.json records an unexplained 'Petition DENIED.' entry.",
+        "claim": "The denial will carry no noted dissent or separate statement respecting denial.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Certiorari was denied (actual_granted=0), so the conditional grant scope and plenary-versus-summary route were never tested.",
+        "claim": "If certiorari is granted, the Court will take the single Libretti question for plenary briefing and argument rather than summary disposition.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261017T142059Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+    "label": "proc-v23",
+    "pipeline_sha": "6726a96e4011ccbda8958c2103b6eb740400f965",
+    "stamped_at": "2026-11-17T16:30:49.079109Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261117T154407Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

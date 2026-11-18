@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000516",
+  "run_id": "20261117T154407Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "file reads of the staged record",
+    "python for schema validation"
+  ],
+  "helpful": [
+    "The blinded staging with retrieval_log.json per candidate",
+    "The docket snapshot for checking candidates' dates"
+  ],
+  "gaps": [],
+  "notes": "Simple forward cert denial; no corpus or statpack lookup was needed."
+}
