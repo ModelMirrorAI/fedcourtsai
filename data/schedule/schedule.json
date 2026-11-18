@@ -3675,9 +3675,9 @@
       "next_conference": null,
       "relists": 0,
       "response_due": {
-        "set_for": "2026-12-07",
+        "set_for": "2026-12-15",
         "stale_reason": null,
-        "upcoming": "2026-12-07"
+        "upcoming": "2026-12-15"
       },
       "stale_reason": "conference_passed"
     },
@@ -3821,9 +3821,9 @@
       "next_conference": null,
       "relists": 0,
       "response_due": {
-        "set_for": "2026-11-30",
+        "set_for": "2027-01-14",
         "stale_reason": null,
-        "upcoming": "2026-11-30"
+        "upcoming": "2027-01-14"
       },
       "stale_reason": "conference_passed"
     },
@@ -4159,9 +4159,9 @@
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
-        "set_for": "2026-12-07",
+        "set_for": "2027-01-06",
         "stale_reason": null,
-        "upcoming": "2026-12-07"
+        "upcoming": "2027-01-06"
       },
       "stale_reason": null
     },
