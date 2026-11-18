@@ -13,33 +13,39 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-#: The **fallback** per-cell rate: the ~$18 a fully-tournamented case costs,
+#: The **fallback** per-cell rate: the ~$20 a fully-tournamented case costs,
 #: divided across its design mix of six cells. It prices a cell whose engine the
 #: table below does not name — a new engine, or a registry entry ahead of the
 #: table — so a plan never silently drops such a cell from its total. Re-anchor
 #: it when the table below moves.
-PLANNING_USD_PER_CELL = 3.01
+PLANNING_USD_PER_CELL = 3.35
 
 #: Per-cell rates in USD, keyed (seam, engine) — the source for every spend
 #: figure a plan prints; ``docs/budget.md`` sizes the program from measurements
-#: like these, not the other way round. The claude-code and codex predict cells
-#: are measured: one stamped fan-out, 81 cells over 27 events, since re-based
+#: like these, not the other way round. The claude-code predict cell is
+#: measured: one stamped fan-out, 81 cells over 27 events, since re-based
 #: out of the frozen partition by the predictor re-blesses that followed it.
-#: Their evaluate cells are the better-matched of the two pre-freeze cert-stage
+#: Its evaluate cell is the better-matched of the two pre-freeze cert-stage
 #: anchors — the ``proc-v2`` grading — scaled by the whole predict move
 #: (x1.218), the same scaling the per-case derivation uses. The other stamped
 #: evaluate gradings are interim-stage, graded before the current instant under
-#: superseded evaluator digests, so they re-anchor nothing here. The gemini
+#: superseded evaluator digests, so they re-anchor nothing here. The codex
+#: cells price ``gpt-6.2-astra``, which has no measured cell: the
+#: ``gpt-6.1-sol`` cells on ``main`` at ``f3754248d`` (266 predictions, 83
+#: grading runs) re-priced token for token at Astra's $8 / $40 and $0.40
+#: cached, four times Sol's rate in every bucket, come to a mean of about
+#: $2.08 a prediction and $1.78 a grading run, and each row is the 90th
+#: percentile of those re-priced cells ($2.98 and $2.19), rounded up. The gemini
 #: cells price ``gemini-4-argon``: its measured cells on ``main`` at
 #: ``d7840ec19`` (230 predictions at about $1.40, 73 grading runs at about
 #: $0.93, at the introductory $2 / $10) doubled for the $4 / $20 rate in force
 #: from 2026-12-01 and rounded up, so the row holds across that change. See the
 #: spend-basis caveats every plan carries (``fedcourtsai.cli``). The two seams
-#: sum to $8.95 + $9.12 = $18.07 a case, which the $3.01 fallback is the
+#: sum to $10.07 + $10.02 = $20.09 a case, which the $3.35 fallback is the
 #: six-cell rounding of — so a full three-engine, both-seam fan-out prices
 #: within a few cents either way.
 #: ``docs/milestones.md``'s ~$17 per fully evaluated event is that total as it
-#: stood when the plan was priced, about 6% below it. What
+#: stood when the plan was priced, about 15% below it. What
 #: conditioning buys is the *narrowed* plan: within a seam the engines differ
 #: up to ~4.6x, so an engine-narrowed backfill priced at the flat rate is wrong
 #: by up to ~2.2x.
@@ -48,8 +54,8 @@ PLANNING_USD_PER_CELL = 3.01
 #: per-actor measurements behind these rows are one actor per engine in the
 #: shipped registries.
 PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
-    "predict": {"claude-code": 4.27, "codex": 1.88, "gemini": 2.80},
-    "evaluate": {"claude-code": 5.92, "codex": 1.30, "gemini": 1.90},
+    "predict": {"claude-code": 4.27, "codex": 3.00, "gemini": 2.80},
+    "evaluate": {"claude-code": 5.92, "codex": 2.20, "gemini": 1.90},
 }
 
 

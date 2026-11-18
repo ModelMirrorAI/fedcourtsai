@@ -391,6 +391,19 @@ def test_a_model_whose_name_extends_another_priced_model_is_scrubbed_whole() -> 
         )
 
 
+def test_every_engine_default_model_is_scrubbed_whole() -> None:
+    """The model each engine runs today is masked as one token.
+
+    A dotted id (``gpt-6.2-astra``) shares its head with an earlier id of the
+    same family (``gpt-6-astra``) without extending it, so the prefix walk
+    above does not reach it; this names the live defaults directly.
+    """
+    pattern = blinding.scrub_pattern(blinding.identity_terms(CONFIG_ROOT))
+    for model in DEFAULT_MODELS.values():
+        scrubbed = blinding.scrub_text(f"Model: {model}.", pattern)
+        assert scrubbed == f"Model: {blinding.IDENTITY_REDACTION}.", scrubbed
+
+
 def test_retrieval_md_self_identification_is_scrubbed(ledger: Path) -> None:
     """The title line the committed logs carry names the predictor; the staged one does not."""
     result = _blind(ledger)

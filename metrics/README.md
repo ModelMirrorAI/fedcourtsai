@@ -51,8 +51,8 @@ and its figure as that forecaster's record, not a property of its current
 process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`),
 `proc-v9` (`claude-opus-5-5`) and `proc-v21` (`claude-fable-5-2`) windows are
 one pooled record, as are
-`codex-baseline`'s `proc-v8` (`gpt-6-astra`) and `proc-v10` (`gpt-6.1-sol`)
-windows and `gemini-baseline`'s `proc-v8` (`gemini-3.1-pro-preview`),
+`codex-baseline`'s `proc-v8` (`gpt-6-astra`), `proc-v10` (`gpt-6.1-sol`) and
+`proc-v24` (`gpt-6.2-astra`) windows and `gemini-baseline`'s `proc-v8` (`gemini-3.1-pro-preview`),
 `proc-v10` (`gemini-4-argon`) and `proc-v21` (`gemini-4-carbon`) windows. Each counted
 forecast was registered before its outcome existed and no later window can
 replace it, so the pooled record is out-of-sample however the process changed.
