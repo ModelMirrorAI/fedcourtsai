@@ -21226,3 +21226,192 @@ freeze commit is recorded here.
     grades a `codex-baseline` prediction whose committed `retrieval.md`
     carries `codexcell`, a search of `record/blinded/` for `codexcell`
     returns nothing.
+
+- **`proc-v24`, the Codex pair moves to `gpt-6.2-astra`, and the packs and
+  both prompts state their counts as stored rows; recorded 2026-11-18.**
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v24`**. Registered under the merge-stamped rule, so its
+  counting instant, its six bless moments and every window edge it moves are
+  the carrying merge's committer time. Both prompts change and one engine's
+  default model changes, so all six digests move. No harness boundary is
+  registered here: the changes are to the prompts and a model, and the label
+  is their boundary. No committed prediction or grading is re-stamped and no
+  scored value is recomputed.
+
+  **What changes.**
+  - *The Codex pair's model.* `pricing.DEFAULT_MODELS["codex"]` moves from
+    `gpt-6.1-sol` to `gpt-6.2-astra`, which `codex-baseline` and
+    `codex-judge` both run. Its `MODEL_RATES` row is $8 / $40 per million
+    input / output tokens with cached input at $0.40, four times
+    `gpt-6.1-sol`'s row in every bucket.
+  - *The Codex CLI pin.* `engines/codex` moves from 0.169.0 to 0.169.1, the
+    first release whose bundled model catalog carries `gpt-6.2-astra`. The
+    pin is not a digest input; it is disclosed here because the CLI ships
+    its own per-model instructions and context settings, which a cell under
+    this label runs with. That catalog gives `gpt-6.2-astra` a
+    272,000-token context window against `gpt-6.1-sol`'s 500,000 and the
+    same default reasoning level, `low`; no cell sets a reasoning level of
+    its own.
+  - *Both prompts, the packs' counts.* The predict prompt (two passages) and
+    the evaluate prompt (one) described the statpack's cert figures as
+    denial-reweighted estimates. They now say the figures are counts of
+    stored rows, each row counted once, which is what every reader has
+    computed since the entry above headed *Every reader counts a stored row
+    once*. The statpack and docket pack are rendered to match in the same
+    change: every section's scope line says its counts are stored rows, each
+    counted once, and **every denominator is printed `n=`** where a section
+    flagged `weighted` printed `est. n=`. That label is the one a judge
+    transcribes a base-rate denominator from. The value under it is
+    unchanged. The markdown headings and every JSON field name
+    (`weighted_resolved` and the rest) are unchanged.
+  - *Both prompts, a cert cell's `correct`.* The evaluate prompt said
+    `correct` is an exact match on the label. It now states the two cert
+    readings the scorer applies, each registered by its own entry above:
+    `granted-in-part` reads as `granted`, and a `summary-reversal` call is
+    correct where the outcome's `disposition_route` is `summary-merits` (or
+    its label is itself `summary-reversal`). The predict prompt's
+    description of the cert `predicted_disposition` field states the same
+    rule. The scorer is unchanged.
+  - *Unchanged.* The claude and gemini pairs' models, their engine CLI pins
+    and every agent's configuration.
+
+  **Why.** The maintainer chose on 2026-11-18 to put the codex pair on its
+  vendor's flagship model, as the claude and gemini pairs were put on theirs
+  at `proc-v21`. No score motivates the move, and no back-test comparison
+  of `gpt-6.1-sol` against `gpt-6.2-astra` preceded this registration. The
+  prompt rewordings were held for a label that was moving for another
+  reason, so that a wording correction did not close three windows by
+  itself; this is that label.
+
+  **Pre-registered.** No direction of skill movement is predicted for any
+  predictor. Across this label `codex-baseline` changes model, CLI release
+  and prompt together, so a movement in its window is not split among them.
+  `claude-baseline` and `gemini-baseline` change only by the prompt
+  rewording, which changes the description of figures and of a scoring rule
+  and no figure or rule, and a movement in **either** direction across this
+  label in their windows is not read as an effect of the rewording. The
+  judge-authored grades (`reasoning_quality`, `predicted_reasoning_quality`,
+  and a claim a judge grades) from `codex-judge` are made by a different
+  grader model from this label on, the third its series pools
+  (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.2-astra`), so a per-rubric reading
+  of that judge across this label compares graders as well as candidates.
+  A change in how often a judge writes `est. n=` in a transcribed base rate
+  is the label's renaming, not a change in what was read.
+
+  **What is not verified at registration.** No cell has run on
+  `gpt-6.2-astra` under this project's key and pinned CLI. That the model is
+  served to Codex CLI 0.169.1 on the production key, and at what rate
+  limit, is owed to the codex `engine-smoke` legs of the `integration-test`
+  suite, run from `staging` or the promotion candidate before the carrying
+  merge, and to the `served_models` their usage records. The model's
+  release and its price rest on press reports that agree with each other;
+  the vendor's own pages were unreachable from the session that registered
+  this label, and one aggregator lists a higher rate above 272,000 prompt
+  tokens, which the rate row does not carry. The model id is first-party:
+  it is read from the 0.169.1 package's bundled catalog. A leg that shows
+  the id unserved means this label is re-registered without the model move
+  before it is carried. Checked locally at 0.169.1, against the same checks
+  at 0.169.0: the four protected sandbox paths are the same four and the
+  sandbox starts in the cell posture; the exec-policy rules still forbid
+  `pip install` and leave `uv run fedcourts` unmatched; `codex login
+  --with-api-key` does not echo the key; and the code-mode literals the
+  retrieval parser keys on are present unchanged. A real rollout's item
+  shapes are owed to the same smoke.
+
+  **What it costs.** Token for token at Astra's rate, the `gpt-6.1-sol`
+  cells on `main` at `f3754248d` (266 prediction runs and 83 grading runs
+  from 2026-10-20 on, $175.30 in all) come to $701.20: a mean of about
+  $2.08 a prediction against $0.52 and $1.78 a grading run against $0.44.
+  The codex planning rates rise with the move, to $3.00 and $2.20, the 90th
+  percentile of those repriced cells rounded up. `docs/budget.md` carries
+  the projection.
+
+  **The amendment debt.** Three are paid: the wording the entries headed
+  *Every reader counts a stored row once*, *On a cert cell `correct` reads
+  `granted-in-part` and `granted` as one label* and *On a cert cell `correct`
+  reads a `summary-reversal` call against the outcome's route* left in the
+  prompts. This entry adds no new token. `metrics/statpack.md` and `metrics/docket.md` carry the
+  earlier wording until the first metrics refresh after the carrying merge
+  regenerates them; a cell that reads the pack before then reads `est. n=`
+  under a prompt that no longer names it, and the value it reads is the
+  same row count.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v24`, and `uv run
+    fedcourts process-digest --all` prints the six digests below;
+  - `grep -c 'denial-reweighted' .github/prompts/predict.md
+    .github/prompts/evaluate.md` on `main` prints 0 for each (2 and 1 on
+    `proc-v23`);
+  - on the first predict run's collect PR after the carrying merge, a
+    `codex-baseline` `prediction.json` carries `"model": "gpt-6.2-astra"`
+    with the `proc-v24` digest below and its `usage.json` lists
+    `gpt-6.2-astra` alone in `served_models` with `engine_version`
+    `0.169.1`, and on the first evaluate run's the same holds for
+    `codex-judge`;
+  - after the first metrics refresh following the carrying merge, `grep -c
+    'est\. n=\|reweighted' metrics/statpack.md metrics/docket.md` prints 0
+    for each.
+
+  **The registration** (`uv run fedcourts register-process --label
+  proc-v24`, run 2026-11-18 over `staging` at `eb4a0d0ce` with `proc-v23`
+  stamped). Six digests move.
+
+  | Actor | Before | `proc-v24` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:e266abac2a7bd5d69f3b76ce27dae510b389f78e786fc7ed620c85c96165f138` (`proc-v23`) | `sha256:e1db3cc1366694569ca57a0a0fb44c27ffd6376e0c32a3b7c3505dad8d53c948` (new) |
+  | `codex-baseline` | `sha256:b10485508f9857df40bf900089e422926fad9d2314dc06116f01f191d79ef319` (`proc-v23`) | `sha256:29f43ef7f2b5208b9826a2a97bcd7462d460f77c28aaee1db96b3c6b9d411f5d` (new) |
+  | `gemini-baseline` | `sha256:5b3e9ae5871c082f95427257cca4e9a043830b1dd290847c28bd960c1f2327c3` (`proc-v23`) | `sha256:d9b3fbbcc879310bfa6186c856845dd69f9cf10ddddf5da94deddf4d3aed08f3` (new) |
+  | `claude-judge` | `sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08` (`proc-v22`, `proc-v23`) | `sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5` (new) |
+  | `codex-judge` | `sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5` (`proc-v22`, `proc-v23`) | `sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022` (new) |
+  | `gemini-judge` | `sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a` (`proc-v22`, `proc-v23`) | `sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf` (new) |
+
+  **What was made under the retiring digests.** At `origin/main`
+  `f3754248d` (`2026-11-18T15:11:21Z`), committed files under `data/cases`
+  naming each retiring digest: 23, 22 and 23 for the `proc-v23` predictor
+  digests of `claude-baseline`, `codex-baseline` and `gemini-baseline`, and
+  120, 21 and 114 for the evaluator digests of `claude-judge`, `codex-judge`
+  and `gemini-judge`. Those evaluator files are gradings made under the
+  rubric text the replaced digests name; an evaluator digest records and
+  never partitions, so they keep counting on their timing, and each judge's
+  series pools across this label.
+
+  **Step 0.** At the same commit, the count of committed files under
+  `data/cases` naming `sha256:<digest>` is **0** for each of the six newly
+  blessed digests, and **4448** files there carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`e266abac…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
+  | `codex-baseline` (`b1048550…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
+  | `gemini-baseline` (`5b3e9ae5…`) | `proc-v23` | `2026-11-14T15:51:37Z` | this label's instant (was open) |
+  | `claude-baseline` (`e1db3cc1…`) | `proc-v24` | this label's instant | open (new) |
+  | `codex-baseline` (`29f43ef7…`) | `proc-v24` | this label's instant | open (new) |
+  | `gemini-baseline` (`d9b3fbbc…`) | `proc-v24` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them, and the registry
+  holds 45 windows where it held 42. The earliest-window rule is unchanged:
+  on an event a `proc-v23` cell already forecast, that cell stays the
+  counted forecast, and this entry declares no re-prediction.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-19T00:00:00Z`, in a
+  scratch copy of the registry, over the ledger at `origin/main`
+  `f3754248d`. `uv run fedcourts successor-disclosures --closed proc-v23
+  --successor proc-v24`:
+
+  ```
+  successor proc-v24 closes proc-v23 at 2026-11-19T00:00:00+00:00
+    closed proc-v23 gemini-baseline: 23 counted event(s) — 1 resolved, 22 pending at close
+    closed proc-v23 codex-baseline: 22 counted event(s) — 0 resolved, 22 pending at close
+    closed proc-v23 claude-baseline: 23 counted event(s) — 1 resolved, 22 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v23` window figure is quoted outside the committed
+  board.
