@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000110",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener.search",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.read_document",
+    "courtlistener.search_document"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, appendix.txt, and related/26-107.json made vehicle comparison and lower-court record inspection immediate.",
+    "frozen cert_anchor and cert_amicus_line in record/context.json paired cleanly with metrics/statpack.md.",
+    "CourtListener read_document with stat_Unpublished=true and stat_Relating-to=true surfaced the CA4 opinion in companion No. 26-107 and Justice Thomas's cert-stage writings in 74 Pinehurst and GHP Management."
+  ],
+  "gaps": [
+    "Corpus rows for historical cert petitions leave response_requested and amicus_briefs null on most Term-form dockets, preventing direct corpus conditioning on historical Call-for-Response grant rates."
+  ],
+  "notes": "All provisioned inputs were complete and readable; no flags needed."
+}

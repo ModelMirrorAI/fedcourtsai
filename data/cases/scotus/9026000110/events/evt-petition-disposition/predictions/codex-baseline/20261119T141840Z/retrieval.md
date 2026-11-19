@@ -1,0 +1,7 @@
+- Read the modern cert, relist, CVSG, amicus and salience-band tables in `metrics/statpack.md`, and the First Department row in the originating-court table in `metrics/statpack.json`.
+- `uv run fedcourts paths --court scotus --docket 9026000110 --event evt-petition-disposition --role predictor` initially stopped at a read-only uv cache. The same command with `UV_CACHE_DIR=/tmp/uv-cache` resolved the paths. The other uv commands below used that cache as well.
+- `uv run fedcourts query --help` listed the docket-number and reporter-citation filters.
+- `uv run fedcourts query --court scotus --citation '594 U.S. 474' --limit 2` returned no rows for *Pakdel* and reported sparse reporter-citation coverage. Transfer was `ranged corpus reads: 10 GET(s), 2621440 byte(s)`.
+- `uv run fedcourts query --court scotus --docket-number 22-1130 --limit 1` returned *74 Pinehurst LLC v. New York*, denied February 20, 2024 after 13 recorded distributions. Transfer was `ranged corpus reads: 21 GET(s), 5505024 byte(s)`.
+- CourtListener MCP opinion search for `74 Pinehurst` in SCOTUS, filed after February 19 and before February 21, 2024, returned no results. The corpus docket supplied the disposition.
+- CourtListener MCP opinion search for `Pakdel` in SCOTUS, filed after June 1 and before July 1, 2021, returned the June 28 per curiam opinion and a snippet stating the final-decision requirement. [Pakdel v. City and County of San Francisco](https://www.courtlistener.com/opinion/4895265/pakdel-v-city-and-county-of-san-francisco/)

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000110",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned related/26-107.json companion snapshot and full City/State BIOs in record/documents/",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json alongside metrics/statpack.md",
+    "fedcourts query --docket-number for companion and prior NY RSL cert rows (26-107, 22-1130)",
+    "CourtListener read_document for Justice Thomas's 74 Pinehurst statement and CA4's Walls opinion"
+  ],
+  "gaps": [
+    "Party-name or counsel-name filter on fedcourts query for finding prior related cert petitions without knowing their docket numbers in advance"
+  ],
+  "notes": "All provisioned documents (petition, concatenated City and State BIOs, appendix, QP, and companion 26-107 snapshot) were complete and high quality."
+}
