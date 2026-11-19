@@ -36,6 +36,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from types import MappingProxyType
 from typing import Final
 
@@ -453,7 +454,12 @@ class TrialMomentSpec:
     :mod:`fedcourtsai.pipeline.claims`.
 
     ``forecastable`` is the same switch :class:`MomentSpec` carries: a moment
-    declared here mints no cell until it is switched on.
+    declared here mints no cell until it is switched on. ``opens_from`` is the
+    day it was switched on, set with the switch and never without it: the
+    watchlist pass writes no event of a moment that has none, and an event it
+    does write opens no earlier than that day, since a motion briefed before
+    the registration is forecast from the registration
+    (:mod:`fedcourtsai.pipeline.trial_events`).
     """
 
     moment: Moment
@@ -464,6 +470,13 @@ class TrialMomentSpec:
     description: str
     claim_set_version: str
     forecastable: bool = False
+    opens_from: date | None = None
+
+    def __post_init__(self) -> None:
+        if self.forecastable != (self.opens_from is not None):
+            raise ValueError(
+                f"{self.moment.value}: `forecastable` and `opens_from` are set together"
+            )
 
     @property
     def stage(self) -> Stage:
@@ -579,6 +592,14 @@ def trial_entry_number(event_id: str) -> int | None:
     if match is None or match["entry"] is None or trial_spec_for(event_id) is None:
         return None
     return int(match["entry"])
+
+
+def trial_spec(moment: Moment | str) -> TrialMomentSpec:
+    """The declared trial moment ``moment`` names; refused for any other."""
+    spec = _TRIAL_BY_MOMENT.get(Moment(moment))
+    if spec is None:
+        raise ValueError(f"{moment!r} is not a declared trial moment")
+    return spec
 
 
 def trial_moment(moment: Moment | str) -> bool:

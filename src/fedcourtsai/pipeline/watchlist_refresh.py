@@ -5,8 +5,9 @@ prediction scope, so they are refreshed by this pass rather than by the pull
 rotation (which leaves them out by name). Each refresh stores the docket the
 way ``pull`` does, a dated full-docket snapshot plus the normalized ``cases``
 row stamped ``last_pulled``, and does nothing else: no event extraction, no
-outcome detection, no predict or evaluate queue. No moment is registered for a
-lower-court docket, so there is nothing to forecast yet.
+outcome detection, no predict or evaluate queue. The trial stage's events on
+these dockets are the pass's that follows the refresh in the command
+(:mod:`fedcourtsai.pipeline.trial_events`).
 
 A docket is read three ways:
 

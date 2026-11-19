@@ -18,8 +18,10 @@ moments are declared and switched off in the stage's own table
 record says of a trial cell is written with the slice's prompt, at the
 switch-on, and the entry is dated in [freeze-record.md](freeze-record.md).
 Until that entry is dated, this page is the design that entry cites, and a change to it
-needs no re-bless. The opener and the resolver below are built as library
-code and are wired into nothing.
+needs no re-bless. The opener and the resolver below run in the watchlist
+refresh's pass (`pipeline/trial_events.py`), which writes an event only of a
+moment that is switched on: until one is, it reports what it would open and
+writes nothing.
 
 ## The moments
 
@@ -157,13 +159,16 @@ waited for the reply would open many of them after their ruling or never.
 
 **A motion already open when the stage registers.** A motion that these rules
 would have opened before the registration, and that the court has not ruled
-on, opens on the day the slice is switched on: its outcome does not exist yet,
+on, opens on the day its moment is switched on: its outcome does not exist yet,
 so the forecast is a forward one like any other. A motion the court has
 already ruled on opens nothing.
 
 `trial-judgment` opens with the slice: a listed case's final disposition is
 forecast once, when the case enters the slice, and again at no later point in
-the first registration. A later re-forecast (after the dismissal ruling, say)
+the first registration. The event is written by the first pass that reads the
+case's own docket with the moment switched on, opens that day, and is written
+only while the docket shows no final disposition: a case already closed, or
+whose closing the resolver cannot read, gets none. A later re-forecast (after the dismissal ruling, say)
 is a second moment, registered on its own.
 
 **No horizon.** A ruling can sit for months. The event stays open until the
@@ -403,14 +408,27 @@ known. The decision model's aggregation rules are the Court's and declare
 nothing for this stage ([decision-model.md](decision-model.md)).
 
 **Opening and resolving.** The watchlist refresh opens and resolves events in
-the pass that stores the dockets: after a docket is refreshed, the opener and
-the resolver read it, a newly briefed motion's event is written, and a ruling
-the resolver reads closes its event with the outcome. A reading the resolver
-sends to triage writes no outcome: the event stays open, and the pass lists
-it, with the reason and the entries weighed, in the alarm the watchlist check
-already raises. A maintainer settles a triaged event by a pull request that
-records the ruling and the entry it rests on in a committed adjudication
-list, which the resolver then reads ahead of its own rule.
+the pass that stores the dockets (`pipeline/trial_events.py`): after the
+dockets are refreshed, the opener and the resolver read every listed district
+docket as stored, a newly briefed motion's event is written, and a ruling the
+resolver reads closes its event with the outcome. Each declared moment
+carries the day it was switched on. The pass writes no event of a moment that
+has none and reports what it would open; a motion event it writes opens on
+the day its briefing closed, or on the day the moment was switched on where
+that is later, and the final-disposition event opens on the day the pass
+first writes it. A motion the court ruled on before the pass first read it is never
+written, and a member docket opens no motion while its lead docket is not
+stored. A reading the resolver sends to triage writes no outcome: the event
+stays open, and the pass lists it, with the reason and the entries weighed,
+in the refresh's report and its log. So does a result dated before its event
+opened or read from an undated entry, and a stored motion event the opener no
+longer reads. A maintainer
+settles a triaged event by a pull request that records the result, the entry
+it rests on and that entry's date in the committed adjudication list
+(`config/trial-adjudications.yaml`), which the pass reads ahead of the
+resolver's own rule for an event it wrote and has not closed. An outcome's
+`source` names the docket entry it rests on, and says so where the entry was
+adjudicated.
 
 **Scope.** With the slice switched on, the predict and evaluate queues admit
 the slice's dockets beside the Court's, and the fan-out admits a trial event
