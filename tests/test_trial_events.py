@@ -29,6 +29,7 @@ from fedcourtsai.pipeline.trial_events import plan_docket, run_pass
 from fedcourtsai.pipeline.watchlist_refresh import WatchlistRefreshReport
 from fedcourtsai.schemas import Moment, Outcome, PredictableEvent, Stage
 from fedcourtsai.serialize import read_model
+from fedcourtsai.store import forecastable_event_ids
 from fedcourtsai.trial_adjudications import (
     TRIAL_ADJUDICATIONS_FILENAME,
     Adjudication,
@@ -115,6 +116,61 @@ def test_the_switch_and_its_day_are_set_together() -> None:
         dataclasses.replace(spec, opens_from=SWITCHED_ON)
     with pytest.raises(ValueError, match="not a declared trial moment"):
         moments.trial_spec(Moment.grant)
+
+
+def test_the_switch_reads_one_way_for_the_pass_and_the_fan_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert not moments.trial_switched_on(DISMISSAL, TODAY)
+    declared = moments.trial_spec
+    monkeypatch.setattr(
+        moments,
+        "trial_spec",
+        lambda m: dataclasses.replace(declared(m), forecastable=True, opens_from=SWITCHED_ON),
+    )
+    assert moments.trial_switched_on(DISMISSAL, SWITCHED_ON)
+    assert moments.trial_switched_on(JUDGMENT, TODAY)
+    assert not moments.trial_switched_on(DISMISSAL, date(2026, 5, 31))
+    for other in ("evt-petition-disposition", "evt-motion-trial-dismissal", "evt-order-trial-x"):
+        assert not moments.trial_switched_on(other, TODAY)
+
+
+def test_a_slice_docket_is_forecast_on_switched_on_trial_events_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [corpus.CorpusRow(case_id=CASE, court="cand")])
+        corpus.upsert_events(
+            conn,
+            [
+                stored(DISMISSAL),
+                stored("evt-motion-trial-class-60", resolved=True),
+                stored(JUDGMENT).model_copy(update={"stage": None}),
+                corpus.CorpusEvent(
+                    event_id="evt-appeal-disposition", case_id=CASE, court="cand", kind="appeal"
+                ),
+            ],
+        )
+
+        def asked(**kw: Any) -> list[str]:
+            return forecastable_event_ids(conn, "cand", 100, today=TODAY, **kw)
+
+        # Switched off: a slice docket earns nothing, its baseline included.
+        assert asked(slice_docket=True) == []
+        assert asked() == ["evt-appeal-disposition"]
+        declared = moments.trial_spec
+        monkeypatch.setattr(
+            moments,
+            "trial_spec",
+            lambda m: dataclasses.replace(declared(m), forecastable=True, opens_from=SWITCHED_ON),
+        )
+        # Open, on the stage, switched on. The resolved motion and the record
+        # without the stage are not, and no other docket is asked the trial arm.
+        assert asked(slice_docket=True) == [DISMISSAL]
+        assert asked() == ["evt-appeal-disposition"]
+        conn.execute("UPDATE cases SET predict_excluded = 1 WHERE case_id = ?", (CASE,))
+        assert asked(slice_docket=True) == []
 
 
 # --- opening ------------------------------------------------------------------

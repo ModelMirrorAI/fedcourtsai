@@ -26841,6 +26841,56 @@ def _resolve_cases(
     return kept
 
 
+#: Why a listed event on a slice docket is dropped at plan time.
+_SLICE_EVENT_REFUSAL = (
+    "a prediction slice's docket is forecast only on a trial-stage event whose moment is "
+    "switched on"
+)
+
+
+def _without_unswitched_slice_events(
+    cases: list[CaseRequest],
+    in_slice: Callable[[str, int], bool],
+    today: date,
+    *,
+    stage: str,
+    report: bool,
+    report_out: _ResolveReport,
+) -> list[CaseRequest]:
+    """Drop each listed event a slice docket is not forecast on.
+
+    A case that lists no events resolves them through
+    :func:`fedcourtsai.store.forecastable_events`, which applies the slice
+    rule itself. A listed event bypasses that selection, so the switch is read
+    here from the id: on a docket an enabled slice names, only an event of a
+    trial moment switched on by ``today`` stays listed. The corpus is not
+    consulted, as for any listed event: an id the corpus does not hold is
+    refused by the provisioning record gate, and a resolved one by the
+    forecastability re-check. A case every listed event of which is dropped is
+    dropped whole, since an empty listing would otherwise read as a request
+    for the case's default events.
+    """
+    kept: list[CaseRequest] = []
+    for c in cases:
+        if not c.events or not in_slice(c.court, c.docket):
+            kept.append(c)
+            continue
+        stay = tuple(e for e in c.events if moments.trial_switched_on(e, today))
+        for dropped in sorted(set(c.events) - set(stay)):
+            if report:
+                typer.echo(
+                    f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — "
+                    + _SLICE_EVENT_REFUSAL,
+                    err=True,
+                )
+            report_out.unforecastable.append(
+                _DropRecord(ids.case_id(c.court, c.docket), _SLICE_EVENT_REFUSAL, event_id=dropped)
+            )
+        if stay:
+            kept.append(replace(c, events=stay))
+    return kept
+
+
 def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id: str) -> str:
     """Why cohort completion left this listed event behind, in its own words.
 
@@ -28260,11 +28310,20 @@ def _predict_fanout(
         data_root=settings.data_root,
         dropped_out=scope_dropped,
         cohort_narrowed_out=cohort_narrowed,
-        slices=load_slices(settings.config_root, predict_config.slices),
+        slices=(slices := load_slices(settings.config_root, predict_config.slices)),
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
     today = day or date.today()
+
+    def in_slice(court: str, docket: int) -> bool:
+        return any(population.admits(court, docket) for population in slices.values())
+
+    # The slice rule's drops carry their own reason and are not the re-check's:
+    # everything below reads the listing as it stands after them.
+    requested = _without_unswitched_slice_events(
+        requested, in_slice, today, stage=stage, report=report, report_out=resolution
+    )
     cases = _resolve_cases(
         requested,
         lambda c, d: forecastable_events(
@@ -28273,6 +28332,7 @@ def _predict_fanout(
             d,
             backend=settings.corpus_backend,
             today=today,
+            slice_docket=in_slice(c, d),
         ),
         # Listed events the corpus now refuses — resolved since queueing, or a
         # merits moment whose row fails the selection predicate's row arms —

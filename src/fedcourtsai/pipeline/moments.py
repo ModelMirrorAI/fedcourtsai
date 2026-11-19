@@ -602,6 +602,21 @@ def trial_spec(moment: Moment | str) -> TrialMomentSpec:
     return spec
 
 
+def trial_switched_on(event_id: str, day: date) -> bool:
+    """Whether ``event_id`` is an event of a trial moment switched on by ``day``.
+
+    The one reading of the trial switch: the watchlist pass asks it before
+    writing an event and the predict fan-out before forecasting one. False for
+    every id off the trial label, for an id on it no declared moment writes,
+    and for a moment whose switch-on day has not come.
+    """
+    declared = trial_spec_for(event_id)
+    if declared is None:
+        return False
+    spec = trial_spec(declared.moment)
+    return spec.forecastable and spec.opens_from is not None and spec.opens_from <= day
+
+
 def trial_moment(moment: Moment | str) -> bool:
     """Whether ``moment`` is one the trial stage declares."""
     return any(spec.moment == moment for spec in DECLARED_TRIAL_MOMENTS)
