@@ -21777,7 +21777,7 @@ freeze commit is recorded here.
   entry's date. On a direct appeal the appellant's first answer to the motion
   to dismiss or affirm is still the one taken. The kind's manifest
   description (`KIND_DESCRIPTIONS`) says a row of several replies is headed
-  and how it is cut, on every cell that stages a `cert-reply.txt`.
+  and how the text cap cuts it, on every cell that stages a `cert-reply.txt`.
 
   No prompt byte and no registry field other than the boundary row moves, so
   no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
@@ -21815,9 +21815,12 @@ freeze commit is recorded here.
   carry two; none carries more. On eight of the ten the second reply follows
   an opposition filed after the first: 20-1057, 21-118, 21-918, 22-31,
   22-6503, 22-672, 22-95 and 25-1421. On two, 22-105 and 22-381, no
-  opposition sits between the replies. All ten have a disposition, so no
-  pending docket's row changes at the carrying merge, and the stored rows of
-  the ten keep their first reply until a document fetch reaches them. No
+  opposition sits between the replies. All ten have a disposition, so on the
+  snapshots read no undecided docket carries two, and the stored rows of the
+  ten keep their first reply until a document fetch reaches them. Each docket
+  is read at its last stored snapshot, and a reply counts where the selector
+  takes it, from an entry posting a `Main Document` link; direct appeals are
+  among the dockets read. No
   entry was read by hand for what its second reply answers.
 
   **What the change does not reach.** A reply whose entry posts no `Main

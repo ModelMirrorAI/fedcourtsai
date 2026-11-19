@@ -1358,13 +1358,14 @@ def select_documents(
       the petitioner filed before the grant and before any disposition entry,
       from its ``Main Document`` link alone, distinct URLs in docket order,
       combined by :func:`fetch_case_documents` into the one row. A petition
-      ordinarily draws one; a respondent whose response the Court calls for
-      after it draws a second. The merits reply arm below reads the same words
+      ordinarily draws one; a respondent whose response is filed after it
+      can draw a second. The merits reply arm below reads the same words
       after the grant; the date is the only thing between them. On a direct
       appeal the **appellant's answer to the motion to dismiss or affirm**
       (:func:`_is_appeal_reply_entry`) is stored under the same kind: the
-      first one after an appellee's motion, on the same bounds. One, where
-      the petitioner's replies are all taken, because that reading opens on
+      first one after an appellee's motion, on the same bounds. A direct
+      appeal's row holds one paper under either reading, where a petition's
+      replies are all taken, because that reading opens on
       "opposition", "response" or "reply" alike and a second paper matching
       it is as likely collateral as a second answer.
     - The **Solicitor General's invited brief**
@@ -1507,7 +1508,6 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     # only where the docket-level gate opens them: all closed on a petition.
     exit_gates = direct_appeal_exit_gates(texts)
     appeal_answered = False
-    appeal_replied = False
     position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
@@ -1556,10 +1556,12 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                     KIND_APPLICATION_REPLY, found[0], entry_date, text.strip()
                 )
         elif appeal_reply:
-            if not appeal_replied:
-                answer = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
-                appeal_replied = answer is not None
-                _add_distinct(cert_replies, seen_reply_urls, answer)
+            if not cert_replies:
+                _add_distinct(
+                    cert_replies,
+                    seen_reply_urls,
+                    _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date),
+                )
         elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
             # On a direct appeal an opposition-worded brief is an answer to
             # the jurisdictional statement too, so the appellant's reply to it
@@ -1589,11 +1591,16 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             if answer is not None and answer.url not in seen_bio_urls:
                 seen_bio_urls.add(answer.url)
                 bios.append(answer)
-        elif not disposed and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on):
+        elif (
+            not (direct_appeal and cert_replies)
+            and not disposed
+            and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
+        ):
+            # One on a direct appeal, whichever reading takes it.
             # Every one, as the opposition arm takes every respondent's brief:
-            # a respondent whose response the Court calls for after the first
-            # reply draws a second, and the row that holds both oppositions
-            # holds both answers.
+            # a respondent whose response is filed after the first reply can
+            # draw a second, and the row that holds both oppositions holds
+            # both answers.
             _add_distinct(
                 cert_replies,
                 seen_reply_urls,
@@ -5728,10 +5735,11 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
 # the live slice. The two interim additions are bounded the same way: an
 # `application-response` row exists only where a respondent answered the
 # application, and an `application-reply` only where the applicant replied.
-# The two last combined kinds are bounded the same way — a
+# The supplemental briefs and the letters are bounded the same way — a
 # `supplemental-brief` row only where a party filed one while the petition was
 # pending, a `party-letter` row only where a party wrote a letter that bears on
-# the case — and share the opposition's asymmetry: a multi-filing row's headings
+# the case — and share the opposition's asymmetry, as a `cert-reply` row of
+# several replies does: a multi-filing row's headings
 # are text, so a row of scans reads as covered, and nothing here sizes that.
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_PRESENTED)
 
@@ -5794,7 +5802,7 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_CERT_REPLY: (
         "The petitioner's reply at the cert stage: its answer to the brief in opposition. "
         "On a direct appeal, the appellant's answer to the motion to dismiss or affirm. "
-        "A petitioner that replies again, to a response filed after its first reply, has "
+        "A petitioner that replies more than once has "
         "every reply here in docket order, each under a '=== <docket entry> ===' header. "
         + _COMBINED_CUT_DESCRIPTION
     ),

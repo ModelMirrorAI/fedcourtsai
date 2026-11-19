@@ -599,8 +599,8 @@ the docket form, so one function serves both lanes:
   preservation objections. **Every** "Reply [brief] of/for … petitioner(s) …"
   entry filed before the grant and before any disposition entry, each from its
   `Main Document` link alone, distinct links in docket order, combined into
-  one row as the opposition is: a respondent whose response the Court calls
-  for after the first reply draws a second, and the row that holds both
+  one row as the opposition is: a respondent whose response is filed after
+  the first reply can draw a second, and the row that holds both
   oppositions holds both answers. A lone reply is stored as the filing itself,
   at its own link. The merits reply arm reads the same words after the
   grant, so the grant date is what separates the two, and the docket order of
@@ -1676,8 +1676,8 @@ dependency on either side.
   carries both — and neither is OCR's to repair; a case holding no row of a
   kind is a fetch gap, or on an application docket no gap at all; a row whose
   URL is a set key is a combined row of more than one filing — the
-  multi-respondent opposition above, or a docket's several supplemental briefs
-  or party letters, stored the same way — while a lone one joins to its own
+  multi-respondent opposition above, or a docket's several cert-stage replies,
+  supplemental briefs or party letters, stored the same way — while a lone one joins to its own
   link and is recovered like any other filing. All three stay out
   of the population. The kinds differ in what a cell
   loses when one reads empty and in nothing the pass does: each is one stored

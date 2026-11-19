@@ -125,7 +125,7 @@ Each of these is stated, with its reason, where the code makes the choice:
   *Document freshness*).
 - **An unchanged link is never re-extracted.** A row stored under an older cut
   keeps that cut (live-sources.md, *Document freshness*).
-- **A combined opposition is never OCR'd.** Its URL is a set key, not a link to
+- **A combined opposition is never OCR'd**, nor a row of several replies. Its URL is a set key, not a link to
   fetch. An all-scan combined opposition still carries its per-brief headings,
   so the coverage report's per-kind cuts count it as having text. The report
   sizes it on a separate line, which reads it brief by brief (live-sources.md,

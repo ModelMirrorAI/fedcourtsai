@@ -8,6 +8,7 @@ as the cert-stage reply, on a direct-appeal docket only.
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Mapping
 
 import pytest
@@ -190,6 +191,21 @@ def test_every_appellees_motion_is_taken_and_the_first_answer() -> None:
     motion = select_documents(payload)[1]
     assert motion.description == "Motion to dismiss filed by State Appellees."
     assert motion.entry_date == "Sep 18 2026"
+
+
+def test_a_direct_appeal_holds_one_reply_under_either_reading() -> None:
+    papers = {
+        f"{_HOST}/opposition.pdf": "Opposition to motion to affirm of appellants Wes Allen filed.",
+        f"{_HOST}/reply.pdf": "Reply of petitioner Wes Allen filed.",
+    }
+    motion = _entry("Sep 18 2026", _MOTION, f"{_HOST}/private.pdf")
+    for first, second in itertools.permutations(papers):
+        payload = _appeal(
+            motion,
+            _entry("Sep 29 2026", papers[first], first),
+            _entry("Oct 02 2026", papers[second], second),
+        )
+        assert [url for kind, url in _selected(payload) if kind == KIND_CERT_REPLY] == [first]
 
 
 def test_an_appellants_brief_in_opposition_is_the_reply_not_the_opposition() -> None:
