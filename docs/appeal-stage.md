@@ -11,7 +11,7 @@ last section says what happens when a listed case reaches the Supreme Court.
 **Status: designed, not registered.** Nothing here is forecast yet. The stage
 registers under the watchlist slice's process label, after the trial stage
 ([trial-stage.md](trial-stage.md)), whose registration sequence it follows.
-That version adds `appeal` to `Stage` and the two moments below to `Moment`
+Its registration adds `appeal` to `Stage` and the two moments below to `Moment`
 (`schemas.py`), declares their claims in `pipeline/moments.py`, and dates the
 entry in [freeze-record.md](freeze-record.md). Until it lands, this page is
 the design that entry cites, and a change to it needs no re-bless. The reader
