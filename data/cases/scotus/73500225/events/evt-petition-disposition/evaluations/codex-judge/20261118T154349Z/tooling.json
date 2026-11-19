@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73500225",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate staging and captured retrieval queries",
+    "Docket chronology distinguishing reschedules from conference consideration",
+    "Historical statpack reconstruction under the candidates' sal-v4 version"
+  ],
+  "notes": "All three candidates were scored. gemini-baseline result capture is unobserved throughout, limiting retrospective verification of search contents without establishing leakage. The absent staged writing body limits review to the docket's identification of Thomas's statement.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell/local file reads",
+    "fedcourts statpack-at",
+    "Python jsonschema"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "Serious personal property and state-proceeding stakes, but individualized requested relief and a single-Justice denial without a recorded explanation establish no broader legal rule."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000698",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.004,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:29:19.853671Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 10 log rows have captured results. Queries inspect provisioned inputs, statpack and generic priors; no own-disposition retrieval or outcome-based reasoning is shown. Arrival-position cutoff November 13, anchor 0. Same-day resolution has no intraday time; no evidence of already-decided provisioning.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, interim_reading denied, and interim_granted 0; the November 17 docket entry records denial.",
+        "claim": "The application for injunctive relief will be denied in full.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final docket entry says \"Application (26A698) denied by The Chief Justice.\" interim_signals.referred_to_court is false.",
+        "claim": "The Chief Justice will deny the application acting alone, without referral to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals records response_requested false and amicus_briefs 0; no intervening proceedings appear in the staged docket.",
+        "claim": "No response will be requested and no amicus submissions will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Submission was November 12 and denial November 17, five calendar days later, slightly earlier than the stated one-to-two-week interval, though before the broader late-November deadline.",
+        "claim": "The single-Justice denial will arrive about one to two weeks after submission.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The staged record supplies a one-line docket summary, no standalone order text, and no staged writings. It records no explanation or writing but cannot independently establish their complete absence.",
+        "claim": "The denial will carry no explanation or separate Justice writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261117T141816Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:29:19.853671Z"
+  },
+  "reasoning_quality": 0.84,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

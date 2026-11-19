@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000383",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell/file reads",
+    "fedcourts statpack-at",
+    "Python jsonschema"
+  ],
+  "helpful": [
+    "Blinded candidate staging and frozen contexts",
+    "Harness-captured retrieval queries and capture markers",
+    "Complete petition and lower-court appendix",
+    "Historical statpack recovery by recorded digest"
+  ],
+  "gaps": [],
+  "notes": "The provisioned record sufficed to score every candidate. No external case lookup was needed. Missing Supreme Court writings were treated as record limits, not provisioning defects; broader no-statement forecasts remain partly unresolved."
+}

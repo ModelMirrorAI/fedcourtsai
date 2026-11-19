@@ -21212,8 +21212,8 @@ freeze commit is recorded here.
   (the recomputable permutation, the checkout's history, the call-class
   profile, the query slice, style) are unchanged.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-18-2` (merge
+  commit `3482e88e7e4dbdfe7c85cc985032254893d8d94b`, merged `2026-11-18T22:03:05Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_blinding.py -k "cell_account"` is green;
@@ -21229,8 +21229,8 @@ freeze commit is recorded here.
 
 - **`proc-v24`, the Codex pair moves to `gpt-6.2-astra`, and the packs and
   both prompts state their counts as stored rows; recorded 2026-11-18.**
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  Carried to `main` by the promotion tagged `promotion/2026-11-18-2` (merge
+  commit `3482e88e7e4dbdfe7c85cc985032254893d8d94b`, merged `2026-11-18T22:03:05Z`), to be tagged
   **`prereg/proc-v24`**. Registered under the merge-stamped rule, so its
   counting instant, its six bless moments and every window edge it moves are
   the carrying merge's committer time. Both prompts change and one engine's
@@ -21539,8 +21539,8 @@ freeze commit is recorded here.
   and pending, since `register-process` refuses a second label per
   promotion; it is owed to the re-bless after that one.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-18-2` (merge
+  commit `3482e88e7e4dbdfe7c85cc985032254893d8d94b`, merged `2026-11-18T22:03:05Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_vided.py tests/test_related_dockets.py` is
@@ -21692,8 +21692,8 @@ freeze commit is recorded here.
   sentence is outgrown. Correcting it moves the three predictor digests, so
   it is owed to the next re-bless.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-18-2` (merge
+  commit `3482e88e7e4dbdfe7c85cc985032254893d8d94b`, merged `2026-11-18T22:03:05Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_decision_below.py` is green;

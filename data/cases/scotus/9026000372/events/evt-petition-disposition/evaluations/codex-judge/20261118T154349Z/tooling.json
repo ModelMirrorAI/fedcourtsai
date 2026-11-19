@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000372",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "local shell/file reads",
+    "fedcourts statpack-at",
+    "Python JSON Schema validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging",
+    "Frozen contexts and captured retrieval logs",
+    "Historical statpack reconstruction",
+    "Decided docket snapshot and lower-court appendix"
+  ],
+  "gaps": [],
+  "notes": "No external case retrieval was necessary. Capture markers allowed query-based leakage assessment without treating uncaptured results as empty. Unstaged order/writing content was left unresolved where needed."
+}

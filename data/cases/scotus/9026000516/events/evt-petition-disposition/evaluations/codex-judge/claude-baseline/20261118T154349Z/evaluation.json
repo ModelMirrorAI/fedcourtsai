@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.2,
+    "notes": "Constitutional criminal venue and prison sentences give this petition substantial individual stakes. The relief requested is a case-specific GVR applying an existing decision to a tax prosecution; the staged record supports limited broader institutional or doctrinal significance."
+  },
+  "brier_score": 0.010000000000000002,
+  "brier_skill_score": -2.716033745010414,
+  "case_id": "scotus/9026000516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": -0.007286469912894191
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.18,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.88,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.003,
+          "Gorsuch": 0.015,
+          "Jackson": 0.008,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.008,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.007286469912894191,
+    "total": -0.007286469912894191
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:21:53.237088Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The harness records forward mode and November 1 calls, before November 16 resolution. All 19 calls have captured results. Retrieval concerns the provisioned petition, statistical context, other GVRs, and a precedent-focused Abouammo search. The reported Whitehead memorandum and Hobson disposition concern other cases. No evidence shows this petition's own outcome or an already-decided forward input.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket records denial on November 16 following the scheduled November 13 conference.",
+        "claim": "The Court will deny the petition at the November 13 conference or soon afterward.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The final distribution_count is 1 and the staged proceedings go directly from distribution to denial without a response request.",
+        "claim": "There will most likely be no additional distribution or request for a government response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records no CVSG and the docket contains none.",
+        "claim": "A CVSG is essentially not expected because the United States is already the respondent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Denial never tested the conditional route or the question the Court would accept.",
+        "claim": "If the Court grants relief, it will most likely GVR in light of Abouammo rather than take plenary review.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome and bare docket denial disclose no reason for denying review; the appendix establishes the lower-court posture, not the Supreme Court's motivation.",
+        "claim": "The Court probably denies because the Fourth Circuit already had Abouammo on rehearing and the tax statute supports a surviving communication-based venue theory.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261101T050708Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:21:53.237088Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

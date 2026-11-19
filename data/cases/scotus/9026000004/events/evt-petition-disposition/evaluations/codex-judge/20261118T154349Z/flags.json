@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000004",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline describes a September 29/October 19 distribution sequence, October 15 rescheduling and an October 30 conference, whereas the staged docket records July 22/October 28 distributions for September 28/November 13 with an August 14 response request. It also states initial registration in 1982 and Georgia cert denial March 3; the petition says 1985 and March 31. Its claimed 5\u20134 Georgia denial is unsubstantiated in the staged text. These discrepancies affect the rationale and forecast grades. All gemini-baseline retrieval results are outcome_only, and its original snapshot is not staged, so the origin of the conflicting account cannot be determined. No outcome leakage is inferred.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0"
+}

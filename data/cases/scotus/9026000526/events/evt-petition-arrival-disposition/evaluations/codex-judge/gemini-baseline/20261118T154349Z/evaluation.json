@@ -1,0 +1,118 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "The question concerns protection against repeated criminal trials, with substantial individual liberty stakes and recurring acquittal-finality implications. The unusual compulsory-process dismissal and lack of a demonstrated square split limit its broader reach; the unexplained denial created no new nationwide rule."
+  },
+  "brier_score": 0.0016,
+  "brier_skill_score": 0.38733801652892574,
+  "case_id": "scotus/9026000526",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": 0.00101155423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.25,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.00101155423898689,
+    "total": 0.00101155423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:23:04.455815Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The harness records forward mode and calls on October 20, before the November 16 resolution. All 57 results are unobserved; null dates/digests do not establish empty results. The queries include a Mitchell v. Mississippi caption search, broad historical corpus retrieval, and general-authority checks. None seeks a future disposition, and the reasoning contains no decided-case facts. No evidence shows this petition was already decided or that its outcome reached the candidate.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, actual_granted 0, on November 16, 2026.",
+        "claim": "The Court will deny certiorari.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records only Petition DENIED; no Supreme Court explanation of its reasons is staged.",
+        "claim": "The Court will view the ruling as a procedural constitutional dismissal rather than an acquittal resolving culpability.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The staged docket records an October 21 response waiver, one October 28 distribution for November 13, and November 16 denial; outcome.signals.distribution_count is 1.",
+        "claim": "After Mississippi responds or waives, the petition will receive an initial conference distribution and be denied without a relist.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null, and the resolved docket contains no CVSG.",
+        "claim": "The Court will not request the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.noted_dissent_from_denial is false; the staged docket records a bare denial and no separate writing.",
+        "claim": "No noted dissent or statement respecting denial is expected.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261020T190956Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:23:04.455815Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

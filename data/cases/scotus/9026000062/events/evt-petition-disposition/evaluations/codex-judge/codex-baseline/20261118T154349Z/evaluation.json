@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v6",
+  "base_rate_statpack_digest": "sha256:a059cb872f890b63515d8e2ac6ef798347ae7231a62d08543a5b7431bd941faa",
+  "big_case": {
+    "evaluator_score": 0.62,
+    "notes": "Nationally consequential payment-system access for state-chartered nonmember banks, with implications for banking competition and federal-state authority. The presented question is a bounded statutory entitlement issue; the denial creates no Supreme Court merits holding on Federal Reserve structure."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": -4.351088592814995,
+  "case_id": "scotus/9026000062",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05209155485398579,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": -0.011686469912894189
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.02,
+          "Barrett": 0.005,
+          "Gorsuch": 0.04,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.002,
+          "Sotomayor": 0.002,
+          "Thomas": 0.05
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.011686469912894189,
+    "total": -0.011686469912894189
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:02:09.178798Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward log dated November 2, before the November 16 resolution. Of 37 calls, 34 are captured and three official-source web calls are unobserved. Those queries concern statutory text and procedural rules, not this petition's disposition; unobserved results are not treated as empty. The only legible retrieved document date is March 20, 2026, in a general prior-grants query. No resolving order or post-resolution fact about this petition appears.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Outcome.actual_disposition is denied; the docket records only Petition DENIED on November 16 and no merits judgment.",
+        "claim": "The Court will deny the petition and leave the lower-court judgment in place without a merits endorsement.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.signals.distribution_count=1 and resolved_at=2026-11-16; the staged docket contains that conference distribution followed by denial.",
+        "claim": "There will most likely be zero additional distributions and denial following the November 13 conference, likely November 16.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.signals.cvsg_date is null and the docket records no invitation before denial.",
+        "claim": "The Court will almost certainly issue no new CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The petition was denied on November 16, 2026. No grant or merits adjudication occurred, so this conditional forecast was not tested.",
+        "claim": "If granted, review would center on the single statutory question and proceed through plenary briefing and argument.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The outcome records noted_dissent_from_denial=false, but writing_roles is null and no order text or complete writing inventory is staged. The stronger prediction of no separate statement or writing cannot be fully settled.",
+        "claim": "The modal denial will have no noted dissent or statement.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261102T130502Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:02:09.178798Z"
+  },
+  "reasoning_quality": 0.93,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.0518752467429925,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.4,
+    "notes": "The question could affect nationwide substantive-due-process remedies for executive misconduct. The vehicle is an individual damages case with a nonprecedential qualified-immunity judgment; denial created no new rule."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.975493520661157,
+  "case_id": "scotus/9026000433",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.0025475542389868902
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.001,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.002,
+          "Jackson": 0.003,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.005,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.0025475542389868902,
+    "total": 0.0025475542389868902
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:17:17.751636Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on October 30, before November 16 resolution. All 58 calls are outcome_only, not observed-empty results. The own-docket query was pre-resolution; other targets and prose show no outcome material. Null digest/date fields do not establish what returned. No already-decided disposition is evidenced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The October 28 distribution was for November 13; the docket next records denial on November 16.",
+        "claim": "The Court will deny review at the first scheduled conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The complete staged proceedings show neither a response request nor an additional distribution; outcome distribution_count=1.",
+        "claim": "The Court will not request a response, relist, or redistribute the case.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.signals.cvsg_date is null, and there is no CVSG docket entry.",
+        "claim": "The Court will not issue a CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.noted_dissent_from_denial=false and the docket records only \u201cPetition DENIED.\u201d That confirms no noted dissent but does not independently resolve every kind of statement respecting denial; writing_roles is null and no Supreme Court writing is staged.",
+        "claim": "The denial order will have no noted dissent or statement respecting denial.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "No grant occurred and the Court supplied no substantive explanation for denial. The conditional merits and route predictions were not tested.",
+        "claim": "If plenary review is granted, the Court will affirm; conditional grant routes will turn on the constitutional framework or qualified immunity.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:17:17.751636Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

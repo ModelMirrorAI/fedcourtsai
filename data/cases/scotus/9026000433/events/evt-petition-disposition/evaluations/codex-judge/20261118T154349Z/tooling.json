@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000433",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate staging and harness retrieval logs",
+    "Prediction-time statpack reconstruction",
+    "Staged petition and lower-court appendix for checking factual assertions"
+  ],
+  "notes": "No external case retrieval was needed. A temporary uv cache resolved the read-only default-cache error. gemini-baseline result bodies were not captured; the outcome_only markers correctly distinguish that limitation from empty results.",
+  "role": "evaluator",
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell/file reads",
+    "fedcourts statpack-at",
+    "Python arithmetic",
+    "jsonschema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

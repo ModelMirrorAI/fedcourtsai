@@ -1,0 +1,14 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73538544",
+  "flags": [
+    {
+      "category": "provisioning",
+      "event_id": "evt-petition-disposition",
+      "message": "The docket records petitioner replies on August 31 and October 20, 2026, but the document manifest and cert-reply.txt provide only the August 31 reply to Irigoyen. codex-baseline and gemini-baseline recognize the missing later reply. Grading was completed from the available record without inferring its contents; the omission itself was not penalized.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261118T154349Z"
+}

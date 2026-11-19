@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000142",
+  "run_id": "20261118T141837Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned docket and filed-document text",
+    "metrics/statpack.md",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Frozen federal-caption anchor and amicus reference",
+    "Readable petition, consolidated opposition, and current reply",
+    "Companion docket lookup"
+  ],
+  "gaps": [
+    "Reporter-citation query coverage was too sparse to return Osborn or Lamagno."
+  ],
+  "notes": "Initial uv commands failed on the read-only default cache; UV_NO_CACHE=1 UV_NO_SYNC=1 used the provisioned environment successfully without installation. The lower-court docket excerpt missed a rehearing dissent available in the petition appendix, so the appendix controlled. No external case-outcome or forecast material was sought."
+}

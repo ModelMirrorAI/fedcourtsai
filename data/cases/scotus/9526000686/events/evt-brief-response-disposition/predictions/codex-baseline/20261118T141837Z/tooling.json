@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000686",
+  "run_id": "20261118T141837Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "CourtListener MCP get_endpoint_schema",
+    "CourtListener MCP call_endpoint",
+    "local statpack computation",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Complete application, response, and reply with extraction metadata",
+    "Private/capital applicant cut and per-Term finer-reading counts",
+    "CourtListener access to the directly relevant Barwick opinion"
+  ],
+  "gaps": [
+    "The Markdown interim Term table displays legacy substantive counts; finer-reading pooling requires statpack.json.",
+    "Corpus reporter-citation coverage was too sparse for the Woodard lookup.",
+    "The default uv cache path is read-only."
+  ],
+  "notes": "Used UV_NO_CACHE=1 uv run --no-sync after the default uv cache failed. No installation. Corrected an initial MCP search argument from query to q. The full petition, incorporated opposition, and Florida opinion were not among this application cell\u2019s staged documents; treated their contents as unavailable rather than inferring them."
+}

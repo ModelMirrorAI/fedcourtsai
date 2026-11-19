@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.27,
+    "notes": "Recurring highway-safety and federal preemption issues affect commercial supply chains, but this order reopens a private wrongful-death case under existing precedent and announces no new nationwide liability rule."
+  },
+  "brier_score": 0.0144,
+  "brier_skill_score": 0.983973987910223,
+  "case_id": "scotus/73538544",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05208692652638841,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": 0.8841391948621887
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.99,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": 0.345367027677497,
+        "claim_id": "summary-disposition-route",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": 0.42764432845179506
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.001,
+          "Gorsuch": 0.002,
+          "Jackson": 0.0005,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.0005,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 1.3117835233139838,
+    "total": 1.3117835233139838
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T15:56:25.568747Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-call-for-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on October 29, before November 16 resolution; date-cut baseline September 11. The rationale openly relies on Walmart's October 13 GVR-supporting response, a legitimate pre-resolution forward signal. Of 49 calls, 45 are captured and four web calls are unobserved; those web queries concern Montgomery, not this petition, and null results cannot prove failed retrieval. Captured dated priors predate this event. No call or reasoning shows this petition's disposition already known.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 16 disposing docket entry orders precisely that relief and cites Montgomery, 608 U.S. 219.",
+        "claim": "The Court will GVR for reconsideration in light of Montgomery.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket records an October 28 second distribution for November 13 and disposition on November 16; the outcome records distribution_count 2.",
+        "claim": "There will be at least one further distribution and an order in November or December 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged proceedings contain no CVSG and outcome.signals.cvsg_date is null.",
+        "claim": "The Court will not invite the Solicitor General's views.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing entry grants, vacates, and remands for further consideration in light of Montgomery; it does not set plenary review or decide negligence liability.",
+        "claim": "The Court will remand on the Montgomery issue without taking question 2 for plenary review or deciding ultimate liability.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No disposing-order text or separate-writing inventory is staged, and the outcome's writing fields are null; absence of a notation does not establish no writing.",
+        "claim": "The disposing order will be unsigned and have no separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261029T180303Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T15:56:25.568747Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05208692652638841,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

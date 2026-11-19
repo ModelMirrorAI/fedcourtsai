@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v8",
+  "base_rate_statpack_digest": "sha256:9da7dbfa464075bfc7fab6e6b641ec9060684cd53259a76380a32823adf6f653",
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "The questions concern constitutional remedies for viewpoint discrimination in state legislative hearings, with nationwide implications for public participation and legislative independence. The procedural setting is confined and denial created no Supreme Court merits precedent."
+  },
+  "brier_score": 0.0484,
+  "brier_skill_score": 0.21389343881550316,
+  "case_id": "scotus/9026000120",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.24838227974116475,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.22,
+        "score": 0.013293756889418223
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.14,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.045,
+          "Barrett": 0.007,
+          "Gorsuch": 0.025,
+          "Jackson": 0.003,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.009,
+          "Roberts": 0.003,
+          "Sotomayor": 0.002,
+          "Thomas": 0.055
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013293756889418223,
+    "total": 0.013293756889418223
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:03:17.968984Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on November 9 preceded the November 16 resolution. Reviewed all 33 captured-log calls and both prose documents. Reads concern the then-provisioned snapshot/briefs/statpack; corpus retrieval is a grant-filtered unrelated sample. Captured MCP dates concern older authorities (1989 and 1980); the June 23, 2026 date is also pre-resolution. Two web calls are unobserved, not empty results; their queries concern older precedent, not this petition's disposition. No own-case outcome material appears.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records denied, actual_granted=0, resolved November 16, 2026.",
+        "claim": "The Court will most likely deny the petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The staged docket ends with the November 9 distribution for November 13 and the November 16 denial; outcome.signals.distribution_count remains 2.",
+        "claim": "The modal path has no additional distribution and disposition follows the November 13 conference in the ensuing order cycle.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null and the staged proceedings contain no CVSG before denial.",
+        "claim": "The Court will resolve the petition without a CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records no noted dissent from denial, consistent with part of this forecast. The staged docket only says Petition DENIED; no disposition order or writings manifest establishes the absence of every statement.",
+        "claim": "Denial will most likely occur without a separate writing.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Certiorari was denied; the condition never occurred, so scope and treatment on the grant branch earn neither credit nor penalty.",
+        "claim": "If granted, review would likely be plenary and center on official-capacity legislative immunity, with enforcement relevant to the second question.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261109T171058Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:03:17.968984Z"
+  },
+  "reasoning_quality": 0.9,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.24813153961136025,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,13 @@
+# Evaluation: claude-baseline
+
+This cert-arrival prediction correctly named denial: `correct = 1`. P(grant) = 0.035 against `actual_granted = 0` gives a Brier score of **0.001225**. The recorded resolution is November 16, 2026. Cert votes are not scored. Baseline, skill, and quantitative claim scores are the harness's fields.
+
+The rationale earns **0.80**. It identifies the controlling functional distinction between a procedural dismissal and an acquittal, correctly treats Mississippi as respondent rather than a state petitioner, and recognizes that interlocutory double-jeopardy review is possible. Its modest downward adjustment is supported by the record-specific ruling and lack of a demonstrated square conflict. It candidly describes its limited examination of the appended decisions and the uncertainty around evidentiary insufficiency. The analysis of the asserted split and state appellate-jurisdiction dispute is comparatively thin: it relies mostly on the petition's characterization, whereas the staged appendix permits a closer check of both. Counsel identity is a weak secondary heuristic. These limitations concern the rationale, independently of the later correct result.
+
+Base-rate use was checked against recovered statpack **eb6830084a187953fd58b91cb3c9125fc6775a7b**, digest `sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba`, rather than the evaluator's current pack. The historical sal-v4 table supports its selection of the private-petitioner reached population and exclusion of the current Term. Its pooling of rounded displayed rows is consistent with an approximate anchor. The scored comparison remains the stamped segment base rate; I supply no independently pooled baseline or skill.
+
+## Predicted reasoning
+
+The forecast earns **0.75**. Denial, one conference without a relist, no CVSG, and a bare recorded denial were borne out. A secondary but explicit timing call failed: it expected a late-November or December conference; the docket shows a November 13 conference and November 16 denial following an October 21 waiver. The waiver branch was sensible, but the estimated schedule was too late. Its conditional question-presented and summary-reversal scenarios were never activated and receive neither credit nor penalty. Its categorical generalization about CVSG practice is broader than needed; only the case-specific forecast is settled here.
+
+All 11 harness-log calls are captured and dated October 20. They show local provisioned-input and statpack reading, without a target-case outcome lookup. No prose presupposes the subsequent waiver, distribution, or denial. Forward mode is consistent with a genuinely unresolved petition, so leakage is not applicable and `leakage_suspected = false`.

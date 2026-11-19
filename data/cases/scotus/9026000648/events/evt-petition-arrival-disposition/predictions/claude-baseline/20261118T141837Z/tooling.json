@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000648",
+  "run_id": "20261118T141837Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["decision-below.txt confirming the acknowledged split", "frozen cert_anchor in context.json", "lower-court-docket.txt en banc summary"],
+  "gaps": ["No base rate conditioned on a court-acknowledged circuit split or on United States amicus support below", "Corpus query has no free-text or statute filter to find prior EPCA or express-preemption petitions"],
+  "notes": "Petition text was truncated at the cap; the vehicle section was hard to isolate."
+}

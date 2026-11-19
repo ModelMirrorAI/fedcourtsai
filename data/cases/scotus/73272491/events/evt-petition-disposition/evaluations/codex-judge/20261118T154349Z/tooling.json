@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73272491",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell/file reads",
+    "fedcourts statpack-at",
+    "Python arithmetic and JSON Schema validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging preserved independent grading.",
+    "Historical statpack reconstruction allowed fair checks against sal-v4.",
+    "Captured retrieval markers distinguished unseen results from empty results."
+  ],
+  "gaps": [],
+  "notes": "No external case-fact retrieval was needed. Used UV_CACHE_DIR=/tmp/uv-cache and UV_NO_SYNC=1 after the default uv cache proved read-only. Baseline, skill, claims and harness provenance fields were left to the harness."
+}

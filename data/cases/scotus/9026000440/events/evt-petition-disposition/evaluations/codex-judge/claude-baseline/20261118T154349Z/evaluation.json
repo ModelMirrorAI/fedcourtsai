@@ -1,0 +1,138 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "Twenty additional years of imprisonment and the interaction between plain-error review and section 2255 give this case substantial individual stakes and some broader doctrinal significance. The nonprecedential collateral ruling, unusual posture and absence of an identified circuit conflict limit its systemic reach."
+  },
+  "brier_score": 0.0006250000000000001,
+  "brier_skill_score": 0.7606789127066116,
+  "case_id": "scotus/9026000440",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05110336817653891,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.025,
+        "score": 0.00198655423898689
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.003,
+        "score": null
+      },
+      {
+        "baseline": 0.3468715697036224,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.45,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.004,
+          "Gorsuch": 0.02,
+          "Jackson": 0.015,
+          "Kagan": 0.003,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.015,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.00198655423898689,
+    "total": 0.00198655423898689
+  },
+  "correct": 1,
+  "created_at": "2026-11-18T16:21:32.534332Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction on 2026-10-30, before resolution on 2026-11-16. All 15 logged calls have captured results. Reads concern the October 30 snapshot, filings, statpack and administrative material; corpus queries seek general GVR examples and the distinct 2021 petition, No. 20-1369. No logged read of the present outcome or reasoning presupposing it appears. Unrestricted retrieval while this petition remained open was legitimate.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.95,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The staged docket runs from the United States' October 21 waiver through the October 28 distribution to the November 16 denial, with no response request.",
+        "claim": "The Court will deny certiorari without calling for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.distribution_count is 1, and the docket records denial on November 16 after the single scheduled conference.",
+        "claim": "The petition will receive no further distribution and will be denied following its November 13 conference.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.signals.cvsg_date is null and the staged docket records no CVSG.",
+        "claim": "The Court will not issue a CVSG.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court denied certiorari; the conditional question-selection and grant-route forecasts were not tested.",
+        "claim": "If review is granted, it will concern the single relitigation-bar question, potentially through a GVR or summary vacatur after a government response.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records noted_dissent_from_denial=false, and the docket's November 16 entry is only 'Petition DENIED.' This supports no noted dissent, but no full disposing order or complete writing inventory is staged to establish the broader absence of any statement or explanation.",
+        "claim": "No Justice will write separately on denial.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261030T011325Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+    "label": "proc-v23",
+    "pipeline_sha": "f3754248d7a58063d9829378df7f56055e56fe51",
+    "stamped_at": "2026-11-18T16:21:32.534332Z"
+  },
+  "reasoning_quality": 0.76,
+  "run_id": "20261118T154349Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05110336817653891,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

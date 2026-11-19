@@ -1,0 +1,21 @@
+# Evaluation: claude-baseline
+
+This is a cert-stage arrival evaluation. Ground truth is `outcome.json`: denied on November 16, 2026, `actual_granted = 0`, no CVSG and no noted dissent from denial. The staged November 16 snapshot records an October 23 government waiver, an October 28 distribution for the November 13 conference, and denial on November 16. It records one distribution and no request for a response or further conference. No Supreme Court opinion or separate-writing text is staged. The bare denial supplies no explanation of the Court's reasons.
+
+Base-rate use was checked against the historical sal-v4 statpack reconstructed by `uv run fedcourts statpack-at`, build `1c4f550b7b758c0f5dbb4d505b8159cd8e93fee5` (digest `sha256:6686e96900da7521a4a61b621aa78c4a04231c24a834f547cd36848f501f675e`), rather than the current sal-v8 build. There is no alternative build reported. The private-petitioner baseline risk set and strictly prior OT2017–OT2025 rows are appropriate; the historical table supports the candidate's approximate starting calculation. The federal respondent does not change the petitioner's caption class. The stamped segment base rate and skill are the harness's; no independently pooled evaluation anchor is reported here.
+
+Votes are unscored on cert, and no semantic set applies. Quantitative claims are left entirely to the harness.
+
+The denial label is correct: `correct = 1`. P(grant) was 0.03, so the binary Brier score is `(0.03 - 0)^2 = 0.0009`.
+
+`reasoning_quality = 0.86` grades `reasoning.md` alone. It gives a coherent reason to discount the petition: the attached order recites de novo legal review and resolves assignment and responsible direction through substantial-evidence findings. Appendix A, 6a–8a, substantiates the identified factual obstacles. The analysis sensibly distinguishes different producer records from a genuine categorical circuit conflict and explains why the petition's own account of Siren Retail weakens a continuing-disagreement theory. It also distinguishes this post-Loper Bright judgment from a routine intervening-precedent GVR. The absence of an opposition and the limited authority checks are disclosed.
+
+Some assertions exceed that evidence. The sentence affording legal conclusions considerable deference is real (App. 3a); saying it was not applied to anything dispositive is an inference, especially where the panel then uses the Board's Oakwood definitions. Confirming Siren Retail's metadata without reading its body does not independently establish its full doctrinal reach. Typos and counsel's practice background are weak proxies for certworthiness, and speculation about pool memoranda adds little. These qualifications keep the grade below the top of the scale. The unreasoned denial does not validate every proposed doctrinal explanation, and the lower realized Brier score does not itself raise this rationale grade.
+
+## Predicted reasoning
+
+`predicted_reasoning_quality = 0.82`. The routine denial, government waiver before the response deadline, single-conference path and absence of a CVSG match the record. The waiver is a concrete procedural commitment beyond the outcome alone. The forecast nevertheless placed the conference in December or early January; the actual conference was November 13. That timing error prevents full credit. The hypothetical grant route, reformulated question and merits holding were conditional on a grant that never happened and receive neither credit nor penalty. No denial rationale can be verified from the Court's bare order.
+
+## Leakage
+
+Forward mode; all logged calls are October 1, before resolution. The captured log shows the arrival snapshot and petition, a general grants corpus query, and searches for Siren Retail, Multimedia KSDK, NLRB matters and Hospital Menonita. Legible retrieved dates precede this petition's resolution. No query or reasoning shows this case already decided. Captured coverage is 1.0, although query slices truncate some commands; no forbidden content read is established by those slices. The forward default applies: `influenced_prediction = not_applicable`, `retrieved_outcome_material = false`, and `leakage_suspected = false`. The evaluator's later, fully resolved snapshot is evidence for grading and is not treated as the candidate's original information set.

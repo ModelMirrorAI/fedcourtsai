@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000526",
+  "run_id": "20261118T154349Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell and local file reads",
+    "fedcourts statpack-at",
+    "Python arithmetic and JSON Schema validation"
+  ],
+  "helpful": [
+    "Blinded candidate staging and mode-aware retrieval logs",
+    "Historical statpack recovery",
+    "Resolved docket alongside structured outcome"
+  ],
+  "gaps": [],
+  "notes": "All candidates and the outcome were gradeable. Unexplained denial leaves proposed legal reasons unresolved; no external case facts were needed."
+}
