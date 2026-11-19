@@ -58,7 +58,10 @@ def test_a_row_reads_as_the_openers_district_rule(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "changes",
     [
-        {"source": "https://example.com/local-rules"},  # not the court's own site
+        {"source": "https://example.com/local-rules"},  # not a court's site
+        {"source": "https://www.nysd.uscourts.gov/rules"},  # another court's site
+        {"opposition_days": "14"},
+        {"reply_days": 7.0},
         {"in_force": "2026-12-01"},  # read before it took force
         {"opposition_days": 0},
         {"reply_from": "service"},
@@ -79,9 +82,26 @@ def test_a_row_must_state_its_reply_period_even_as_none() -> None:
         TrialLocalRules.model_validate({"courts": {"xxd": row}})
 
 
-def test_a_missing_file_is_an_error(tmp_path: Path) -> None:
+def test_a_missing_empty_or_repeating_file_is_an_error(tmp_path: Path) -> None:
+    path = tmp_path / TRIAL_LOCAL_RULES_FILENAME
     with pytest.raises(OSError):
-        load_trial_local_rules(tmp_path / TRIAL_LOCAL_RULES_FILENAME)
+        load_trial_local_rules(path)
+    for empty in ("", "{}\n"):
+        path.write_text(empty, encoding="utf-8")
+        with pytest.raises(ValidationError):
+            load_trial_local_rules(path)
+    row = yaml.safe_dump({"xxd": _row()}, indent=2).replace("\n", "\n  ")
+    path.write_text(f"courts:\n  {row}\n  {row}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate key"):
+        load_trial_local_rules(path)
+
+
+def test_a_row_is_keyed_by_a_district_court(tmp_path: Path) -> None:
+    path = tmp_path / TRIAL_LOCAL_RULES_FILENAME
+    row = _row(source="https://www.ca9.uscourts.gov/rules")
+    path.write_text(yaml.safe_dump({"courts": {"ca9": row}}), encoding="utf-8")
+    with pytest.raises(ValidationError, match="not a district court"):
+        load_trial_local_rules(path)
 
 
 def test_every_district_the_watchlist_reads_has_a_committed_row() -> None:
@@ -99,7 +119,10 @@ def test_the_committed_rows_carry_the_periods_their_rules_state() -> None:
     assert rules["nysd"].for_motion(sj, day) == LocalRule(14, 7)
     assert rules["flmd"].for_motion(dismissal, day) == LocalRule(21, None)
     assert rules["flmd"].for_motion(sj, day) == LocalRule(21, 14)
-    assert rules["flmd"].for_motion(TrialMoment.preliminary_injunction, day) == LocalRule(14, None)
+    # No row names the preliminary-injunction motion, so none counts a deadline for it.
+    assert all(
+        rule.for_motion(TrialMoment.preliminary_injunction, day) is None for rule in rules.values()
+    )
     assert rules["flnd"].for_motion(sj, day) == LocalRule(21, 7)
     assert rules["paed"].for_motion(sj, day) == LocalRule(14, None)
     assert rules["txed"].for_motion(sj, day) == LocalRule(21, 7)

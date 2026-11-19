@@ -31,7 +31,11 @@ nothing; it never opens an event on a guess.
   :mod:`fedcourtsai.trial_local_rules`): a period counted in calendar days
   whose last day, on a weekend or a federal legal holiday, runs to the next
   day that is neither (Fed. R. Civ. P. 6(a)(1)(C)), and applied only to a
-  motion filed on or after the day the recorded rule took force. Either
+  motion filed on or after the day the recorded rule took force. A state
+  holiday and a day declared a holiday are not read, so a period ending on
+  one is counted a court day short. A district's default periods are not
+  applied to a preliminary-injunction motion unless its rule names that
+  motion. Either
   is trusted only while no entry after it speaks of an extension, a
   stipulation, a continuance or a schedule for a brief, whichever motion that
   entry cites: a clerk's default date outlives the schedule that replaced it.
@@ -103,8 +107,15 @@ class DistrictRule:
     """One district's local rule: its default periods and the motions it treats apart.
 
     ``in_force`` is the day the recorded version of the rule took force. A
-    motion filed before it was briefed under a version this record does not
-    carry, so the rule gives it no deadline.
+    motion filed before it may have been briefed under a version this record
+    does not carry, so the rule gives it no deadline, and neither does a
+    motion whose entry carries no filing date.
+
+    A motion for a preliminary injunction gets periods only where
+    ``by_moment`` names it. Courts set that briefing by order far more often
+    than they leave it to the default motion rule, in words the opener does
+    not read as a schedule, so the default periods would open such a motion
+    on a day the court never set.
     """
 
     default: LocalRule
@@ -115,6 +126,8 @@ class DistrictRule:
         """The periods for a motion of ``moment`` filed on ``filed``, or ``None``."""
         if self.in_force is not None and (filed is None or filed < self.in_force):
             return None
+        if moment is TrialMoment.preliminary_injunction:
+            return self.by_moment.get(moment)
         return self.by_moment.get(moment, self.default)
 
 
@@ -126,8 +139,9 @@ def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
     return first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (n - 1))
 
 
-def _last_monday(year: int, month: int) -> date:
-    last = date(year, month + 1, 1) - timedelta(days=1)
+def _memorial_day(year: int) -> date:
+    """The last Monday of May."""
+    last = date(year, 5, 31)
     return last - timedelta(days=last.weekday())
 
 
@@ -145,7 +159,8 @@ def legal_holidays(year: int) -> frozenset[date]:
 
     New Year's Day of the next year is included where it is observed on the
     last day of this one. A day the President or Congress declares a holiday,
-    and a state holiday, are not read.
+    and a state holiday, are not read, though Rule 6(a)(6) counts both: a
+    period ending on one is counted to that day, a court day early.
     """
     fixed = [
         date(year, 1, 1),
@@ -160,7 +175,7 @@ def legal_holidays(year: int) -> frozenset[date]:
             *(_observed(day) for day in fixed),
             _nth_weekday(year, 1, 0, 3),
             _nth_weekday(year, 2, 0, 3),
-            _last_monday(year, 5),
+            _memorial_day(year),
             _nth_weekday(year, 9, 0, 1),
             _nth_weekday(year, 10, 0, 2),
             _nth_weekday(year, 11, 3, 4),
@@ -407,7 +422,13 @@ def _open_one(  # noqa: PLR0912, PLR0915 - one branch per way briefing completes
     elif not after(replies.trusted(), Basis.docket_deadline, not_before=opposition.date_filed):
         counted_from = opposition.date_filed
         if local_rule is not None and local_rule.reply_from_due:
-            counted_from = local(filed.date_filed, local_rule.opposition_days)
+            # The day the opposition was due is the docket's where it states
+            # one, and the rule's own count only where it states none.
+            counted_from = (
+                responses.trusted()
+                if responses.day is not None
+                else local(filed.date_filed, local_rule.opposition_days)
+            )
         rule_day = local(counted_from, local_rule.reply_days if local_rule else None)
         if replies.day is not None or not after(
             rule_day, Basis.local_rule, not_before=opposition.date_filed

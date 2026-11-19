@@ -4,7 +4,8 @@
 # the docket states no reply (or, for a preliminary injunction, response)
 # deadline, the opener counts one from the row below for the docket's court. A
 # court with no row has no local-rule deadline, and its motions open on the
-# reply itself or on a date the docket states.
+# briefing itself (the reply, or the opposition for a preliminary injunction)
+# or on a date the docket states.
 #
 # Each row is read from the court's own published local rules, never from a
 # summary of them:
@@ -17,19 +18,28 @@
 #               have been briefed under a version this file does not carry,
 #               so it gets no local-rule deadline
 #   opposition_days   calendar days from the motion's filing
-#   reply_days        calendar days from the opposition's filing, or from the
-#                     day the opposition was due where reply_from says
-#                     `opposition-due`; null where no reply is allowed without
-#                     leave
+#   reply_days        calendar days from what reply_from names; null where no
+#                     reply is allowed without leave
+#   reply_from  `opposition` (the default): the opposition's filing.
+#               `opposition-due`: the day the opposition was due, whenever it
+#               was filed, which is the docket's date where it states one
 #   motions     the motion moments the rule gives other periods
+#
+# A motion for a preliminary injunction gets a counted deadline only where a
+# row names `trial-preliminary-injunction` under motions. Courts set that
+# briefing by order, in words the opener does not read as a schedule, so no
+# row applies its default periods to one.
 #
 # These are the rule's defaults. A judge's individual practices or a
 # scheduling order can set other dates, which this file does not carry: the
 # opener distrusts every counted deadline once any entry on the docket moves a
 # briefing schedule. Periods tied to service are counted from filing, since
 # papers filed on CM/ECF are served on filing and Fed. R. Civ. P. 6(d) adds no
-# days for electronic service. A last day on a weekend or a federal legal
-# holiday runs to the next court day (Fed. R. Civ. P. 6(a)(1)(C)).
+# days for electronic service; a party served by mail has three more days,
+# which are not counted. A last day on a weekend or a federal legal holiday
+# runs to the next court day (Fed. R. Civ. P. 6(a)(1)(C)). A state holiday and
+# a day declared a holiday are not read, so a period ending on one is counted
+# a court day short and its motion opens that much early.
 #
 # A row changes when the court amends its rule: re-read the source, and move
 # read_on and in_force with the periods.

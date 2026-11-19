@@ -420,6 +420,63 @@ def test_a_counted_reply_deadline_before_a_late_opposition_opens_nothing() -> No
     assert opening.waiting_on == "the reply, or its deadline"
 
 
+def test_a_reply_period_from_the_due_date_follows_the_dockets_own_date() -> None:
+    rule = LocalRule(14, 7, reply_from_due=True)
+    due = entry(
+        45, "MOTION to Dismiss filed by Developer, Inc. Responses due by 2/5/2026.", "2026-01-10"
+    )
+    opposed = entry(
+        52, "OPPOSITION/RESPONSE (re 45 MOTION to Dismiss ) filed byListed Author.", "2026-01-30"
+    )
+    # Seven days from the docket's February 5, not from the rule's January 26.
+    assert one(due, opposed, local_rule=rule).opens_on == date(2026, 2, 13)
+    reset = entry(
+        None,
+        "Set/Reset Deadlines as to 45 MOTION to Dismiss. Responses due by 2/5/2026.",
+        "2026-01-12",
+    )
+    assert one(MOTION, reset, opposed, local_rule=rule).opens_on == date(2026, 2, 13)
+
+
+def test_a_moved_schedule_sets_a_district_rule_aside() -> None:
+    moved = entry(
+        47, "STIPULATION to extend briefing schedule re 45 MOTION to Dismiss", "2026-01-15"
+    )
+    rule = DistrictRule(default=LocalRule(14, 7, reply_from_due=True))
+    opening = one(MOTION, moved, OPPOSITION, local_rule=rule)
+    assert opening.opens_on is None
+    assert opening.waiting_on == "the reply, or its deadline"
+
+
+def test_an_injunction_motion_gets_a_counted_deadline_only_where_the_rule_names_it() -> None:
+    motion = entry(4, "MOTION for Preliminary Injunction filed by Listed Author.", "2026-01-10")
+    ordered = entry(
+        5,
+        "ORDER: Defendant shall file its opposition to 4 by February 20, 2026. "
+        + "Hearing set for 3/1/2026.",
+        "2026-01-12",
+    )
+    injunction = TrialMoment.preliminary_injunction
+    default_only = DistrictRule(default=LocalRule(14, 7))
+    assert default_only.for_motion(injunction, date(2026, 1, 10)) is None
+    opening = one(motion, ordered, local_rule=default_only)
+    assert opening.opens_on is None
+    assert opening.waiting_on == "the opposition, or its deadline"
+    named = DistrictRule(default=LocalRule(14, 7), by_moment={injunction: LocalRule(14, None)})
+    assert one(motion, local_rule=named).opens_on == date(2026, 1, 27)
+    not_yet = DistrictRule(
+        default=LocalRule(14, 7),
+        by_moment={injunction: LocalRule(14, None)},
+        in_force=date(2026, 2, 1),
+    )
+    assert one(motion, local_rule=not_yet).opens_on is None
+
+
+def test_a_motion_with_no_filing_date_gets_no_periods_from_a_dated_rule() -> None:
+    rule = DistrictRule(default=LocalRule(14, 7), in_force=date(2026, 1, 1))
+    assert rule.for_motion(TrialMoment.dismissal, None) is None
+
+
 def test_a_district_rule_picks_the_periods_by_motion() -> None:
     rule = DistrictRule(
         default=LocalRule(14, None),
@@ -603,3 +660,14 @@ def test_trial_events_command_surveys_the_stored_dockets(
     assert report["motions"][0]["opens_on"] == "2026-01-31"
     assert report["dockets_missing"] == ["cand/103", "nysd/104"]
     assert "trial-events (trial-opener-v2" in result.stderr
+    assert report["local_rule_courts"] == []
+
+    for broken in ("courts: {cand: {cite: x}}\n", "courts: [unclosed\n", None):
+        rules = config / "trial-local-rules.yaml"
+        if broken is None:
+            rules.unlink()
+        else:
+            rules.write_text(broken, encoding="utf-8")
+        refused = CliRunner().invoke(app, ["trial-events", "--today", "2026-11-11"])
+        assert refused.exit_code == 2, refused.output
+        assert "cannot read its inputs" in refused.stderr

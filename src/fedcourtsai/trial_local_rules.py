@@ -5,8 +5,9 @@ motion's briefing closes, and where the docket states no deadline it counts
 one from the district's local rule. This module reads those rules, one row per
 district court, each citing the rule it was read from, the page it was read
 on, the day it was read and the day that version took force. A court with no
-row has no local-rule deadline: its motions open on the reply itself or on a
-date the docket states.
+row has no local-rule deadline: its motions open on the briefing itself (the
+reply, or the opposition for a preliminary injunction) or on a date the
+docket states.
 
 The opener (:mod:`fedcourtsai.pipeline.trial_opener`) takes the rows as
 :class:`~fedcourtsai.pipeline.trial_opener.DistrictRule` values and never reads
@@ -20,8 +21,10 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
+from .ai_watchlist import UniqueKeyLoader
+from .pipeline.ai_candidates import DISTRICT_COURT
 from .pipeline.trial_opener import DistrictRule, LocalRule
 from .pipeline.trial_resolver import MOTION_MOMENTS, TrialMoment
 
@@ -34,9 +37,9 @@ class Periods(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    opposition_days: int = Field(ge=1, le=90)
+    opposition_days: StrictInt = Field(ge=1, le=90)
     #: ``null`` where the district allows no reply as of right.
-    reply_days: int | None = Field(ge=1, le=90)
+    reply_days: StrictInt | None = Field(ge=1, le=90)
 
 
 class CourtRule(Periods):
@@ -82,11 +85,25 @@ class TrialLocalRules(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    courts: dict[str, CourtRule] = Field(default_factory=dict)
+    courts: dict[str, CourtRule]
+
+    @model_validator(mode="after")
+    def _check(self) -> TrialLocalRules:
+        for court, row in self.courts.items():
+            if not DISTRICT_COURT.fullmatch(court):
+                raise ValueError(f"{court!r} is not a district court id")
+            host = row.source.removeprefix("https://").partition("/")[0]
+            if host not in (f"{court}.uscourts.gov", f"www.{court}.uscourts.gov"):
+                raise ValueError(f"{court}: the source {host!r} is not that court's own site")
+        return self
 
 
 def load_trial_local_rules(path: Path) -> dict[str, DistrictRule]:
-    """Each district's rule by court id; a missing or unreadable file is an error."""
-    data = yaml.safe_load(path.read_text())
+    """Each district's rule by court id.
+
+    A missing or empty file, a file with no ``courts`` and a repeated key are
+    errors, not an empty set of rules.
+    """
+    data = yaml.load(path.read_text(), Loader=UniqueKeyLoader)
     rules = TrialLocalRules.model_validate(data)
     return {court: row.district_rule() for court, row in rules.courts.items()}
