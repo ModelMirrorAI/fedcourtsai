@@ -292,6 +292,7 @@ def forecastable_events(
     *,
     backend: corpus.CorpusBackend | None = None,
     today: date | None = None,
+    slice_docket: bool = False,
 ) -> list[str]:
     """The subset of :func:`open_events` the predict fan-out may target.
 
@@ -305,12 +306,18 @@ def forecastable_events(
     detection, the rotation, and the corpus service keep the unfiltered
     :func:`open_events`, because an open motion event outside predict scope
     still needs its ground truth tracked — it just never earns a forecast cell.
+
+    ``slice_docket`` says the docket is one an enabled prediction slice names
+    (:mod:`fedcourtsai.prediction_slices`), which is forecast on its slice's
+    own moments and on nothing else (:func:`forecastable_event_ids`).
     """
     choice = corpus.resolve_backend(backend)
     if choice == "local" and not corpus_db_path.exists():
         return []
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
-        return forecastable_event_ids(conn, court_id, docket_id, today=today)
+        return forecastable_event_ids(
+            conn, court_id, docket_id, today=today, slice_docket=slice_docket
+        )
 
 
 class DistributionColumns(Protocol):
@@ -822,6 +829,7 @@ def forecastable_event_ids(
     docket_id: int,
     *,
     today: date | None = None,
+    slice_docket: bool = False,
 ) -> list[str]:
     """:func:`forecastable_events` over an already-open connection.
 
@@ -834,6 +842,12 @@ def forecastable_event_ids(
     (:func:`distribution_conference_considered`), which reads the case's latest
     live payload over ``conn`` only when the row names a conference on or
     before it.
+
+    A **slice docket** (``slice_docket``) is forecast on the trial stage's
+    switched-on events alone (:func:`_trial_forecastable`): none of the arms
+    below is asked of it, so a lower-court docket's stage-less baseline event
+    earns no cell by being listed. And the trial arm is asked of no other
+    docket, so a caller that does not know the slices admits no trial event.
     """
     resolved_today = today if today is not None else date.today()
     case_id = ids.case_id(court_id, docket_id)
@@ -841,6 +855,12 @@ def forecastable_event_ids(
     if row is not None and row.predict_excluded:
         return []
     events = corpus.events_for_case(conn, case_id)
+    if slice_docket:
+        return [
+            event.event_id
+            for event in events
+            if not event.resolved and _trial_forecastable(event, day=resolved_today)
+        ]
     payloads = live_payload_reader(conn)
     return [
         event.event_id
@@ -853,6 +873,17 @@ def forecastable_event_ids(
             or _merits_forecastable(event, row, resolved_today)
         )
     ]
+
+
+def _trial_forecastable(event: corpus.CorpusEvent, *, day: date) -> bool:
+    """Whether ``event`` is a trial-stage event of a moment switched on by ``day``.
+
+    The trial stage's arm (``docs/trial-stage.md``): the id is one a declared
+    trial moment writes, the record carries the stage, and the moment is
+    switched on. The row is not asked, since a ruling on one motion closes that
+    motion's event and says nothing of the docket's other motions.
+    """
+    return event.stage == Stage.trial and moments.trial_switched_on(event.event_id, day)
 
 
 def is_forecastable_moment(event: corpus.CorpusEvent, row: corpus.CorpusRow | None) -> bool:

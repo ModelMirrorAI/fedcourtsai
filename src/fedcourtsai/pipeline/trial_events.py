@@ -169,7 +169,7 @@ def _place(plan: DocketPlan, event: corpus.CorpusEvent, opens_on: date, today: d
     """
     assert event.moment is not None  # `_event` sets it
     spec = moments.trial_spec(event.moment)
-    if spec.opens_from is None or spec.opens_from > today:
+    if spec.opens_from is None or not moments.trial_switched_on(event.event_id, today):
         plan.would_open.append(event.model_copy(update={"opened_at": opens_on}))
     else:
         plan.opens.append(event.model_copy(update={"opened_at": max(opens_on, spec.opens_from)}))

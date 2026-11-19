@@ -433,7 +433,12 @@ adjudicated.
 **Scope.** With the slice switched on, the predict and evaluate queues admit
 the slice's dockets beside the Court's, and the fan-out admits a trial event
 that is open, switched on and in the slice. A lower-court docket's stage-less
-baseline event is not forecast.
+baseline event is not forecast. The fan-out's half is built
+(`store.forecastable_event_ids`): a docket an enabled slice names is forecast
+on the events of a trial moment switched on by that day and on nothing else,
+whether the request names the event or leaves it to the corpus, and no docket
+outside a slice is asked for a trial event. The backlog derivations that queue
+a case with no request walk the Court's docket alone.
 
 **The docket a cell reads.** The refresh stamps the day it last read each
 docket even where nothing changed, and a district docket is fresh for a cell
