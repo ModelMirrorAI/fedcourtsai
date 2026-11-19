@@ -155,6 +155,7 @@ def test_the_courts_terminal_scan_is_not_asked_of_a_trial_event() -> None:
         ),
         entry(70, "JUDGMENT in favor of Developer, Inc. against Plaintiff.", "2026-07-20"),
         entry(70, "Civil Case Terminated.", "2026-07-20"),
+        entry(70, "ORDER: The Clerk is directed to close this case.", "2026-07-20"),
         entry(70, "STIPULATION of Dismissal with prejudice by all parties", "2026-07-20"),
     ],
 )
@@ -176,6 +177,11 @@ def test_a_sign_of_a_ruling_the_resolver_passes_over_refuses_the_motion(
             60, "ORDER granting 59 Stipulation re briefing on 45 Motion to Dismiss.", "2026-02-10"
         ),
         entry(60, "ORDER granting 59 Motion for Summary Judgment page limits.", "2026-02-10"),
+        entry(
+            60,
+            "ORDER: Exhibit 3 stays sealed until 90 days after this case is closed.",
+            "2026-02-10",
+        ),
         entry(
             60, "ORDER granting 59 Motion to Strike Opposition to Motion to Dismiss", "2026-02-10"
         ),

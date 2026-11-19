@@ -419,7 +419,12 @@ the day its briefing closed, or on the day the moment was switched on where
 that is later, and the final-disposition event opens on the day the pass
 first writes it. A motion the court ruled on before the pass first read it is never
 written, and a member docket opens no motion while its lead docket is not
-stored. A reading the resolver sends to triage writes no outcome: the event
+stored. Nor is a motion written while a later entry may already rule on it,
+by the net a forward cell on it would be refused on (*The docket a cell
+reads*, below): the resolver passes over a ruling it cannot read exactly, such
+as one stated in a hearing's minute entry, and an event opened past such an
+entry would carry a decided motion as open. The pass lists each motion it held
+that way, with the entry weighed, in the refresh's report. A reading the resolver sends to triage writes no outcome: the event
 stays open, and the pass lists it, with the reason and the entries weighed,
 in the refresh's report and its log. So does a result dated before its event
 opened or read from an undated entry, and a stored motion event the opener no

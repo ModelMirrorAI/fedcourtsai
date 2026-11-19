@@ -199,6 +199,23 @@ def test_a_briefed_motion_opens_no_earlier_than_the_switch(switched_on: None) ->
     assert (event.opened_at, event.title) == (date(2026, 9, 15), CASE)
 
 
+def test_a_motion_a_later_entry_may_rule_on_is_held_and_not_opened(switched_on: None) -> None:
+    # A ruling in a form the resolver passes over: stated in a hearing's
+    # minute entry, with no order of its own.
+    minute = entry(
+        60,
+        "Minute Entry for proceedings held before Judge A. Bench: Motion Hearing held "
+        + "re 45 Motion to Dismiss. The Court granted 45 Developer's motion to dismiss "
+        + "with leave to amend for the reasons stated on the record.",
+        "2026-06-10",
+    )
+
+    plan = plan_docket(CASE, "Listed v. Developer", [*BRIEFED, minute], {}, today=TODAY)
+
+    assert plan.opens == [] and plan.would_open == []
+    assert [(h.event_id, h.entries) for h in plan.held_ruled] == [(DISMISSAL, (60,))]
+
+
 def test_what_opens_nothing(switched_on: None) -> None:
     def opened(entries: list[dict[str, Any]], **kw: Any) -> list[str]:
         return [e.event_id for e in plan_docket(CASE, "", entries, {}, today=TODAY, **kw).opens]

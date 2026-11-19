@@ -1040,8 +1040,15 @@ _PROCEDURAL = re.compile(
     re.I,
 )
 # The clerk's and the court's notations that an action is over, in any form.
+# A leading notation ("CASE CLOSED", "Civil Case Terminated"), a sentence that
+# closes it in the present ("this action is hereby dismissed", "the Clerk is
+# directed to close the case"), or a judgment. A passing reference to the day
+# the case is closed ("until 90 days after this case is closed") is none.
 _ACTION_OVER = re.compile(
-    r"\b(?:civil\s+)?(?:case|action)\s+(?:is\s+)?(?:hereby\s+)?(?:closed|terminated|dismissed)\b|"
+    r"^\s*(?:\*+\s*)?(?:civil\s+)?(?:case|action)\s+(?:closed|terminated|dismissed)\b|"
+    r"\b(?:case|action)\s+is\s+(?:hereby\s+)?(?:terminated|dismissed)\b|"
+    r"\b(?:case|action)\s+is\s+hereby\s+closed\b|"
+    r"\bclerk\b[^.;]{0,80}?\b(?:close|terminate)\s+(?:this|the)\s+(?:case|action|file)\b|"
     r"^\s*(?:final\s+)?judgment\b",
     re.I,
 )
