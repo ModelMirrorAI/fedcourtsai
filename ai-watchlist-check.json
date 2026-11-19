@@ -1,17 +1,9 @@
 {
-  "ok": false,
-  "generated_at": "2026-11-18T19:24:07+00:00",
+  "ok": true,
+  "generated_at": "2026-11-19T01:31:44+00:00",
   "listed": 37,
   "stale_after_days": 7,
   "scotus": [],
-  "stale": [
-    {
-      "case_id": "nysd/68117049",
-      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
-      "docket_number": "1:23-cv-11195",
-      "last_pulled": null,
-      "days": 19
-    }
-  ],
+  "stale": [],
   "reading_age_days": null
 }
