@@ -4061,6 +4061,20 @@
       "valence": "clear"
     },
     {
+      "case_id": "scotus/73280982",
+      "coded_at": "2026-11-19",
+      "conservative_side": "petitioner",
+      "contamination_risk": false,
+      "docket_number": "25-944",
+      "granted": "2026-11-13",
+      "mode": "forward",
+      "model": "claude-opus-5-5",
+      "note": "Economic activity and regulation: the issuer, Robinhood, as petitioner, resists private securities-plaintiff liability under Section 11(a) and Item 303 for undisclosed interim data, the business-versus-investor side.",
+      "run_id": "44495161848",
+      "score": 0.72,
+      "valence": "clear"
+    },
+    {
       "case_id": "scotus/73281006",
       "coded_at": "2026-11-02",
       "conservative_side": "petitioner",
@@ -4269,6 +4283,20 @@
       "run_id": "41515227262",
       "score": 0.4,
       "valence": "weak"
+    },
+    {
+      "case_id": "scotus/9026000239",
+      "coded_at": "2026-11-19",
+      "conservative_side": "petitioner",
+      "contamination_risk": false,
+      "docket_number": "26-239",
+      "granted": "2026-11-13",
+      "mode": "forward",
+      "model": "claude-opus-5-5",
+      "note": "Immigration: the federal government, as petitioner, defends the proclamation suspending entry and asylum access against the noncitizens' class challenge and seeks to limit classwide relief.",
+      "run_id": "44495161848",
+      "score": 0.66,
+      "valence": "clear"
     }
   ],
   "schema_version": "1.0",
