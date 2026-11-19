@@ -596,9 +596,13 @@ the docket form, so one function serves both lanes:
   same reading.
 - **`cert-reply`** — the petitioner's **cert-stage** reply, the Rule 15.6 answer
   to the opposition and often the only filing that meets its vehicle and
-  preservation objections. The first "Reply [brief] of/for … petitioner(s) …"
-  entry filed before the grant and before any disposition entry, from its `Main
-  Document` link alone. The merits reply arm reads the same words after the
+  preservation objections. **Every** "Reply [brief] of/for … petitioner(s) …"
+  entry filed before the grant and before any disposition entry, each from its
+  `Main Document` link alone, distinct links in docket order, combined into
+  one row as the opposition is: a respondent whose response is filed after
+  the first reply can draw a second, and the row that holds both
+  oppositions holds both answers. A lone reply is stored as the filing itself,
+  at its own link. The merits reply arm reads the same words after the
   grant, so the grant date is what separates the two, and the docket order of
   the disposition keeps a reply filed after a denial (a rehearing paper) out.
   "In opposition" is no exclusion here — "Reply of petitioner to brief in
@@ -894,8 +898,8 @@ rotations just polled, and the undecided predict-relevant cases they did not:
   each and no upstream request.
 - **Test.** The case is stale where its stored set does not hold every link the
   selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
-  another link, or a combined row — the opposition, the supplemental briefs,
-  the party letters — whose set of filings differs from the selected set. A
+  another link, or a combined row — the opposition, the cert-stage replies,
+  the supplemental briefs, the party letters — whose set of filings differs from the selected set. A
   kind held in `provision.WITHHELD_KINDS` is owed here like any other, since
   storing it ahead of the re-bless that stages it is the point; the bound below
   is what keeps it from costing a cell anything. That is exactly the test the fetch skips a filing on, so a
@@ -939,7 +943,8 @@ rotations just polled, and the undecided predict-relevant cases they did not:
   after it was docketed reaches exactly the cells placed after its docketing,
   forward or replay. The opposition row, which combines every respondent's
   brief, is cut brief by brief, each placed by its own docket date, so a cell
-  placed between two respondents' briefs reads only the earlier one; the
+  placed between two respondents' briefs reads only the earlier one, and the
+  cert-reply row is cut reply by reply the same way; the
   supplemental-brief and party-letter rows are dated by their latest
   constituent and placed whole. One residual is stated where the cut is made,
   and freshness makes it more reachable.
@@ -1115,7 +1120,8 @@ it like any other text. The parsers of the Court's own orders, opinions and
 transcripts read pages only and write no note.
 
 **The combined-row cut.** A combined row of more than one selected filing (the
-opposition, the supplemental briefs, the party letters) shares one cap, and a
+opposition, the cert-stage replies, the supplemental briefs, the party
+letters) shares one cap, and a
 cut over the joined text in docket order would spend it first-come: the first
 respondent's bound appendix kept, the second respondent's argument never
 reached. Each filing is read as the appendix-aware cut reads it, every page up
@@ -1566,7 +1572,7 @@ and re-combining a set, which is the fetching lane's work, not this pass's —
 and text recovered there would in any case be discarded the next time a
 co-respondent's brief joined that key. A lone opposition joins to itself, so it
 stores one link and is recovered like any other filing. The combined
-`supplemental-brief` and `party-letter` rows are held to the same rule, and
+`cert-reply`, `supplemental-brief` and `party-letter` rows are held to the same rule, and
 their headed rows are not sized on the report's combined line, which reads the
 opposition alone. The combined row itself
 is not empty by the coverage report's per-kind test, because its per-brief
@@ -1670,8 +1676,8 @@ dependency on either side.
   carries both — and neither is OCR's to repair; a case holding no row of a
   kind is a fetch gap, or on an application docket no gap at all; a row whose
   URL is a set key is a combined row of more than one filing — the
-  multi-respondent opposition above, or a docket's several supplemental briefs
-  or party letters, stored the same way — while a lone one joins to its own
+  multi-respondent opposition above, or a docket's several cert-stage replies,
+  supplemental briefs or party letters, stored the same way — while a lone one joins to its own
   link and is recovered like any other filing. All three stay out
   of the population. The kinds differ in what a cell
   loses when one reads empty and in nothing the pass does: each is one stored
