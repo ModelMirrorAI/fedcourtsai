@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000716",
+  "run_id": "20261119T190436Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Applicant-class table (private/capital cell)", "Provisioned application text"],
+  "gaps": ["The linked certiorari petition (26-6187) and the decision below were not staged for the application docket", "No corpus filter for capital stay applications by ground or lower court"],
+  "notes": "The generic denied-disposition query returned mostly unrelated rows; a capital_case filter would make priors useful for this cell type."
+}
