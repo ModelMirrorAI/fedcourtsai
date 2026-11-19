@@ -8,10 +8,10 @@ rather than minting its own. The first slice to use it is the AI-case watchlist
 current ([data-pipeline.md](data-pipeline.md)).
 
 **Status: designed, not registered.** Nothing here is forecast yet. The stage
-registers with the process version that opens the prediction scope to the
-watchlist slice. That version adds `trial` to `Stage` and the five moments
-below to `Moment` (`schemas.py`), declares their claims in
-`pipeline/moments.py`, and dates the entry in [freeze-record.md](freeze-record.md).
+registers under the watchlist slice's own process label, in the sequence
+*How the stage registers* sets out below: `trial` joins `Stage` and the five
+moments below join `Moment` (`schemas.py`), their claims are declared in
+`pipeline/moments.py`, and the entry is dated in [freeze-record.md](freeze-record.md).
 Until it lands, this page is the design that entry cites, and a change to it
 needs no re-bless. The resolver below is built as library code and is wired
 into nothing.
@@ -309,14 +309,105 @@ public domain; CourtListener's CC BY-ND covers its own curation, not the order
 
 The corpus stores no district-court base rate, and none is built for this
 stage. The watchlist is a hand-curated selection of AI cases, so a general
-civil-docket rate would describe a different population in any case. The
-first registration therefore states, per moment, either a published figure
-with its source and population, read before registration, or that the first
-year runs **without a base rate**, in which case no skill-over-base-rate
-figure is reported for the slice until its own resolved events can supply
-one. The Federal Judicial Center's studies of motion-to-dismiss and
-summary-judgment practice are the candidate published sources; none is
-adopted yet.
+civil-docket rate describes a different population. The first registration
+therefore states two published figures as **references** and runs the other
+three moments with none:
+
+| Moment | Published reference | Source and population |
+| --- | --- | --- |
+| `trial-dismissal` | granted 46%, granted in part 29%, denied 25%; of the orders that granted anything, 47% gave leave to amend at least some claims | Cecil, Cort, Williams and Bataillon, *Motions to Dismiss for Failure to State a Claim After Iqbal* (Federal Judicial Center, March 2011), Table 4 and note 26: 1,221 orders on Rule 12(b)(6) motions in 23 districts in 2010, prisoner and pro se cases excluded |
+| `trial-summary-judgment` | granted 48%, granted in part 15%, denied 36% | Cecil and Cort, *Report on Summary Judgment Practice Across Districts with Variations in Local Rules* (Federal Judicial Center, August 13, 2008), Table 3: the 18,831 motions granted or denied in civil cases terminated in fiscal year 2006 |
+| `trial-class` | none | The Center's class-action study holds 36 contested certification motions, from diversity cases filed before 2005 |
+| `trial-preliminary-injunction` | none | No published grant rate for contested motions was found |
+| `trial-judgment` | none | The federal courts' tables report how cases end, not which side prevailed |
+
+A reference is context beside a forecast and nothing more. It counts orders
+that ruled, so it says nothing of a motion withdrawn or mooted, and it
+describes general civil litigation in 2006 and 2010. **No
+skill-over-base-rate figure is reported for the slice** from it: such a
+figure waits until the slice's own resolved events can supply a rate.
+
+## How the stage registers
+
+The registration is a sequence, and only its last step moves a process digest
+([process-version.md](process-version.md)). Until that step every moment is
+declared and switched off, the pattern the Court's later moments followed.
+
+**The first registration is the trial stage alone.** The appeal stage
+([appeal-stage.md](appeal-stage.md)) registers after it, under the same slice.
+
+**Events.** A motion event is `evt-motion-trial-<motion>-<entry number>`:
+kind `motion`, the filing that opened it, and a label made of the moment's
+motion word (`dismissal`, `class`, `summary-judgment`,
+`preliminary-injunction`) and the number of the docket entry that filed the
+motion, so `evt-motion-trial-dismissal-45` is the motion to dismiss at entry
+45. The case's final disposition is the one event `evt-order-trial-judgment`.
+The declared-moments table gains a row per moment that names a **family** of
+ids by this stem, and only the trial mint seam writes an id on a stem; the
+entry-pinned extractor refuses a label that begins `trial-`. The record, not
+the id, carries the stage and the moment, as everywhere else.
+
+**Outcomes.** The outcome record gains three fields no other stage may carry:
+the motion's ruling (granted, granted in part, denied, withdrawn, mooted),
+leave to amend on a dismissal granted in whole or in part (with leave, without
+leave, mixed, unstated), and the final disposition (judgment for plaintiff,
+for defendant, mixed, no merits decision). Each cites the entry the resolver
+read.
+
+**Claims.** The stage declares one claim set, `trial-v1`:
+
+- On a motion moment, the headline probability is that the motion is
+  **granted in whole or in part**, and a distribution claim spreads the
+  forecast over the five rulings. It is scored on every resolved event,
+  since nothing is voided.
+- On `trial-dismissal`, a second distribution claim forecasts leave to amend
+  over its four values. It resolves only where the motion was granted in
+  whole or in part, and is masked otherwise.
+- On `trial-judgment`, the headline probability is a **judgment for the
+  plaintiff or a mixed judgment**, and a distribution claim spreads the
+  forecast over the four dispositions.
+
+There is no vote claim and no authorship claim: one judge decides, and is
+known. The decision model's aggregation rules are the Court's and declare
+nothing for this stage ([decision-model.md](decision-model.md)).
+
+**Opening and resolving.** The watchlist refresh opens and resolves events in
+the pass that stores the dockets: after a docket is refreshed, the opener and
+the resolver read it, a newly briefed motion's event is written, and a ruling
+the resolver reads closes its event with the outcome. A reading the resolver
+sends to triage writes no outcome: the event stays open, and the pass lists
+it, with the reason and the entries weighed, in the alarm the watchlist check
+already raises. A maintainer settles a triaged event by a pull request that
+records the ruling and the entry it rests on in a committed adjudication
+list, which the resolver then reads ahead of its own rule.
+
+**Scope.** With the slice switched on, the predict and evaluate queues admit
+the slice's dockets beside the Court's, and the fan-out admits a trial event
+that is open, switched on and in the slice. A lower-court docket's stage-less
+baseline event is not forecast.
+
+**The docket a cell reads.** The refresh stamps the day it last read each
+docket even where nothing changed, and a district docket is fresh for a cell
+when that stamp is inside the bound the predict job enforces, since an
+unchanged docket stores no new snapshot. The Court's pre-mint poll has no
+counterpart: the event is opened by the same pass that just read the docket.
+A cell's record carries the docket, the motion's briefing, the judge, and the
+listed case's related dockets; none of the Court's fields (the term, the
+salience band, the cert anchor) is written for it.
+
+**Its own process.** The slice's cells are made by predictors and graded by
+evaluators registered for the slice, each reading a prompt of the slice's own
+that carries the stage's rules, under a label of the slice's own. The fan-out
+routes a case to the actors of its population. So no Supreme Court digest
+moves when the slice is switched on, and no Court window holds a slice cell.
+The freeze-record entry that registers the label states the moments switched
+on, the references above, the motions already open that day, and the opener
+and resolver rule labels in force.
+
+**What reads the slice.** No published figure, board, update or export reads
+the slice's population until one is built for it. The public site reads every
+record under `data/cases/`, so the change that first writes a district record
+is paired with the site change that says how it is shown.
 
 ## Out of scope
 
