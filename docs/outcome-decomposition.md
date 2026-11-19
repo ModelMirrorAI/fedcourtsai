@@ -7,7 +7,8 @@ worth far more, and none of it is scored by a disposition label. This document
 defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
-**The mechanical family is implemented at all three stages; everything else here
+**The mechanical family is implemented at all three of the Court's stages, and
+declared with no baseline, so unscored, at the trial stage (*The trial sets*); everything else here
 is pre-registration — with two carve-outs: the semantic family, which is
 declared but neither pre-registered nor producing anything; and the grade of
 `predicted_reasoning.md` itself (*Grading the forecast document, design*),
@@ -1367,6 +1368,58 @@ leaves the binary block as it is; `validate` reports it through
 is void or absent the rows go with it, and `validate` reports a distribution
 block stated without a `claims` block. The rows carry no floor or lift; the
 floor is identically 0, as the binary claims' is.
+
+### The trial sets
+
+The trial stage ([trial-stage.md](trial-stage.md)) forecasts a district court's
+ruling on a motion and its final disposition of the case. Its moments ask
+different questions, so it declares a set per question rather than one set
+carried by every moment, and each is reached through the trial stage's own
+table of declared moments (`pipeline.moments.trial_spec_for`), never by an
+event id's kind.
+
+| Set | Moments | Binary claim | Distribution claims |
+| --- | --- | --- | --- |
+| `trial-motion-v1` | `trial-class`, `trial-summary-judgment`, `trial-preliminary-injunction` | `trial-ruling-granted` | `trial-ruling` |
+| `trial-dismissal-v1` | `trial-dismissal` | `trial-ruling-granted` | `trial-ruling`, `trial-leave` |
+| `trial-judgment-v1` | `trial-judgment` | `trial-judgment-for-plaintiff` | `trial-judgment` |
+
+| Claim | Form | Resolves from |
+| --- | --- | --- |
+| `trial-ruling-granted` | Binary; restates the headline `probability` | `Outcome.trial_ruling`: 1 for granted or granted in part, 0 for denied, withdrawn or mooted |
+| `trial-judgment-for-plaintiff` | Binary; restates the headline `probability` | `Outcome.trial_judgment`: 1 for plaintiff or mixed, 0 for defendant or no merits decision |
+| `trial-ruling` | Categorical over the five rulings, summing to 1 | `Outcome.trial_ruling`, one label true |
+| `trial-leave` | Categorical over leave to amend's four values, summing to 1 | `Outcome.trial_leave`; masked unless the motion to dismiss was granted in whole or in part |
+| `trial-judgment` | Categorical over the four final dispositions, summing to 1 | `Outcome.trial_judgment`, one label true |
+
+Each resolver reads the trial result and never `actual_granted`, so a trial
+claim that met an outcome of another stage would mask instead of resolving on
+a binary that means something else.
+
+**Nothing here is scored under the rule.** The rule needs a baseline, and no
+committed cut of prior district rulings exists to price one: the published
+figures the stage cites are references from other years and courts, not a
+rate strictly prior to the case and conditioned as the predictor is (test 3).
+So each binary claim's baseline is `None` and its row carries the resolution
+and no score, a set's `total`, `floor` and `lift` are `None`, and the
+distribution claims are declared collected-only, as `order-writers` is. The
+stage's own resolved events are what a baseline would be built from, and
+building one is a new set version.
+
+**The headline and the spread are one belief.** A set's binary claim is the
+mass its ruling (or judgment) distribution puts on the granted (or plaintiff)
+side, so the pair is redundant by construction (*No claim may be derived from
+another*). That costs nothing while neither is scored, and it is held
+coherent instead of left to drift: a distribution whose mass on that side
+differs from the headline `probability` by more than rounding is malformed,
+`validate` names it, and its rows are dropped. A later version that scores
+either scores one of the two, never both: the distribution, the fine claim,
+unless test 8 sends it back to the binary, since a withdrawn or mooted
+ruling and an unstated leave may each sit near zero.
+
+`trial-leave` is conditional on the ruling, as the summary-disposition route
+is conditional on a grant: it is elicited on every motion to dismiss and
+resolves only where a dismissal exists for leave to attach to.
 
 ### The mechanical↔semantic agreement, pre-registered
 

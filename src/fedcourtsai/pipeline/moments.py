@@ -57,6 +57,12 @@ CLAIM_SET_MERITS_V2 = "merits-v2"
 #: claims as ``interim-v2``, its ``interim-disposition`` claim resolving on
 #: ``Outcome.interim_granted`` (``pipeline.claims``).
 CLAIM_SET_INTERIM_V3 = "interim-v3"
+#: The trial stage's sets. The stage asks different questions at its moments,
+#: so it declares a set per question: a ruling on a motion, a ruling on a
+#: motion to dismiss (which adds leave to amend), and the final disposition.
+CLAIM_SET_TRIAL_MOTION_V1 = "trial-motion-v1"
+CLAIM_SET_TRIAL_DISMISSAL_V1 = "trial-dismissal-v1"
+CLAIM_SET_TRIAL_JUDGMENT_V1 = "trial-judgment-v1"
 
 
 @dataclass(frozen=True)
@@ -442,6 +448,10 @@ class TrialMomentSpec:
     the motion follows it; the judgment moment is one event per case and its
     id ends at the word.
 
+    ``claim_set_version`` names the moment's declared claim set by version
+    string, as :class:`MomentSpec` does, resolved in
+    :mod:`fedcourtsai.pipeline.claims`.
+
     ``forecastable`` is the same switch :class:`MomentSpec` carries: a moment
     declared here mints no cell until it is switched on.
     """
@@ -452,6 +462,7 @@ class TrialMomentSpec:
     per_motion: bool
     decision_target: str
     description: str
+    claim_set_version: str
     forecastable: bool = False
 
     @property
@@ -469,6 +480,7 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         per_motion=True,
         decision_target="ruling",
         description="The district court's ruling on a motion to dismiss.",
+        claim_set_version=CLAIM_SET_TRIAL_DISMISSAL_V1,
     ),
     TrialMomentSpec(
         moment=Moment.trial_class,
@@ -477,6 +489,7 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         per_motion=True,
         decision_target="ruling",
         description="The district court's ruling on a motion for class certification.",
+        claim_set_version=CLAIM_SET_TRIAL_MOTION_V1,
     ),
     TrialMomentSpec(
         moment=Moment.trial_summary_judgment,
@@ -485,6 +498,7 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         per_motion=True,
         decision_target="ruling",
         description="The district court's ruling on one party's motion for summary judgment.",
+        claim_set_version=CLAIM_SET_TRIAL_MOTION_V1,
     ),
     TrialMomentSpec(
         moment=Moment.trial_preliminary_injunction,
@@ -493,6 +507,7 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         per_motion=True,
         decision_target="ruling",
         description="The district court's ruling on a motion for a preliminary injunction.",
+        claim_set_version=CLAIM_SET_TRIAL_MOTION_V1,
     ),
     TrialMomentSpec(
         moment=Moment.trial_judgment,
@@ -501,6 +516,7 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         per_motion=False,
         decision_target="judgment",
         description="The district court's final disposition of the case.",
+        claim_set_version=CLAIM_SET_TRIAL_JUDGMENT_V1,
     ),
 )
 

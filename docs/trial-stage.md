@@ -13,9 +13,10 @@ registers under the watchlist slice's own process label, in the sequence
 `Stage` and the five moments below are `Moment` values (`schemas.py`). The
 moments are declared and switched off in the stage's own table
 (`pipeline/moments.py`), the outcome record has the stage's three fields, and
-`validate` holds a trial record to both; no record carries any of it. The
-stage's claims and the fields a forecast states are declared next, and the
-entry is dated in [freeze-record.md](freeze-record.md).
+`validate` holds a trial record to both. Each moment names its claim set
+(`pipeline/claims.py`). No record carries any of it. What a forecast's own
+record says of a trial cell is written with the slice's prompt, at the
+switch-on, and the entry is dated in [freeze-record.md](freeze-record.md).
 Until that entry is dated, this page is the design that entry cites, and a change to it
 needs no re-bless. The opener and the resolver below are built as library
 code and are wired into nothing.
@@ -370,18 +371,32 @@ judgment was for the plaintiff or mixed. A trial outcome carries exactly one
 result and no field of the Court's stages, and `validate` fails a trial field
 on any other event.
 
-**Claims.** The stage declares one claim set, `trial-v1`:
+**Claims.** The stage asks a different question at its moments, so it
+declares a claim set per question
+([outcome-decomposition.md](outcome-decomposition.md), *The trial sets*):
 
-- On a motion moment, the headline probability is that the motion is
-  **granted in whole or in part**, and a distribution claim spreads the
-  forecast over the five rulings. It is scored on every resolved event,
-  since nothing is voided.
-- On `trial-dismissal`, a second distribution claim forecasts leave to amend
-  over its four values. It resolves only where the motion was granted in
-  whole or in part, and is masked otherwise.
-- On `trial-judgment`, the headline probability is a **judgment for the
-  plaintiff or a mixed judgment**, and a distribution claim spreads the
-  forecast over the four dispositions.
+- `trial-motion-v1`, on a class, summary-judgment or preliminary-injunction
+  motion: the headline claim `trial-ruling-granted`, that the motion is
+  **granted in whole or in part**, and the distribution claim `trial-ruling`,
+  which spreads the forecast over the five rulings. The headline resolves on
+  every resolved event, a withdrawn or mooted motion included, since nothing
+  is voided.
+- `trial-dismissal-v1`, on a motion to dismiss: the same two, and the
+  distribution claim `trial-leave` over leave to amend's four values. It
+  resolves only where the motion was granted in whole or in part, and is
+  masked otherwise.
+- `trial-judgment-v1`, on the final disposition: the headline claim
+  `trial-judgment-for-plaintiff`, a **judgment for the plaintiff or a mixed
+  judgment**, and the distribution claim `trial-judgment` over the four
+  dispositions.
+
+A distribution's mass on the headline's side is the headline probability
+stated again, and a forecast whose two numbers disagree states no
+distribution. No claim has a baseline, so none is scored under the claim
+rule: the headline is resolved and reported, and the distributions are
+collected and resolved. A forecast is **correct** where its side of the
+headline binary is the side the outcome fell on, the same event its Brier
+score reads.
 
 There is no vote claim and no authorship claim: one judge decides, and is
 known. The decision model's aggregation rules are the Court's and declare
