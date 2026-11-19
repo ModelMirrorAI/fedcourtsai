@@ -75,15 +75,34 @@ A motion moment opens when the motion is **fully briefed**: the opposition and
 the reply are both on the docket, or the opposition is and the reply deadline
 has passed with no reply. The deadline is the one the docket states (the response and reply
 dates a clerk enters on the motion, or on a later entry that sets or resets
-them), and otherwise the district's local rule, recorded per court in the
-slice's config when the slice registers; a court whose rule the config does
-not carry opens on the reply alone. A statement of non-opposition opens
+them), and otherwise the district's local rule, recorded per court in
+`config/trial-local-rules.yaml`; a court whose rule the config does
+not carry opens on the reply alone.
+
+**The local rules.** Each row of `config/trial-local-rules.yaml` is one
+district's default briefing periods, read from the court's own published
+rules, with the rule's citation, the page it was read on, the day it was read
+and the day that version took force. A row gives the days for an opposition
+(from the motion's filing) and for a reply (from the opposition's filing, or
+from the day the opposition was due where the rule says so), the motion
+moments the rule gives other periods, and no reply period where the district
+allows no reply without leave: there a motion opens on a reply the court
+permitted, or on a date the docket states. A period is counted in calendar
+days, and a last day on a weekend or a federal legal holiday runs to the next
+day that is neither, as Federal Rule of Civil Procedure 6(a) counts it. A
+motion filed before the recorded version took force gets no counted
+deadline, since the file does not carry the version it was briefed under.
+The rows are the rules' defaults: a judge's individual practices or a
+scheduling order can set other dates, which is why a counted deadline is
+distrusted once any briefing schedule on the docket moves (below). The rows
+cover every district the watchlist's own, member and companion dockets sit
+in, and a test holds them to that. A statement of non-opposition opens
 nothing by itself: the motion waits for its ruling like any motion with no
 opposition the rule can read. The forecast's information set is
 therefore the complete briefing, as the merits stage's `briefed` moment is for
 the Court.
 
-The opener is `pipeline/trial_opener.py` (rule `trial-opener-v1`),
+The opener is `pipeline/trial_opener.py` (rule `trial-opener-v2`),
 deterministic like the resolver and built the same way: a motion it cannot
 name or briefing it cannot date opens nothing and is reported with its reason.
 

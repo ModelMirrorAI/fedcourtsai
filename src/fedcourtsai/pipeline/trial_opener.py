@@ -26,7 +26,12 @@ nothing; it never opens an event on a guess.
 - **A deadline is one the docket states.** Where the motion's own entry, or a
   later entry that sets or resets its deadlines, says when responses or
   replies are due, the latest such statement is the deadline. Where the docket
-  states none, a caller may supply the district's local-rule periods. Either
+  states none, a caller may supply the district's local-rule periods
+  (:class:`DistrictRule`, read from ``config/trial-local-rules.yaml`` by
+  :mod:`fedcourtsai.trial_local_rules`): a period counted in calendar days
+  whose last day, on a weekend or a federal legal holiday, runs to the next
+  day that is neither (Fed. R. Civ. P. 6(a)(1)(C)), and applied only to a
+  motion filed on or after the day the recorded rule took force. Either
   is trusted only while no entry after it speaks of an extension, a
   stipulation, a continuance or a schedule for a brief, whichever motion that
   entry cites: a clerk's default date outlives the schedule that replaced it.
@@ -50,7 +55,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Final
@@ -64,7 +69,7 @@ from .ai_candidates import DISTRICT_COURT
 from .trial_resolver import Citation, MotionEvent, MotionResolution, TrialMoment, Unresolved
 
 #: The label of the reading rule below. A changed rule is a new label.
-OPENER_RULE: Final = "trial-opener-v1"
+OPENER_RULE: Final = "trial-opener-v2"
 
 
 class Basis(StrEnum):
@@ -80,15 +85,99 @@ class Basis(StrEnum):
 
 @dataclass(frozen=True)
 class LocalRule:
-    """A district's default briefing periods, in calendar days.
+    """A district's default briefing periods for one kind of motion, in calendar days.
 
-    ``opposition_days`` runs from the motion's filing; ``reply_days`` from the
-    opposition's filing, and is ``None`` where the district allows no reply as
-    of right.
+    ``opposition_days`` runs from the motion's filing. ``reply_days`` runs from
+    the opposition's filing, or, where ``reply_from_due`` is set, from the day
+    the opposition was due whenever it was filed; it is ``None`` where the
+    district allows no reply as of right.
     """
 
     opposition_days: int
     reply_days: int | None
+    reply_from_due: bool = False
+
+
+@dataclass(frozen=True)
+class DistrictRule:
+    """One district's local rule: its default periods and the motions it treats apart.
+
+    ``in_force`` is the day the recorded version of the rule took force. A
+    motion filed before it was briefed under a version this record does not
+    carry, so the rule gives it no deadline.
+    """
+
+    default: LocalRule
+    by_moment: Mapping[TrialMoment, LocalRule] = field(default_factory=dict)
+    in_force: date | None = None
+
+    def for_motion(self, moment: TrialMoment, filed: date | None) -> LocalRule | None:
+        """The periods for a motion of ``moment`` filed on ``filed``, or ``None``."""
+        if self.in_force is not None and (filed is None or filed < self.in_force):
+            return None
+        return self.by_moment.get(moment, self.default)
+
+
+# --- counting a period ---------------------------------------------------------
+
+
+def _nth_weekday(year: int, month: int, weekday: int, n: int) -> date:
+    first = date(year, month, 1)
+    return first + timedelta(days=(weekday - first.weekday()) % 7 + 7 * (n - 1))
+
+
+def _last_monday(year: int, month: int) -> date:
+    last = date(year, month + 1, 1) - timedelta(days=1)
+    return last - timedelta(days=last.weekday())
+
+
+def _observed(day: date) -> date:
+    """The weekday a fixed-date holiday is observed on (5 U.S.C. § 6103(b))."""
+    if day.weekday() == 5:
+        return day - timedelta(days=1)
+    if day.weekday() == 6:
+        return day + timedelta(days=1)
+    return day
+
+
+def legal_holidays(year: int) -> frozenset[date]:
+    """The federal legal holidays of Fed. R. Civ. P. 6(a)(6)(A), as observed in ``year``.
+
+    New Year's Day of the next year is included where it is observed on the
+    last day of this one. A day the President or Congress declares a holiday,
+    and a state holiday, are not read.
+    """
+    fixed = [
+        date(year, 1, 1),
+        date(year, 6, 19),
+        date(year, 7, 4),
+        date(year, 11, 11),
+        date(year, 12, 25),
+        date(year + 1, 1, 1),
+    ]
+    return frozenset(
+        {
+            *(_observed(day) for day in fixed),
+            _nth_weekday(year, 1, 0, 3),
+            _nth_weekday(year, 2, 0, 3),
+            _last_monday(year, 5),
+            _nth_weekday(year, 9, 0, 1),
+            _nth_weekday(year, 10, 0, 2),
+            _nth_weekday(year, 11, 3, 4),
+        }
+    )
+
+
+def period_end(start: date, days: int) -> date:
+    """The last day of a period of ``days`` calendar days after ``start``.
+
+    A last day on a Saturday, a Sunday or a federal legal holiday runs to the
+    next day that is none of them (Fed. R. Civ. P. 6(a)(1)(C)).
+    """
+    end = start + timedelta(days=days)
+    while end.weekday() >= 5 or end in legal_holidays(end.year):
+        end += timedelta(days=1)
+    return end
 
 
 @dataclass(frozen=True)
@@ -248,11 +337,13 @@ def _open_one(  # noqa: PLR0912, PLR0915 - one branch per way briefing completes
     entries: Sequence[Mapping[str, Any]],
     *,
     today: date,
-    local_rule: LocalRule | None,
+    local_rule: LocalRule | DistrictRule | None,
 ) -> Opening:
     number = event.entry_number
     later = resolver._after(entries, number)
     filed = resolver.cite(own)
+    if isinstance(local_rule, DistrictRule):
+        local_rule = local_rule.for_motion(event.moment, filed.date_filed)
     own_text = str(own.get("description") or "")
     responses = _Deadline(_stated(_RESPONSES_DUE, own_text))
     replies = _Deadline(_stated(_REPLIES_DUE, own_text))
@@ -300,7 +391,7 @@ def _open_one(  # noqa: PLR0912, PLR0915 - one branch per way briefing completes
     def local(start: date | None, days: int | None) -> date | None:
         if local_rule is None or local_moved or start is None or days is None:
             return None
-        return start + timedelta(days=days)
+        return period_end(start, days)
 
     if injunction:
         if opposition is not None:
@@ -314,8 +405,13 @@ def _open_one(  # noqa: PLR0912, PLR0915 - one branch per way briefing completes
     elif opposition is None:
         waiting_on = "an opposition the rule can read"
     elif not after(replies.trusted(), Basis.docket_deadline, not_before=opposition.date_filed):
-        rule_day = local(opposition.date_filed, local_rule.reply_days if local_rule else None)
-        if replies.day is not None or not after(rule_day, Basis.local_rule):
+        counted_from = opposition.date_filed
+        if local_rule is not None and local_rule.reply_from_due:
+            counted_from = local(filed.date_filed, local_rule.opposition_days)
+        rule_day = local(counted_from, local_rule.reply_days if local_rule else None)
+        if replies.day is not None or not after(
+            rule_day, Basis.local_rule, not_before=opposition.date_filed
+        ):
             waiting_on = "the reply, or its deadline"
 
     resolution = resolver.resolve_motion(event, entries)
@@ -343,14 +439,15 @@ def read_docket(
     entries: Iterable[Mapping[str, Any]],
     *,
     today: date,
-    local_rule: LocalRule | None = None,
+    local_rule: LocalRule | DistrictRule | None = None,
 ) -> tuple[list[Opening], list[Declined]]:
     """Every covered motion on a docket, and every motion entry declined.
 
     ``entries`` are the docket's entries, in any order. ``today`` is the day
     the docket is read on: a deadline opens a motion only once that day has
-    passed. ``local_rule`` is the district's default briefing periods, used
-    only where the docket states no deadline.
+    passed. ``local_rule`` is the district's default briefing periods (one
+    set for every motion, or a :class:`DistrictRule` that picks by motion),
+    used only where the docket states no deadline.
     """
     ordered = [
         entry
@@ -500,6 +597,8 @@ class Survey(BaseModel):
     dockets_read: list[str] = Field(default_factory=list)
     #: Listed district dockets the corpus holds no stored entries for.
     dockets_missing: list[str] = Field(default_factory=list)
+    #: The courts whose local rule the reading had.
+    local_rule_courts: list[str] = Field(default_factory=list)
     motions: list[SurveyRow] = Field(default_factory=list)
     declined: list[SurveyDeclined] = Field(default_factory=list)
 
@@ -589,13 +688,17 @@ def survey(
     entries_of: Callable[[str], Sequence[Mapping[str, Any]] | None],
     *,
     today: date,
+    local_rules: Mapping[str, DistrictRule] | None = None,
 ) -> Survey:
     """Read every district docket the watchlist lists for its motions.
 
     ``entries_of`` returns a docket's stored entries by case id, or ``None``
-    where none are stored. The result carries identifiers and dates only.
+    where none are stored. ``local_rules`` is each district's local rule by
+    court id; a docket in a court it does not carry is read with none. The
+    result carries identifiers and dates only.
     """
-    result = Survey(read_on=today)
+    rules = local_rules or {}
+    result = Survey(read_on=today, local_rule_courts=sorted(rules))
     stored: dict[str, Sequence[Mapping[str, Any]] | None] = {}
     seen: set[str] = set()
     for case_id, lead in survey_dockets(watchlist):
@@ -614,7 +717,9 @@ def survey(
             if lead not in stored:
                 stored[lead] = entries_of(lead)
             owned = owned_by_lead(stored[lead] or (), entries)
-        openings, declined = read_docket(entries, today=today)
+        openings, declined = read_docket(
+            entries, today=today, local_rule=rules.get(case_id.partition("/")[0])
+        )
         result.motions.extend(
             _row(case_id, opening, lead_owned=opening.event.entry_number in owned)
             for opening in openings

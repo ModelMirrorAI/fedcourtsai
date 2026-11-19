@@ -1,0 +1,94 @@
+# The districts' default briefing periods for the trial stage (docs/trial-stage.md).
+#
+# The trial stage opens a motion event when the motion's briefing closes. Where
+# the docket states no reply (or, for a preliminary injunction, response)
+# deadline, the opener counts one from the row below for the docket's court. A
+# court with no row has no local-rule deadline, and its motions open on the
+# reply itself or on a date the docket states.
+#
+# Each row is read from the court's own published local rules, never from a
+# summary of them:
+#   cite        the rule, as the court cites it
+#   source      the court's page or document it was read on
+#   read_on     the day it was read
+#   in_force    the day the version read took force, as the document read
+#               states it (its effective date, or the date of its latest
+#               amendment, whichever is later); a motion filed before it may
+#               have been briefed under a version this file does not carry,
+#               so it gets no local-rule deadline
+#   opposition_days   calendar days from the motion's filing
+#   reply_days        calendar days from the opposition's filing, or from the
+#                     day the opposition was due where reply_from says
+#                     `opposition-due`; null where no reply is allowed without
+#                     leave
+#   motions     the motion moments the rule gives other periods
+#
+# These are the rule's defaults. A judge's individual practices or a
+# scheduling order can set other dates, which this file does not carry: the
+# opener distrusts every counted deadline once any entry on the docket moves a
+# briefing schedule. Periods tied to service are counted from filing, since
+# papers filed on CM/ECF are served on filing and Fed. R. Civ. P. 6(d) adds no
+# days for electronic service. A last day on a weekend or a federal legal
+# holiday runs to the next court day (Fed. R. Civ. P. 6(a)(1)(C)).
+#
+# A row changes when the court amends its rule: re-read the source, and move
+# read_on and in_force with the periods.
+courts:
+  cand:
+    cite: "Civil L.R. 7-3(a), (c)"
+    source: https://cand.uscourts.gov/rules-forms-fees/local-rules/civil-local-rules
+    read_on: 2026-11-19
+    in_force: 2021-11-01
+    opposition_days: 14
+    reply_days: 7
+    reply_from: opposition-due
+  ded:
+    cite: "D. Del. LR 7.1.2(b)"
+    source: https://www.ded.uscourts.gov/local-rules
+    read_on: 2026-11-19
+    in_force: 2026-09-01
+    opposition_days: 14
+    reply_days: 7
+  flmd:
+    cite: "M.D. Fla. Local Rule 3.01(d), (e)"
+    source: https://www.flmd.uscourts.gov/local-rules/rule-301-motions-briefs-and-other-legal-memorandums
+    read_on: 2026-11-19
+    in_force: 2025-11-01
+    opposition_days: 14
+    reply_days: null
+    motions:
+      trial-dismissal: {opposition_days: 21, reply_days: null}
+      trial-class: {opposition_days: 21, reply_days: null}
+      trial-summary-judgment: {opposition_days: 21, reply_days: 14}
+  flnd:
+    cite: "N.D. Fla. Loc. R. 7.1(E), (I); 56.1(C), (D)"
+    source: https://www.flnd.uscourts.gov/local-rules
+    read_on: 2026-11-19
+    in_force: 2015-11-24
+    opposition_days: 14
+    reply_days: null
+    motions:
+      trial-summary-judgment: {opposition_days: 21, reply_days: 7}
+  nysd:
+    cite: "Local Civil Rule 6.1(b)"
+    source: https://www.nysd.uscourts.gov/rules
+    read_on: 2026-11-19
+    in_force: 2026-01-02
+    opposition_days: 14
+    reply_days: 7
+  paed:
+    cite: "E.D. Pa. Local Civil Rule 7.1(c)"
+    source: https://www.paed.uscourts.gov/local-rules
+    read_on: 2026-11-19
+    in_force: 2023-05-08
+    opposition_days: 14
+    reply_days: null
+  txed:
+    cite: "E.D. Tex. Local Rule CV-7(e), (f)"
+    source: https://www.txed.uscourts.gov/?q=civil-rules
+    read_on: 2026-11-19
+    in_force: 2026-02-09
+    opposition_days: 14
+    reply_days: 7
+    motions:
+      trial-summary-judgment: {opposition_days: 21, reply_days: 7}

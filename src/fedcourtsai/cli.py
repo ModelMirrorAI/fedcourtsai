@@ -721,6 +721,7 @@ from .supremecourt import (
     parse_scotus_docket_number,
 )
 from .topic_cut import build_topic_cut
+from .trial_local_rules import TRIAL_LOCAL_RULES_FILENAME, load_trial_local_rules
 from .usage import (
     parse_claude_served_models,
     parse_claude_usage,
@@ -20452,7 +20453,9 @@ def trial_events_command(
     dockets in a district court, the opener (`pipeline/trial_opener.py`) lists
     every motion to dismiss, for class certification, for summary judgment and
     for a preliminary injunction, the entries it read as the opposition and
-    the reply, and the day the motion would open as a forecast event; the
+    the reply, and the day the motion would open as a forecast event, counted
+    from the district's local rule (`config/trial-local-rules.yaml`) where the
+    docket states no deadline; the
     resolver (`pipeline/trial_resolver.py`) says how each resolved, or that it
     goes to triage. Prints the survey as JSON on stdout (identifiers and dates
     only, no docket text) and a three-line reading on stderr.
@@ -20460,13 +20463,14 @@ def trial_events_command(
     Read-only: no upstream request, no write to the corpus, the ledger or
     `data/`. Nothing here is registered or forecast; the trial stage is a
     design (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
-    the watchlist or `--today` cannot be read.
+    the watchlist, the local rules or `--today` cannot be read.
     """
     settings = get_settings()
     try:
         watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        local_rules = load_trial_local_rules(settings.config_root / TRIAL_LOCAL_RULES_FILENAME)
         read_on = date.fromisoformat(today) if today is not None else datetime.now(UTC).date()
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, yaml.YAMLError) as exc:
         typer.echo(f"trial-events: cannot read its inputs: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -20486,7 +20490,7 @@ def trial_events_command(
             stored = found[1].get("docket_entries")
             return stored if isinstance(stored, list) else None
 
-        result = trial_opener.survey(watchlist, entries_of, today=read_on)
+        result = trial_opener.survey(watchlist, entries_of, today=read_on, local_rules=local_rules)
     typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
     for line in trial_opener.summary_lines(result):
         typer.echo(line, err=True)

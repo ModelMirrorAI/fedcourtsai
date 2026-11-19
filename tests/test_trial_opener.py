@@ -22,6 +22,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.pipeline import trial_opener
 from fedcourtsai.pipeline.trial_opener import (
     Basis,
+    DistrictRule,
     LocalRule,
     owned_by_lead,
     read_docket,
@@ -68,7 +69,7 @@ def test_a_briefed_motion_opens_on_its_reply() -> None:
     assert opening.opens_on == date(2026, 1, 31)
     assert opening.basis is Basis.reply
     assert opening.is_event
-    assert opening.rule == "trial-opener-v1"
+    assert opening.rule == "trial-opener-v2"
 
 
 @pytest.mark.parametrize(
@@ -357,9 +358,107 @@ def test_an_entry_dated_after_the_reading_day_is_not_read() -> None:
 def test_a_local_rule_counts_only_where_the_docket_states_no_deadline() -> None:
     assert one(MOTION, OPPOSITION).opens_on is None
     opening = one(MOTION, OPPOSITION, local_rule=LocalRule(14, 7))
-    assert opening.opens_on == date(2026, 2, 1)
+    # Seven days from Saturday, January 24 end on a Saturday, so the period
+    # runs to Monday, February 2, and the motion opens the day after.
+    assert opening.opens_on == date(2026, 2, 3)
     assert opening.basis is Basis.local_rule
     assert one(MOTION, OPPOSITION, local_rule=LocalRule(14, None)).opens_on is None
+
+
+@pytest.mark.parametrize(
+    ("start", "days", "end"),
+    [
+        (date(2026, 1, 5), 7, date(2026, 1, 12)),  # a Monday stays
+        (date(2026, 1, 3), 7, date(2026, 1, 12)),  # Saturday runs to Monday
+        (date(2026, 1, 5), 14, date(2026, 1, 20)),  # Martin Luther King Jr. Day
+        (date(2026, 11, 12), 14, date(2026, 11, 27)),  # Thanksgiving Day
+        (date(2026, 6, 26), 7, date(2026, 7, 6)),  # July 4 observed on Friday the 3rd
+        (date(2027, 12, 17), 14, date(2028, 1, 3)),  # New Year's Day observed December 31
+        (date(2026, 12, 18), 7, date(2026, 12, 28)),  # Christmas Day, then the weekend
+    ],
+)
+def test_a_period_ends_on_a_court_day(start: date, days: int, end: date) -> None:
+    assert trial_opener.period_end(start, days) == end
+
+
+def test_the_legal_holidays_of_a_year() -> None:
+    assert trial_opener.legal_holidays(2026) == {
+        date(2026, 1, 1),
+        date(2026, 1, 19),
+        date(2026, 2, 16),
+        date(2026, 5, 25),
+        date(2026, 6, 19),
+        date(2026, 7, 3),
+        date(2026, 9, 7),
+        date(2026, 10, 12),
+        date(2026, 11, 11),
+        date(2026, 11, 26),
+        date(2026, 12, 25),
+        date(2027, 1, 1),
+    }
+    assert date(2027, 12, 31) in trial_opener.legal_holidays(2027)
+
+
+def test_a_reply_period_can_run_from_the_day_the_opposition_was_due() -> None:
+    early = entry(
+        52, "OPPOSITION/RESPONSE (re 45 MOTION to Dismiss ) filed byListed Author.", "2026-01-14"
+    )
+    rule = LocalRule(14, 7, reply_from_due=True)
+    # Filed Saturday, January 10: the opposition was due Monday the 26th (the
+    # 24th is a Saturday) and the reply seven days later, Monday, February 2.
+    assert one(MOTION, early, local_rule=rule).opens_on == date(2026, 2, 3)
+    # Counted from the early opposition itself the period ends January 21.
+    assert one(MOTION, early, local_rule=LocalRule(14, 7)).opens_on == date(2026, 1, 22)
+
+
+def test_a_counted_reply_deadline_before_a_late_opposition_opens_nothing() -> None:
+    late = entry(
+        52, "OPPOSITION/RESPONSE (re 45 MOTION to Dismiss ) filed byListed Author.", "2026-03-02"
+    )
+    opening = one(MOTION, late, local_rule=LocalRule(14, 7, reply_from_due=True))
+    assert opening.opens_on is None
+    assert opening.waiting_on == "the reply, or its deadline"
+
+
+def test_a_district_rule_picks_the_periods_by_motion() -> None:
+    rule = DistrictRule(
+        default=LocalRule(14, None),
+        by_moment={TrialMoment.summary_judgment: LocalRule(21, 7)},
+    )
+    assert rule.for_motion(TrialMoment.dismissal, date(2026, 1, 10)) == LocalRule(14, None)
+    assert rule.for_motion(TrialMoment.summary_judgment, None) == LocalRule(21, 7)
+    # No reply as of right: a motion to dismiss waits for a reply or a ruling.
+    assert one(MOTION, OPPOSITION, local_rule=rule).opens_on is None
+    judgment = entry(45, "MOTION for Summary Judgment filed by Developer, Inc.", "2026-01-10")
+    opposed = entry(
+        52,
+        "OPPOSITION/RESPONSE (re 45 MOTION for Summary Judgment ) filed byListed Author.",
+        "2026-01-24",
+    )
+    assert one(judgment, opposed, local_rule=rule).opens_on == date(2026, 2, 3)
+
+
+def test_a_motion_filed_before_the_rule_took_force_gets_no_counted_deadline() -> None:
+    rule = DistrictRule(default=LocalRule(14, 7), in_force=date(2026, 1, 11))
+    assert one(MOTION, OPPOSITION, local_rule=rule).opens_on is None
+    earlier = DistrictRule(default=LocalRule(14, 7), in_force=date(2026, 1, 10))
+    assert one(MOTION, OPPOSITION, local_rule=earlier).opens_on == date(2026, 2, 3)
+
+
+def test_the_survey_reads_each_docket_under_its_own_courts_rule() -> None:
+    stored = {"cand/100": [MOTION, OPPOSITION], "nysd/104": [MOTION, OPPOSITION]}
+    result = survey(
+        _watchlist(),
+        stored.get,
+        today=TODAY,
+        local_rules={"nysd": DistrictRule(default=LocalRule(14, 7))},
+    )
+    assert result.local_rule_courts == ["nysd"]
+    opened = {row.case_id: (row.opens_on, row.basis) for row in result.motions}
+    assert opened == {
+        "cand/100": (None, None),
+        "nysd/104": (date(2026, 2, 3), "local-rule"),
+    }
 
 
 def test_an_injunction_motion_opens_after_a_stated_response_deadline() -> None:
@@ -485,6 +584,7 @@ def test_trial_events_command_surveys_the_stored_dockets(
     (config / "ai-watchlist.yaml").write_text(
         json.dumps(_watchlist().model_dump(mode="json")), encoding="utf-8"
     )
+    (config / "trial-local-rules.yaml").write_text("courts: {}\n", encoding="utf-8")
     corpus_root = tmp_path / "corpus"
     corpus_root.mkdir()
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
@@ -502,4 +602,4 @@ def test_trial_events_command_surveys_the_stored_dockets(
     assert report["counts"]["events"] == 1
     assert report["motions"][0]["opens_on"] == "2026-01-31"
     assert report["dockets_missing"] == ["cand/103", "nysd/104"]
-    assert "trial-events (trial-opener-v1" in result.stderr
+    assert "trial-events (trial-opener-v2" in result.stderr
