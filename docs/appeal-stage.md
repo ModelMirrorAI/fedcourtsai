@@ -9,8 +9,8 @@ listed appeals sit in several circuits; the D.C. Circuit slice
 last section says what happens when a listed case reaches the Supreme Court.
 
 **Status: designed, not registered.** Nothing here is forecast yet. The stage
-registers with the process version that opens the prediction scope to the
-watchlist slice, beside the trial stage ([trial-stage.md](trial-stage.md)).
+registers under the watchlist slice's process label, after the trial stage
+([trial-stage.md](trial-stage.md)), whose registration sequence it follows.
 That version adds `appeal` to `Stage` and the two moments below to `Moment`
 (`schemas.py`), declares their claims in `pipeline/moments.py`, and dates the
 entry in [freeze-record.md](freeze-record.md). Until it lands, this page is
