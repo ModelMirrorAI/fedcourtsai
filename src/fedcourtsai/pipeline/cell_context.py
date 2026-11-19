@@ -52,6 +52,11 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     months of briefing — and this object is read by the cell. It belongs in the
     harness's own record, not here.
 
+    A docket of any court but the Supreme Court takes the placement fields
+    alone (mode, snapshot date and provenance, the cut, ``decided_before``):
+    no band, no salience version, no Term, no signal and no link list, with
+    ``signals_observable=False``.
+
     Absence of a proceedings list is recorded as ``signals_observable=False``
     rather than as zero distributions. A snapshot that carries no entries — one
     truncated to before this petition's first distribution, or a payload shape
@@ -100,6 +105,23 @@ def build(  # noqa: PLR0913 - one context, each optional part a keyword
     # proceedings, so reading just the first leaves every live cell without a Term
     # and silently disables the whole frozen path.
     base = _base_row(case_id, payload)
+    if base.court != "scotus":
+        # Every conditioning field below is an observation of the Supreme
+        # Court's docket: the band prices a cert petition, the Term is read
+        # off the Court's numbering (which a circuit's `YY-NNNNN` number also
+        # matches), and the signals come off its proceedings list. A
+        # lower-court docket's context states its placement and nothing else,
+        # with the signals recorded as unobserved.
+        return PredictionContext(
+            mode=mode,
+            snapshot_date=snapshot_date,
+            snapshot_provenance=provenance,
+            cutoff=cutoff,
+            cut_kind=boundary.kind if boundary else None,
+            cut_anchor_index=boundary.anchor_index if boundary else None,
+            decided_before=decided_before,
+            signals_observable=False,
+        )
     docket_number = base.docket_number
     # The docket form, read off the number alone: it decides which signals and
     # which band the context freezes below.

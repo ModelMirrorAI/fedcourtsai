@@ -23395,15 +23395,65 @@ def _refuse_forward_if_closed(  # noqa: PLR0913 - the gate's inputs plus where t
             err=True,
         )
         raise typer.Exit(code=3)
-    age_days = (date.today() - snapshot_date).days
+    # A trial event's docket is fresh as of the day the refresh last read it:
+    # an unchanged district docket stores no new snapshot, so the snapshot's
+    # own date says when the docket last moved, not when it was last seen.
+    read_on = (
+        _docket_read_on(backend, gate_row, case)
+        if max_snapshot_age_days and court != "scotus" and moments.trial_spec_for(event) is not None
+        else None
+    )
+    fresh_on = max(snapshot_date, read_on) if read_on is not None else snapshot_date
+    age_days = (date.today() - fresh_on).days
     if max_snapshot_age_days and age_days > max_snapshot_age_days:
+        seen = (
+            f"snapshot {snapshot_date.isoformat()} is"
+            if read_on is None or read_on < snapshot_date
+            else f"the docket, last read {read_on.isoformat()}, is"
+        )
         typer.echo(
-            f"::warning::refusing to provision forward cell for {case}: snapshot "
-            f"{snapshot_date.isoformat()} is {age_days} day(s) old, over the "
+            f"::warning::refusing to provision forward cell for {case}: {seen} "
+            f"{age_days} day(s) old, over the "
             f"{max_snapshot_age_days}-day forward bound (--max-snapshot-age-days)",
             err=True,
         )
         raise typer.Exit(code=3)
+
+
+def _docket_read_on(
+    backend: corpus.CorpusBackend, gate_row: corpus.CorpusRow | None, case: str
+) -> date | None:
+    """The day the corpus last read ``case``'s docket, or ``None`` where unknown.
+
+    The row provisioning already read, where its backend serves rows. The
+    casestore source serves none, so there the stamp comes from the corpus
+    index over the ordinary read backend, as the row half of the record gate
+    does; with no index reachable the answer is ``None``, said in a warning,
+    and the staleness bound falls back to the snapshot's own date, the
+    stricter reading. That is a second index connection for the cell, which a
+    trial event alone pays.
+    """
+    if gate_row is not None:
+        return gate_row.last_pulled
+    if backend != "casestore":
+        return None
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    choice = corpus.resolve_backend(None)
+    if choice == "local" and not db_path.exists():
+        return None
+    try:
+        with corpus.connect_readonly(db_path, backend=choice) as conn:
+            row = corpus.get_row(conn, case)
+            _echo_read_stats(conn)
+    except (OSError, corpus_ranged.RangedBackendError):
+        typer.echo(
+            "::warning::forward staleness bound read the snapshot's own date: no "
+            "corpus index reachable from the casestore path for the day the "
+            "docket was last read",
+            err=True,
+        )
+        return None
+    return None if row is None else row.last_pulled
 
 
 def _pre_mint_poll_gate(
@@ -23872,8 +23922,10 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "check: a snapshot taken before a pipeline pause discloses "
             "nothing about what happened during the pause — including the "
             "event's own resolution — so a forward cell fed one would claim "
-            "to be live while answering a stale question. 0 (the default) "
-            "disables the bound.",
+            "to be live while answering a stale question. On a trial event the "
+            "age is counted from the day the corpus last read the docket, where "
+            "that is later: an unchanged district docket stores no new snapshot. "
+            "0 (the default) disables the bound.",
         ),
     ] = 0,
     pre_mint_poll: Annotated[
@@ -23886,7 +23938,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "days behind the docket, and a disposition's date carries no time of day, "
             "so this is the one moment the cell can be shown to begin against an open "
             "docket. A failed poll is recorded as unavailable and the cell proceeds "
-            "on the stored-snapshot gates alone.",
+            "on the stored-snapshot gates alone. Not run for a trial event, which "
+            "the Court's docket does not carry.",
         ),
     ] = False,
     pre_mint_poll_out: Annotated[
@@ -23974,7 +24027,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     * **3** — under ``--refuse-terminal`` on a forward cell, the record or the
       snapshot shows the event is not open (nothing written): the record already
       holds the outcome (:func:`fedcourtsai.store.forward_refusal_reason`), the
-      snapshot is older than the forward staleness bound, or the snapshot text
+      snapshot is older than the forward staleness bound (on a trial event,
+      the docket was last read longer ago than the bound), or the snapshot text
       discloses the outcome (see :func:`~fedcourtsai.pipeline.outcome.forward_leakage`).
       With ``--refusal-out``, a refusal that shows the event already resolved —
       every exit 3 but the staleness bound's — is written there first, so the
@@ -24066,7 +24120,10 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                 err=True,
             )
             raise typer.Exit(code=3)
-        if pre_mint_poll:
+        # The poll reads the Court's own docket page, and a trial event has no
+        # counterpart: nothing reads a district docket between the refresh's
+        # reads, so the staleness bound above is the whole of that control.
+        if pre_mint_poll and moments.trial_spec_for(event) is None:
             _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out, refusal_out)
     # Both gates ran on the LATEST payload, before the cut, and that ordering is
     # the point of putting the cut here. The staleness bound asks whether the

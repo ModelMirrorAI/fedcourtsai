@@ -21,7 +21,8 @@ Until that entry is dated, this page is the design that entry cites, and a chang
 needs no re-bless. The opener and the resolver below run in the watchlist
 refresh's pass (`pipeline/trial_events.py`), which writes an event only of a
 moment that is switched on: until one is, it reports what it would open and
-writes nothing.
+writes nothing. Provisioning's forward gates read a trial event by the stage's
+own rules (`provision-snapshot`).
 
 ## The moments
 
@@ -448,6 +449,29 @@ counterpart: the event is opened by the same pass that just read the docket.
 A cell's record carries the docket, the motion's briefing, the judge, and the
 listed case's related dockets; none of the Court's fields (the term, the
 salience band, the cert anchor) is written for it.
+
+The gates are built (`provision-snapshot`). A forward cell on a trial event is
+refused when the docket was last read longer ago than the bound, when the
+record already holds the event's outcome or the corpus records the docket
+decided, or when the trial resolver reads the snapshot as ruling on the
+event's motion, as finally disposing of the action for the judgment event, or
+as moving on either in a form it would send to triage. The resolver is built
+to miss a ruling rather than misread one, so a motion's cell is held to a
+wider net as well (`trial_resolver.motion_disposal_signal`): it is refused
+when the snapshot lacks the motion's own entry, when any entry closes the
+action or reads as its final judgment, and when a court entry after the
+motion rules on a motion of its kind in so many words, or cites its number
+beside a ruling word and names nothing procedural (an extension, a hearing, a
+page limit, a stay). That net
+refuses some motions still pending, and such a motion is not forecast until
+the docket moves. A ruling entered since the docket was last read is the
+residual: nothing polls a district docket between the refresh's reads, so the
+bound is the whole of that control. The Court's poll
+is not run, and the context of any lower-court docket states where the cell
+was placed and none of the Court's conditioning fields (the term, the band,
+the signals, the cert anchor); the contact-scrub note and the statpack build
+are written as for any cell. The briefing, the judge and the related dockets
+are added to the record with the slice's prompt.
 
 **Its own process.** The slice's cells are made by predictors and graded by
 evaluators registered for the slice, each reading a prompt of the slice's own
