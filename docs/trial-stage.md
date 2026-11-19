@@ -10,12 +10,15 @@ current ([data-pipeline.md](data-pipeline.md)).
 **Status: designed, not registered.** Nothing here is forecast yet. The stage
 registers under the watchlist slice's own process label, in the sequence
 *How the stage registers* sets out below. Its vocabulary exists: `trial` is a
-`Stage` and the five moments below are `Moment` values (`schemas.py`), which
-no record carries and no table declares. Their claims are then declared in
-`pipeline/moments.py`, and the entry is dated in [freeze-record.md](freeze-record.md).
+`Stage` and the five moments below are `Moment` values (`schemas.py`). The
+moments are declared and switched off in the stage's own table
+(`pipeline/moments.py`), the outcome record has the stage's three fields, and
+`validate` holds a trial record to both; no record carries any of it. The
+stage's claims and the fields a forecast states are declared next, and the
+entry is dated in [freeze-record.md](freeze-record.md).
 Until that entry is dated, this page is the design that entry cites, and a change to it
-needs no re-bless. The resolver below is built as library code and is wired
-into nothing.
+needs no re-bless. The opener and the resolver below are built as library
+code and are wired into nothing.
 
 ## The moments
 
@@ -343,17 +346,29 @@ motion word (`dismissal`, `class`, `summary-judgment`,
 `preliminary-injunction`) and the number of the docket entry that filed the
 motion, so `evt-motion-trial-dismissal-45` is the motion to dismiss at entry
 45. The case's final disposition is the one event `evt-order-trial-judgment`.
-The declared-moments table gains a row per moment that names a **family** of
-ids by this stem, and only the trial mint seam writes an id on a stem; the
-entry-pinned extractor refuses a label that begins `trial-`. The record, not
-the id, carries the stage and the moment, as everywhere else.
+The stage keeps a table of its own beside the Court's declared moments, with
+a row per moment: a motion moment's row names a **family** of ids, one per
+motion, where a Court row names one event. The two are separate because the
+Court's table orders one question asked at several moments, and a null moment
+there reads as the first; the trial stage's moments are five different
+questions and none is first. Only the trial mint seam writes an id on the
+`trial-` label: the entry-pinned extractor prefixes `re-` to a subject that
+would begin with it, and `validate` fails an event on the label that is not a
+declared trial event. The record, not the id, carries the stage and the
+moment, as everywhere else.
 
-**Outcomes.** The outcome record gains three fields no other stage may carry:
+**Outcomes.** The outcome record carries three fields no other stage may carry:
 the motion's ruling (granted, granted in part, denied, withdrawn, mooted),
 leave to amend on a dismissal granted in whole or in part (with leave, without
 leave, mixed, unstated), and the final disposition (judgment for plaintiff,
 for defendant, mixed, no merits decision). Each cites the entry the resolver
-read.
+read, in the record's `source`. The disposition label the Court's stages
+share has no member for any of these, so a trial outcome records it as
+`other`, as a merits outcome does, and the stage's binary is its own: 1 where
+a motion was granted in whole or in part, and 1 on the judgment event where
+judgment was for the plaintiff or mixed. A trial outcome carries exactly one
+result and no field of the Court's stages, and `validate` fails a trial field
+on any other event.
 
 **Claims.** The stage declares one claim set, `trial-v1`:
 

@@ -71,6 +71,7 @@ from fedcourtsai.validate import (
     CHECK_SCORED_VOTES,
     CHECK_SNAPSHOT_NOT_FUTURE,
     CHECK_STALE_UNPARSED_GRANTS,
+    CHECK_TRIAL_EVENTS,
     check_event_dir_entries,
     check_ledger_events_in_git,
     check_no_duplicates,
@@ -1287,6 +1288,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_OUTCOME_VOTES_HELD,
         CHECK_CORRECT_AGREES,
         CHECK_JUDGMENT_ONLY_MERITS,
+        CHECK_TRIAL_EVENTS,
     }
     assert all(c.passed for c in checks)
 

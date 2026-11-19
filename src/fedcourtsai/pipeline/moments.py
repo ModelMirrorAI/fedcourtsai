@@ -22,13 +22,22 @@ Nothing reads a moment out of an event id. Ids are ``evt-<kind>-<label>``
 (:mod:`fedcourtsai.ids`), the kind segment is a single token, and the label tail
 already carries a collision suffix from the entry-pinned extractor — so there is
 no third segment to spare. The id is a key into this table and nothing more.
+
+The trial stage keeps a table of its own below (:data:`DECLARED_TRIAL_MOMENTS`):
+its moments are different questions rather than one question asked again, and
+a motion moment names one event per motion. Its ids sit on a reserved label, a
+motion's id ends in the number of the entry that filed it, and
+:func:`trial_spec_for` is the only reader of that shape; the record, not the
+id, still carries the stage and the moment.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Final
 
 from .. import ids
 from ..schemas import EventKind, Moment, Stage
@@ -405,3 +414,163 @@ def moments_for(stage: Stage) -> tuple[MomentSpec, ...]:
     return tuple(
         sorted((spec for spec in DECLARED_MOMENTS if spec.stage == stage), key=lambda s: s.ordinal)
     )
+
+
+# --- the trial stage ----------------------------------------------------------
+
+#: The label every trial-stage event id begins with. Reserved: only the trial
+#: mint seam writes an id on it, and the entry-pinned extractor's subject slug
+#: steps off it (:mod:`fedcourtsai.pipeline.events`).
+TRIAL_LABEL_PREFIX: Final = "trial-"
+
+
+@dataclass(frozen=True)
+class TrialMomentSpec:
+    """One declared moment of the trial stage (``docs/trial-stage.md``).
+
+    Kept apart from :data:`DECLARED_MOMENTS` because the two tables answer
+    different questions. A Court stage asks one question at several moments, so
+    its rows are ordered and a null moment reads as the first. The trial
+    stage's moments are five different questions, none of them first, and a
+    motion moment names a **family** of events, one per motion a docket files,
+    where a Court moment names exactly one. So nothing that walks the Court's
+    table (the first-moment reading, the resolution fan, the mint sweep) meets
+    a trial row, and a reader of a trial event asks :func:`trial_spec_for`.
+
+    ``word`` is what the id carries after :data:`TRIAL_LABEL_PREFIX`. On a
+    motion moment (``per_motion``) the number of the docket entry that filed
+    the motion follows it; the judgment moment is one event per case and its
+    id ends at the word.
+
+    ``forecastable`` is the same switch :class:`MomentSpec` carries: a moment
+    declared here mints no cell until it is switched on.
+    """
+
+    moment: Moment
+    kind: EventKind
+    word: str
+    per_motion: bool
+    decision_target: str
+    description: str
+    forecastable: bool = False
+
+    @property
+    def stage(self) -> Stage:
+        return Stage.trial
+
+
+#: Every declared trial moment. A motion event is opened by the motion's
+#: filing, so its kind is ``motion``; the final disposition is the court's act.
+DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
+    TrialMomentSpec(
+        moment=Moment.trial_dismissal,
+        kind=EventKind.motion,
+        word="dismissal",
+        per_motion=True,
+        decision_target="ruling",
+        description="The district court's ruling on a motion to dismiss.",
+    ),
+    TrialMomentSpec(
+        moment=Moment.trial_class,
+        kind=EventKind.motion,
+        word="class",
+        per_motion=True,
+        decision_target="ruling",
+        description="The district court's ruling on a motion for class certification.",
+    ),
+    TrialMomentSpec(
+        moment=Moment.trial_summary_judgment,
+        kind=EventKind.motion,
+        word="summary-judgment",
+        per_motion=True,
+        decision_target="ruling",
+        description="The district court's ruling on one party's motion for summary judgment.",
+    ),
+    TrialMomentSpec(
+        moment=Moment.trial_preliminary_injunction,
+        kind=EventKind.motion,
+        word="preliminary-injunction",
+        per_motion=True,
+        decision_target="ruling",
+        description="The district court's ruling on a motion for a preliminary injunction.",
+    ),
+    TrialMomentSpec(
+        moment=Moment.trial_judgment,
+        kind=EventKind.order,
+        word="judgment",
+        per_motion=False,
+        decision_target="judgment",
+        description="The district court's final disposition of the case.",
+    ),
+)
+
+_TRIAL_BY_MOMENT: Mapping[Moment, TrialMomentSpec] = MappingProxyType(
+    {spec.moment: spec for spec in DECLARED_TRIAL_MOMENTS}
+)
+_TRIAL_BY_KIND_AND_WORD: Mapping[tuple[str, str], TrialMomentSpec] = MappingProxyType(
+    {(spec.kind.value, spec.word): spec for spec in DECLARED_TRIAL_MOMENTS}
+)
+# The entry number is a positive integer with no leading zero, so one motion has
+# one id.
+_TRIAL_ID_RE: Final = re.compile(
+    rf"^evt-(?P<kind>[a-z0-9._]+)-{re.escape(TRIAL_LABEL_PREFIX)}"
+    r"(?P<word>[a-z]+(?:-[a-z]+)*?)(?:-(?P<entry>[1-9][0-9]*))?$"
+)
+
+
+def trial_event_id(moment: Moment, entry_number: int | None = None) -> str:
+    """The id of ``moment``'s event: the one writer of an id on the trial label.
+
+    A motion moment takes the number of the docket entry that filed the motion
+    and the judgment moment takes none; either mismatch is refused, as is a
+    moment the trial stage does not declare.
+    """
+    spec = _TRIAL_BY_MOMENT.get(Moment(moment))
+    if spec is None:
+        raise ValueError(f"{moment!r} is not a declared trial moment")
+    if not spec.per_motion:
+        if entry_number is not None:
+            raise ValueError(f"{spec.moment.value} is one event per case and takes no entry")
+        return ids.event_id(spec.kind.value, f"{TRIAL_LABEL_PREFIX}{spec.word}")
+    if entry_number is None or entry_number < 1:
+        raise ValueError(f"{spec.moment.value} is named by the entry that filed the motion")
+    return ids.event_id(spec.kind.value, f"{TRIAL_LABEL_PREFIX}{spec.word}-{entry_number}")
+
+
+def trial_spec_for(event_id: str) -> TrialMomentSpec | None:
+    """The declared trial moment ``event_id`` belongs to, or ``None``.
+
+    ``None`` for every id off the trial label, and for an id on it that no
+    declared moment writes: a wrong kind, an unknown word, a motion id without
+    its entry number or a judgment id with one.
+    """
+    match = _TRIAL_ID_RE.fullmatch(event_id)
+    if match is None:
+        return None
+    spec = _TRIAL_BY_KIND_AND_WORD.get((match["kind"], match["word"]))
+    if spec is None or spec.per_motion != (match["entry"] is not None):
+        return None
+    return spec
+
+
+def trial_entry_number(event_id: str) -> int | None:
+    """The docket entry that filed the motion ``event_id`` names.
+
+    ``None`` for the judgment event and for any id :func:`trial_spec_for` does
+    not recognize.
+    """
+    match = _TRIAL_ID_RE.fullmatch(event_id)
+    if match is None or match["entry"] is None or trial_spec_for(event_id) is None:
+        return None
+    return int(match["entry"])
+
+
+def trial_moment(moment: Moment | str) -> bool:
+    """Whether ``moment`` is one the trial stage declares."""
+    return any(spec.moment == moment for spec in DECLARED_TRIAL_MOMENTS)
+
+
+def on_trial_label(event_id: str) -> bool:
+    """Whether ``event_id``'s label begins with the reserved trial prefix."""
+    kind = ids.parse_event_kind(event_id)
+    return kind is not None and event_id.startswith(f"evt-{kind}-{TRIAL_LABEL_PREFIX}")
