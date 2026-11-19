@@ -261,6 +261,10 @@ can restore it.
 
 `Stage` is the primary cut, and an event may carry none — which is exactly true
 of a circuit motion, and makes the rule lookup total rather than partial.
+One stage is not the Court's: `trial`, a district court's ruling on a motion
+or its final disposition ([trial-stage.md](trial-stage.md)). One judge decides
+it, so it declares no aggregation rule, no vote and no observation mask, and
+the lookup yields nothing for it as it does for an event with no stage.
 
 Stage is the right cut and event kind is not: an event kind names *what filing
 opened the event*, and a merits decision is not a filing. The problem it solves

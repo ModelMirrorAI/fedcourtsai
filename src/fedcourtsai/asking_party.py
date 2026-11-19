@@ -263,9 +263,10 @@ def outcome_lines(stage: Stage, sides: AskingSides) -> list[tuple[OutcomeAction,
     Each line carries the side of the stage's forecast binary its action falls on
     (:data:`OutcomeSide`). Consequences only, never likelihood, and each action
     gets a line of the same weight: the lines say what an action does for the
-    sides, not how likely it is.
+    sides, not how likely it is. A stage outside the Court's has no lines: the
+    rule that names the sides declines every docket that is not the Court's.
     """
-    return [(action, side, template(sides)) for action, side, template in _LINES[stage]]
+    return [(action, side, template(sides)) for action, side, template in _LINES.get(stage, ())]
 
 
 def _name(party: str, *, start: bool = False) -> str:

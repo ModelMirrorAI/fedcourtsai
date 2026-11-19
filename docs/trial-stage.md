@@ -9,10 +9,11 @@ current ([data-pipeline.md](data-pipeline.md)).
 
 **Status: designed, not registered.** Nothing here is forecast yet. The stage
 registers under the watchlist slice's own process label, in the sequence
-*How the stage registers* sets out below: `trial` joins `Stage` and the five
-moments below join `Moment` (`schemas.py`), their claims are declared in
+*How the stage registers* sets out below. Its vocabulary exists: `trial` is a
+`Stage` and the five moments below are `Moment` values (`schemas.py`), which
+no record carries and no table declares. Their claims are then declared in
 `pipeline/moments.py`, and the entry is dated in [freeze-record.md](freeze-record.md).
-Until it lands, this page is the design that entry cites, and a change to it
+Until that entry is dated, this page is the design that entry cites, and a change to it
 needs no re-bless. The resolver below is built as library code and is wired
 into nothing.
 

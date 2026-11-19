@@ -19,11 +19,22 @@ from fedcourtsai.pipeline.aggregation import (
 )
 from fedcourtsai.schemas import Stage
 
+#: The stages the Court decides by a vote. The trial stage is one judge's
+#: ruling, so it declares no rule (``docs/trial-stage.md``).
+VOTED_STAGES = frozenset(Stage) - {Stage.trial}
 
-def test_every_stage_declares_a_rule() -> None:
-    """The lookup must be total over the vocabulary, or a stage lands on a
-    KeyError at scoring time rather than at import."""
-    assert set(AGGREGATION) == set(Stage)
+
+def test_every_voted_stage_declares_a_rule() -> None:
+    """A stage the Court votes on and no rule covers would surface as a
+    ``None`` rule at scoring time rather than at import, so the table is held
+    to every stage but the one that has no vote."""
+    assert set(AGGREGATION) == VOTED_STAGES
+
+
+def test_the_trial_stage_declares_no_rule() -> None:
+    """One judge decides a trial-court motion: there is no margin to threshold,
+    and the total lookup says so instead of borrowing the Court's count."""
+    assert rule_for(Stage.trial) is None
 
 
 def test_cert_takes_four_and_does_not_move_with_recusals() -> None:
@@ -38,7 +49,7 @@ def test_below_quorum_is_rejected_rather_than_clamped() -> None:
     """With five sitting the Court cannot act at all (28 U.S.C. section 1), so
     there is no threshold to return. Clamping would answer an invalid question
     confidently — and pre-register that answer."""
-    for stage in Stage:
+    for stage in VOTED_STAGES:
         with pytest.raises(ValueError, match="quorum"):
             AGGREGATION[stage].threshold(5)
     # At quorum the rules resume: four is still four, a majority of six is four.
@@ -117,3 +128,10 @@ def test_expected_votes_is_the_coherence_identity_right_hand_side() -> None:
 def test_a_degenerate_margin_carries_no_probability() -> None:
     assert disposition_probability([1.0] + [0.0] * 9, Stage.cert) == pytest.approx(0.0)
     assert expected_votes([1.0] + [0.0] * 9) == pytest.approx(0.0)
+
+
+def test_a_margin_has_no_disposition_probability_at_the_trial_stage() -> None:
+    """There is no threshold to sum a margin against, and the refusal names
+    the reason instead of surfacing as a missing key."""
+    with pytest.raises(ValueError, match="not decided by a vote"):
+        disposition_probability([0.0] * 9 + [1.0], Stage.trial)
