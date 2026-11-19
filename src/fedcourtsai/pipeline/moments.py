@@ -384,8 +384,8 @@ def first_moment(stage: Stage) -> Moment | None:
     """``stage``'s ordinal-0 moment — what a null ``moment`` reads as.
 
     ``None`` for a stage with no declared moment, which cannot happen for the
-    three real stages but keeps the lookup total rather than raising at a seam
-    that is only normalizing a legacy record.
+    Court's three stages but keeps the lookup total rather than raising at a
+    seam that is only normalizing a legacy record.
     """
     ordered = sorted(
         (spec for spec in DECLARED_MOMENTS if spec.stage == stage), key=lambda s: s.ordinal

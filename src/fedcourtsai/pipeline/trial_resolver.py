@@ -64,7 +64,12 @@ RESOLVER_RULE: Final = "trial-resolver-v3"
 
 
 class TrialMoment(StrEnum):
-    """The trial stage's moments (``docs/trial-stage.md``)."""
+    """The trial stage's moments (``docs/trial-stage.md``).
+
+    The same five values :class:`fedcourtsai.schemas.Moment` carries for the
+    stage, held here as their own type so a reader of a docket, or a row of the
+    local-rules file, can name a trial moment and nothing else.
+    """
 
     dismissal = "trial-dismissal"
     class_certification = "trial-class"

@@ -334,20 +334,26 @@ class Stage(StrEnum):
     Where an event declares no stage the rule lookup yields nothing rather than
     guessing — true of a circuit motion, which has no Supreme Court decision
     standard at all.
+
+    ``trial`` is the one stage that is not the Court's: a district court's
+    ruling on a motion, or its final disposition of the case, decided by one
+    known judge (``docs/trial-stage.md``). It declares no aggregation rule and
+    no vote, so every vote-derived reading yields nothing for it.
     """
 
     cert = "cert"
     interim = "interim"
     merits = "merits"
+    trial = "trial"
 
 
 class Moment(StrEnum):
     """*When* in a case's life a forecast of its stage was taken.
 
-    A stage asks one question — will cert be granted, will the application be
-    granted, will the judgment below be disturbed — and the case passes several
-    points at which that question can honestly be forecast, each with a
-    different information set. A petition forecast the day it is first
+    A stage of the Court asks one question — will cert be granted, will the
+    application be granted, will the judgment below be disturbed — and the case
+    passes several points at which that question can honestly be forecast, each
+    with a different information set. A petition forecast the day it is first
     distributed and the same petition forecast after a CVSG are answering the
     same question from different evidence, so they are **two forecasts, not one
     forecast revised**: each freezes its own context and each is scored on its
@@ -386,6 +392,16 @@ class Moment(StrEnum):
     briefed = "briefed"
     #: merits — the Court posts the transcript of the oral argument.
     argued = "argued"
+    #: trial — a motion to dismiss is fully briefed.
+    trial_dismissal = "trial-dismissal"
+    #: trial — a motion for class certification is fully briefed.
+    trial_class = "trial-class"
+    #: trial — a motion for summary judgment is fully briefed.
+    trial_summary_judgment = "trial-summary-judgment"
+    #: trial — a motion for a preliminary injunction has its opposition on file.
+    trial_preliminary_injunction = "trial-preliminary-injunction"
+    #: trial — the case's final disposition, open while the case is pending.
+    trial_judgment = "trial-judgment"
 
 
 class GroupBy(StrEnum):
