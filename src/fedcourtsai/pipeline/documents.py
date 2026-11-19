@@ -178,8 +178,9 @@ logger = logging.getLogger(__name__)
 # side's case, the reply answers what the other side actually argued. A cell
 # reading only the openings sees two theories that never meet.
 #
-# Three cert-stage kinds sit beside the opposition, each one row at one URL for
-# the reason the merits kinds are:
+# Three cert-stage kinds sit beside the opposition. The appendix and the invited
+# brief are one row at one URL each, for the reason the merits kinds are; the
+# reply is a combined row, as the opposition it answers is:
 #
 # - `appendix` is the **separately linked appendix** to the case-opening filing
 #   or the application — the PDF the entry posts under its own `Appendix` link,
@@ -189,7 +190,10 @@ logger = logging.getLogger(__name__)
 # - `cert-reply` is the **petitioner's reply at the cert stage** — the Rule 15.6
 #   reply to the opposition, the one filing that answers the opposition's
 #   vehicle and preservation objections. Spelled word for word like the merits
-#   reply, so the two are told apart by the grant date alone.
+#   reply, so the two are told apart by the grant date alone. Every one in
+#   docket order, combined into one row: a respondent whose response is filed
+#   after the first reply draws a second, and a row holding one reply beside
+#   two oppositions would leave the later opposition unanswered.
 # - `sg-invited-brief` is the **Solicitor General's invited brief**: the brief for
 #   the United States as amicus curiae filed after the Court called for the
 #   views of the Solicitor General. The one cert-stage amicus filing any arm
@@ -239,7 +243,8 @@ logger = logging.getLogger(__name__)
 #   intervening decision. Every one in docket order, combined into one row.
 #
 # Both are dated by their *latest* constituent rather than their earliest
-# (:func:`_combine_documents`).
+# (:func:`_combine_documents`), where the opposition and the reply are dated by
+# their earliest and cut filing by filing (:data:`CUT_BY_CONSTITUENT_KINDS`).
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
 KIND_APPLICATION_RESPONSE = "application-response"
@@ -299,9 +304,18 @@ BIO_URL_JOIN = "|"
 # (:func:`combined_set_key`). Every other fetched kind is one filing at one URL.
 COMBINED_KINDS: tuple[str, ...] = (
     KIND_BRIEF_IN_OPPOSITION,
+    KIND_CERT_REPLY,
     KIND_SUPPLEMENTAL_BRIEF,
     KIND_PARTY_LETTER,
 )
+
+# The combined kinds provisioning places **constituent by constituent**
+# (:func:`fedcourtsai.provision.documents_before`): the opposition and the
+# petitioner's replies to it, which are filed in answer to one another, so a
+# cell placed between two of them reads the earlier and not the later. Their
+# row is dated by its earliest constituent; the other combined kinds are dated
+# by their latest and placed whole (:func:`_combine_documents`).
+CUT_BY_CONSTITUENT_KINDS: frozenset[str] = frozenset({KIND_BRIEF_IN_OPPOSITION, KIND_CERT_REPLY})
 
 # The proceedings entry whose link carries the case-opening filing on a
 # cert-form docket, in the Court's own words. Seven entry shapes open one:
@@ -1339,14 +1353,20 @@ def select_documents(
       row, from its ``Main Document`` link alone: it is the answer to the
       jurisdictional statement, read before jurisdiction is noted and before
       any disposition entry.
-    - The **petitioner's cert-stage reply** (:func:`_is_cert_reply_entry`),
-      stored as ``cert-reply``: the first reply of the petitioner filed before
-      the grant and before any disposition entry, from its ``Main Document``
-      link alone. The merits reply arm below reads the same words after the
-      grant; the date is the only thing between them. On a direct appeal the
-      **appellant's answer to the motion to dismiss or affirm**
+    - **Every** **cert-stage reply of the petitioner**
+      (:func:`_is_cert_reply_entry`), stored as ``cert-reply``: each reply of
+      the petitioner filed before the grant and before any disposition entry,
+      from its ``Main Document`` link alone, distinct URLs in docket order,
+      combined by :func:`fetch_case_documents` into the one row. A petition
+      ordinarily draws one; a respondent whose response the Court calls for
+      after it draws a second. The merits reply arm below reads the same words
+      after the grant; the date is the only thing between them. On a direct
+      appeal the **appellant's answer to the motion to dismiss or affirm**
       (:func:`_is_appeal_reply_entry`) is stored under the same kind: the
-      first one after an appellee's motion, on the same bounds.
+      first one after an appellee's motion, on the same bounds. One, where
+      the petitioner's replies are all taken, because that reading opens on
+      "opposition", "response" or "reply" alike and a second paper matching
+      it is as likely collateral as a second answer.
     - The **Solicitor General's invited brief**
       (:func:`cert_signals.sg_invited_brief_position`), stored as
       ``sg-invited-brief``: the first brief for the United States as amicus
@@ -1448,7 +1468,8 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     petition: DocumentRef | None = None
     application: DocumentRef | None = None
     appendix: DocumentRef | None = None
-    cert_reply: DocumentRef | None = None
+    cert_replies: list[DocumentRef] = []
+    seen_reply_urls: set[str] = set()
     sg_brief: DocumentRef | None = None
     merits_petitioner: DocumentRef | None = None
     merits_respondent: DocumentRef | None = None
@@ -1486,6 +1507,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     # only where the docket-level gate opens them: all closed on a petition.
     exit_gates = direct_appeal_exit_gates(texts)
     appeal_answered = False
+    appeal_replied = False
     position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
@@ -1534,8 +1556,10 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
                     KIND_APPLICATION_REPLY, found[0], entry_date, text.strip()
                 )
         elif appeal_reply:
-            if cert_reply is None:
-                cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
+            if not appeal_replied:
+                answer = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
+                appeal_replied = answer is not None
+                _add_distinct(cert_replies, seen_reply_urls, answer)
         elif _is_bio_entry(text, filed=filed, granted_on=granted_on):
             # On a direct appeal an opposition-worded brief is an answer to
             # the jurisdictional statement too, so the appellant's reply to it
@@ -1565,12 +1589,16 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             if answer is not None and answer.url not in seen_bio_urls:
                 seen_bio_urls.add(answer.url)
                 bios.append(answer)
-        elif (
-            cert_reply is None
-            and not disposed
-            and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
-        ):
-            cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
+        elif not disposed and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on):
+            # Every one, as the opposition arm takes every respondent's brief:
+            # a respondent whose response the Court calls for after the first
+            # reply draws a second, and the row that holds both oppositions
+            # holds both answers.
+            _add_distinct(
+                cert_replies,
+                seen_reply_urls,
+                _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date),
+            )
         elif position == sg_position:
             sg_brief = _merits_filing_ref(entry, KIND_SG_INVITED_BRIEF, entry_date)
         elif (
@@ -1643,7 +1671,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             application_response,
             application_reply,
             *bios,
-            cert_reply,
+            *cert_replies,
             sg_brief,
             merits_petitioner,
             merits_respondent,
@@ -1677,6 +1705,13 @@ def _appendix_ref(
     if found is None or (filing is not None and filing.url == found[0]):
         return None
     return DocumentRef(KIND_APPENDIX, found[0], entry_date, str(entry.get("Text") or "").strip())
+
+
+def _add_distinct(group: list[DocumentRef], seen: set[str], ref: DocumentRef | None) -> None:
+    """Append ``ref`` to a combined kind's ``group`` unless absent or already held by link."""
+    if ref is not None and ref.url not in seen:
+        seen.add(ref.url)
+        group.append(ref)
 
 
 def _merits_filing_ref(
@@ -4838,7 +4873,7 @@ def _earliest_entry_date(refs: list[DocumentRef]) -> str | None:
 def _latest_entry_date(refs: list[DocumentRef]) -> str | None:
     """The verbatim ``entry_date`` of the latest of ``refs``, or ``None``.
 
-    The dating the two combined cert-stage kinds take (:func:`_combine_documents`),
+    The dating ``supplemental-brief`` and ``party-letter`` take (:func:`_combine_documents`),
     under the same strict parse as :func:`_earliest_entry_date`. ``None`` as soon
     as any ref's date does not parse, rather than the latest of those that do:
     an unplaceable constituent could be the latest, and ``None`` places the row
@@ -4872,6 +4907,7 @@ def combined_set_key(refs: Sequence[DocumentRef]) -> str:
 # label it falls back to where the docket entry carries no text.
 _COMBINED_HEADINGS: Mapping[str, str] = {
     KIND_BRIEF_IN_OPPOSITION: "Brief in opposition",
+    KIND_CERT_REPLY: "Reply of petitioner",
     KIND_SUPPLEMENTAL_BRIEF: "Supplemental brief",
     KIND_PARTY_LETTER: "Letter",
 }
@@ -5069,8 +5105,10 @@ def _combine_documents(
     """Fetch every filing of one combined kind and combine them into one row.
 
     ``kind`` is one of :data:`COMBINED_KINDS` and ``refs`` the selected refs
-    of that kind. Written for the opposition and read as such below; the two
-    combined cert-stage kinds, ``supplemental-brief`` and ``party-letter``, are
+    of that kind. Written for the opposition and read as such below. The
+    petitioner's cert-stage replies (``cert-reply``) are combined on the same
+    terms throughout, dating included, except that their losses are recorded
+    per document alone; ``supplemental-brief`` and ``party-letter`` are
     combined the same way, with the two differences stated at the end.
 
     A petition with several respondents draws a BIO from each; they are stored
@@ -5100,7 +5138,7 @@ def _combine_documents(
     the group fetched (``bio-empty``) and some but not all of it
     (``bio-partial``) — is recorded (:func:`document_fetch_losses`).
 
-    **The two cert-stage kinds** differ in two ways. Their row is **dated by its
+    **The supplemental briefs and the letters** differ in two ways. Their row is **dated by its
     latest constituent** (:func:`_latest_entry_date`) and placed whole, because
     a party's supplemental briefs and letters are filed independently across the
     life of the petition, and a mootness letter admitted to a cell placed before
@@ -5198,11 +5236,11 @@ def _combine_documents(
         # has to describe the text the row actually carries: a lead brief that
         # 404s this poll leaves the row holding a later respondent's brief
         # alone, and borrowing the absent brief's earlier date would misdate it.
-        # The two cert-stage combined kinds take the latest instead (see the
+        # The supplemental briefs and the letters take the latest instead (see the
         # docstring for why the call differs).
         entry_date=(
             _earliest_entry_date(fetched_refs)
-            if kind == KIND_BRIEF_IN_OPPOSITION
+            if kind in CUT_BY_CONSTITUENT_KINDS
             else _latest_entry_date(fetched_refs)
         ),
         fetched_at=today,
@@ -5690,7 +5728,7 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
 # the live slice. The two interim additions are bounded the same way: an
 # `application-response` row exists only where a respondent answered the
 # application, and an `application-reply` only where the applicant replied.
-# The two combined cert-stage kinds are bounded the same way — a
+# The two last combined kinds are bounded the same way — a
 # `supplemental-brief` row only where a party filed one while the petition was
 # pending, a `party-letter` row only where a party wrote a letter that bears on
 # the case — and share the opposition's asymmetry: a multi-filing row's headings
@@ -5755,7 +5793,10 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     ),
     KIND_CERT_REPLY: (
         "The petitioner's reply at the cert stage: its answer to the brief in opposition. "
-        "On a direct appeal, the appellant's answer to the motion to dismiss or affirm."
+        "On a direct appeal, the appellant's answer to the motion to dismiss or affirm. "
+        "A petitioner that replies again, to a response filed after its first reply, has "
+        "every reply here in docket order, each under a '=== <docket entry> ===' header. "
+        + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_SG_INVITED_BRIEF: (
         "The brief of the United States as amicus curiae, filed by the Solicitor General "

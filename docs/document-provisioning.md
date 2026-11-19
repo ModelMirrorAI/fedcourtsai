@@ -45,7 +45,7 @@ transcript, which only a post-argument cell is given.
 | `questions-presented` | The questions presented, cut from the petition text | Cert |
 | `appendix` | The opening filing's or application's separately linked appendix | Cert, Application |
 | `brief-in-opposition` | Every respondent's opposition, or on a direct appeal every appellee's motion to dismiss or affirm, combined into one row | Cert |
-| `cert-reply` | The petitioner's reply to the opposition, or on a direct appeal the appellant's answer to the motion to dismiss or affirm | Cert |
+| `cert-reply` | Every reply of the petitioner to the opposition, combined into one row, or on a direct appeal the appellant's answer to the motion to dismiss or affirm | Cert |
 | `sg-invited-brief` | The Solicitor General's brief when the Court called for it | Cert |
 | `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
 | `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
@@ -117,7 +117,8 @@ Each of these is stated, with its reason, where the code makes the choice:
   Each brief is placed by the docket date in its header, so a cell placed
   between two respondents' briefs reads the earlier one alone. The stored row
   keeps no per-brief page count, so a cut row's `pages` is the row's count
-  scaled by the share of text kept (`documents_before`).
+  scaled by the share of text kept (`documents_before`). A `cert-reply` row
+  of more than one reply is cut reply by reply on the same terms.
 - **A corrected filing replaces the original.** The latest fetch of a kind wins,
   so a cell can read the text as later amended (`documents_before`), or lose
   the kind if the correction is dated after its cutoff (live-sources.md,

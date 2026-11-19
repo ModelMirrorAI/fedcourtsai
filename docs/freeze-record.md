@@ -21746,3 +21746,112 @@ freeze commit is recorded here.
   `proc-v24` digest is on `main` at this read. The three `graded by` lines, which the provisional entry did
   not quote, each count 2 gradings of the windows' events, all made before
   the instant.
+- **Every cert-stage reply of the petitioner reaches the reply row; recorded
+  2026-11-19.** A **provisioning-cutoff** change with a harness boundary,
+  recorded ahead of the promotion that carries it.
+
+  **Why.** An evaluator flag in run `20261118T154349Z` said a cell on 25-1421
+  (`scotus/73538544`) had not been given the petitioner's later reply. Read
+  from the content store on 2026-11-19 (the case's snapshot of 2026-11-16):
+  the docket carries two oppositions, dated 2026-08-26 and 2026-10-13, the
+  second a co-respondent's response filed after the first reply, and two
+  replies of the petitioner, dated 2026-08-31 and 2026-10-20. The opposition
+  row takes every respondent's brief; the reply arm took the first reply
+  alone. A cell placed after 2026-10-20 therefore read both oppositions and
+  the answer to the first.
+
+  **What moved.** `pipeline.documents.select_documents` takes **every**
+  cert-stage reply of the petitioner where it took the first: each "Reply
+  [brief] of/for … petitioner(s) …" entry filed before the grant and before
+  the first disposition entry, from its `Main Document` link alone, distinct
+  links in docket order. No reading of what a reply is moves, and no bound:
+  the entry test, the grant-date bound and the docket-order bound are the
+  ones the single reply was read under. `cert-reply` joins the combined kinds
+  (`COMBINED_KINDS`), stored and placed as the opposition is
+  (`CUT_BY_CONSTITUENT_KINDS`): one row keyed by the set of its links, each
+  reply under a `=== <docket entry> (<date>) ===` header, the row dated by
+  its earliest reply, and cut reply by reply at provisioning
+  (`provision.documents_before`), so a cell placed between two replies reads
+  the earlier and not the later. A docket with one reply stores what it
+  always has: the filing itself with no header, at its own link, under its
+  entry's date. On a direct appeal the appellant's first answer to the motion
+  to dismiss or affirm is still the one taken. The kind's manifest
+  description (`KIND_DESCRIPTIONS`) says a row of several replies is headed
+  and how it is cut, on every cell that stages a `cert-reply.txt`.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
+  and the six digests the `proc-v24` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut: the pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `cert-reply-every-reply`. It applies to every
+    predictor and its reach is `all`, because no narrower registered reach
+    names the dockets a second reply is filed on, so a figure reading its own
+    effect selects them by the headers in the staged `cert-reply.txt`. It is
+    **gradual**: a stored row gains a later reply only when the case's
+    documents are next fetched, which the live document-freshness pass does
+    for an undecided predict-relevant docket whose stored set no longer
+    matches the selection. It is registered **pending** in this change's own
+    PR (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration, and its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its docket's row was re-fetched stages the first reply alone, so the
+    after-side `n` is an upper bound on exposure.
+
+  **The population.** `CHECK_SUMMARY=<file> uv run python
+  scripts/checks/cert_reply_census.py`, read-only over blob
+  `26d813c3c9cd459af1f0d939109b28fe19f7a242f3dfc7335b456b8c151156d0` (newest
+  pull 2026-11-19, newest stored snapshot row 2026-07-13) with payloads from
+  the per-case content store, asking the selector for the replies on each
+  docket's latest snapshot. Of the live-polled OT2016 to OT2026 cert dockets,
+  46,581 were read, none without a snapshot. 3,678 carry one reply and 10
+  carry two; none carries more. On eight of the ten the second reply follows
+  an opposition filed after the first: 20-1057, 21-118, 21-918, 22-31,
+  22-6503, 22-672, 22-95 and 25-1421. On two, 22-105 and 22-381, no
+  opposition sits between the replies. All ten have a disposition, so no
+  pending docket's row changes at the carrying merge, and the stored rows of
+  the ten keep their first reply until a document fetch reaches them. No
+  entry was read by hand for what its second reply answers.
+
+  **What the change does not reach.** A reply whose entry posts no `Main
+  Document` link stores nothing, as before. A second answer on a direct
+  appeal is not taken. A reply the Clerk captions as supplemental stays the
+  `supplemental-brief` row's, and a reply on a motion or an application
+  stays out.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** One is added. The predict prompt describes
+  `cert-reply.txt` as "the petitioner's reply to the opposition", in the
+  singular, and does not say the file can hold several replies under
+  headers, as it says of the two combined rows it names. The manifest's
+  `kind_description` carries that meanwhile. Rewording the sentence moves the
+  three predictor digests, so it is owed to the next re-bless.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_document_coverage.py` is green;
+  - where the corpus is pulled, `uv run python -c "from fedcourtsai import
+    corpus; from fedcourtsai.config import get_settings; from
+    fedcourtsai.pipeline.documents import select_documents; s =
+    get_settings(); conn =
+    corpus.connect_readonly(corpus.corpus_db_path(s.corpus_root),
+    backend=s.corpus_backend).__enter__(); print([r.entry_date for r in
+    select_documents(corpus.latest_snapshot(conn, 'scotus/73538544')[1]) if
+    r.kind == 'cert-reply'])"` prints `['Aug 31 2026', 'Oct 20 2026']`;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('cert-reply-every-reply' in {b.name for b in H})"` prints
+    `True`.

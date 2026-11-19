@@ -58,8 +58,8 @@ from .pipeline import (
 )
 from .pipeline.documents import (
     BIO_URL_JOIN,
+    CUT_BY_CONSTITUENT_KINDS,
     KIND_ARGUMENT_TRANSCRIPT,
-    KIND_BRIEF_IN_OPPOSITION,
     KIND_DESCRIPTIONS,
     KIND_MERITS_BRIEF_APPOINTED_AMICUS,
     LOWER_COURT_KINDS,
@@ -797,7 +797,9 @@ def documents_before(
     whole: a cell placed between two respondents' briefs reads the earlier one
     and not the later. That matters most at the call-for-response moment, whose
     cutoff falls just after the Court calls for a response — the brief a waiving
-    co-respondent files after it is the called-for response itself. ``link_dates``
+    co-respondent files after it is the called-for response itself. The
+    petitioner's replies (``cert-reply``) are stored and cut the same way, so
+    the reply to a later response reaches only a cell placed after it. ``link_dates``
     (:func:`fedcourtsai.pipeline.documents.link_entry_dates` over the docket as
     served) names which of the row's stored links survive the cut; without it a
     cut row names none. The other combined rows, ``supplemental-brief`` and
@@ -816,7 +818,7 @@ def documents_before(
     """
     kept: list[CaseDocument] = []
     for document in documents:
-        if document.kind == KIND_BRIEF_IN_OPPOSITION and combined_blocks(document.text):
+        if document.kind in CUT_BY_CONSTITUENT_KINDS and combined_blocks(document.text):
             placed_row = _opposition_before(document, cutoff, link_dates or {})
             if placed_row is not None:
                 kept.append(placed_row)
@@ -831,7 +833,7 @@ def documents_before(
 def _opposition_before(
     document: CaseDocument, cutoff: date, link_dates: Mapping[str, frozenset[date]]
 ) -> CaseDocument | None:
-    """A combined opposition row cut to the briefs filed before ``cutoff``, or ``None``.
+    """A combined opposition or reply row cut to the briefs filed before ``cutoff``, or ``None``.
 
     Each brief is placed by the docket date its header names, under the same
     strict parse and the same ``fetched_at`` fallback as a whole document
