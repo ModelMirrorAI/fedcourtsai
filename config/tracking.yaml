@@ -820,7 +820,8 @@ courtlistener_budget:
 
 # The AI watchlist's own refresh (`watchlist-refresh`): the dockets
 # config/ai-watchlist.yaml names, admitted by name rather than by court, stored
-# as facts only (no events, no predictions), and left out of the pull rotation.
+# as facts only (no entry-pinned events, no predictions), and left out of the
+# pull rotation.
 watchlist_refresh:
   # Pages of entries (twenty a page) one full read may take: above the longest
   # listed docket, the OpenAI MDL's ~133 pages on 2026-10-31.

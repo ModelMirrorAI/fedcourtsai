@@ -111,8 +111,10 @@ prediction scope, most of them in courts the corpus does not track, so the
 rotation leaves them out by name and `watchlist-refresh` keeps them current on
 its own `watchlist` share, sized for one run a day (the day's first run-pull
 pull window). It stores **facts only**: a dated snapshot when the docket changed and
-the `cases` row stamped `last_pulled`, with no event extraction, outcome
-detection or queue, since no moment is registered for a lower-court docket.
+the `cases` row stamped `last_pulled`, with no entry-pinned event extraction,
+no Supreme Court outcome detection and no queue. The trial stage's pass
+follows it over the stored district dockets and writes nothing while no trial
+moment is switched on ([trial-stage.md](trial-stage.md)).
 Each run opens with one onboard, a whole read of a docket the corpus holds no
 snapshot of (the lead rotates among them by day), while the whole share is
 there to cover it. It then reads incrementally every docket refreshed before:
