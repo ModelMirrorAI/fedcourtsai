@@ -89,6 +89,17 @@ def is_correct(prediction: Prediction, outcome: Outcome, *, interim: bool = Fals
     the leaderboard's accuracy column meaningful at every stage instead of
     publishing a constant for one of them.
 
+    The **trial** axis is routed the same way, for the same reason: a trial
+    outcome's disposition is ``other`` too. There ``correct`` follows the
+    stage's binary, so the accuracy column and the Brier score the same event:
+    1 iff the forecast's ``granted``, its call on that binary, is the side the
+    outcome fell on (a call of 1 against a ruling of ``granted-in-part`` is
+    correct, a call of 0 against ``mooted`` is too). The finer interim reading
+    takes the same view of an application, reading the side off the predicted
+    label; a trial forecast's label is ``other``, so the side is read off
+    ``granted``. Which ruling the court will reach is forecast by the stage's
+    distribution claims.
+
     On a **cert** cell ``granted-in-part`` and ``granted`` are one label
     (:func:`cert_label`): the cert resolver records a grant limited in scope as
     ``granted``, so a forecast of that grant under either label names the
@@ -102,6 +113,8 @@ def is_correct(prediction: Prediction, outcome: Outcome, *, interim: bool = Fals
     """
     if outcome.judgment is not None:
         return int(prediction.judgment == outcome.judgment)
+    if outcome.trial_ruling is not None or outcome.trial_judgment is not None:
+        return int(prediction.granted == outcome.actual_granted)
     if interim:
         return int(prediction.predicted_disposition == outcome.actual_disposition)
     if prediction.predicted_disposition == Disposition.summary_reversal:

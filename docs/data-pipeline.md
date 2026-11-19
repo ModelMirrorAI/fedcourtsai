@@ -111,8 +111,10 @@ prediction scope, most of them in courts the corpus does not track, so the
 rotation leaves them out by name and `watchlist-refresh` keeps them current on
 its own `watchlist` share, sized for one run a day (the day's first run-pull
 pull window). It stores **facts only**: a dated snapshot when the docket changed and
-the `cases` row stamped `last_pulled`, with no event extraction, outcome
-detection or queue, since no moment is registered for a lower-court docket.
+the `cases` row stamped `last_pulled`, with no entry-pinned event extraction,
+no Supreme Court outcome detection and no queue. The trial stage's pass
+follows it over the stored district dockets and writes nothing while no trial
+moment is switched on ([trial-stage.md](trial-stage.md)).
 Each run opens with one onboard, a whole read of a docket the corpus holds no
 snapshot of (the lead rotates among them by day), while the whole share is
 there to cover it. It then reads incrementally every docket refreshed before:
@@ -1127,7 +1129,9 @@ arms it at 10 days, generous against the live poller's daily-ish refresh) refuse
 snapshot passes every content check by construction, because it was taken
 before anything it should disclose happened, and its case may be genuinely
 pending — the refusal is about the input being stale, not the case being
-decided. The age it reads is the **latest** payload's, before any cut, so it
+decided. On a trial event the age is counted from the day the corpus last
+read the docket (`last_pulled`) where that is later, since an unchanged
+district docket stores no new snapshot. The age it reads is the **latest** payload's, before any cut, so it
 never reads a placed cell's own `snapshot_date`: a `truncated` cell's
 `snapshot_date` *is* its cutoff, which dates the moment rather than the pull,
 and a cell placed weeks back is not thereby a stale one — how far its frozen

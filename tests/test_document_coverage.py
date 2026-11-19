@@ -23,6 +23,7 @@ from fedcourtsai.pipeline import documents as documents_module
 from fedcourtsai.pipeline.cert_signals import sg_brief_date
 from fedcourtsai.pipeline.documents import (
     APPENDIX_BEARING_KINDS,
+    BIO_URL_JOIN,
     FETCHED_DOCUMENT_KINDS,
     KIND_APPENDIX,
     KIND_APPLICATION,
@@ -40,9 +41,11 @@ from fedcourtsai.pipeline.documents import (
     extract_filing_text,
     extract_pdf_text,
     fetch_case_documents,
+    link_entry_dates,
     select_documents,
+    unheld_document_kinds,
 )
-from fedcourtsai.provision import document_manifest
+from fedcourtsai.provision import document_manifest, documents_before
 from tests.test_documents import _doc_client, _entry, _pdf_pages
 
 _PETITION_URL = "https://www.supremecourt.gov/DocketPDF/25/25-700/petition.pdf"
@@ -172,17 +175,135 @@ def test_a_reply_after_a_denial_is_not_the_cert_reply() -> None:
     assert KIND_CERT_REPLY not in _kinds(payload)
 
 
-def test_only_the_first_cert_reply_is_taken() -> None:
+_SECOND_REPLY_URL = "https://www.supremecourt.gov/second-reply.pdf"
+_CALLED_FOR_RESPONSE = _entry(
+    "May 13 2026",
+    "Brief of respondent Harbor Drayage Co. in opposition filed.",
+    url="https://www.supremecourt.gov/called-for.pdf",
+)
+_SECOND_REPLY = _entry(
+    "May 27 2026", "Reply of petitioner Acme Corp. filed.", url=_SECOND_REPLY_URL
+)
+
+
+def _two_reply_docket() -> dict[str, Any]:
+    """A reply to the first opposition, a called-for response, and the reply to that."""
+    return _docket(
+        _BIO,
+        _entry("Apr 27 2026", "Reply of petitioner Acme Corp. filed.", url=_REPLY_URL),
+        _CALLED_FOR_RESPONSE,
+        _SECOND_REPLY,
+    )
+
+
+def test_every_cert_reply_is_taken_in_docket_order() -> None:
+    replies = [ref for ref in select_documents(_two_reply_docket()) if ref.kind == KIND_CERT_REPLY]
+    assert [(ref.url, ref.entry_date) for ref in replies] == [
+        (_REPLY_URL, "Apr 27 2026"),
+        (_SECOND_REPLY_URL, "May 27 2026"),
+    ]
+
+
+def test_a_reply_entered_twice_at_one_link_is_one_reply() -> None:
     payload = _docket(
         _BIO,
         _entry("Apr 27 2026", "Reply of petitioner Acme Corp. filed.", url=_REPLY_URL),
         _entry(
-            "May 27 2026",
-            "Reply of petitioner Acme Corp. filed.",
-            url="https://www.supremecourt.gov/second-reply.pdf",
+            "Apr 28 2026", "Reply of petitioner Acme Corp. filed. (Distributed)", url=_REPLY_URL
         ),
     )
-    assert _kinds(payload)[KIND_CERT_REPLY] == _REPLY_URL
+    replies = [ref for ref in select_documents(payload) if ref.kind == KIND_CERT_REPLY]
+    assert [ref.entry_date for ref in replies] == ["Apr 27 2026"]
+
+
+def test_a_second_reply_after_the_denial_is_not_taken() -> None:
+    payload = _docket(
+        _BIO,
+        _entry("Apr 27 2026", "Reply of petitioner Acme Corp. filed.", url=_REPLY_URL),
+        {"Date": "Jun 01 2026", "Text": "Petition DENIED.", "Links": []},
+        _entry("Jun 20 2026", "Reply of petitioner Acme Corp. filed.", url=_SECOND_REPLY_URL),
+    )
+    replies = [ref for ref in select_documents(payload) if ref.kind == KIND_CERT_REPLY]
+    assert [ref.url for ref in replies] == [_REPLY_URL]
+
+
+def _fetch_replies(payload: Mapping[str, Any], stored_urls: dict[str, str]) -> list[CaseDocument]:
+    served = {
+        _PETITION_URL: _pdf_pages(["QUESTION PRESENTED Whether X. PARTIES TO THE Acme."]),
+        "https://www.supremecourt.gov/bio.pdf": _pdf_pages(["Deny the petition."]),
+        "https://www.supremecourt.gov/called-for.pdf": _pdf_pages(["Harbor also says deny."]),
+        _REPLY_URL: _pdf_pages(["The opposition concedes the split."]),
+        _SECOND_REPLY_URL: _pdf_pages(["Harbor raises no vehicle problem."]),
+    }
+    with _doc_client(served) as client:
+        return fetch_case_documents(
+            client,
+            "scotus/9025000700",
+            payload,
+            stored_urls=stored_urls,
+            char_cap=10_000,
+            today=date(2026, 5, 28),
+        )
+
+
+def test_a_lone_cert_reply_is_stored_raw_at_its_own_link() -> None:
+    # The row a docket with one reply has always held: no header, the entry's
+    # own date, the link itself as the key.
+    payload = _docket(
+        _BIO, _entry("Apr 27 2026", "Reply of petitioner Acme Corp. filed.", url=_REPLY_URL)
+    )
+    reply = next(d for d in _fetch_replies(payload, {}) if d.kind == KIND_CERT_REPLY)
+    assert reply.url == _REPLY_URL
+    assert reply.entry_date == "Apr 27 2026"
+    assert reply.text == "The opposition concedes the split."
+    # Held at that link, nothing is fetched again.
+    assert KIND_CERT_REPLY not in unheld_document_kinds(
+        select_documents(payload), {KIND_CERT_REPLY: _REPLY_URL}
+    )
+
+
+def test_two_cert_replies_are_one_row_cut_reply_by_reply() -> None:
+    payload = _two_reply_docket()
+    reply = next(d for d in _fetch_replies(payload, {}) if d.kind == KIND_CERT_REPLY)
+    assert reply.url == BIO_URL_JOIN.join(sorted([_REPLY_URL, _SECOND_REPLY_URL]))
+    assert reply.entry_date == "Apr 27 2026"  # the earliest, as the opposition's row is
+    assert reply.text == (
+        "=== Reply of petitioner Acme Corp. filed. (Apr 27 2026) ===\n"
+        + "The opposition concedes the split."
+        + "\n\n=== Reply of petitioner Acme Corp. filed. (May 27 2026) ===\n"
+        + "Harbor raises no vehicle problem."
+    )
+    links = link_entry_dates(payload)
+    # A cell placed between the two reads the first reply and not the second.
+    (placed,) = documents_before([reply], date(2026, 5, 14), link_dates=links)
+    assert "The opposition concedes the split." in placed.text
+    assert "Harbor raises no vehicle problem." not in placed.text
+    assert placed.url == _REPLY_URL
+    assert placed.entry_date == "Apr 27 2026"
+    # One placed before either reads none; one placed after both, the row as stored.
+    assert documents_before([reply], date(2026, 4, 27), link_dates=links) == []
+    assert documents_before([reply], date(2026, 5, 28), link_dates=links) == [reply]
+
+
+def test_a_stored_first_reply_is_refetched_once_a_second_is_docketed() -> None:
+    payload = _two_reply_docket()
+    stored = {
+        KIND_PETITION: _PETITION_URL,
+        KIND_APPENDIX: _APPENDIX_URL,
+        KIND_BRIEF_IN_OPPOSITION: BIO_URL_JOIN.join(
+            sorted(
+                [
+                    "https://www.supremecourt.gov/bio.pdf",
+                    "https://www.supremecourt.gov/called-for.pdf",
+                ]
+            )
+        ),
+        KIND_CERT_REPLY: _REPLY_URL,
+    }
+    assert unheld_document_kinds(select_documents(payload), stored) == [KIND_CERT_REPLY]
+    fetched = _fetch_replies(payload, stored)
+    assert [d.kind for d in fetched] == [KIND_CERT_REPLY]
+    assert "Harbor raises no vehicle problem." in fetched[0].text
 
 
 def test_the_cert_reply_is_taken_from_its_main_document_only() -> None:

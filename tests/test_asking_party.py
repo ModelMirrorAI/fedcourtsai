@@ -233,8 +233,8 @@ def test_merits_lines_pair_by_side_not_one_to_one() -> None:
     )
 
 
-@pytest.mark.parametrize("stage", list(Stage))
-def test_every_stage_has_lines_and_none_speaks_of_likelihood(stage: Stage) -> None:
+@pytest.mark.parametrize("stage", sorted(frozenset(Stage) - {Stage.trial}))
+def test_every_court_stage_has_lines_and_none_speaks_of_likelihood(stage: Stage) -> None:
     lines = outcome_lines(stage, AskingSides(asking="Apple", other="Epic Games"))
     assert lines
     for _, _, line in lines:
@@ -268,3 +268,9 @@ def test_an_agency_acronym_takes_an_article(acronym: str) -> None:
     lines = _lines(Stage.cert, acronym, "Other")
     assert lines["granted"][1].startswith(f"The Court takes up the {acronym}'s case")
     assert lines["denied"][1].startswith(f"The {acronym}'s petition ends")
+
+
+def test_the_trial_stage_has_no_lines() -> None:
+    """The sides rule declines every docket that is not the Court's, so no
+    line is written for a district-court event."""
+    assert outcome_lines(Stage.trial, AskingSides(asking="Apple", other="Epic Games")) == []

@@ -334,20 +334,26 @@ class Stage(StrEnum):
     Where an event declares no stage the rule lookup yields nothing rather than
     guessing — true of a circuit motion, which has no Supreme Court decision
     standard at all.
+
+    ``trial`` is the one stage that is not the Court's: a district court's
+    ruling on a motion, or its final disposition of the case, decided by one
+    known judge (``docs/trial-stage.md``). It declares no aggregation rule and
+    no vote, so every vote-derived reading yields nothing for it.
     """
 
     cert = "cert"
     interim = "interim"
     merits = "merits"
+    trial = "trial"
 
 
 class Moment(StrEnum):
     """*When* in a case's life a forecast of its stage was taken.
 
-    A stage asks one question — will cert be granted, will the application be
-    granted, will the judgment below be disturbed — and the case passes several
-    points at which that question can honestly be forecast, each with a
-    different information set. A petition forecast the day it is first
+    A stage of the Court asks one question — will cert be granted, will the
+    application be granted, will the judgment below be disturbed — and the case
+    passes several points at which that question can honestly be forecast, each
+    with a different information set. A petition forecast the day it is first
     distributed and the same petition forecast after a CVSG are answering the
     same question from different evidence, so they are **two forecasts, not one
     forecast revised**: each freezes its own context and each is scored on its
@@ -386,6 +392,16 @@ class Moment(StrEnum):
     briefed = "briefed"
     #: merits — the Court posts the transcript of the oral argument.
     argued = "argued"
+    #: trial — a motion to dismiss is fully briefed.
+    trial_dismissal = "trial-dismissal"
+    #: trial — a motion for class certification is fully briefed.
+    trial_class = "trial-class"
+    #: trial — a motion for summary judgment is fully briefed.
+    trial_summary_judgment = "trial-summary-judgment"
+    #: trial — a motion for a preliminary injunction has its opposition on file.
+    trial_preliminary_injunction = "trial-preliminary-injunction"
+    #: trial — the case's final disposition, open while the case is pending.
+    trial_judgment = "trial-judgment"
 
 
 class GroupBy(StrEnum):
@@ -2033,6 +2049,19 @@ InterimReadingLabel = Literal[
 ]
 
 
+#: The trial stage's outcome vocabularies, spelled as
+#: :mod:`fedcourtsai.pipeline.trial_resolver` spells them (a test pins each pair
+#: equal). Held apart from :class:`Disposition`, which has no member for a moot
+#: motion, for leave to amend or for a judgment for one side.
+TrialRulingLabel = Literal["granted", "granted-in-part", "denied", "withdrawn", "mooted"]
+TrialLeaveLabel = Literal["with-leave", "without-leave", "mixed", "unstated"]
+TrialJudgmentLabel = Literal["plaintiff", "defendant", "mixed", "no-merits-decision"]
+
+#: The trial rulings and final dispositions on the 1 side of the stage's binary.
+TRIAL_RULINGS_GRANTED: Final[frozenset[str]] = frozenset({"granted", "granted-in-part"})
+TRIAL_JUDGMENTS_FOR_PLAINTIFF: Final[frozenset[str]] = frozenset({"plaintiff", "mixed"})
+
+
 class Outcome(_Strict):
     """``outcome.json`` — realized ground truth, written once an event resolves."""
 
@@ -2045,7 +2074,9 @@ class Outcome(_Strict):
         "the cert/interim vocabulary has no member by design (Judgment values "
         "are deliberately not Dispositions), so the writer records `other` and "
         "`judgment` carries the result; the stage axis keeps such cells out of "
-        "every cert-vocabulary figure.",
+        "every cert-vocabulary figure. A trial-stage outcome records `other` "
+        "for the same reason, and `trial_ruling` or `trial_judgment` carries "
+        "the result.",
     )
     actual_granted: int = Field(
         ge=0,
@@ -2054,7 +2085,10 @@ class Outcome(_Strict):
         "the granted set on a cert/interim event, and 1 iff the judgment below "
         "was disturbed (reversed / vacated / affirmed-in-part — "
         "`pipeline.judgment.judgment_disturbed`) on a merits event, so "
-        "`(probability - actual_granted)^2` is the Brier score at every stage.",
+        "`(probability - actual_granted)^2` is the Brier score at every stage. "
+        "On a trial-stage motion event, 1 iff the motion was granted in whole "
+        "or in part; on the trial judgment event, 1 iff judgment was for the "
+        "plaintiff or mixed.",
     )
     votes: list[JusticeVote] = Field(default_factory=list)
     signals: ResolutionSignals | None = Field(
@@ -2177,6 +2211,32 @@ class Outcome(_Strict):
         "set — and wherever `interim_reading` is null. Omitted from the file "
         "while null",
     )
+    trial_ruling: TrialRulingLabel | None = Field(
+        default=None,
+        description="How the district court ruled on the motion a trial-stage "
+        "motion event names: granted, granted in part, denied, withdrawn by the "
+        "movant, or mooted (denied or terminated as moot, or the action closed "
+        "with no ruling on it). Trial-stage motion events only, read by the "
+        "trial resolver from the entry `source` cites. Null on every other "
+        "outcome; omitted from the file while null",
+    )
+    trial_leave: TrialLeaveLabel | None = Field(
+        default=None,
+        description="Whether a dismissal left the claims open to amendment: with "
+        "leave, without leave, mixed (some claims each way), or unstated (the "
+        "text says neither). Set only beside a `trial_ruling` of granted or "
+        "granted in part on a motion to dismiss. Null means no leave reading "
+        "applies, never an observed absence; omitted from the file while null",
+    )
+    trial_judgment: TrialJudgmentLabel | None = Field(
+        default=None,
+        description="The district court's final disposition of the case, on the "
+        "trial judgment event: judgment for the plaintiff, for the defendant, "
+        "mixed, or no merits decision (settled, or dismissed by stipulation or "
+        "voluntarily). Never set beside `trial_ruling`, and never the Court's "
+        "`judgment`, which is what was done to a judgment below. Null on every "
+        "other outcome; omitted from the file while null",
+    )
     noted_dissent_from_denial: bool | None = Field(
         default=None,
         description="Whether the denied petition's order text records any noted "
@@ -2200,6 +2260,63 @@ class Outcome(_Strict):
                 f"`interim_granted` is {self.interim_granted!r} but `interim_reading` "
                 f"{self.interim_reading!r} scores as {expected!r}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _trial_fields_cohere(self) -> Outcome:
+        """A trial outcome carries one trial result and nothing of the Court's.
+
+        The binary is the stage's own, so it is checked against the result it
+        is derived from; and a field of another stage beside a trial result
+        would route the cell onto that stage's scoring.
+        """
+        ruling, leave, judgment = self.trial_ruling, self.trial_leave, self.trial_judgment
+        if ruling is None and judgment is None:
+            if leave is not None:
+                raise ValueError("`trial_leave` is set without a `trial_ruling`")
+            return self
+        if ruling is not None and judgment is not None:
+            raise ValueError("`trial_ruling` and `trial_judgment` are both set")
+        if leave is not None and ruling not in TRIAL_RULINGS_GRANTED:
+            raise ValueError(
+                f"`trial_leave` is set beside a `trial_ruling` of {ruling!r}; leave is "
+                "read only for a dismissal granted in whole or in part"
+            )
+        if self.actual_disposition != Disposition.other:
+            raise ValueError(
+                "a trial outcome records `actual_disposition` as `other`; the trial "
+                "field carries the result"
+            )
+        expected = int(
+            ruling in TRIAL_RULINGS_GRANTED
+            if ruling is not None
+            else judgment in TRIAL_JUDGMENTS_FOR_PLAINTIFF
+        )
+        if self.actual_granted != expected:
+            raise ValueError(
+                f"`actual_granted` is {self.actual_granted} but the trial result "
+                f"{ruling or judgment!r} scores as {expected}"
+            )
+        foreign = [
+            name
+            for name, value in (
+                ("votes", self.votes or None),
+                ("signals", self.signals),
+                ("interim_signals", self.interim_signals),
+                ("vote_provenance", self.vote_provenance),
+                ("writing_roles", self.writing_roles),
+                ("judgment", self.judgment),
+                ("merits_decision_method", self.merits_decision_method),
+                ("merits_author", self.merits_author),
+                ("disposition_route", self.disposition_route),
+                ("interim_reading", self.interim_reading),
+                ("noted_dissent_from_denial", self.noted_dissent_from_denial),
+            )
+            if value is not None
+        ]
+        if foreign or self.disposition_basis != "standard":
+            named = ", ".join(foreign) or "disposition_basis"
+            raise ValueError(f"a trial outcome carries a field of the Court's stages: {named}")
         return self
 
     @model_validator(mode="after")
@@ -2271,7 +2388,10 @@ class Outcome(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_unclassified_method(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop the decision and finer-reading fields while null; older outcomes read as before."""
+        """Drop the decision, finer-reading and trial fields while null.
+
+        An outcome that carries none of them serializes without their keys.
+        """
         payload = handler(self)
         if isinstance(payload, dict):
             if self.interim_reading is None:
@@ -2282,6 +2402,9 @@ class Outcome(_Strict):
                 payload.pop("merits_decision_method", None)
             if self.merits_author is None:
                 payload.pop("merits_author", None)
+            for name in ("trial_ruling", "trial_leave", "trial_judgment"):
+                if payload.get(name) is None:
+                    payload.pop(name, None)
         return payload
 
 

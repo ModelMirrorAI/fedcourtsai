@@ -57,14 +57,19 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 #: The label of the reading rule below. A changed rule is a new label.
 RESOLVER_RULE: Final = "trial-resolver-v3"
 
 
 class TrialMoment(StrEnum):
-    """The trial stage's moments (``docs/trial-stage.md``)."""
+    """The trial stage's moments (``docs/trial-stage.md``).
+
+    The same five values :class:`fedcourtsai.schemas.Moment` carries for the
+    stage, held here as their own type so a reader of a docket, or a row of the
+    local-rules file, can name a trial moment and nothing else.
+    """
 
     dismissal = "trial-dismissal"
     class_certification = "trial-class"
@@ -987,6 +992,103 @@ def find_closure(entries: Iterable[Mapping[str, Any]]) -> Mapping[str, Any] | No
     for entry in _ordered(entries):
         if _closes(_entry_text(entry)):
             return entry
+    return None
+
+
+# --- a motion's wider net ----------------------------------------------------
+
+# How a court entry rules on a motion of each kind without citing its number:
+# a ruling word governing the motion ("granting defendants' motion to
+# dismiss"), or the motion governing one ("motion to dismiss is GRANTED"). The
+# motion word must sit directly on the kind, so an order about the kind's
+# briefing, discovery or pages is not one, and no preposition may stand
+# between the ruling word and the motion, so an order granting something else
+# "re" or "on" the motion is not one either.
+_KIND_CORE: Final[Mapping[TrialMoment, str]] = {
+    TrialMoment.dismissal: r"to\s+dismiss",
+    TrialMoment.class_certification: (
+        r"(?:for\s+class\s+certification|to\s+certify\s+(?:a\s+|the\s+)?class)"
+    ),
+    TrialMoment.summary_judgment: r"for\s+(?:partial\s+)?summary\s+judgment",
+    TrialMoment.preliminary_injunction: r"for\s+(?:an?\s+)?preliminary\s+injunction",
+}
+_RULED = r"(?:granted|denied|moot(?:ed)?|withdrawn|terminated|stricken|dismissed)"
+_RULING = r"(?:grant(?:s|ed|ing)|den(?:ies|ied|ying)|terminat(?:es|ed|ing)|str(?:ikes|iking|uck))"
+_KIND_RULED: Final[Mapping[TrialMoment, re.Pattern[str]]] = {
+    moment: re.compile(
+        rf"\b{_RULING}\s+(?:in\s+part\s+(?:and\s+\w+\s+in\s+part\s+)?)?"
+        rf"(?:(?!(?:motions?|re|on|to|for|of|regarding)\b)[\w'\u2019,\[\]]+\s+){{0,6}}?"
+        rf"motions?\s+{core}\b(?!\s+(?:briefing|discovery|hearing|schedul\w*|page\w*)\b)|"
+        rf"\bmotions?\s+{core}\b[^.;]{{0,60}}?\b(?:is|are|be)\s+(?:hereby\s+)?{_RULED}\b",
+        re.I,
+    )
+    for moment, core in _KIND_CORE.items()
+}
+_RULING_WORD = re.compile(
+    r"\b(?:grant(?:s|ed|ing)?|den(?:y|ies|ied|ying)|moot(?:ed)?|withdr[ae]wn?|"
+    r"terminat(?:e[sd]?|ing)|str(?:ike[sn]?|icken|uck|iking)|dismiss(?:e[sd]|ing))\b",
+    re.I,
+)
+# What an order rules on when it rules on something beside the motion: its
+# schedule, its pages, its sealing, who may appear. An entry that names one of
+# these is read as procedural, and the exact reading of :func:`resolve_motion`
+# is what stands between it and a ruling it also carries.
+_PROCEDURAL = re.compile(
+    r"\b(?:exten(?:d|sion)\w*|enlarg\w*|continu\w*|schedul\w*|hearing|deadline\w*|"
+    r"briefing|page\s+limit\w*|excess\s+pages|exceed|leave\s+to\s+file|seal\w*|"
+    r"pro\s+hac|appear\w*|amicus|amici|stipulat\w*|stay\w*|expedit\w*|shorten\w*)\b",
+    re.I,
+)
+# The clerk's and the court's notations that an action is over, in any form.
+_ACTION_OVER = re.compile(
+    r"\b(?:civil\s+)?(?:case|action)\s+(?:is\s+)?(?:hereby\s+)?(?:closed|terminated|dismissed)\b|"
+    r"^\s*(?:final\s+)?judgment\b",
+    re.I,
+)
+
+
+def motion_disposal_signal(
+    event: MotionEvent, entries: Iterable[Mapping[str, Any]]
+) -> Citation | Literal["motion-entry-absent"] | None:
+    """What on this docket may already dispose of motion ``event``, or ``None``.
+
+    The reading a forward cell is refused on, and the opposite bias from
+    :func:`resolve_motion`: that one records an outcome and so passes over
+    whatever it cannot read exactly, this one asks whether an outcome may be
+    legible at all and so answers on any sign of one. It resolves nothing.
+
+    A sign is the motion's own entry missing from ``entries``; an entry that
+    closes the action (:func:`find_closure`, a final judgment, a clerk's
+    notation that the case is closed, terminated or dismissed); or a court
+    entry after the motion that either rules on a motion of its kind in so
+    many words, with no number, or cites its number beside a ruling word and
+    names nothing procedural (an extension, a hearing, a page limit, a
+    stipulation, a stay). An order that sets a hearing on the motion, or
+    extends its briefing, is no sign.
+    """
+    listed = list(entries)
+    if not any(_number(e) == event.entry_number for e in listed):
+        return "motion-entry-absent"
+    closure = find_closure(listed)
+    if closure is not None:
+        return cite(closure)
+    kind = _KIND_RULED[event.moment]
+    for entry in _after(listed, event.entry_number):
+        text = _clean(_entry_text(entry))
+        if _APPELLATE.search(text):
+            continue
+        if _ACTION_OVER.search(text):
+            return cite(entry)
+        if not _is_court_entry(text):
+            continue
+        if kind.search(text) is not None:
+            return cite(entry)
+        if (
+            _cites(text, event.entry_number)
+            and _RULING_WORD.search(text)
+            and not _PROCEDURAL.search(text)
+        ):
+            return cite(entry)
     return None
 
 

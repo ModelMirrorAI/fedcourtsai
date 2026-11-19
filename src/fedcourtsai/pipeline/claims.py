@@ -39,11 +39,13 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Collection, Mapping
-from typing import Literal, Protocol
+from typing import Literal, Protocol, get_args
 
 from ..ids import parse_event_kind
 from ..process_version import asked_authorship_claims, scores_finer_interim_reading
 from ..schemas import (
+    TRIAL_JUDGMENTS_FOR_PLAINTIFF,
+    TRIAL_RULINGS_GRANTED,
     ClaimDistribution,
     ClaimProbability,
     ClaimScore,
@@ -59,6 +61,9 @@ from ..schemas import (
     PredictionContext,
     Stage,
     StatPack,
+    TrialJudgmentLabel,
+    TrialLeaveLabel,
+    TrialRulingLabel,
     WritingRole,
 )
 from ..set_aside import IncrementTiming
@@ -127,6 +132,12 @@ CLAIM_SET_INTERIM_V2 = "interim-v2"
 CLAIM_SET_INTERIM_V3 = "interim-v3"
 CLAIM_SET_MERITS_V1 = "merits-v1"
 CLAIM_SET_MERITS_V2 = "merits-v2"
+# The trial stage declares a set per question it asks: a ruling on a motion, a
+# ruling on a motion to dismiss (which adds leave to amend), and the final
+# disposition.
+CLAIM_SET_TRIAL_MOTION_V1 = "trial-motion-v1"
+CLAIM_SET_TRIAL_DISMISSAL_V1 = "trial-dismissal-v1"
+CLAIM_SET_TRIAL_JUDGMENT_V1 = "trial-judgment-v1"
 
 # The authorship claims: each forecasts the writings of the decision its moment
 # predicts, as a probability per label rather than one number, so they are
@@ -149,6 +160,30 @@ CLAIM_MAJORITY_AUTHOR = "majority-author"
 CLAIM_SEPARATE_WRITERS = "separate-writers"
 CLAIM_ORDER_WRITERS = "order-writers"
 
+# The trial stage's claims (docs/trial-stage.md, *How the stage registers*).
+# One judge decides, so nothing here is over a bench.
+#
+# - `trial-ruling-granted` (a motion moment's headline): the motion is granted
+#   in whole or in part. Resolved on every resolved motion, a withdrawn or
+#   mooted one included, as 0.
+# - `trial-judgment-for-plaintiff` (the judgment moment's headline): judgment
+#   for the plaintiff, or mixed.
+# - `trial-ruling`, `trial-leave`, `trial-judgment`: the forecast spread over
+#   the outcome's own labels, each one categorical distribution summing to 1.
+#   `trial-leave` resolves only where a motion to dismiss was granted in whole
+#   or in part, and is masked otherwise.
+#
+# None of them carries a baseline: no committed cut of prior district rulings
+# exists to price one, and the published figures the stage cites are references
+# from other years and courts, not a strictly-prior rate. So the binary claims
+# go unscored under the registered rule, as any claim without a baseline does,
+# and the distributions are collected and resolved, never scored.
+CLAIM_TRIAL_RULING_GRANTED = "trial-ruling-granted"
+CLAIM_TRIAL_JUDGMENT_FOR_PLAINTIFF = "trial-judgment-for-plaintiff"
+CLAIM_TRIAL_RULING = "trial-ruling"
+CLAIM_TRIAL_LEAVE = "trial-leave"
+CLAIM_TRIAL_JUDGMENT = "trial-judgment"
+
 DistributionKind = Literal["categorical", "per-justice"]
 
 #: Each distribution claim's kind and whether it is scored.
@@ -156,6 +191,17 @@ DISTRIBUTION_CLAIMS: Mapping[str, tuple[DistributionKind, bool]] = {
     CLAIM_MAJORITY_AUTHOR: ("categorical", True),
     CLAIM_SEPARATE_WRITERS: ("per-justice", True),
     CLAIM_ORDER_WRITERS: ("per-justice", False),
+    CLAIM_TRIAL_RULING: ("categorical", False),
+    CLAIM_TRIAL_LEAVE: ("categorical", False),
+    CLAIM_TRIAL_JUDGMENT: ("categorical", False),
+}
+
+#: The labels a trial distribution claim may name: the outcome field's own
+#: vocabulary. A claim absent here is over the bench (:data:`_JUSTICE_LABELS`).
+_TRIAL_DISTRIBUTION_LABELS: Mapping[str, frozenset[str]] = {
+    CLAIM_TRIAL_RULING: frozenset(get_args(TrialRulingLabel)),
+    CLAIM_TRIAL_LEAVE: frozenset(get_args(TrialLeaveLabel)),
+    CLAIM_TRIAL_JUDGMENT: frozenset(get_args(TrialJudgmentLabel)),
 }
 
 #: The labels a distribution may name: every Justice the roster carries, and
@@ -165,6 +211,10 @@ _JUSTICE_LABELS: frozenset[str] = frozenset(service.justice for service in SERVI
 # How far a categorical distribution's sum may stray from 1: ten labels each
 # rounded to three decimals, never a second belief.
 _SUM_TOLERANCE = 5e-3
+
+# How far a trial distribution's mass on its headline side may stray from the
+# headline probability: two labels each rounded to three decimals.
+_HEADLINE_TOLERANCE = 1e-3 + 1e-9
 
 # Per event kind: the set id and the declared claims, in reporting order. The
 # set is fixed and mandatory (docs/outcome-decomposition.md, *Why the set is
@@ -246,6 +296,12 @@ _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
     CLAIM_SET_INTERIM_V3: (CLAIM_SET_INTERIM_V3, _INTERIM_CLAIM_SET[1]),
     CLAIM_SET_MERITS_V1: _MERITS_CLAIM_SET,
     CLAIM_SET_MERITS_V2: (CLAIM_SET_MERITS_V2, _MERITS_CLAIM_SET[1]),
+    CLAIM_SET_TRIAL_MOTION_V1: (CLAIM_SET_TRIAL_MOTION_V1, (CLAIM_TRIAL_RULING_GRANTED,)),
+    CLAIM_SET_TRIAL_DISMISSAL_V1: (CLAIM_SET_TRIAL_DISMISSAL_V1, (CLAIM_TRIAL_RULING_GRANTED,)),
+    CLAIM_SET_TRIAL_JUDGMENT_V1: (
+        CLAIM_SET_TRIAL_JUDGMENT_V1,
+        (CLAIM_TRIAL_JUDGMENT_FOR_PLAINTIFF,),
+    ),
 }
 
 #: Set version -> the distribution claims it declares, in reporting order. A
@@ -255,14 +311,23 @@ _DISTRIBUTIONS_BY_VERSION: Mapping[str, tuple[str, ...]] = {
     CLAIM_SET_INTERIM_V2: (CLAIM_ORDER_WRITERS,),
     CLAIM_SET_INTERIM_V3: (CLAIM_ORDER_WRITERS,),
     CLAIM_SET_MERITS_V2: (CLAIM_MAJORITY_AUTHOR, CLAIM_SEPARATE_WRITERS),
+    CLAIM_SET_TRIAL_MOTION_V1: (CLAIM_TRIAL_RULING,),
+    CLAIM_SET_TRIAL_DISMISSAL_V1: (CLAIM_TRIAL_RULING, CLAIM_TRIAL_LEAVE),
+    CLAIM_SET_TRIAL_JUDGMENT_V1: (CLAIM_TRIAL_JUDGMENT,),
 }
 
 # The claims that restate the prediction's headline `probability` — one belief
 # written twice so each set is self-describing (the cert disposition claim on a
 # petition, the interim one on an application, the disturbed claim on the merits
-# event). A pair that diverges is malformed and voids the block; see
-# `score_claims`.
-_HEADLINE_CLAIMS = (CLAIM_DISPOSITION, CLAIM_INTERIM_DISPOSITION, CLAIM_JUDGMENT_DISTURBED)
+# event, the trial stage's two on a motion and on the final disposition). A
+# pair that diverges is malformed and voids the block; see `score_claims`.
+_HEADLINE_CLAIMS = (
+    CLAIM_DISPOSITION,
+    CLAIM_INTERIM_DISPOSITION,
+    CLAIM_JUDGMENT_DISTURBED,
+    CLAIM_TRIAL_RULING_GRANTED,
+    CLAIM_TRIAL_JUDGMENT_FOR_PLAINTIFF,
+)
 
 
 def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
@@ -278,6 +343,10 @@ def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
     aggregation key rather than in the declaration. Bumping a set version per
     moment would fragment every claim aggregate for no semantic gain.
 
+    A **declared trial moment** declares its own set through the trial table,
+    ahead of the kind fallback: its id's kind is ``motion`` or ``order``, which
+    says nothing of its stage.
+
     Everything else declares by kind, unchanged: an entry-pinned motion, a
     circuit appeal, a legacy id. ``None`` — no set, so no block — for a
     malformed event id and for every kind without a declaration.
@@ -285,6 +354,9 @@ def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
     spec = moments.spec_for(event_id)
     if spec is not None:
         return _SETS_BY_VERSION.get(spec.claim_set_version or "")
+    trial = moments.trial_spec_for(event_id)
+    if trial is not None:
+        return _SETS_BY_VERSION[trial.claim_set_version]
     kind_slug = parse_event_kind(event_id)
     if kind_slug is None:
         return None
@@ -348,21 +420,31 @@ def declared_claim_set_for(prediction: Prediction) -> tuple[str, tuple[str, ...]
 
 
 def declared_distribution_claims_for(prediction: Prediction) -> tuple[str, ...]:
-    """The distribution claims ``prediction`` declares, through the version it was asked under."""
-    return _DISTRIBUTIONS_BY_VERSION.get(_asked_version(prediction) or "", ())
+    """The distribution claims ``prediction`` declares, through the version it was asked under.
+
+    A trial event's set has one version and no predecessor, so it reads the
+    trial table directly.
+    """
+    version = _asked_version(prediction)
+    if version is None:
+        return declared_distribution_claims(prediction.event_id)
+    return _DISTRIBUTIONS_BY_VERSION.get(version, ())
 
 
 def declared_distribution_claims(event_id: str) -> tuple[str, ...]:
     """The distribution claims an event declares, in reporting order; empty for none.
 
-    Reached through the declared-moment table only, as the interim and merits
-    sets are: the kind-keyed fallback is the legacy cert set, which predates
-    the authorship forecast and declares none.
+    Reached through the declared-moment tables only, the Court's and the
+    trial stage's: the kind-keyed fallback is the legacy cert set, which
+    predates the authorship forecast and declares none.
     """
     spec = moments.spec_for(event_id)
-    if spec is None:
-        return ()
-    return _DISTRIBUTIONS_BY_VERSION.get(spec.claim_set_version or "", ())
+    if spec is not None:
+        return _DISTRIBUTIONS_BY_VERSION.get(spec.claim_set_version or "", ())
+    trial = moments.trial_spec_for(event_id)
+    if trial is not None:
+        return _DISTRIBUTIONS_BY_VERSION.get(trial.claim_set_version, ())
+    return ()
 
 
 def _resolve_disposition(context: PredictionContext, outcome: Outcome) -> int | None:
@@ -884,6 +966,38 @@ def _baseline_judgment_disturbed(
     return merits_base_rate(grant_term, statpack, lookback_terms=lookback_terms)
 
 
+def _resolve_trial_ruling_granted(context: PredictionContext, outcome: Outcome) -> int | None:
+    """1 iff the motion was granted in whole or in part; ``None`` off a motion outcome.
+
+    Read from the ruling rather than from ``actual_granted``, so an outcome of
+    another stage that reached this claim would mask instead of resolving on a
+    binary that means something else.
+    """
+    if outcome.trial_ruling is None:
+        return None
+    return int(outcome.trial_ruling in TRIAL_RULINGS_GRANTED)
+
+
+def _resolve_trial_judgment_for_plaintiff(
+    context: PredictionContext, outcome: Outcome
+) -> int | None:
+    """1 iff judgment was for the plaintiff or mixed; ``None`` off a judgment outcome."""
+    if outcome.trial_judgment is None:
+        return None
+    return int(outcome.trial_judgment in TRIAL_JUDGMENTS_FOR_PLAINTIFF)
+
+
+def _no_baseline(
+    context: PredictionContext,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+    grant_term: int | None = None,
+) -> float | None:
+    """No baseline: no committed cut of prior rulings prices the claim, so it goes unscored."""
+    return None
+
+
 _RESOLVERS: Mapping[str, Callable[[PredictionContext, Outcome], int | None]] = {
     CLAIM_DISPOSITION: _resolve_disposition,
     CLAIM_RELIST_INCREMENT: _resolve_relist_increment,
@@ -899,6 +1013,8 @@ _RESOLVERS: Mapping[str, Callable[[PredictionContext, Outcome], int | None]] = {
     CLAIM_REFERRAL_INCREMENT: _resolve_referral_increment,
     CLAIM_AMICUS_INCREMENT: _resolve_amicus_increment,
     CLAIM_JUDGMENT_DISTURBED: _resolve_judgment_disturbed,
+    CLAIM_TRIAL_RULING_GRANTED: _resolve_trial_ruling_granted,
+    CLAIM_TRIAL_JUDGMENT_FOR_PLAINTIFF: _resolve_trial_judgment_for_plaintiff,
 }
 
 
@@ -997,10 +1113,42 @@ def _resolve_order_writers(outcome: Outcome) -> dict[str, int] | None:
     return {role.justice: int(role.writing != WritingRole.none) for role in outcome.writing_roles}
 
 
+def _one_hot(labels: Collection[str], realized: str) -> dict[str, int]:
+    return {label: int(label == realized) for label in sorted(labels)}
+
+
+def _resolve_trial_ruling(outcome: Outcome) -> dict[str, int] | None:
+    """The ruling, one-hot over its five labels; ``None`` off a motion outcome."""
+    if outcome.trial_ruling is None:
+        return None
+    return _one_hot(_TRIAL_DISTRIBUTION_LABELS[CLAIM_TRIAL_RULING], outcome.trial_ruling)
+
+
+def _resolve_trial_leave(outcome: Outcome) -> dict[str, int] | None:
+    """Leave to amend, one-hot over its four labels.
+
+    ``None``, the availability mask, where the motion was not granted in whole
+    or in part: there is then no dismissal for leave to attach to.
+    """
+    if outcome.trial_ruling not in TRIAL_RULINGS_GRANTED or outcome.trial_leave is None:
+        return None
+    return _one_hot(_TRIAL_DISTRIBUTION_LABELS[CLAIM_TRIAL_LEAVE], outcome.trial_leave)
+
+
+def _resolve_trial_judgment(outcome: Outcome) -> dict[str, int] | None:
+    """The final disposition, one-hot over its four labels; ``None`` off a judgment outcome."""
+    if outcome.trial_judgment is None:
+        return None
+    return _one_hot(_TRIAL_DISTRIBUTION_LABELS[CLAIM_TRIAL_JUDGMENT], outcome.trial_judgment)
+
+
 _DISTRIBUTION_RESOLVERS: Mapping[str, Callable[[Outcome], dict[str, int] | None]] = {
     CLAIM_MAJORITY_AUTHOR: _resolve_majority_author,
     CLAIM_SEPARATE_WRITERS: _resolve_separate_writers,
     CLAIM_ORDER_WRITERS: _resolve_order_writers,
+    CLAIM_TRIAL_RULING: _resolve_trial_ruling,
+    CLAIM_TRIAL_LEAVE: _resolve_trial_leave,
+    CLAIM_TRIAL_JUDGMENT: _resolve_trial_judgment,
 }
 
 
@@ -1071,16 +1219,25 @@ def distribution_problems(
     resolves, so the omission is reported while the cell can still be fixed.
     """
     kind, _ = DISTRIBUTION_CLAIMS[claim_id]
-    allowed = _JUSTICE_LABELS | ({PER_CURIAM_LABEL} if kind == "categorical" else set())
-    problems = [
-        f"distribution claim {claim_id!r} names {label!r}, which is not a Justice the "
-        "roster carries" + (" or 'per-curiam'" if kind == "categorical" else "")
-        for label in sorted(set(probabilities) - allowed)
-    ]
+    trial_labels = _TRIAL_DISTRIBUTION_LABELS.get(claim_id)
+    if trial_labels is not None:
+        problems = [
+            f"distribution claim {claim_id!r} names {label!r}, which is not one of its "
+            f"outcomes ({', '.join(sorted(trial_labels))})"
+            for label in sorted(set(probabilities) - trial_labels)
+        ]
+    else:
+        allowed = _JUSTICE_LABELS | ({PER_CURIAM_LABEL} if kind == "categorical" else set())
+        problems = [
+            f"distribution claim {claim_id!r} names {label!r}, which is not a Justice the "
+            "roster carries" + (" or 'per-curiam'" if kind == "categorical" else "")
+            for label in sorted(set(probabilities) - allowed)
+        ]
     if kind == "categorical" and abs(sum(probabilities.values()) - 1.0) > _SUM_TOLERANCE:
         problems.append(
             f"distribution claim {claim_id!r} sums to {sum(probabilities.values())!r}, not 1 — "
-            "one author, so one distribution"
+            + ("one outcome" if trial_labels is not None else "one author")
+            + ", so one distribution"
         )
     if kind == "per-justice":
         problems.extend(
@@ -1089,6 +1246,49 @@ def distribution_problems(
             for justice in sorted(set(bench) - set(probabilities))
         )
     return problems
+
+
+#: The labels of each trial distribution that make up its set's headline
+#: binary. The distribution's mass on them is the headline probability stated
+#: a second time, so the two may not disagree.
+_TRIAL_HEADLINE_LABELS: Mapping[str, frozenset[str]] = {
+    CLAIM_TRIAL_RULING: TRIAL_RULINGS_GRANTED,
+    CLAIM_TRIAL_JUDGMENT: TRIAL_JUDGMENTS_FOR_PLAINTIFF,
+}
+
+
+def trial_distribution_labels(claim_id: str) -> tuple[frozenset[str], frozenset[str]] | None:
+    """A trial distribution claim's labels and those on its headline side, or ``None``.
+
+    ``None`` for a claim over the bench. The second set is empty for a claim
+    with no headline side (leave to amend).
+    """
+    labels = _TRIAL_DISTRIBUTION_LABELS.get(claim_id)
+    if labels is None:
+        return None
+    return labels, _TRIAL_HEADLINE_LABELS.get(claim_id, frozenset())
+
+
+def trial_headline_problems(
+    claim_id: str, probabilities: Mapping[str, float], probability: float
+) -> list[str]:
+    """Why a trial distribution contradicts the prediction's headline ``probability``.
+
+    The headline is the distribution's mass on the granted (or plaintiff)
+    side: one belief, written as a number and again as a spread. A pair that
+    differs by more than rounding is malformed, as a headline claim diverging
+    from ``probability`` is. Empty for a claim with no headline side.
+    """
+    side = _TRIAL_HEADLINE_LABELS.get(claim_id)
+    if side is None:
+        return []
+    mass = sum(p for label, p in probabilities.items() if label in side)
+    if abs(mass - probability) <= _HEADLINE_TOLERANCE:
+        return []
+    return [
+        f"distribution claim {claim_id!r} puts {mass!r} on {', '.join(sorted(side))} but "
+        f"the prediction's probability is {probability!r} — one belief, two committed numbers"
+    ]
 
 
 def _cell_bench(prediction: Prediction) -> tuple[str, ...]:
@@ -1111,7 +1311,8 @@ def score_distributions(
     states none (every prediction written before the authorship forecast), or
     the frozen ``context`` is missing. A stated block that leaves a declared
     claim out, states one twice, names one the set does not declare, or states
-    a malformed one yields no rows at
+    a malformed one, or a trial distribution that contradicts the headline
+    probability, yields no rows at
     all, as a partial binary set yields no block: the set is mandatory. The
     binary block is never voided by these rows, which are reported beside it;
     the rows ride that block, though, so where :func:`score_claims` yields no
@@ -1126,7 +1327,9 @@ def score_distributions(
         stated is None
         or not set(stated) <= set(declared)
         or any(
-            claim_id not in stated or distribution_problems(claim_id, stated[claim_id], bench)
+            claim_id not in stated
+            or distribution_problems(claim_id, stated[claim_id], bench)
+            or trial_headline_problems(claim_id, stated[claim_id], prediction.probability)
             for claim_id in declared
         )
     ):
@@ -1197,6 +1400,8 @@ _BASELINES: Mapping[str, _BaselineFn] = {
     CLAIM_REFERRAL_INCREMENT: _baseline_referral_increment,
     CLAIM_AMICUS_INCREMENT: _baseline_amicus_increment,
     CLAIM_JUDGMENT_DISTURBED: _baseline_judgment_disturbed,
+    CLAIM_TRIAL_RULING_GRANTED: _no_baseline,
+    CLAIM_TRIAL_JUDGMENT_FOR_PLAINTIFF: _no_baseline,
 }
 
 
@@ -1353,6 +1558,9 @@ def _distribution_block_problems(prediction: Prediction) -> list[str]:
         if claim_id in stated:
             problems.extend(
                 distribution_problems(claim_id, stated[claim_id], _cell_bench(prediction))
+            )
+            problems.extend(
+                trial_headline_problems(claim_id, stated[claim_id], prediction.probability)
             )
     return problems
 

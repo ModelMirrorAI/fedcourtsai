@@ -1,0 +1,21 @@
+# Trial-stage events a maintainer settled by hand (docs/trial-stage.md, "How
+# the stage registers"). The resolver sends an event to triage when a docket
+# has moved on and its rule cannot read how; the watchlist pass lists such an
+# event in its report, and a row here records the result. The pass reads a row
+# ahead of the resolver's own rule, for an event it has written and not yet
+# closed.
+#
+# A row:
+#   - case_id: cand/12345678        # the docket that owns the event
+#     event_id: evt-motion-trial-dismissal-45
+#     result: granted-in-part       # a ruling (granted, granted-in-part,
+#                                   # denied, withdrawn, mooted), or on
+#                                   # evt-order-trial-judgment a disposition
+#                                   # (plaintiff, defendant, mixed,
+#                                   # no-merits-decision)
+#     leave: with-leave             # only on a dismissal granted in whole or
+#                                   # in part (with-leave, without-leave,
+#                                   # mixed, unstated)
+#     entry_number: 112             # the docket entry the result rests on
+#     resolved_at: 2027-01-15       # the day that entry was filed
+adjudications: []

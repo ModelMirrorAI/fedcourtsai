@@ -93,6 +93,7 @@ from .schemas import (
     Evaluation,
     EventKind,
     LedgerValidation,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -194,6 +195,9 @@ CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 CHECK_CORRECT_AGREES = "evaluation_correct_agrees"
 # Only a merits outcome has a judgment to record, and the field routes `correct`.
 CHECK_JUDGMENT_ONLY_MERITS = "judgment_only_on_merits_outcomes"
+# A trial-stage event carries a declared trial id, moment and result, and
+# nothing else carries any of them.
+CHECK_TRIAL_EVENTS = "trial_events_are_declared"
 # Votes reach git only through a registered vote source, in that source's shape.
 # The id reads as the refusal every unregistered source still meets, and stays
 # stable across reports.
@@ -2143,6 +2147,133 @@ def check_judgment_only_on_merits_outcomes(data_root: Path) -> CorpusCheck:
     return _check(CHECK_JUDGMENT_ONLY_MERITS, problems, checked=checked)
 
 
+_TRIAL_OUTCOME_FIELDS: Final = ("trial_ruling", "trial_leave", "trial_judgment")
+
+
+def _trial_event_problems(event: PredictableEvent, event_file: Path) -> list[str]:
+    """Why ``event`` is not a well-formed trial event, or not allowed to look like one."""
+    spec = moments.trial_spec_for(event.event_id)
+    # `==`, never `is`: the models carry `use_enum_values`.
+    staged = event.stage == Stage.trial
+    where = f"event {event_file}"
+    if not staged:
+        problems = []
+        if moments.on_trial_label(event.event_id):
+            problems.append(
+                f"{where}: id {event.event_id!r} is on the trial stage's reserved label "
+                f"but the event records stage {event.stage or 'none'!r}"
+            )
+        if event.moment is not None and moments.trial_moment(event.moment):
+            problems.append(f"{where}: records trial moment {event.moment!r} off the trial stage")
+        return problems
+    if spec is None:
+        return [f"{where}: a trial-stage event whose id {event.event_id!r} no trial moment writes"]
+    problems = []
+    if event.moment != spec.moment:
+        problems.append(
+            f"{where}: id declares moment {spec.moment.value!r} but the event records "
+            f"{event.moment or 'none'!r}"
+        )
+    if event.kind != spec.kind:
+        problems.append(
+            f"{where}: id declares kind {spec.kind.value!r} but the event records {event.kind!r}"
+        )
+    if event.decision_target != spec.decision_target:
+        problems.append(
+            f"{where}: a {spec.moment.value} event's decision target is "
+            f"{spec.decision_target!r} but the event records {event.decision_target!r}"
+        )
+    return problems
+
+
+def _trial_outcome_problems(event: PredictableEvent, outcome_file: Path) -> list[str]:
+    """Why the outcome beside ``event`` does not carry the trial result its event owes.
+
+    Read raw, as :func:`check_judgment_only_on_merits_outcomes` reads its
+    field: any non-null trial field on an outcome of another stage must fire
+    here, in the vocabulary or not. An outcome that is not a JSON object is
+    ``validate_ledger``'s.
+    """
+    try:
+        data = json.loads(outcome_file.read_text())
+    except (OSError, ValueError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    carried = [name for name in _TRIAL_OUTCOME_FIELDS if data.get(name) is not None]
+    where = f"outcome {outcome_file}"
+    spec = moments.trial_spec_for(event.event_id) if event.stage == Stage.trial else None
+    if spec is None:
+        # A trial-stage event with an undeclared id is already failed on its
+        # event; only an event of another stage is failed for the field.
+        if not carried or event.stage == Stage.trial:
+            return []
+        return [
+            f"{where}: carries {', '.join(carried)} on "
+            f"{event.stage or 'stage-less'}-stage event {event.event_id!r}; the fields "
+            "are the trial stage's"
+        ]
+    owed = "trial_ruling" if spec.per_motion else "trial_judgment"
+    problems = []
+    if owed not in carried:
+        problems.append(f"{where}: a {spec.moment.value} outcome carries no `{owed}`")
+    if "trial_leave" in carried and spec.moment != Moment.trial_dismissal:
+        problems.append(
+            f"{where}: carries `trial_leave` on a {spec.moment.value} event; leave to "
+            "amend is read on a motion to dismiss only"
+        )
+    other = "trial_judgment" if spec.per_motion else "trial_ruling"
+    if other in carried:
+        problems.append(f"{where}: a {spec.moment.value} outcome carries `{other}`")
+    return problems
+
+
+def check_trial_events(data_root: Path) -> CorpusCheck:
+    """Every trial-stage record is a declared one, and nothing else borrows its shape.
+
+    The trial stage's ids sit on a reserved label and its outcome fields are
+    its own (``docs/trial-stage.md``), and neither file can hold that alone:
+    an ``event.yaml`` does not know which ids the trial table writes, and an
+    ``outcome.json`` does not carry its event's stage. So the rule reads both
+    here. A trial-stage event must carry an id :func:`moments.trial_spec_for`
+    recognizes, with that moment and kind; an event of any other stage may not
+    sit on the label or record a trial moment; a trial outcome carries the
+    result its moment owes (a ruling on a motion event, a final disposition on
+    the judgment event, leave only on a motion to dismiss); and no other
+    outcome carries a trial field.
+
+    ``checked`` counts the events that are trial-stage, on the trial label, or
+    in breach of the rule. An ``event.yaml`` that does not parse is
+    ``validate_ledger``'s concern and is skipped.
+
+    Every word the rule turns on contains ``trial`` (the stage, the moments,
+    the label, the outcome fields), so an event whose two files never mention
+    it is outside the rule and is not parsed: ``validate data`` runs once per
+    cell, and the ledger is almost entirely the Court's.
+    """
+    problems: list[str] = []
+    checked = 0
+    for event_file in _ledger_files(data_root, "*/*/events/*/event.yaml"):
+        outcome_file = event_file.parent / "outcome.json"
+        try:
+            text = event_file.read_text()
+            mentioned = "trial" in text or (
+                outcome_file.is_file() and "trial" in outcome_file.read_text()
+            )
+            if not mentioned:
+                continue
+            event = PredictableEvent.model_validate(load_yaml(text))
+        except (OSError, ValueError, ValidationError):
+            continue
+        found = _trial_event_problems(event, event_file)
+        if outcome_file.is_file():
+            found += _trial_outcome_problems(event, outcome_file)
+        if found or event.stage == Stage.trial or moments.on_trial_label(event.event_id):
+            checked += 1
+        problems += found
+    return _check(CHECK_TRIAL_EVENTS, problems, checked=checked)
+
+
 # --- referential integrity (git-only subset, for the PR gate) ------------------
 
 
@@ -2265,7 +2396,8 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
     void, every committed semantic block on either side answers the declaration
     it was asked for, every merits-stage event's scored prediction carries
     its judgment, one cell's current gradings record the same ``correct`` bit,
-    and no outcome carries a judgment off a merits event.
+    no outcome carries a judgment off a merits event, and every trial-stage
+    event and outcome is a declared one.
     The corpus-dependent referential checks (which need
     the corpus blob) stay on the schedule — the gate is deliberately offline.
     """
@@ -2284,6 +2416,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_outcome_votes_held(data_root),
         check_evaluation_correct_agrees(data_root),
         check_judgment_only_on_merits_outcomes(data_root),
+        check_trial_events(data_root),
     ]
 
 

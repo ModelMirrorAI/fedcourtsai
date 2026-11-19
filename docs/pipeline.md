@@ -1177,7 +1177,11 @@ dockets, facts only, on their own share, taken by the day's first pull window
 that runs (later windows and same-day dispatches skip it). It is
 `continue-on-error` with a step timeout, so a failed or slow refresh never costs
 the window what `pull-all` wrote, and the window's summary carries the step's
-outcome and the dockets refreshed, failed and deferred. run-seed also runs eleven
+outcome and the dockets refreshed, failed and deferred. The same command then
+runs the trial stage's pass over the stored district dockets
+([trial-stage.md](trial-stage.md)), whose event and outcome records, once a
+trial moment is switched on, ride the window's commit like any other the pull
+writes. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops
@@ -3552,7 +3556,10 @@ day's order could run after the order is public with nothing to say which came
 first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
 provisioning fetches the docket's current JSON from the Court through a bounded
 client (short timeouts, one retry, a total deadline, no politeness pause) and runs the same outcome
-scan on it. A disposed event refuses the cell. Otherwise the poll's result
+scan on it. A disposed event refuses the cell. A trial event, which the
+Court's docket does not carry, is not polled, and its staleness is counted
+from the day its docket was last read ([trial-stage.md](trial-stage.md)).
+Otherwise the poll's result
 (`polled_at`, the docket number, `open` or `unavailable`, and why, with the
 record-only `signals` reading of each increment signal the cell's claims
 forecast) reaches the cell's `usage.json` as `pre_mint_poll`, through a step

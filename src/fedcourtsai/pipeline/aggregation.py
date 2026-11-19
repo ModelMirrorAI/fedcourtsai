@@ -179,7 +179,10 @@ def disposition_probability(
     total = sum(margin)
     if abs(total - 1.0) > 1e-9:
         raise ValueError(f"margin sums to {total}, not 1")
-    threshold = AGGREGATION[stage].threshold(participating)
+    rule = AGGREGATION.get(stage)
+    if rule is None:
+        raise ValueError(f"the {stage.value} stage is not decided by a vote")
+    threshold = rule.threshold(participating)
     return sum(p for k, p in enumerate(margin) if k >= threshold)
 
 

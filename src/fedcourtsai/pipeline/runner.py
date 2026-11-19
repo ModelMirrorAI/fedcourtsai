@@ -96,7 +96,12 @@ from ..schemas import (
 from ..secretscan import redact_credentials
 from ..serialize import read_model, write_json
 from .base_rates import PER_CURIAM_LABEL
-from .claims import DISTRIBUTION_CLAIMS, declared_claim_set, declared_distribution_claims
+from .claims import (
+    DISTRIBUTION_CLAIMS,
+    declared_claim_set,
+    declared_distribution_claims,
+    trial_distribution_labels,
+)
 from .evaluate import brier_score, is_correct, judgment_correct, vote_accuracy
 from .justices import SERVICE_FLOOR, bench_on
 from .semantic import declared_semantic_claim_set
@@ -336,7 +341,8 @@ class StubRunner:
 
         The distribution mirror of :meth:`_claims`: one per declared claim over
         the bench sitting on the cell's snapshot ``day``, so the offline cascade
-        exercises the block and ``validate``'s conformance check. A categorical
+        exercises the block and ``validate``'s conformance check. A trial claim
+        spreads over its own outcomes instead of the bench. A categorical
         claim spreads its mass evenly over the bench and the per-curiam label, a
         per-Justice one gives every Justice the stub's writer probability. ``None`` for an
         event declaring none, as an agent omitting the field produces.
@@ -348,7 +354,17 @@ class StubRunner:
         distributions = []
         for claim_id in declared:
             kind, _scored = DISTRIBUTION_CLAIMS[claim_id]
-            if kind == "categorical":
+            trial = trial_distribution_labels(claim_id)
+            if trial is not None:
+                # Over the claim's own outcomes, with the stub's headline
+                # probability on the headline side so the pair coheres.
+                labels_all, side = trial
+                rest = labels_all - side
+                share = _STUB_PROBABILITY if side else 0.0
+                probabilities = {label: share / len(side) for label in sorted(side)} | {
+                    label: (1 - share) / len(rest) for label in sorted(rest)
+                }
+            elif kind == "categorical":
                 labels = [*bench, PER_CURIAM_LABEL]
                 probabilities = {label: 1 / len(labels) for label in labels}
             else:

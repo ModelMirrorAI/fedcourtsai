@@ -89,7 +89,7 @@ from ..schemas import (
 )
 from ..serialize import write_json, write_yaml
 from ..store import merits_event_forecastable, open_events
-from . import moments
+from . import moments, trial_resolver
 from .cert_signals import (
     DEFAULT_DISTRIBUTION_PARSE,
     direct_appeal_exit_gates,
@@ -626,6 +626,68 @@ def interim_disposal_signal(docket: Mapping[str, Any]) -> str | None:
     return None
 
 
+def trial_leakage(payload: Mapping[str, Any], event_id: str) -> str | None:
+    """Why a district docket's snapshot already shows a trial event's outcome.
+
+    The trial resolver's own reading of the snapshot's entries, keyed on the
+    event: the ruling on the one motion a motion event names, or the action's
+    final disposition for the judgment event. A reading the resolver would
+    send to triage refuses too, since the record has moved on the event even
+    where the rule cannot say how. The resolver passes over what it cannot
+    read exactly, so a motion it reads as open is put to the stage's wider net
+    as well (:func:`.trial_resolver.motion_disposal_signal`). The reason names
+    docket entry numbers and never their text.
+    """
+    spec = moments.trial_spec_for(event_id)
+    if spec is None:
+        return None
+    entries = [e for e in payload.get("docket_entries") or [] if isinstance(e, Mapping)]
+    number = moments.trial_entry_number(event_id)
+    found = (
+        trial_resolver.resolve_judgment(entries)
+        if number is None
+        else trial_resolver.resolve_motion(
+            trial_resolver.MotionEvent(trial_resolver.TrialMoment(spec.moment.value), number),
+            entries,
+        )
+    )
+    if found is None:
+        return None if number is None else _motion_signal(spec, number, entries, event_id)
+    if isinstance(found, trial_resolver.Unresolved):
+        weighed = ", ".join(
+            str(c.entry_number) for c in found.candidates if c.entry_number is not None
+        )
+        return (
+            f"snapshot entries read as moving on {event_id} without a ruling the "
+            f"rule can read (docket entries weighed: {weighed or 'none numbered'})"
+        )
+    entry = found.cited.entry_number
+    named = "an unnumbered docket entry" if entry is None else f"docket entry {entry}"
+    return f"snapshot {named} resolves {event_id}"
+
+
+def _motion_signal(
+    spec: moments.TrialMomentSpec,
+    number: int,
+    entries: list[Mapping[str, Any]],
+    event_id: str,
+) -> str | None:
+    """The wider net a motion's forward cell is held to, as a refusal reason."""
+    sign = trial_resolver.motion_disposal_signal(
+        trial_resolver.MotionEvent(trial_resolver.TrialMoment(spec.moment.value), number), entries
+    )
+    if sign is None:
+        return None
+    if sign == "motion-entry-absent":
+        return f"snapshot does not carry docket entry {number}, the motion {event_id} names"
+    named = (
+        "an unnumbered docket entry"
+        if sign.entry_number is None
+        else f"docket entry {sign.entry_number}"
+    )
+    return f"snapshot {named} may dispose of {event_id}"
+
+
 def forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> str | None:
     """Why a forward cell's snapshot already shows **its own** event's outcome.
 
@@ -666,6 +728,9 @@ def forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> st
       application phrasing, and the interim resolver's exact vocabulary can
       miss a disposal that names the relief instead of the application.
 
+    On a **trial** event, whatever the court, none of that applies: the
+    question is the trial resolver's (:func:`trial_leakage`).
+
     The pull-side routing skip and the resolver latch are the primary
     protections; this refusal is defense-in-depth for cells fanned out before
     the docket latched.
@@ -675,6 +740,8 @@ def forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> st
     # branch. Testing an id would send a later merits moment down the cert
     # branch, where the grant order that opened its own proceeding reads as a
     # disclosed outcome — refusing the cell permanently, and silently.
+    if moments.trial_spec_for(event_id) is not None:
+        return trial_leakage(payload, event_id)
     spec = moments.spec_for(event_id)
     if spec is not None and spec.stage is Stage.merits:
         judgment = last_judgment_entry(payload)

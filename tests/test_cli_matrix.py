@@ -1,4 +1,5 @@
 import copy
+import dataclasses
 import hashlib
 import json
 import re
@@ -3586,26 +3587,143 @@ def test_predict_plan_is_byte_identical_with_the_slices_key_absent_or_empty(
     }
 
 
-def test_predict_matrix_admits_exactly_an_enabled_slices_listed_dockets(tmp_path: Path) -> None:
+def _switch_trial_moments_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    declared = moments.trial_spec
+    monkeypatch.setattr(
+        moments,
+        "trial_spec",
+        lambda m: dataclasses.replace(declared(m), forecastable=True, opens_from=date(2026, 1, 1)),
+    )
+
+
+_TRIAL_EVENT = "evt-motion-trial-dismissal-45"
+
+
+def _slice_trial_body(tmp_path: Path, *, listed: bool) -> None:
+    """A request for the slice's two dockets, naming events or leaving them to the corpus."""
+    cand = f', "events": ["{_TRIAL_EVENT}", "evt-appeal-disposition"]' if listed else ""
+    ca9 = ', "events": ["evt-appeal-disposition"]' if listed else ""
+    (tmp_path / "issue-body.md").write_text(
+        f'```json\n[{{"court": "cand", "docket": 101{cand}}},'
+        + f' {{"court": "ca9", "docket": 202{ca9}}}]\n```\n'
+    )
+
+
+def _store_trial_event(tmp_path: Path) -> None:
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=event_id,
+                    case_id=case_id,
+                    court=case_id.split("/")[0],
+                    kind=kind,
+                    stage=stage,
+                    moment=moment,
+                )
+                for case_id, event_id, kind, stage, moment in (
+                    ("cand/101", _TRIAL_EVENT, "motion", "trial", "trial-dismissal"),
+                    # The stage-less baselines the ingest projection gives a docket.
+                    ("cand/101", "evt-appeal-disposition", "appeal", None, None),
+                    ("ca9/202", "evt-appeal-disposition", "appeal", None, None),
+                )
+            ],
+        )
+
+
+def test_an_enabled_slice_admits_its_dockets_and_forecasts_none_while_switched_off(
+    tmp_path: Path,
+) -> None:
     env = _slice_env(tmp_path, slices=("ai-watchlist",))
     result = _slice_invoke(tmp_path, env, "predict-matrix")
     assert result.exit_code == 0, result.output
-    # The listed case and its related docket are admitted; the same courts'
-    # unlisted dockets are not, because a slice widens by name, never by court.
+    # The listed case and its related docket pass the scope gate, where the same
+    # courts' unlisted dockets do not: a slice widens by name, never by court.
+    assert "Skipping cand/101" not in result.stderr and "Skipping ca9/202" not in result.stderr
+    assert "Skipping cand/999" in result.stderr
+    assert "Skipping ca9/998" in result.stderr
+    # And a slice docket is forecast on its slice's switched-on events alone, so
+    # the event the request names for it is dropped.
     assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
         ("scotus", 24001),
         ("scotus", 24002),
-        ("cand", 101),
-        ("ca9", 202),
     }
-    assert "Skipping cand/999" in result.stderr
-    assert "Skipping ca9/998" in result.stderr
+    for case_id in ("cand/101", "ca9/202"):
+        assert (
+            f"dropped evt-petition-cert on {case_id} — a prediction slice's docket is "
+            "forecast only on a trial-stage event whose moment is switched on"
+        ) in result.stderr
 
 
-def test_predict_matrix_never_salience_defers_a_slice_docket(tmp_path: Path) -> None:
+def test_a_request_the_slice_rule_empties_is_not_reported_as_the_re_check(tmp_path: Path) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _slice_trial_body(tmp_path, listed=True)
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code == 0, result.output
+    assert _cells(result.stdout) == []
+    assert "a prediction slice's docket is forecast only" in result.stderr
+    assert "the forecastability re-check dropped every listed event" not in result.stderr
+    plan = _slice_invoke(tmp_path, env, "predict-plan")
+    assert plan.exit_code == 0, plan.output
+    assert {
+        (d["case_id"], d["event_id"]) for d in json.loads(plan.stdout)["dropped_unforecastable"]
+    } == {
+        ("cand/101", _TRIAL_EVENT),
+        ("cand/101", "evt-appeal-disposition"),
+        ("ca9/202", "evt-appeal-disposition"),
+    }
+
+
+@pytest.mark.parametrize("listed", [True, False])
+def test_a_slice_docket_is_forecast_on_its_trial_event_only_once_switched_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, listed: bool
+) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _store_trial_event(tmp_path)
+    _slice_trial_body(tmp_path, listed=listed)
+
+    off = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert off.exit_code == 0, off.output
+    assert _cells(off.stdout) == []
+
+    _switch_trial_moments_on(monkeypatch)
+    on = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert on.exit_code == 0, on.output
+    # The trial event alone: neither docket's stage-less baseline earns a cell,
+    # listed or resolved by default.
+    assert {(c["court"], c["docket"], c["event_id"]) for c in _cells(on.stdout)} == {
+        ("cand", 101, _TRIAL_EVENT)
+    }
+
+
+def test_a_trial_event_is_forecast_on_no_docket_outside_a_slice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # With the slice off the docket is out of scope, switched-on moment or not.
+    env = _slice_env(tmp_path, slices=())
+    _store_trial_event(tmp_path)
+    _slice_trial_body(tmp_path, listed=True)
+    _switch_trial_moments_on(monkeypatch)
+    result = _slice_invoke(tmp_path, env, "predict-matrix")
+    assert result.exit_code == 0, result.output
+    assert _cells(result.stdout) == []
+    assert "Skipping cand/101: out of prediction scope" in result.stderr
+
+
+def test_predict_matrix_never_salience_defers_a_slice_docket(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # A slice's list is its selection: a salience stamp on a listed docket's row
     # does not drop it, while the same stamp still defers a SCOTUS docket.
     env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _store_trial_event(tmp_path)
+    _switch_trial_moments_on(monkeypatch)
+    (tmp_path / "issue-body.md").write_text(
+        '```json\n[{"court": "scotus", "docket": 24001, "events": ["evt-petition-cert"]},'
+        + ' {"court": "scotus", "docket": 24002, "events": ["evt-petition-cert"]},'
+        + ' {"court": "cand", "docket": 101}]\n```\n'
+    )
     with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
         conn.execute(
             "UPDATE cases SET salience_version = 'sal-v1', salience_selected = 0 "
@@ -3617,7 +3735,6 @@ def test_predict_matrix_never_salience_defers_a_slice_docket(tmp_path: Path) -> 
     assert {(c["court"], c["docket"]) for c in _cells(result.stdout)} == {
         ("scotus", 24001),
         ("cand", 101),
-        ("ca9", 202),
     }
 
 

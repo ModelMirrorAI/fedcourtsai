@@ -34,6 +34,7 @@ from fedcourtsai.pipeline.trial_resolver import (
     resolve_judgment,
     resolve_motion,
 )
+from fedcourtsai.schemas import Moment
 
 
 def entry(
@@ -1589,3 +1590,11 @@ def test_a_second_uncited_ruling_that_may_reach_the_motion_is_triage(more: str) 
     reading = read_docket_ruling(_CITED_SJ + more, 249)
     assert reading.ruling is None
     assert reading.conflict is not None
+
+
+def test_the_trial_moments_are_the_schema_s_trial_moments() -> None:
+    """The resolver's own moment type and the record vocabulary name the same
+    five moments, so a reading can be written to a record without a mapping."""
+    assert {moment.value for moment in TrialMoment} == {
+        moment.value for moment in Moment if moment.value.startswith("trial-")
+    }

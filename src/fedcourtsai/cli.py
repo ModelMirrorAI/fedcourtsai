@@ -347,6 +347,7 @@ from .pipeline import (
     same_question,
     semantic,
     sg_briefs,
+    trial_events,
     trial_opener,
     vide_links,
     vided,
@@ -721,6 +722,12 @@ from .supremecourt import (
     parse_scotus_docket_number,
 )
 from .topic_cut import build_topic_cut
+from .trial_adjudications import (
+    TRIAL_ADJUDICATIONS_FILENAME,
+    Adjudication,
+    load_trial_adjudications,
+)
+from .trial_local_rules import TRIAL_LOCAL_RULES_FILENAME, load_trial_local_rules
 from .usage import (
     parse_claude_served_models,
     parse_claude_usage,
@@ -19416,6 +19423,33 @@ def _watchlist_case_ids(settings: Settings) -> frozenset[str]:
     return tagged_case_ids(load_ai_watchlist(path)) if path.exists() else frozenset()
 
 
+def _trial_pass(
+    db: Path,
+    watchlist: AiWatchlist,
+    today: date,
+    local_rules: Mapping[str, trial_opener.DistrictRule],
+    adjudicated: Mapping[tuple[str, str], Adjudication],
+) -> trial_events.TrialPassReport:
+    """Run the trial stage's pass after a watchlist refresh and print what it did."""
+    done = trial_events.run_pass(
+        db,
+        get_settings().data_root,
+        watchlist,
+        today=today,
+        local_rules=local_rules,
+        adjudicated=adjudicated,
+    )
+    typer.echo(f"watchlist-refresh: {done.summary_line()}")
+    for case_id, error in sorted(done.failed.items()):
+        typer.echo(f"watchlist-refresh: trial pass failed on {case_id}: {error}", err=True)
+    for item in done.triage:
+        cited = f" (entries {', '.join(map(str, item.entries))})" if item.entries else ""
+        typer.echo(
+            f"watchlist-refresh: triage {item.case_id} {item.event_id}: {item.reason}{cited}"
+        )
+    return done
+
+
 @app.command("watchlist-refresh")
 def watchlist_refresh_cmd(
     dry_run: Annotated[
@@ -19444,7 +19478,7 @@ def watchlist_refresh_cmd(
 
     Refreshes every docket ``config/ai-watchlist.yaml`` names on the
     ``watchlist`` lane's share: a snapshot when the docket changed and a
-    ``cases`` row stamped ``last_pulled``, and no events, outcomes or queues.
+    ``cases`` row stamped ``last_pulled``, and no queues.
     Incremental reads (entries changed since the last refresh) go first, then
     whole reads: onboarding a docket, which spreads the list over several runs,
     and a weekly re-read where the share left covers it. A 429 that states a
@@ -19452,10 +19486,26 @@ def watchlist_refresh_cmd(
     reason carries what upstream said. Stops at a wall-clock
     budget or a run of transient failures, deferring the rest. Exits 1 when any
     docket failed, so a docket past the page cap is seen.
+
+    The trial stage's pass follows the refresh over the stored district
+    dockets (``docs/trial-stage.md``): it writes the event of a newly briefed
+    motion whose moment is switched on and the outcome of an event it wrote
+    that the court has since ruled on, and prints each event it sends to
+    triage. While no trial moment is switched on it writes nothing and reports
+    what it would open. The report's ``trial`` block carries identifiers and
+    reasons only. A docket the pass fails on is skipped and named there and on
+    stderr by the error's type; it does not change the exit code, which is the
+    refresh's. The district rules and the adjudication list are read before
+    the plan, so a file that cannot be read stops the command before any
+    request is spent.
     """
     settings = get_settings()
     cfg = load_watchlist_refresh_config(settings.config_root)
     watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+    # Read before any request is spent, so a file the pass cannot read stops
+    # the run with its share intact.
+    local_rules = load_trial_local_rules(settings.config_root / TRIAL_LOCAL_RULES_FILENAME)
+    adjudicated = load_trial_adjudications(settings.config_root / TRIAL_ADJUDICATIONS_FILENAME)
     dockets = [pair for case in watchlist.cases for pair in case.dockets()]
     today = datetime.now(UTC).date()
     db = corpus.corpus_db_path(settings.corpus_root)
@@ -19524,6 +19574,7 @@ def watchlist_refresh_cmd(
                 overlap_days=cfg.overlap_days, max_age_days=cfg.onboard_resume_max_age_days
             ),
         )
+    trial = _trial_pass(db, watchlist, today, local_rules, adjudicated)
     _ensure_corpus_layout(db)
     if recorded or became:
         path = ai_activity.activity_path(settings.data_root, today)
@@ -19532,7 +19583,7 @@ def watchlist_refresh_cmd(
             + f"{len(became)} newly readable -> {path}"
         )
     if report is not None:
-        write_raw_json(report, result.as_json())
+        write_raw_json(report, {**result.as_json(), "trial": trial.as_json()})
     changed = sum(1 for r in result.refreshed if r.changed)
     stopped = f"; stopped: {result.stop_reason}" if result.stop_reason else ""
     typer.echo(
@@ -20452,7 +20503,9 @@ def trial_events_command(
     dockets in a district court, the opener (`pipeline/trial_opener.py`) lists
     every motion to dismiss, for class certification, for summary judgment and
     for a preliminary injunction, the entries it read as the opposition and
-    the reply, and the day the motion would open as a forecast event; the
+    the reply, and the day the motion would open as a forecast event, counted
+    from the district's local rule (`config/trial-local-rules.yaml`) where the
+    docket states no deadline; the
     resolver (`pipeline/trial_resolver.py`) says how each resolved, or that it
     goes to triage. Prints the survey as JSON on stdout (identifiers and dates
     only, no docket text) and a three-line reading on stderr.
@@ -20460,13 +20513,14 @@ def trial_events_command(
     Read-only: no upstream request, no write to the corpus, the ledger or
     `data/`. Nothing here is registered or forecast; the trial stage is a
     design (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
-    the watchlist or `--today` cannot be read.
+    the watchlist, the local rules or `--today` cannot be read.
     """
     settings = get_settings()
     try:
         watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+        local_rules = load_trial_local_rules(settings.config_root / TRIAL_LOCAL_RULES_FILENAME)
         read_on = date.fromisoformat(today) if today is not None else datetime.now(UTC).date()
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, yaml.YAMLError) as exc:
         typer.echo(f"trial-events: cannot read its inputs: {exc}", err=True)
         raise typer.Exit(code=2) from exc
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -20486,7 +20540,7 @@ def trial_events_command(
             stored = found[1].get("docket_entries")
             return stored if isinstance(stored, list) else None
 
-        result = trial_opener.survey(watchlist, entries_of, today=read_on)
+        result = trial_opener.survey(watchlist, entries_of, today=read_on, local_rules=local_rules)
     typer.echo(json.dumps({"counts": result.counts(), **result.model_dump(mode="json")}, indent=2))
     for line in trial_opener.summary_lines(result):
         typer.echo(line, err=True)
@@ -23341,15 +23395,65 @@ def _refuse_forward_if_closed(  # noqa: PLR0913 - the gate's inputs plus where t
             err=True,
         )
         raise typer.Exit(code=3)
-    age_days = (date.today() - snapshot_date).days
+    # A trial event's docket is fresh as of the day the refresh last read it:
+    # an unchanged district docket stores no new snapshot, so the snapshot's
+    # own date says when the docket last moved, not when it was last seen.
+    read_on = (
+        _docket_read_on(backend, gate_row, case)
+        if max_snapshot_age_days and court != "scotus" and moments.trial_spec_for(event) is not None
+        else None
+    )
+    fresh_on = max(snapshot_date, read_on) if read_on is not None else snapshot_date
+    age_days = (date.today() - fresh_on).days
     if max_snapshot_age_days and age_days > max_snapshot_age_days:
+        seen = (
+            f"snapshot {snapshot_date.isoformat()} is"
+            if read_on is None or read_on < snapshot_date
+            else f"the docket, last read {read_on.isoformat()}, is"
+        )
         typer.echo(
-            f"::warning::refusing to provision forward cell for {case}: snapshot "
-            f"{snapshot_date.isoformat()} is {age_days} day(s) old, over the "
+            f"::warning::refusing to provision forward cell for {case}: {seen} "
+            f"{age_days} day(s) old, over the "
             f"{max_snapshot_age_days}-day forward bound (--max-snapshot-age-days)",
             err=True,
         )
         raise typer.Exit(code=3)
+
+
+def _docket_read_on(
+    backend: corpus.CorpusBackend, gate_row: corpus.CorpusRow | None, case: str
+) -> date | None:
+    """The day the corpus last read ``case``'s docket, or ``None`` where unknown.
+
+    The row provisioning already read, where its backend serves rows. The
+    casestore source serves none, so there the stamp comes from the corpus
+    index over the ordinary read backend, as the row half of the record gate
+    does; with no index reachable the answer is ``None``, said in a warning,
+    and the staleness bound falls back to the snapshot's own date, the
+    stricter reading. That is a second index connection for the cell, which a
+    trial event alone pays.
+    """
+    if gate_row is not None:
+        return gate_row.last_pulled
+    if backend != "casestore":
+        return None
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    choice = corpus.resolve_backend(None)
+    if choice == "local" and not db_path.exists():
+        return None
+    try:
+        with corpus.connect_readonly(db_path, backend=choice) as conn:
+            row = corpus.get_row(conn, case)
+            _echo_read_stats(conn)
+    except (OSError, corpus_ranged.RangedBackendError):
+        typer.echo(
+            "::warning::forward staleness bound read the snapshot's own date: no "
+            "corpus index reachable from the casestore path for the day the "
+            "docket was last read",
+            err=True,
+        )
+        return None
+    return None if row is None else row.last_pulled
 
 
 def _pre_mint_poll_gate(
@@ -23818,8 +23922,10 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "check: a snapshot taken before a pipeline pause discloses "
             "nothing about what happened during the pause — including the "
             "event's own resolution — so a forward cell fed one would claim "
-            "to be live while answering a stale question. 0 (the default) "
-            "disables the bound.",
+            "to be live while answering a stale question. On a trial event the "
+            "age is counted from the day the corpus last read the docket, where "
+            "that is later: an unchanged district docket stores no new snapshot. "
+            "0 (the default) disables the bound.",
         ),
     ] = 0,
     pre_mint_poll: Annotated[
@@ -23832,7 +23938,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "days behind the docket, and a disposition's date carries no time of day, "
             "so this is the one moment the cell can be shown to begin against an open "
             "docket. A failed poll is recorded as unavailable and the cell proceeds "
-            "on the stored-snapshot gates alone.",
+            "on the stored-snapshot gates alone. Not run for a trial event, which "
+            "the Court's docket does not carry.",
         ),
     ] = False,
     pre_mint_poll_out: Annotated[
@@ -23920,7 +24027,8 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     * **3** — under ``--refuse-terminal`` on a forward cell, the record or the
       snapshot shows the event is not open (nothing written): the record already
       holds the outcome (:func:`fedcourtsai.store.forward_refusal_reason`), the
-      snapshot is older than the forward staleness bound, or the snapshot text
+      snapshot is older than the forward staleness bound (on a trial event,
+      the docket was last read longer ago than the bound), or the snapshot text
       discloses the outcome (see :func:`~fedcourtsai.pipeline.outcome.forward_leakage`).
       With ``--refusal-out``, a refusal that shows the event already resolved —
       every exit 3 but the staleness bound's — is written there first, so the
@@ -24012,7 +24120,10 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
                 err=True,
             )
             raise typer.Exit(code=3)
-        if pre_mint_poll:
+        # The poll reads the Court's own docket page, and a trial event has no
+        # counterpart: nothing reads a district docket between the refresh's
+        # reads, so the staleness bound above is the whole of that control.
+        if pre_mint_poll and moments.trial_spec_for(event) is None:
             _pre_mint_poll_gate(case, court, event, payload, pre_mint_poll_out, refusal_out)
     # Both gates ran on the LATEST payload, before the cut, and that ordering is
     # the point of putting the cut here. The staleness bound asks whether the
@@ -26787,6 +26898,56 @@ def _resolve_cases(
     return kept
 
 
+#: Why a listed event on a slice docket is dropped at plan time.
+_SLICE_EVENT_REFUSAL = (
+    "a prediction slice's docket is forecast only on a trial-stage event whose moment is "
+    "switched on"
+)
+
+
+def _without_unswitched_slice_events(
+    cases: list[CaseRequest],
+    in_slice: Callable[[str, int], bool],
+    today: date,
+    *,
+    stage: str,
+    report: bool,
+    report_out: _ResolveReport,
+) -> list[CaseRequest]:
+    """Drop each listed event a slice docket is not forecast on.
+
+    A case that lists no events resolves them through
+    :func:`fedcourtsai.store.forecastable_events`, which applies the slice
+    rule itself. A listed event bypasses that selection, so the switch is read
+    here from the id: on a docket an enabled slice names, only an event of a
+    trial moment switched on by ``today`` stays listed. The corpus is not
+    consulted, as for any listed event: an id the corpus does not hold is
+    refused by the provisioning record gate, and a resolved one by the
+    forecastability re-check. A case every listed event of which is dropped is
+    dropped whole, since an empty listing would otherwise read as a request
+    for the case's default events.
+    """
+    kept: list[CaseRequest] = []
+    for c in cases:
+        if not c.events or not in_slice(c.court, c.docket):
+            kept.append(c)
+            continue
+        stay = tuple(e for e in c.events if moments.trial_switched_on(e, today))
+        for dropped in sorted(set(c.events) - set(stay)):
+            if report:
+                typer.echo(
+                    f"::warning::{stage}: dropped {dropped} on {c.court}/{c.docket} — "
+                    + _SLICE_EVENT_REFUSAL,
+                    err=True,
+                )
+            report_out.unforecastable.append(
+                _DropRecord(ids.case_id(c.court, c.docket), _SLICE_EVENT_REFUSAL, event_id=dropped)
+            )
+        if stay:
+            kept.append(replace(c, events=stay))
+    return kept
+
+
 def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id: str) -> str:
     """Why cohort completion left this listed event behind, in its own words.
 
@@ -28206,11 +28367,20 @@ def _predict_fanout(
         data_root=settings.data_root,
         dropped_out=scope_dropped,
         cohort_narrowed_out=cohort_narrowed,
-        slices=load_slices(settings.config_root, predict_config.slices),
+        slices=(slices := load_slices(settings.config_root, predict_config.slices)),
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
     today = day or date.today()
+
+    def in_slice(court: str, docket: int) -> bool:
+        return any(population.admits(court, docket) for population in slices.values())
+
+    # The slice rule's drops carry their own reason and are not the re-check's:
+    # everything below reads the listing as it stands after them.
+    requested = _without_unswitched_slice_events(
+        requested, in_slice, today, stage=stage, report=report, report_out=resolution
+    )
     cases = _resolve_cases(
         requested,
         lambda c, d: forecastable_events(
@@ -28219,6 +28389,7 @@ def _predict_fanout(
             d,
             backend=settings.corpus_backend,
             today=today,
+            slice_docket=in_slice(c, d),
         ),
         # Listed events the corpus now refuses — resolved since queueing, or a
         # merits moment whose row fails the selection predicate's row arms —
