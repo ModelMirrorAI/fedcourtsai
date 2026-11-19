@@ -1129,7 +1129,9 @@ arms it at 10 days, generous against the live poller's daily-ish refresh) refuse
 snapshot passes every content check by construction, because it was taken
 before anything it should disclose happened, and its case may be genuinely
 pending — the refusal is about the input being stale, not the case being
-decided. The age it reads is the **latest** payload's, before any cut, so it
+decided. On a trial event the age is counted from the day the corpus last
+read the docket (`last_pulled`) where that is later, since an unchanged
+district docket stores no new snapshot. The age it reads is the **latest** payload's, before any cut, so it
 never reads a placed cell's own `snapshot_date`: a `truncated` cell's
 `snapshot_date` *is* its cutoff, which dates the moment rather than the pull,
 and a cell placed weeks back is not thereby a stale one — how far its frozen

@@ -3556,7 +3556,10 @@ day's order could run after the order is public with nothing to say which came
 first. Just before writing the record, `run-predict` passes `--pre-mint-poll`:
 provisioning fetches the docket's current JSON from the Court through a bounded
 client (short timeouts, one retry, a total deadline, no politeness pause) and runs the same outcome
-scan on it. A disposed event refuses the cell. Otherwise the poll's result
+scan on it. A disposed event refuses the cell. A trial event, which the
+Court's docket does not carry, is not polled, and its staleness is counted
+from the day its docket was last read ([trial-stage.md](trial-stage.md)).
+Otherwise the poll's result
 (`polled_at`, the docket number, `open` or `unavailable`, and why, with the
 record-only `signals` reading of each increment signal the cell's claims
 forecast) reaches the cell's `usage.json` as `pre_mint_poll`, through a step
