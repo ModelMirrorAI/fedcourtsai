@@ -21841,8 +21841,8 @@ freeze commit is recorded here.
   `kind_description` carries that meanwhile. Rewording the sentence moves the
   three predictor digests, so it is owed to the next re-bless.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-19` (merge
+  commit `5a26d5d123548afffd2174653e2d74fb53d13e2b`, merged `2026-11-19T21:36:42Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_document_coverage.py` is green;
