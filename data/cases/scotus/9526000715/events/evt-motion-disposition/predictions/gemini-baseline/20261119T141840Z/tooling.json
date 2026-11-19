@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000715",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "google_web_search",
+    "web_fetch"
+  ],
+  "helpful": [
+    "metrics/statpack.md and metrics/statpack.json per-Term finer_* interim counts and applicant_cuts table",
+    "fedcourts query --docket-number 26-502 to inspect the linked cert petition row and respondent party/counsel metadata",
+    "web_fetch on supremecourt.gov HTML docket for linked No. 26-502 and google_web_search over indexed supremecourt.gov filings"
+  ],
+  "gaps": [
+    "web_fetch could not read the public supremecourt.gov DocketPDF for the linked cert petition (No. 26-502), requiring targeted web search over indexed supremecourt.gov snippets instead",
+    "fedcourts query lacks direct CLI filter flags for application_kind=substantive or applicant_class=private on interim priors"
+  ],
+  "notes": "Application 26A715 was submitted with a motion to file the application and appendix under seal, so no application.txt existed to provision; linking to public cert docket 26-502 via corpus query and supremecourt.gov HTML resolved the procedural and constitutional context cleanly."
+}

@@ -1,0 +1,3 @@
+I expect Justice Gorsuch to deny the stay in a short order within about two weeks of the November 16 submission. At submission, nobody had requested a response or referred the application to the full Court, and the docket showed zero amicus filings. I expect Gorsuch to act without calling for a response or referring the application, and I expect zero additional amicus filings and no separate writing.
+
+The prospect of losing parental rights gives the request urgency. The later custody hearings and the state court's multiple findings make it difficult for Odom to show that the Supreme Court is likely to reverse the judgment under review. A denial would leave the state proceedings in place while the Justices consider the separate petition.
