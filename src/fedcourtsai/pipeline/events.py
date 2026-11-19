@@ -213,6 +213,8 @@ def _subject_slug(text: str, kind: EventKind) -> str:
     ``disposition`` is the case-level baseline's identity, and an entry-pinned
     event stays clear of it. Falls back to ``disposition`` only where there is no
     subject at all — a kind with no subject pattern, or one the pattern misses.
+    A slug that would begin with the trial stage's reserved label is prefixed
+    ``re-``, so no entry-pinned event carries an id the trial table could read.
     """
     pattern = _SUBJECT_PATTERNS.get(kind)
     subject = ""
@@ -231,6 +233,13 @@ def _subject_slug(text: str, kind: EventKind) -> str:
     while len(words) > 1 and words[-1].lower() in _SUBJECT_TAIL_STOPWORDS:
         words.pop()
     slug = ids.slugify(" ".join(words))
+    if f"{slug}-".startswith(moments.TRIAL_LABEL_PREFIX):
+        # The trial stage's ids own this label, so a subject that happens to
+        # open with the word (a motion about a trial transcript) steps off it.
+        # The bare word steps off too: its uniqueness suffix would land on it.
+        # A subject that already reads "re trial" derives the same slug, and
+        # the within-case suffix tells the two apart as it does any other pair.
+        slug = f"re-{slug}"
     return slug if slug != "x" else "disposition"
 
 

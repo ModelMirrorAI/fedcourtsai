@@ -277,10 +277,10 @@
   "properties": {
     "actual_disposition": {
       "$ref": "#/$defs/Disposition",
-      "description": "The realized disposition label. On a merits-stage outcome the cert/interim vocabulary has no member by design (Judgment values are deliberately not Dispositions), so the writer records `other` and `judgment` carries the result; the stage axis keeps such cells out of every cert-vocabulary figure."
+      "description": "The realized disposition label. On a merits-stage outcome the cert/interim vocabulary has no member by design (Judgment values are deliberately not Dispositions), so the writer records `other` and `judgment` carries the result; the stage axis keeps such cells out of every cert-vocabulary figure. A trial-stage outcome records `other` for the same reason, and `trial_ruling` or `trial_judgment` carries the result."
     },
     "actual_granted": {
-      "description": "The stage's declared binary: 1 iff the disposition is in the granted set on a cert/interim event, and 1 iff the judgment below was disturbed (reversed / vacated / affirmed-in-part \u2014 `pipeline.judgment.judgment_disturbed`) on a merits event, so `(probability - actual_granted)^2` is the Brier score at every stage.",
+      "description": "The stage's declared binary: 1 iff the disposition is in the granted set on a cert/interim event, and 1 iff the judgment below was disturbed (reversed / vacated / affirmed-in-part \u2014 `pipeline.judgment.judgment_disturbed`) on a merits event, so `(probability - actual_granted)^2` is the Brier score at every stage. On a trial-stage motion event, 1 iff the motion was granted in whole or in part; on the trial judgment event, 1 iff judgment was for the plaintiff or mixed.",
       "maximum": 1,
       "minimum": 0,
       "title": "Actual Granted",
@@ -455,6 +455,64 @@
       "default": null,
       "description": "Docket entry id or citation",
       "title": "Source"
+    },
+    "trial_judgment": {
+      "anyOf": [
+        {
+          "enum": [
+            "plaintiff",
+            "defendant",
+            "mixed",
+            "no-merits-decision"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The district court's final disposition of the case, on the trial judgment event: judgment for the plaintiff, for the defendant, mixed, or no merits decision (settled, or dismissed by stipulation or voluntarily). Never set beside `trial_ruling`, and never the Court's `judgment`, which is what was done to a judgment below. Null on every other outcome; omitted from the file while null",
+      "title": "Trial Judgment"
+    },
+    "trial_leave": {
+      "anyOf": [
+        {
+          "enum": [
+            "with-leave",
+            "without-leave",
+            "mixed",
+            "unstated"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Whether a dismissal left the claims open to amendment: with leave, without leave, mixed (some claims each way), or unstated (the text says neither). Set only beside a `trial_ruling` of granted or granted in part on a motion to dismiss. Null means no leave reading applies, never an observed absence; omitted from the file while null",
+      "title": "Trial Leave"
+    },
+    "trial_ruling": {
+      "anyOf": [
+        {
+          "enum": [
+            "granted",
+            "granted-in-part",
+            "denied",
+            "withdrawn",
+            "mooted"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "How the district court ruled on the motion a trial-stage motion event names: granted, granted in part, denied, withdrawn by the movant, or mooted (denied or terminated as moot, or the action closed with no ruling on it). Trial-stage motion events only, read by the trial resolver from the entry `source` cites. Null on every other outcome; omitted from the file while null",
+      "title": "Trial Ruling"
     },
     "vote_provenance": {
       "anyOf": [
