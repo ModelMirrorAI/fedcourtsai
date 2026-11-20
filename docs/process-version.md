@@ -116,7 +116,8 @@ unchanged digests. **Who** computes a scored number sits outside the digest for
 the same reason — and the rule covers the numerator as well as the baseline it
 is scored against: on the merits and interim stages the rate, the Brier, and
 the skill over them are all stamped from harness code rather than computed by
-the evaluator, and on **every** stage so is `correct` — the accuracy column's
+the evaluator (on the trial stage the Brier is stamped the same way and the
+rate and the skill are cleared, since the stage registers no rate), and on **every** stage so is `correct` — the accuracy column's
 per-cell bit, which needs no pooled baseline and so takes no cert exemption.
 The cert stage's own record changes author at a label rather than a digest:
 `HARNESS_CERT_ANCHOR_FROM` in `process_version.py` names `proc-v9`, so the

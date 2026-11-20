@@ -14,9 +14,11 @@ registers under the watchlist slice's own process label, in the sequence
 moments are declared and switched off in the stage's own table
 (`pipeline/moments.py`), the outcome record has the stage's three fields, and
 `validate` holds a trial record to both. Each moment names its claim set
-(`pipeline/claims.py`). No record carries any of it. What a forecast's own
-record says of a trial cell is written with the slice's prompt, at the
-switch-on, and the entry is dated in [freeze-record.md](freeze-record.md).
+(`pipeline/claims.py`). No record carries any of it. The slice's two prompts
+are written (`.github/prompts/predict-trial.md`,
+`.github/prompts/evaluate-trial.md`) and no actor reads either: the
+switch-on registers the actors that do, and its entry is dated in
+[freeze-record.md](freeze-record.md).
 Until that entry is dated, this page is the design that entry cites, and a change to it
 needs no re-bless. The opener and the resolver below run in the watchlist
 refresh's pass (`pipeline/trial_events.py`), which writes an event only of a
@@ -484,8 +486,10 @@ opposition and the first reply after it, each by entry number and filing
 date, and the day and basis the opener reads the event as opening on, read
 as of the day the cell is provisioned, as the pass that opened the event read
 it: a deadline counts as passed over the days since the snapshot. It is
-a pointer into the docket, not the papers: no district filing's own text is
-staged, and a cell that wants a brief retrieves it under its mode's rule. The
+a pointer into the docket: a filing's own text is in the snapshot, on its
+entry's document, where the RECAP archive holds it, and no separate copy is
+staged. A cell that wants a brief the snapshot lacks retrieves it under its
+mode's rule. The
 judgment event names no motion and has no briefing, and neither has a motion
 the opener does not read on the snapshot. The related dockets are the listed
 case's other dockets (its appeal, the docket it was transferred from, the
@@ -550,8 +554,36 @@ is not run, and the context of any lower-court docket states where the cell
 was placed and none of the Court's conditioning fields (the term, the band,
 the signals, the cert anchor); the contact-scrub note and the statpack build
 are written as for any cell. The briefing, the judge and the related dockets
-are written as `record/trial.json` for every trial event's forward cell; the slice's
-prompt, which names the file to a cell, is not written yet.
+are written as `record/trial.json` for every trial event's forward cell, and
+the slice's predict prompt names the file to a cell.
+
+**What the prompts carry.** The predict prompt
+(`.github/prompts/predict-trial.md`) is a district cell's whole contract: the
+five questions and their outcomes, that nothing is voided so a forecast
+prices withdrawal and mootness in, the record above, the two published
+references as context and no base rate, and the claim blocks of *Claims*
+above with a worked example. It tells a cell that a filing's text is in the
+snapshot where the archive holds it and how to read a snapshot that large,
+that it may retrieve the rest and related rulings on a forward cell, that a
+replay cell is not provisioned for the stage, and
+that an entry or a retrieved order deciding the event already is a
+mis-provisioned cell to disclose and not to fold in. The evaluate prompt
+(`.github/prompts/evaluate-trial.md`) grades blind as the Court's does: the
+judge writes `correct` and the Brier score on the headline binary, which the
+stamp recomputes, leaves every base-rate field null, grades the rationale
+and the forecast document, and assesses leakage, where a forward prediction
+made on or after the day its event resolved is read as mis-provisioned. The
+docket text of a ruling is often one line, so the judge may read the court's
+own order on the event, in its snapshot or else through CourtListener, to
+grade what a forecast said of the ground, and nothing else: no brief, report
+or commentary. A claim the
+order cannot settle, or an order the archive does not hold, leaves the claim
+unresolved. Neither prompt names the other, or the Court's.
+
+**The skill record.** A trial evaluation's Brier score is the harness's, like
+the Court's merits and interim ones: the stamp recomputes it from the
+committed forecast and outcome and clears the base rate, its basis and the
+skill, since the stage registers none.
 
 **Its own process.** The slice's cells are made by predictors and graded by
 evaluators registered for the slice, each reading a prompt of the slice's own

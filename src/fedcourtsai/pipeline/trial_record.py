@@ -10,7 +10,8 @@ and the watchlist, what the cell would otherwise have to find for itself:
   (:func:`.trial_opener.read_docket`): the entry that filed the motion, the
   opposition and the reply it took as closing the briefing, and what the
   event's opening day was read from. Entry numbers and filing dates only: the
-  entries' text is in the snapshot, and no filing's own text is staged;
+  entries' text, and a filing's own where the archive holds it, are in the
+  snapshot;
 * **the listed case's other dockets**, by identifier and relation
   (``config/ai-watchlist.yaml``): the appeal, the docket transferred from, the
   panel's docket, the member and companion dockets. None of their snapshots

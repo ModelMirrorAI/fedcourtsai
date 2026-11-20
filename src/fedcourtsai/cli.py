@@ -16313,8 +16313,11 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: terminal fallback too (:func:`_harness_owns_terminal_record`) — see
 #: :func:`stamp_cell`. It governs the
 #: *skill record* only: ``correct`` needs no pooled rate and so no band, and is
-#: stamped on every stage including cert.
-_HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
+#: stamped on every stage including cert. The trial stage is here with no rate
+#: at all: its Brier is the same arithmetic over the committed forecast and
+#: outcome, and no base rate is registered for it, so the stamp writes the
+#: Brier and clears the rate and the skill (:func:`_harness_base_rate_for`).
+_HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim, Stage.trial)
 
 
 def _skill_record_for(
@@ -17060,7 +17063,7 @@ def _harness_base_rate_for(
 ) -> float | None:
     """The harness's own segment base rate for one evaluation, or ``None``.
 
-    Computed on the two stages of :data:`_HARNESS_SKILL_STAGES`, from the
+    Computed on the Court's two stages of :data:`_HARNESS_SKILL_STAGES`, from the
     committed statpack under the same ``salience.base_rate_lookback_terms``
     window every other pooled baseline answers to. **Merits**: the disturbed
     rate over grant Terms strictly before the cell's, keyed on the Term
@@ -17071,7 +17074,9 @@ def _harness_base_rate_for(
     ``context.term`` (the application Term the cell was conditioned on) rather
     than re-derived at stamp time. A **cert** cell returns ``None``: there the
     rate is a band product, stamped where the harness owns it by
-    :func:`_cert_skill_record_for` and otherwise the evaluator's.
+    :func:`_cert_skill_record_for` and otherwise the evaluator's. A **trial**
+    cell returns ``None`` too, before any statpack is read: no base rate is
+    registered for the stage, so its record carries a Brier and no skill.
 
     ``None`` too wherever an input is missing: no readable statpack, no Term to
     key on, no prediction to read a frozen one off, or a pool below its own
@@ -17079,7 +17084,7 @@ def _harness_base_rate_for(
     number the harness cannot stand behind.
     """
     stage = _event_stage_and_opened(event_paths)[0]
-    if stage not in _HARNESS_SKILL_STAGES:
+    if stage not in _HARNESS_SKILL_STAGES or stage == Stage.trial:
         return None
     statpack = _statpack_for(settings)
     if statpack is None:
