@@ -2987,7 +2987,8 @@ review settings are checked, above).
 the matrix command itself: given no case list, `predict-matrix` derives the
 predict backlog (`pipeline.pull.derive_predict_backlog`, described in
 [cli.md](cli.md)) and `evaluate-matrix` the evaluate backlog, each from committed
-state. That derivation is version-blind in one direction only: a case is owed
+state, with the enabled prediction slices' own dockets beside it
+(`pipeline.slice_backlog`). That derivation is version-blind in one direction only: a case is owed
 cells for an event **some** enabled predictor has not covered, and — under the
 **pre-freeze re-predict rule** — for an event whose committed cohort is
 de-counted (outside every counting window, or in a revoked one). A supersession

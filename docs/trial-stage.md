@@ -446,8 +446,23 @@ baseline event is not forecast. The fan-out's half is built
 (`store.forecastable_event_ids`): a docket an enabled slice names is forecast
 on the events of a trial moment switched on by that day and on nothing else,
 whether the request names the event or leaves it to the corpus, and no docket
-outside a slice is asked for a trial event. The backlog derivations that queue
-a case with no request walk the Court's docket alone.
+outside a slice is asked for a trial event. The queues' half is built too
+(`pipeline/slice_backlog.py`): beside the Court's backlog, and outside its
+per-cycle case cap, a scheduled predict round is owed every enabled slice's
+open, switched-on trial event that some predictor of the slice has not
+forecast, and a scheduled evaluate round every resolved trial event of the
+slice that holds a forecast and lacks some judge of the slice. A forecast is
+owed only where provisioning would mint it: a docket last read longer ago
+than the backlog's staleness bound is held until the refresh reads it again,
+and an event the stored docket may already decide is not owed, because that
+refusal records nothing and the cell would be minted again every round. A
+cell that has failed the per-cell attempt cap is not owed again, and a docket
+out of the predict scope is owed nothing. The slices' cells share the run's
+cell cap with the Court's, which admits whole cases in case-id order, so a
+round over that cap keeps a district docket ahead of the Court's. A slice
+event that resolves with no forecast is reported by no monitor: the
+missed-forecast read is the Court's. With no slice enabled, no moment switched
+on, or no actor of the slice, nothing is owed.
 
 **The docket a cell reads.** The refresh stamps the day it last read each
 docket even where nothing changed, and a district docket is fresh for a cell

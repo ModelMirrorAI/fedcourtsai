@@ -544,6 +544,7 @@ from .pipeline.salience import (
 from .pipeline.salience_cert_backfill import COLUMNS as SALIENCE_CERT_COLUMNS
 from .pipeline.salience_cert_backfill import backfill_salience_cert_columns
 from .pipeline.scope_reconcile import reconcile_predict_scope
+from .pipeline.slice_backlog import derive_slice_evaluate_backlog, derive_slice_predict_backlog
 from .pipeline.unforecast import Recall, unforecast_outcomes
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
@@ -27357,6 +27358,14 @@ def _evaluate_backlog_cases(
             max_attempts=evaluate_cfg.max_attempts_per_cell,
             today=day,
         )
+        slice_cases = derive_slice_evaluate_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "evaluators.yaml",
+            load_slices(settings.config_root, load_predict_config(settings.config_root).slices),
+            max_attempts=evaluate_cfg.max_attempts_per_cell,
+        )
+        _report_slice_backlog(slice_cases, "grading")
         today = date.today()
         prefix = _warn_prefix(findings)
         # A monitor must never cost the round it watches: a scan that raises is
@@ -27379,7 +27388,9 @@ def _evaluate_backlog_cases(
             _report_predictionless(missed, prefix=prefix)
             if findings is not None:
                 findings.missed.append(missed)
-    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+    return [
+        CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries
+    ] + slice_cases
 
 
 def _report_predictionless(report: PredictionlessReport, *, prefix: str) -> None:
@@ -27525,6 +27536,11 @@ def _predict_backlog_cases(
 
     ``day`` is the deriver's clock. ``None`` — what ``predict-matrix`` passes —
     reads the wall clock; ``predict-plan --as-of`` passes its replay date.
+
+    The enabled prediction slices' own dockets follow the Court's in the
+    returned list (:mod:`fedcourtsai.pipeline.slice_backlog`), outside the cap
+    above. ``findings`` and the case reconciliation cover the Court's docket
+    alone.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -27560,6 +27576,15 @@ def _predict_backlog_cases(
             max_attempts=predict_cfg.max_attempts_per_cell,
             today=day,
         )
+        slice_cases = derive_slice_predict_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "predictors.yaml",
+            load_slices(settings.config_root, predict_cfg.slices),
+            max_attempts=predict_cfg.max_attempts_per_cell,
+            today=day,
+        )
+    _report_slice_backlog(slice_cases, "forecast")
     _report_predict_backlog(
         backlog, cap=salience_cfg.sweep_cases_per_cycle, prefix=_warn_prefix(findings)
     )
@@ -27568,7 +27593,22 @@ def _predict_backlog_cases(
     return [
         CaseRequest(entry.court, entry.docket, entry.events, reopen_events=entry.reopened)
         for entry in backlog.entries
-    ]
+    ] + slice_cases
+
+
+def _report_slice_backlog(cases: list[CaseRequest], owed: str) -> None:
+    """Name on stderr what the enabled slices' dockets are owed, when anything is.
+
+    The slices' backlog rides beside the Court's and outside its cap
+    (:mod:`fedcourtsai.pipeline.slice_backlog`), so it gets a line of its own
+    rather than a share of the Court's summary.
+    """
+    if cases:
+        events = sum(len(case.events) for case in cases)
+        typer.echo(
+            f"Slice backlog: {len(cases)} docket(s) with {events} event(s) owed a {owed}.",
+            err=True,
+        )
 
 
 def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -> None:
