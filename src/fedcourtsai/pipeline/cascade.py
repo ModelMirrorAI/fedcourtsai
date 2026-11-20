@@ -882,6 +882,12 @@ def _refuse_decided_trial_cell(
     (:func:`fedcourtsai.pipeline.outcome.forward_leakage`), over the latest
     payload: a trial cell is a forward cell or nothing, and one whose docket
     already shows the ruling would be handed its answer.
+
+    Two of those gates are not applied here: the bound on how long ago the
+    docket was last read, which a hand-seeded docket would trip and which
+    guards a forecast of record, not a cell whose output leaves no runner;
+    and the committed-outcome half of the record gate, since the cascade's
+    ledger is the run's own.
     """
     if _cell_mode(event, row) != "forward":
         raise CascadeError(

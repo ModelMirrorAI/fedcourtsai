@@ -349,3 +349,10 @@ def test_the_command_reports_a_rehearsal(tmp_path: Path, monkeypatch: pytest.Mon
     assert "trial:       " in result.output
     assert "predictions: 3 file(s)" in result.output
     assert "validate:    OK" in result.output
+
+
+def test_a_docket_stored_with_no_entries_is_refused(tmp_path: Path) -> None:
+    """The opener has nothing to read, so the rehearsal plans nothing and no cell runs."""
+    with pytest.raises(CascadeError, match="no stored docket entries"):
+        _run(tmp_path, _corpus(tmp_path), _config(tmp_path), event=DISMISSAL, rehearse_trial=True)
+    assert not (tmp_path / "data").exists()
