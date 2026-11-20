@@ -1,6 +1,6 @@
 {
-  "cases": 14404,
-  "eligible": 14404,
+  "cases": 14429,
+  "eligible": 14429,
   "entries": [
     {
       "case_id": "scotus/1119228",
@@ -136873,6 +136873,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/73300454",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0308,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/73302615",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -139717,7 +139727,7 @@
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
-      "salience_score": 0.013000000000000001,
+      "salience_score": 0.083,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -139973,6 +139983,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000103",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.053700000000000005,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000104",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -140028,7 +140048,7 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.013000000000000001,
-      "salience_selected": false,
+      "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
     },
@@ -141547,7 +141567,7 @@
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
-      "salience_score": 0.1008,
+      "salience_score": 0.30579999999999996,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -141557,7 +141577,7 @@
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
-      "salience_score": 0.1008,
+      "salience_score": 0.30579999999999996,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -141567,7 +141587,7 @@
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
-      "salience_score": 0.1008,
+      "salience_score": 0.30579999999999996,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -141693,6 +141713,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000311",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000312",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -141728,7 +141758,7 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.024800000000000003,
-      "salience_selected": false,
+      "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
     },
@@ -141753,6 +141783,26 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000321",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000322",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.028000000000000004,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000323",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -141768,6 +141818,16 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.024800000000000003,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000325",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": null,
       "salience_selected": false,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -141843,6 +141903,26 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000333",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000334",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000335",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -141908,6 +141988,16 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.024800000000000003,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000345",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
       "salience_selected": false,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -142113,6 +142203,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000375",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000377",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -142308,7 +142408,7 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.024800000000000003,
-      "salience_selected": false,
+      "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
     },
@@ -142398,6 +142498,26 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.0325,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000415",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000417",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
       "salience_selected": false,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -142733,6 +142853,16 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000492",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000496",
       "out_of_scope_reason": null,
       "predict_eligible": true,
@@ -142768,6 +142898,36 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.024800000000000003,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000504",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.028000000000000004,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000508",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0308,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000511",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0308,
       "salience_selected": false,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -142813,12 +142973,22 @@
       "sample_weight": 1
     },
     {
+      "case_id": "scotus/9026000519",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": false,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
       "case_id": "scotus/9026000522",
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.0182,
-      "salience_selected": false,
+      "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
     },
@@ -142898,6 +143068,16 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.030900000000000004,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000552",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.053700000000000005,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -143018,6 +143198,36 @@
       "predict_eligible": true,
       "predict_excluded": false,
       "salience_score": 0.028000000000000004,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000646",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000648",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.0308,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9026000654",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.030900000000000004,
       "salience_selected": true,
       "salience_version": "sal-v8",
       "sample_weight": 1
@@ -144034,6 +144244,46 @@
     },
     {
       "case_id": "scotus/9526000686",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000698",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.053700000000000005,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000714",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.024800000000000003,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000715",
+      "out_of_scope_reason": null,
+      "predict_eligible": true,
+      "predict_excluded": false,
+      "salience_score": 0.013000000000000001,
+      "salience_selected": true,
+      "salience_version": "sal-v8",
+      "sample_weight": 1
+    },
+    {
+      "case_id": "scotus/9526000716",
       "out_of_scope_reason": null,
       "predict_eligible": true,
       "predict_excluded": false,
