@@ -142,3 +142,101 @@ def test_empty_file_is_an_error(tmp_path: Path) -> None:
     path.write_text("")
     with pytest.raises(ValidationError):
         load_ai_watchlist(path)
+
+
+def _state_watchlist(**overrides: Any) -> dict[str, Any]:
+    case: dict[str, Any] = {
+        "name": "Fund v. Model Co.",
+        "court": "ca-super-sf",
+        "case_number": "CGC-26-000001",
+        "category": "copyright",
+        "why": "An order sought against model development.",
+        "developers": ["Model Co."],
+        "added": "2026-11-20",
+        "entries": [
+            {"date": "2026-11-12", "kind": "complaint"},
+            {"date": "2026-11-19", "kind": "motion", "motion": "dismiss"},
+        ],
+    }
+    case.update(overrides)
+    return {
+        **_watchlist(),
+        "state_courts": {
+            "ca-super-sf": {
+                "name": "Superior Court of California, County of San Francisco",
+                "short": "S.F. Super. Ct.",
+                "case_information": "https://court.example/case-information",
+            }
+        },
+        "state_cases": [case],
+    }
+
+
+def test_a_state_case_is_listed_by_case_number_and_carries_no_tag() -> None:
+    watchlist = AiWatchlist.model_validate(_state_watchlist())
+
+    (case,) = watchlist.state_cases
+    assert case.case_number == "CGC-26-000001"
+    assert [entry.kind for entry in case.entries] == ["complaint", "motion"]
+    assert tagged_case_ids(watchlist) == frozenset({"cand/101", "ca9/202"})
+
+
+def test_the_committed_watchlist_admits_one_state_court() -> None:
+    watchlist = load_ai_watchlist(_COMMITTED)
+
+    assert set(watchlist.state_courts) == {"ca-super-sf"}
+    assert all(case.court in watchlist.state_courts for case in watchlist.state_cases)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"court": "ca-super-la"}, "not one of the admitted state courts"),
+        ({"category": "tax"}, "is not one of"),
+        ({"name": "Doe v. Model Co."}, "case names must be distinct"),
+        ({"developers": []}, "developers"),
+        ({"docket_id": 5}, "Extra inputs"),
+        (
+            {
+                "entries": [
+                    {"date": "2026-11-19", "kind": "motion"},
+                    {"date": "2026-11-12", "kind": "complaint"},
+                ]
+            },
+            "date order",
+        ),
+        ({"entries": [{"date": "2026-11-12", "kind": "hearing"}]}, "kind"),
+        (
+            {"entries": [{"date": "2026-11-12", "kind": "complaint", "motion": "dismiss"}]},
+            "names no motion",
+        ),
+        ({"entries": [{"date": "2026-11-12", "kind": "complaint", "text": "x"}]}, "Extra inputs"),
+    ],
+)
+def test_a_bad_state_case_is_refused(overrides: dict[str, Any], message: str) -> None:
+    with pytest.raises(ValidationError, match=message):
+        AiWatchlist.model_validate(_state_watchlist(**overrides))
+
+
+def test_a_state_court_id_cannot_pass_for_a_courtlistener_id() -> None:
+    data = _state_watchlist()
+    data["state_courts"]["casf"] = data["state_courts"].pop("ca-super-sf")
+
+    with pytest.raises(ValidationError, match="postal code and hyphenated parts"):
+        AiWatchlist.model_validate(data)
+
+
+def test_a_state_case_number_is_listed_once() -> None:
+    data = _state_watchlist()
+    data["state_cases"].append({**data["state_cases"][0], "name": "Other v. Model Co."})
+
+    with pytest.raises(ValidationError, match="named twice"):
+        AiWatchlist.model_validate(data)
+
+
+def test_a_state_courts_page_is_an_https_link_that_cannot_break_out_of_one() -> None:
+    for bad in ("http://court.example/x", "https://court.example/x)"):
+        data = _state_watchlist()
+        data["state_courts"]["ca-super-sf"]["case_information"] = bad
+        with pytest.raises(ValidationError, match="case_information"):
+            AiWatchlist.model_validate(data)
