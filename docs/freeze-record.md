@@ -21971,7 +21971,7 @@ freeze commit is recorded here.
     corpus.connect_readonly(corpus.corpus_db_path(s.corpus_root),
     backend=s.corpus_backend).__enter__(); t = next(d.text for d in
     corpus.documents_for_case(conn, 'scotus/9026000654') if d.kind ==
-    'petition'); n = re.search(r'\[pipeline note: [^\]]*appendix item[^\]]*
+    'petition'); n = re.search(r'\[pipeline note: [^\]]*appendix item[^\]]*?
     PDF page (\d+)', t); c = re.search(r'(?m)^\s*CONCLUSION\s*$', t);
     print(c is not None and c.start() < n.start(), int(n.group(1)) > 53)"`
     prints `True True`;
