@@ -661,10 +661,10 @@ jobs:
     # The engine deadline below plus the setup ahead of the engine step and the
     # capture tail behind it, with room: measured since 2026-08-01, the engine
     # step starts at most ~5.5 minutes into a cell and the tail runs under 1.5,
-    # so 50 + 7 lands near 57 and 65 holds ~8 minutes over that worst case. A
+    # so 55 + 7 lands near 62 and 70 holds ~8 minutes over that worst case. A
     # job that reaches this cap is cancelled — no tail, logs dropped — which is
     # why the engine deadline, not this, is the bound meant to bite.
-    timeout-minutes: 65
+    timeout-minutes: 70
     environment: prod
     # The **engine deadline**, in minutes, and the one place it is set for this
     # workflow: every engine step's `timeout-minutes` reads it, and the arm step
@@ -673,13 +673,16 @@ jobs:
     # runner's own step timeout does. One value for all three engines (claude's
     # action step, codex's action step, gemini's CLI step), held equal across
     # run-predict, run-evaluate and integration-test's application-repro leg
-    # by a workflow-shape test. Fifty minutes: since 2026-08-01 the longest
+    # by a workflow-shape test. Fifty-five minutes puts the watchdog's fire
+    # time just under 47 minutes in, with the completion extension and the
+    # escalation margin between it and the step's cap. Since 2026-08-01 the longest
     # completed engine step on either workflow, any engine, is 13.9 minutes
-    # (p99 under 12), so this is over 3.5x the longest cell observed — a cell
-    # near it is an anomaly worth a kill, not slow work. docs/pipeline.md
+    # (p99 under 12), so the fire time is over 3x the longest cell observed — a
+    # cell that reaches it with nothing complete is an anomaly worth a kill, not
+    # slow work. docs/pipeline.md
     # (*Graceful degradation on limits*) carries the derivation.
     env:
-      ENGINE_DEADLINE_MINUTES: "50"
+      ENGINE_DEADLINE_MINUTES: "55"
     permissions:
       # The cell no longer commits or opens a PR — it only reads the repo and
       # uploads an artifact; the collect job does the git/PR with its own token.
@@ -728,7 +731,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
-          # 90 minutes, covering the 65-minute job cap with room: the
+          # 90 minutes, covering the 70-minute job cap with room: the
           # sidecar's credentials are static for the whole job, so they must
           # outlive any cell the job cap lets run.
           role-duration-seconds: "5400"
@@ -1159,7 +1162,8 @@ jobs:
           ACTOR_ID: ${{ matrix.predictor_id }}
           RUN_ID: ${{ matrix.run_id }}
           # The fire time is derived in the script below from the job's one
-          # engine deadline: three minutes under it. The margin is what the
+          # engine deadline: the margin and the completion extension under it.
+          # The margin is what the
           # watchdog's own escalation can take once it fires — three graces of
           # 30 s, each plus up to one 10 s poll, is two minutes at worst — plus
           # a minute's slack, so a step the watchdog ends is concluded before the
@@ -1167,6 +1171,14 @@ jobs:
           # it. The watchdog starts within seconds of the engine step, at the end
           # of this step, so the two clocks run together.
           DEADLINE_MARGIN_S: "180"
+          # The **completion extension**, taken out of the fire time as well: a
+          # cell whose outputs are complete when the deadline arrives is given
+          # this long past it for its quiescence grace to run out, and is reaped
+          # only if it does (scripts/engine-watchdog.sh states the rule). The
+          # watchdog's five-minute grace plus two of its 10 s polls, so a last
+          # write made at the deadline itself can still be seen quiet. A cell
+          # with nothing complete is ended at the fire time, extension unused.
+          COMPLETION_EXTENSION_S: "320"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -1218,22 +1230,23 @@ jobs:
           # before the arithmetic — the watchdog refuses a non-numeric knob too,
           # but a bad value must fail here, loudly, before the engine starts
           # unguarded.
-          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S" "$COMPLETION_EXTENSION_S"; do
             case "$value" in
               "" | *[!0-9]* | 0?*)
-                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                echo "::error::the engine deadline, its margin and the completion extension must be plain whole numbers"
                 exit 1
                 ;;
             esac
           done
-          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
-          echo "engine deadline: ${ENGINE_DEADLINE_MINUTES} min (step timeout); watchdog fires at ${WATCHDOG_DEADLINE_S}s"
+          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S - COMPLETION_EXTENSION_S))
+          echo "engine deadline: ${ENGINE_DEADLINE_MINUTES} min (step timeout); watchdog fires at ${WATCHDOG_DEADLINE_S}s, or up to ${COMPLETION_EXTENSION_S}s later for a cell whose outputs are complete"
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it. The disarm step brings the bundle
           # back for the artifact.
           cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
           WATCHDOG_DEADLINE_S="$WATCHDOG_DEADLINE_S" \
+            WATCHDOG_EXTENSION_S="$COMPLETION_EXTENSION_S" \
             WATCHDOG_OUTPUT_DIR="$sentinel_root" \
             WATCHDOG_SENTINEL_PATHS="$sentinel_paths" \
             nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \

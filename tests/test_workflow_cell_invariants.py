@@ -3045,19 +3045,33 @@ ENGINE_WATCHDOG_DIR = "engine-watchdog"
 #: The **engine deadline**: one value, in minutes, for every engine of every
 #: cell. Each cell job sets it once as job env; every engine step's
 #: `timeout-minutes` reads it and the arm step derives the watchdog's fire time
-#: from it, `ENGINE_DEADLINE_MARGIN_S` earlier. Fifty minutes is over 3.5x the
-#: longest completed engine step observed since 2026-08-01 (13.9 minutes, any
-#: engine, either workflow) — docs/pipeline.md carries the distribution.
-ENGINE_DEADLINE_MINUTES = 50
+#: from it, `ENGINE_DEADLINE_MARGIN_S` and `ENGINE_COMPLETION_EXTENSION_S`
+#: earlier. That fire time is over 3x the longest completed engine step observed
+#: since 2026-08-01 (13.9 minutes, any engine, either workflow) —
+#: docs/pipeline.md carries the distribution.
+ENGINE_DEADLINE_MINUTES = 55
 ENGINE_DEADLINE_MARGIN_S = 180
+#: The **completion extension**: how far past the fire time a cell whose
+#: outputs are complete at it may run so its quiescence grace can finish. The
+#: cells take it out of the fire time, so the extension ends where the
+#: escalation's margin begins.
+ENGINE_COMPLETION_EXTENSION_S = 320
 #: The engine-actions-smoke legs' own value: the same bracket around a
 #: one-word boot probe: 13 minutes, so the watchdog fires at the probe's
 #: ten-minute budget.
 ENGINE_SMOKE_DEADLINE_MINUTES = 13
 ENGINE_DEADLINE_STEP_TIMEOUT = "${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}"
+#: The boot probes' fire time: a one-word probe writes no cell output, so it has
+#: no completion to extend for.
 ENGINE_DEADLINE_ARITHMETIC = (
     "WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))"
 )
+#: A real cell's fire time, the extension taken out of it as well.
+ENGINE_CELL_DEADLINE_ARITHMETIC = (
+    "WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S"
+    + " - COMPLETION_EXTENSION_S))"
+)
+ENGINE_EXTENSION_HANDOVER = 'WATCHDOG_EXTENSION_S="$COMPLETION_EXTENSION_S"'
 #: The worst setup ahead of an engine step plus the worst capture tail behind
 #: it, measured since 2026-08-01 (5.4 and 1.3 minutes), rounded up. The job cap
 #: has to hold the deadline plus this, or a cell the deadline ended is cancelled
@@ -3082,6 +3096,7 @@ ENGINE_WATCHDOG_ARM_ENV = {
     "ACTOR_ID",
     "RUN_ID",
     "DEADLINE_MARGIN_S",
+    "COMPLETION_EXTENSION_S",
 }
 #: The role each cell workflow's arm step must ask `cell-outputs` for. A
 #: sentinel resolved for the wrong role names files the cell never writes, so it
@@ -3176,10 +3191,17 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
         # by the arm step's derivation — never a per-engine literal.
         assert job["env"]["ENGINE_DEADLINE_MINUTES"] == str(ENGINE_DEADLINE_MINUTES)
         assert arm["env"]["DEADLINE_MARGIN_S"] == str(ENGINE_DEADLINE_MARGIN_S)
+        assert arm["env"]["COMPLETION_EXTENSION_S"] == str(ENGINE_COMPLETION_EXTENSION_S)
         arm_run = str(arm["run"])
-        assert ENGINE_DEADLINE_ARITHMETIC in arm_run
+        assert ENGINE_CELL_DEADLINE_ARITHMETIC in arm_run
         assert 'WATCHDOG_DEADLINE_S="$WATCHDOG_DEADLINE_S"' in arm_run, (
             f"{name}: the derived fire time never reaches the detached watchdog"
+        )
+        # The extension the fire time made room for is the one the watchdog is
+        # told to grant: a watchdog left at its default would never defer, and
+        # one told a longer figure would run past the step's own timeout.
+        assert ENGINE_EXTENSION_HANDOVER in arm_run, (
+            f"{name}: the completion extension never reaches the detached watchdog"
         )
         for index in engines:
             assert steps[index].get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT, (
@@ -3195,6 +3217,17 @@ def test_every_engine_step_of_a_cell_is_bracketed_by_the_watchdog() -> None:
             + _shipped_watchdog_default("WATCHDOG_POLL_S")
         )
         assert escalation_s < ENGINE_DEADLINE_MARGIN_S < ENGINE_DEADLINE_MINUTES * 60
+        # The extension holds the whole quiescence grace plus the polls it takes
+        # to observe it, so a last write made at the fire time itself can still
+        # be seen quiet; and extension plus margin leave a fire time to speak of.
+        observed_quiet_s = _shipped_watchdog_default(
+            "WATCHDOG_QUIESCE_S"
+        ) + 2 * _shipped_watchdog_default("WATCHDOG_POLL_S")
+        assert observed_quiet_s <= ENGINE_COMPLETION_EXTENSION_S
+        assert (
+            ENGINE_DEADLINE_MARGIN_S + ENGINE_COMPLETION_EXTENSION_S
+            < ENGINE_DEADLINE_MINUTES * 60 // 2
+        )
         assert job["timeout-minutes"] > ENGINE_DEADLINE_MINUTES + CELL_JOB_OVERHEAD_MINUTES, (
             f"{name}: the job cap leaves no room for the tail after the engine deadline"
         )
@@ -3263,6 +3296,7 @@ def test_the_boot_probe_runs_inside_the_same_deadline_bracket() -> None:
     assert arm.get("if") == "${{ matrix.scenario == 'engine-actions-smoke' }}"
     assert ENGINE_DEADLINE_ARITHMETIC in str(arm["run"])
     assert arm["env"]["DEADLINE_MARGIN_S"] == str(ENGINE_DEADLINE_MARGIN_S)
+    assert "COMPLETION_EXTENSION_S" not in arm["env"], "a boot probe has no completion to extend"
     assert ENGINE_DEADLINE_MARGIN_S < ENGINE_SMOKE_DEADLINE_MINUTES * 60
     for probe in steps[arm_at + 1 : arm_at + 4]:
         assert probe.get("timeout-minutes") == ENGINE_DEADLINE_STEP_TIMEOUT
@@ -3315,11 +3349,13 @@ def test_the_gemini_engine_step_retries_in_place_inside_the_engine_deadline() ->
     script = (REPO_ROOT / GEMINI_CELL_SCRIPT).read_text()
     # One or two extra attempts, never more.
     assert 2 <= _shipped_gemini_cell_default("GEMINI_MAX_ATTEMPTS") <= 3
-    # A retry's runway: past the watchdog's margin by a whole longest cell, and
-    # short of the deadline itself, so a retry is reachable at all.
+    # A retry's runway: past the watchdog's margin and the completion extension
+    # — which together are how far under the deadline it fires — by a whole
+    # longest cell, and short of the deadline itself, so a retry is reachable at
+    # all.
     min_remaining = _shipped_gemini_cell_default("GEMINI_RETRY_MIN_REMAINING_S")
     assert (
-        ENGINE_DEADLINE_MARGIN_S + LONGEST_OBSERVED_ENGINE_STEP_S
+        ENGINE_DEADLINE_MARGIN_S + ENGINE_COMPLETION_EXTENSION_S + LONGEST_OBSERVED_ENGINE_STEP_S
         < min_remaining
         < ENGINE_DEADLINE_MINUTES * 60
     )
@@ -3634,7 +3670,7 @@ def test_the_cell_artifact_ships_only_the_cells_own_event_directory() -> None:
 REPRO_SCENARIO = "codex-application-repro"
 #: The repro leg's job cap: the cell jobs' own, since the leg runs a real
 #: evaluate cell under the same engine deadline.
-REPRO_JOB_TIMEOUT_MINUTES = 65
+REPRO_JOB_TIMEOUT_MINUTES = 70
 
 
 def test_the_repro_leg_runs_under_the_cells_engine_deadline() -> None:
@@ -3651,7 +3687,9 @@ def test_the_repro_leg_runs_under_the_cells_engine_deadline() -> None:
     assert REPRO_SCENARIO in str(arm.get("if"))
     assert "WATCHDOG_DEADLINE_S" not in arm["env"], "the repro deadline is a second literal"
     assert arm["env"]["DEADLINE_MARGIN_S"] == str(ENGINE_DEADLINE_MARGIN_S)
-    assert ENGINE_DEADLINE_ARITHMETIC in str(arm["run"])
+    assert arm["env"]["COMPLETION_EXTENSION_S"] == str(ENGINE_COMPLETION_EXTENSION_S)
+    assert ENGINE_CELL_DEADLINE_ARITHMETIC in str(arm["run"])
+    assert ENGINE_EXTENSION_HANDOVER in str(arm["run"])
     engine = next(
         s
         for s in steps

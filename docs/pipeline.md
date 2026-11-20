@@ -4355,9 +4355,9 @@ artifacts. Finish a draft by merging it, not by editing and then re-running.
 
 Agent steps (predict, evaluate) are bounded by one **engine deadline**, the
 same for all three engines: a cell job sets it once as job env
-(`ENGINE_DEADLINE_MINUTES`, 50) and every engine step — claude's action step,
+(`ENGINE_DEADLINE_MINUTES`, 55) and every engine step — claude's action step,
 codex's action step, gemini's CLI step — reads it as its `timeout-minutes`. It
-sits below the job cap (65), so a run that overruns trips the *step* — not the
+sits below the job cap (70), so a run that overruns trips the *step* — not the
 job. A step timeout (or a max-turns stop) fails only that step and leaves the
 runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
@@ -4371,8 +4371,10 @@ The value is measured, not guessed. Across every completed engine step of
 `run-predict` and `run-evaluate` on `main` from 2026-08-01 to 2026-10-06 — 1,548
 steps — the longest took 13.9 minutes (a predict claude cell), and per engine
 the p99 is 11.6 (claude), 9.4 (codex) and 7.6 (gemini) minutes; no step passed
-14. Fifty minutes is over 3.5x the longest cell ever observed, so a cell that
-reaches it is an anomaly worth ending rather than slow work. The jobs that did
+14. The watchdog ends a cell that has completed nothing just under 47 minutes
+in, over 3x the longest cell in that window, so a cell that
+reaches it is an anomaly worth ending rather than slow work; the rest of the 55
+is the completion extension and the escalation margin (below). The jobs that did
 run past fifty minutes were the codex runner wedge on an application record,
 not work: production predict cells on that docket cancelled at the job cap,
 and the integration suite's application-repro leg ran 52–64 minutes on every
@@ -4381,7 +4383,7 @@ the engine step recorded a conclusion — while its dispatches under the cells'
 `unprivileged-user` codex concluded their engine step in 0.6 and 2.9 minutes. The job cap holds
 the deadline plus the setup ahead of the engine step (at most 5.4 minutes
 observed) and the capture tail behind it (at most 1.3), with room. A wider
-claim — that a cell of some shape legitimately runs past fifty — would move
+claim — that a cell of some shape legitimately runs past that fire time — would move
 this one number, in the three places a workflow-shape test holds equal (both
 cell jobs and the integration suite's application-repro leg).
 
@@ -4404,10 +4406,11 @@ the error the engine itself reported, in its result or as the same object on
 stderr, and not on the rest of stderr, so a model call the CLI retried and
 recovered from does not buy a retry for the client error the turn ended on;
 only where the engine reported nothing is the whole of stderr read. A retry
-starts only while 20
+starts only while 25
 minutes of the deadline would remain after its backoff (the backoff is 15
 seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
-three-minute margin by more than the longest cell observed, so a retry is a
+three-minute margin and the completion extension by more than the longest cell
+observed, so a retry is a
 whole fresh chance and not a cell the deadline then kills. It runs inside the
 same step, under the same `timeout-minutes` and the same watchdog bracket, so
 no retry can carry the step past the deadline. Before the first attempt the
@@ -4484,7 +4487,8 @@ are bracketed by an **arm/disarm pair** around a runner-level watchdog
 cell's refusal gate where it has one, which on predict is the whole of its
 condition, and ungated on evaluate, which has none — and disarmed the moment the
 last ends however it ended. The arm step derives the watchdog's fire time from
-the same engine deadline, three minutes under it: the watchdog's own escalation
+the same engine deadline, a three-minute margin and the completion extension
+(below) under it: the watchdog's own escalation
 (three graces of 30 seconds, each plus up to one 10-second poll) takes two
 minutes at worst, so a step it ends has concluded before the runner's own step
 timeout would act, and the deadline is one number rather than one per engine.
@@ -4538,6 +4542,24 @@ as long as the artifact is retained. Nothing committed records a reap, so a
 count of reaps over time is a read of run annotations. The parse is deliberately all the sentinel asks: schema truth is the
 tail's `validate`, which routes a malformed cell to the draft PR, and that is
 strictly better than the job cap destroying it.
+
+**The completion extension** is what a cell gets when the fire time arrives
+with its outputs complete but its five quiet minutes not yet run out. That is
+not the wedge that completes nothing; it is the reaper's own case met late,
+seen where a Gemini cell lost the front of its budget to a retried attempt,
+wrote and validated every file, and its engine then sat retrying its closing
+model call — with the fire time falling five seconds before the grace would
+have reaped it. So the watchdog defers the deadline once, by the extension the
+arm step hands it (`COMPLETION_EXTENSION_S`, 320 seconds: the grace plus two
+polls, so a last write made at the fire time can still be seen quiet), and goes
+on asking the reaper's question. The standard does not move: the cell is reaped
+only when complete and quiet for the full five minutes since its last write,
+and its `REAPED` marker carries `deadline_extended_s`. A cell still writing
+through the extension, or one that takes a required file away during it, meets
+the deadline; a cell with nothing complete at the fire time is never extended.
+The arm step takes the extension out of the fire time as it does the margin, so
+the latest moment the escalation can start still leaves it the whole margin
+inside the step's timeout.
 
 **The deadline** is the second line, for a wedge that completes nothing. At the
 fire time above it captures the runner user's process tree, the socket table

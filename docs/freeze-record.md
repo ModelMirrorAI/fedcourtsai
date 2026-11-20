@@ -21858,3 +21858,77 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('cert-reply-every-reply' in {b.name for b in H})"` prints
     `True`.
+
+- **A cell complete at the engine deadline is given its quiescence grace;
+  recorded 2026-11-20.** A harness change under unchanged digests, recorded
+  ahead of the promotion that carries it. No harness boundary is registered,
+  since no scoring rule and no cell's information set moves.
+
+  **What changes.** The engine watchdog reaps a cell whose owed files are all
+  present, non-empty and parsing once its output directory has gone unwritten
+  for five minutes, and at its fire time ends any step still running. A cell
+  whose files were complete at the fire time, but whose five minutes had not
+  yet run out, was ended as a deadline stop and routed to a partial draft.
+  From the carrying promotion the watchdog defers the deadline once for such
+  a cell, by up to 320 seconds (the grace plus two of its polls), and reaps it
+  only on the reading every reaped cell gives: complete, and unwritten for
+  the full five minutes since its last write. A cell still writing through
+  the extension, or one whose owed files stop being complete during it, is
+  ended as a deadline stop at that point; a cell with an owed file missing or
+  unparsing at the fire time is never extended. A watchdog that lost wall
+  clock still signals nothing. The reap's marker carries
+  `deadline_extended_s`, and the tail still validates the cell before collect
+  readies it.
+
+  The clocks around it move so the extension fits. The engine step's timeout
+  goes from 50 to 55 minutes for all three engines, on predict, on evaluate
+  and on the integration suite's application-repro leg, and the cell job's cap
+  from 65 to 70. The watchdog's fire time goes from 2,820 to 2,800 seconds, so
+  a cell with nothing complete is ended 20 seconds sooner than before and a
+  complete one may run to 3,120. The Gemini in-place retry's floor goes from
+  20 to 25 minutes of the step's timeout, which leaves the latest moment a
+  retry may start where it was, 30 minutes in.
+
+  **Why.** Predict run `20261116T161636Z` left a `gemini-baseline` cell on
+  `scotus/9026000292` `evt-order-cvsg-disposition` at the deadline with every
+  file written. Read from the cell's artifact (its watchdog log and its
+  harness-written `retrieval_log.json`) on 2026-11-20: the step's first
+  attempt spent 16 minutes on failed model calls and wrote nothing; the retry
+  started 16:47:55Z, the sentinel saw the owed files complete at 17:11:38Z,
+  the cell's last write was at 17:13:25Z, its own validate passed at
+  17:13:40Z, and from 17:14:41Z the engine's model calls failed until the
+  watchdog fired at 17:18:20Z. The five minutes since the last write would
+  have run out at 17:18:25Z. The tail validated the cell, collect routed it to
+  a partial draft that was closed unmerged, and the event was forecast again
+  in run `20261116T230623Z`. One of the 48 `gemini-baseline` cells between
+  2026-11-12T19:49Z and 2026-11-19T20:23Z ended this way, and no
+  `claude-baseline` or `codex-baseline` cell of the same runs.
+
+  **What it means for a reader.** A landed cell can now be one the watchdog
+  reaped after its fire time. The rule reads the presence of the owed files,
+  whether the JSON ones parse and the time since the last write, never what a
+  forecast or a grade says. It carries the reap's known residual and no new
+  one: a cell cut off between a file's first complete write and a revision
+  the agent meant to make more than five minutes later lands its earlier
+  draft. Before this change such a cell was owed again on a later round under
+  the attempt cap, so the landed set holds the same cells or more, and for a
+  forward predict cell the difference is timing: the forecast lands in the
+  round that opened it, on that round's snapshot, instead of a later one, and
+  is no longer lost if its event resolves first. The rule is every engine's,
+  but only the Gemini step retries in place, and a retried attempt is what
+  has put a finished cell near the deadline, so it should move the Gemini
+  pair's cell-failure rate against the other two pairs' if it moves any, and
+  a comparison of failure rates across this promotion reads the Gemini pair
+  apart.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_engine_watchdog.py tests/test_workflow_cell_invariants.py` is
+  green; and for every predict or evaluate cell on `main` whose job carries
+  the `engine watchdog` warning, the `watchdog.log` in the cell's artifact
+  shows no `completion sentinel observed` line followed by a `deadline
+  reached` line less than 320 seconds later without an `extending 320s` line
+  between them, and each cell whose artifact holds a `REAPED` marker with
+  `deadline_extended_s` sits in its round's merged PR.

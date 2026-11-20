@@ -76,6 +76,7 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
     sentinel_paths: list[Path] | None = None,
     output_dir: Path | None = None,
     quiesce_s: str = "2",
+    extension_s: str | None = None,
     suspension_gap_s: str | None = None,
     log_path: Path | None = None,
 ) -> subprocess.Popen[str]:
@@ -114,6 +115,11 @@ def _spawn(  # noqa: PLR0913, PLR0917 - one parameter per knob the script reads
         env["WATCHDOG_MIN_STEP_AGE_S"] = min_step_age_s
     if deadline_s is not None:
         env["WATCHDOG_DEADLINE_S"] = deadline_s
+    # Dropped rather than inherited when a test does not set it, so an ambient
+    # value can never defer a deadline a test is timing.
+    env.pop("WATCHDOG_EXTENSION_S", None)
+    if extension_s is not None:
+        env["WATCHDOG_EXTENSION_S"] = extension_s
     # The thaw guard's knob is left at its shipped value unless a test is about
     # the guard: no fixture here can produce a two-minute gap, so every other
     # test runs against a watchdog that never detects a suspension — which is
@@ -824,6 +830,159 @@ def test_continuing_writes_hold_the_reap_off(tmp_path: Path) -> None:
     finally:
         churn.kill()
         churn.wait(timeout=10)
+        tree.close()
+
+
+def test_a_cell_complete_at_the_deadline_finishes_its_grace_and_is_reaped(tmp_path: Path) -> None:
+    """A finished cell the deadline reaches before its grace has run out still lands.
+
+    The observed case: a cell lost the front of its budget to a retried attempt,
+    wrote every file it owes, validated them, and its engine then would not
+    close — with the deadline falling seconds before the quiescence grace would
+    have reaped it. The outputs are complete at the deadline here and the grace
+    is longer than the deadline, so only the extension can carry the wait to the
+    reap. The standard is the reaper's own: the grace is still measured in full
+    from the last write.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        started = time.monotonic()
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="3",
+            grace_s="6",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="8",
+            extension_s="12",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert time.monotonic() - started >= 8, "the cell was reaped before its grace ran out"
+        assert "extending 12s for the quiescence grace" in done.stdout
+        assert _await(lambda: _gone(tree.step_pid)), "the finished cell's step was not ended"
+        reaped = (watchdog_dir / "REAPED").read_text()
+        assert "quiesce_s=8" in reaped
+        # The marker says the reap came across the deadline, so the cell reads
+        # as one that finished late rather than one that had time to spare.
+        assert "deadline_extended_s=12" in reaped
+        assert not (watchdog_dir / "FIRED").exists()
+        assert not (watchdog_dir / "STOOD_DOWN").exists()
+        assert tree.proc.poll() is None, "the watchdog signalled the runner's worker process"
+    finally:
+        tree.close()
+
+
+def test_a_cell_still_writing_through_the_extension_meets_the_deadline(tmp_path: Path) -> None:
+    """The extension buys the grace, never a landing: a cell mid-edit is not reaped.
+
+    Complete output that keeps being rewritten is deferred once, like any
+    complete cell — and then meets the deadline at the extension's end, because
+    it never goes quiet. The extension is not renewed.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    churn = subprocess.Popen(["bash", "-c", f'while :; do touch "{paths[1]}"; sleep 1; done'])
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="3",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="6",
+            extension_s="8",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert not (watchdog_dir / "REAPED").exists(), "a cell mid-edit was reaped"
+        assert done.stdout.count("extending 8s") == 1, "the deadline was deferred more than once"
+        assert "the deadline applies" in done.stdout
+        stood_down = (watchdog_dir / "STOOD_DOWN").read_text()
+        assert "deadline_extended_s=8" in stood_down
+        assert _await(lambda: _gone(tree.step_pid)), "the deadline did not end the step"
+    finally:
+        churn.kill()
+        churn.wait(timeout=10)
+        tree.close()
+
+
+def test_a_cell_with_nothing_complete_at_the_deadline_is_never_extended(tmp_path: Path) -> None:
+    """The extension is for a finished cell; a wedge that completed nothing gets none.
+
+    One required file is missing, so the deadline is the same bound it is with
+    the extension off — the step is ended at it, not a grace later.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths[:-1])
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        started = time.monotonic()
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="3",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="2",
+            extension_s="60",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert time.monotonic() - started < 40, "an incomplete cell waited out the extension"
+        assert "extending" not in done.stdout
+        stood_down = (watchdog_dir / "STOOD_DOWN").read_text()
+        assert "deadline_extended_s" not in stood_down
+        assert not (watchdog_dir / "REAPED").exists()
+    finally:
+        tree.close()
+
+
+def test_outputs_that_stop_being_complete_end_the_extension(tmp_path: Path) -> None:
+    """A cell that takes a required file away inside the extension gets the deadline.
+
+    Completeness is what the deferral rests on, so losing it ends the deferral at
+    once rather than at the extension's far end.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    # A stand-in for the agent deleting a document to rewrite it, after the
+    # deadline has been deferred.
+    rewrite = subprocess.Popen(["bash", "-c", f'sleep 6; rm -f "{paths[0]}"'])
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    try:
+        watchdog_dir = tmp_path / "engine-watchdog"
+        started = time.monotonic()
+        done = _run(
+            watchdog_dir,
+            f"watchdog-selftest-absent-{os.getpid()}",
+            worker_match=f"watchdog-selftest-{os.getpid()}",
+            deadline_s="3",
+            sentinel_paths=paths,
+            output_dir=out_dir,
+            quiesce_s="60",
+            extension_s="60",
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+        assert time.monotonic() - started < 40, "the extension outlived the outputs it rested on"
+        assert "extending 60s" in done.stdout
+        assert "the outputs stopped being complete inside the extension" in done.stdout
+        assert not (watchdog_dir / "REAPED").exists()
+        assert "deadline_extended_s=60" in (watchdog_dir / "STOOD_DOWN").read_text()
+    finally:
+        rewrite.kill()
+        rewrite.wait(timeout=10)
         tree.close()
 
 
