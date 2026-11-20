@@ -419,12 +419,15 @@ the day its briefing closed, or on the day the moment was switched on where
 that is later, and the final-disposition event opens on the day the pass
 first writes it. A motion the court ruled on before the pass first read it is never
 written, and a member docket opens no motion while its lead docket is not
-stored. Nor is a motion written while a later entry may already rule on it,
-by the net a forward cell on it would be refused on (*The docket a cell
-reads*, below): the resolver passes over a ruling it cannot read exactly, such
-as one stated in a hearing's minute entry, and an event opened past such an
-entry would carry a decided motion as open. The pass lists each motion it held
-that way, with the entry weighed, in the refresh's report. A reading the resolver sends to triage writes no outcome: the event
+stored. Nor is an event written while an entry may already decide it, by the
+net a forward cell on it would be refused on (*The docket a cell reads*,
+below): the resolver passes over a ruling it cannot read exactly, such as one
+stated in a hearing's minute entry, and an event opened past such an entry
+would carry a decided motion as open. That holds for a motion and for the
+final disposition alike, and only for an event not yet written: one the pass
+already wrote stays open until the resolver or an adjudication closes it. The
+pass lists each event it held that way, with the entry weighed, in the
+refresh's report. A reading the resolver sends to triage writes no outcome: the event
 stays open, and the pass lists it, with the reason and the entries weighed,
 in the refresh's report and its log. So does a result dated before its event
 opened or read from an undated entry, and a stored motion event the opener no
@@ -461,17 +464,53 @@ record already holds the event's outcome or the corpus records the docket
 decided, or when the trial resolver reads the snapshot as ruling on the
 event's motion, as finally disposing of the action for the judgment event, or
 as moving on either in a form it would send to triage. The resolver is built
-to miss a ruling rather than misread one, so a motion's cell is held to a
-wider net as well (`trial_resolver.motion_disposal_signal`): it is refused
-when the snapshot lacks the motion's own entry, when any entry closes the
-action or reads as its final judgment, and when a court entry after the
-motion rules on a motion of its kind in so many words, or cites its number
-beside a ruling word and names nothing procedural (an extension, a hearing, a
-page limit, a stay). That net
-refuses some motions still pending, and such a motion is not forecast until
-the docket moves. A ruling entered since the docket was last read is the
-residual: nothing polls a district docket between the refresh's reads, so the
-bound is the whole of that control. The Court's poll
+to miss a ruling rather than misread one, so a cell is held to a wider net as
+well, whose bias is the opposite: a pending motion it refuses costs one
+forecast, and a ruling it misses hands a forecast its answer
+(`trial_resolver.motion_disposal_signal`, `action_over_signal`). A motion's
+cell is refused when the snapshot lacks the motion's own entry; when an entry
+after the motion may show the action over (a closure, a judgment, or the
+court's or the clerk's notation that the case is closed, terminated,
+dismissed, remanded or transferred out, unless stated as a condition); when a
+party withdraws the motion or voluntarily dismisses; for a motion to dismiss,
+when an amended complaint follows it; for a motion for a preliminary
+injunction, when one is entered; when a magistrate judge's report is adopted,
+on whatever motion; and when a later entry that is not a party's filing may
+rule on it. Such an entry rules on the motion's number directly, alone, in a
+list ("[45] and [49] are DENIED") or joined to a ruling on a neighbouring
+entry ("granting 58 and 45"); or carries a ruling word standing by the
+motion's number, by its kind or the relief it asks for, or, on an entry that
+cites no other entry, by "the motion" where it is not named as another kind,
+with nothing procedural (an extension, a hearing, sealing, discovery,
+counsel) and no condition between the two, so an order that denies the motion
+and sets a conference is a sign; or is the court's bare order on the motion;
+or is an opinion, a decision or findings of fact on an entry that cites no
+other entry. A ruling is not read as the motion's where a condition leads
+into it (an order to show cause, a notice that failure to respond may result
+in the motion being granted), where the motion's name hangs from something
+procedural ("argument on the motion to dismiss is denied"), where its
+sentence ended before the motion was named, or where it is the recommendation
+an order of referral asks for. A number counts as another entry only where it
+is cited as one, not as a date, a courtroom or a case number. A ruling the
+entry places on another numbered entry is set aside first, and the court's
+standing or scheduling order is never a sign. The judgment event's cell is
+refused when any entry may show the action over, unless the notation is
+negated, conditional, or made of one party alone; an entry from before a
+transfer in or a reopening counts, so an action that was closed once and
+reopened holds its judgment event, as does one closed administratively. That
+net refuses some motions still pending: an order on another party's motion of
+the same kind, a ruling on the restraining order a motion for a preliminary
+injunction also asked for, and, for a motion to dismiss, the dismissal of a
+party on other grounds each read as a sign. Such a motion is not forecast:
+the entry that tripped the net stays on the docket, so the hold lasts until
+the rule is changed. What it cannot see is the residual: an order whose
+docket text says nothing of its ruling ("ORDER (see image)", a sealed order,
+"Marginal Order: Denied" on an entry that names no motion), a ruling stated
+only by its reasoning ("Counts I and II survive", "Defendant's motion
+fails"), a ruling carried only in an attached document's description, what an
+answer or a reset deadline implies about a motion, and a ruling entered since
+the docket was last read, since nothing polls a district docket
+between the refresh's reads and the bound is the whole of that control. The Court's poll
 is not run, and the context of any lower-court docket states where the cell
 was placed and none of the Court's conditioning fields (the term, the band,
 the signals, the cert anchor); the contact-scrub note and the statpack build

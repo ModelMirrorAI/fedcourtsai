@@ -919,7 +919,7 @@ _COURT_ENTRY = re.compile(
 # triage rather than passed over.
 _OPINION_ENTRY = re.compile(
     r"^\s*(?:(?:amended|corrected|redacted|sealed)\s+)*(?:memorandum\s+)?(?:opinion|decision)\b|"
-    r"^\s*(?:memorandum|opinion)\s+and\s+order\b|^\s*order\s+and\s+opinion\b",
+    r"^\s*(?:memorandum|opinion)\s+(?:and|&)\s+order\b|^\s*order\s+(?:and|&)\s+opinion\b",
     re.I,
 )
 _RECOMMENDATION = re.compile(r"\brecommend", re.I)
@@ -995,63 +995,355 @@ def find_closure(entries: Iterable[Mapping[str, Any]]) -> Mapping[str, Any] | No
     return None
 
 
-# --- a motion's wider net ----------------------------------------------------
+# --- the wider net -----------------------------------------------------------
+#
+# The reading a forward cell is refused on and an event is held back on. Its
+# bias is the opposite of the resolver's below: that one records an outcome,
+# so it passes over whatever it cannot read exactly; this one asks whether an
+# outcome may be legible at all, so it answers on any sign of one and resolves
+# nothing. A motion it holds that is in fact pending costs one forecast; a
+# ruling it misses hands a forecast its answer.
 
-# How a court entry rules on a motion of each kind without citing its number:
-# a ruling word governing the motion ("granting defendants' motion to
-# dismiss"), or the motion governing one ("motion to dismiss is GRANTED"). The
-# motion word must sit directly on the kind, so an order about the kind's
-# briefing, discovery or pages is not one, and no preposition may stand
-# between the ruling word and the motion, so an order granting something else
-# "re" or "on" the motion is not one either.
-_KIND_CORE: Final[Mapping[TrialMoment, str]] = {
-    TrialMoment.dismissal: r"to\s+dismiss",
-    TrialMoment.class_certification: (
-        r"(?:for\s+class\s+certification|to\s+certify\s+(?:a\s+|the\s+)?class)"
-    ),
-    TrialMoment.summary_judgment: r"for\s+(?:partial\s+)?summary\s+judgment",
-    TrialMoment.preliminary_injunction: r"for\s+(?:an?\s+)?preliminary\s+injunction",
-}
-_RULED = r"(?:granted|denied|moot(?:ed)?|withdrawn|terminated|stricken|dismissed)"
-_RULING = r"(?:grant(?:s|ed|ing)|den(?:ies|ied|ying)|terminat(?:es|ed|ing)|str(?:ikes|iking|uck))"
-_KIND_RULED: Final[Mapping[TrialMoment, re.Pattern[str]]] = {
-    moment: re.compile(
-        rf"\b{_RULING}\s+(?:in\s+part\s+(?:and\s+\w+\s+in\s+part\s+)?)?"
-        rf"(?:(?!(?:motions?|re|on|to|for|of|regarding)\b)[\w'\u2019,\[\]]+\s+){{0,6}}?"
-        rf"motions?\s+{core}\b(?!\s+(?:briefing|discovery|hearing|schedul\w*|page\w*)\b)|"
-        rf"\bmotions?\s+{core}\b[^.;]{{0,60}}?\b(?:is|are|be)\s+(?:hereby\s+)?{_RULED}\b",
-        re.I,
-    )
-    for moment, core in _KIND_CORE.items()
-}
-_RULING_WORD = re.compile(
-    r"\b(?:grant(?:s|ed|ing)?|den(?:y|ies|ied|ying)|moot(?:ed)?|withdr[ae]wn?|"
-    r"terminat(?:e[sd]?|ing)|str(?:ike[sn]?|icken|uck|iking)|dismiss(?:e[sd]|ing))\b",
+# A party's filing, by its leading noun: never the court's ruling. A notice of
+# withdrawal is the one party filing that disposes of a motion.
+_PARTY_FILING = re.compile(
+    r"^\s*(?:(?:joint|unopposed|consent|emergency|renewed|amended|corrected|redacted|sealed|"
+    r"first|second|third|ex\s+parte|\[?proposed\]?|supplemental|letter)\s+)*"
+    r"(?:motion|response|reply|opposition|brief|memorandum\s+(?:of\s+law\s+)?(?:in|of\s+points)|"
+    r"notice\s+(?!of\s+withdrawal|withdrawing|of\s+settlement)|declaration|affidavit|exhibits?|letter|"
+    r"certificate|answer|complaint|objections?|statement|request|application|transcript|"
+    r"summons|waiver|joinder|errata|appendix|sur-?reply|stipulation)\b",
     re.I,
 )
-# What an order rules on when it rules on something beside the motion: its
-# schedule, its pages, its sealing, who may appear. An entry that names one of
-# these is read as procedural, and the exact reading of :func:`resolve_motion`
-# is what stands between it and a ruling it also carries.
-_PROCEDURAL = re.compile(
+_NET_RULING = (
+    r"(?:grant\w*|den(?:y|ies|ied|ying|ial)|moot(?:ed)?|withdr[ae]w\w*|terminat\w+|"
+    r"str(?:ike[sn]?|icken|uck|iking)|dismiss(?:e[sd]|ing|al)|allow(?:s|ed|ing)?|"
+    r"overrul\w+|sustain\w*|adopt\w*|certif(?:y|ies|ied|ying)|enjoin\w*|"
+    r"(?:enter|issu)(?:e[sd]?|s|ed|ing)\s+(?:an?\s+)?preliminary|convert\w*|recommend\w*|"
+    r"discontinu\w+|declin\w+|reject\w+|approv\w+|well[\s-]taken)"
+)
+_NET_RULING_WORD = re.compile(rf"\b{_NET_RULING}\b", re.I)
+# What a ruling is on when it is on something beside the motion: its schedule,
+# its pages, its sealing, discovery, counsel, another kind of motion. A
+# sentence that names one of these is read as about that.
+_NET_OTHER_SUBJECT = re.compile(
     r"\b(?:exten(?:d|sion)\w*|enlarg\w*|continu\w*|schedul\w*|hearing|deadline\w*|"
-    r"briefing|page\s+limit\w*|excess\s+pages|exceed|leave\s+to\s+file|seal\w*|"
-    r"pro\s+hac|appear\w*|amicus|amici|stipulat\w*|stay\w*|expedit\w*|shorten\w*)\b",
+    r"briefing|briefs?|supplement\w*|pages?|leave\s+to\s+file|seal\w*|pro\s+hac|"
+    r"attorneys?|(?:as|of)\s+counsel|counsel\s+of\s+record|appear\w*|amicus|amici|stipulat\w*|stay\w*|expedit\w*|shorten\w*|"
+    r"discovery|compel\w*|protective|limine|daubert|interven\w*|to\s+consolidate|consolidating|"
+    r"reconsider\w*|default|sanctions?|judicial\s+notice|sur-?reply|conference|"
+    r"under\s+(?:submission|advisement)|caption|arbitrat\w*)\b",
     re.I,
 )
-# The clerk's and the court's notations that an action is over, in any form.
-# A leading notation ("CASE CLOSED", "Civil Case Terminated"), a sentence that
-# closes it in the present ("this action is hereby dismissed", "the Clerk is
-# directed to close the case"), or a judgment. A passing reference to the day
-# the case is closed ("until 90 days after this case is closed") is none.
+# How an entry names each kind of motion, or the relief it asks for.
+_NET_KIND: Final[Mapping[TrialMoment, re.Pattern[str]]] = {
+    TrialMoment.dismissal: re.compile(r"\bdismiss\w*|\b12\s*\(b\)|\bmtd\b", re.I),
+    TrialMoment.class_certification: re.compile(
+        r"\bclass\s+cert(?:ification)?\b|\bcertif\w+[^.;]{0,40}\bclass\b|\bclass\b[^.;]{0,20}\bcertif|"
+        r"\bcertification\b",
+        re.I,
+    ),
+    TrialMoment.summary_judgment: re.compile(
+        r"\bsummary\s+judgment\b|\bmsj\b|\bcross-?motions?\b", re.I
+    ),
+    TrialMoment.preliminary_injunction: re.compile(r"\binjuncti\w+|\benjoin\w*", re.I),
+}
+# A number that is a quantity, a date, a time or a rule, not a docket entry.
+_NOT_AN_ENTRY_BEFORE = r"(?<![\d/:.$§-])(?<!\brule\s)(?<!\bcount\s)(?<!\bcounts\s)(?<!\bexhibit\s)"
+_NOT_AN_ENTRY_AFTER = (
+    r"(?![\d/]|:\d|\.\d|\s*\(|\s*(?:days?|pages?|hours?|weeks?|months?|years?|percent|%|"
+    r"a\.?m\b|p\.?m\b|u\.s\.c|f\.\s?(?:supp|[234]d)))"
+)
+_ENTRY_NUMBER = re.compile(rf"{_NOT_AN_ENTRY_BEFORE}\b(\d{{1,5}})\b{_NOT_AN_ENTRY_AFTER}", re.I)
+# A ruling word and the entry number it governs: "granting 58", "denying as
+# moot (72)", "GRANTED in part and DENIED in part [61]". The clause runs to
+# the next ruling word, conjunction or stop, so what follows "and" is read on
+# its own; a ruling word in the motion's own name ("Motion to Strike") does
+# not end it.
+_RULES_ON_NUMBER = re.compile(
+    rf"\b{_NET_RULING}\b"
+    r"(?:\s+(?:in\s+part|and|as\s+moot|without\s+prejudice|with\s+prejudice|"
+    rf"{_NET_RULING})){{0,8}}"
+    r"\s+(?:(?:the|unopposed|joint|consent|renewed|amended)\s+)*"
+    r"(?:(?:ecf|dkt|doc|docket|d\.i\.)\.?\s*(?:nos?\.?|#)?\s*)?[\[(#]?\s*"
+    rf"{_NOT_AN_ENTRY_BEFORE}(\d{{1,5}})\b{_NOT_AN_ENTRY_AFTER}[\])]?"
+    rf"(?:(?!(?<!\bto\s)\b{_NET_RULING}\b|\band\b)[^.;,&])*",
+    re.I,
+)
+# Another entry cited as one: "ECF No. 58", "[58]", "(58)", "#58", "re 58",
+# "58 Motion". A date, a year, a courtroom or a count is not.
+_CITED_ENTRY = re.compile(
+    r"(?:\b(?:ecf|dkt|doc|docket|d\.i\.)\.?\s*(?:nos?\.?|#)?\s*|\[\s*|\(\s*|#\s*|\bre:?\s+)"
+    r"(\d{1,5})\b(?![\d/]|\s*(?:days?\b|pages?\b|pp\b|pgs?\b))|"
+    r"(?<![\d/:.$-])\b(\d{1,5})\s+(?:[\w'\u2019]+\s+){0,3}?motion",
+    re.I,
+)
+# An entry number and the ruling stated after it: "119 is GRANTED", "[97] are
+# hereby DENIED".
+_NUMBER_IS_RULED = re.compile(
+    rf"{_NOT_AN_ENTRY_BEFORE}\b(\d{{1,5}})\b[\])]?\s+(?:is|are)\s+(?:hereby\s+)?"
+    rf"{_NET_RULING}\b(?:\s+(?:in\s+part|and|as\s+moot|{_NET_RULING})){{0,4}}",
+    re.I,
+)
+# A run of entry numbers and the one ruling stated after them: "[45] and [49]
+# are DENIED", "(Dkts. 45, 46 & 48) are GRANTED", "ECF Nos. 45, 47: DENIED".
+_LIST_IS_RULED = re.compile(
+    r"((?:[\[(#]?\b\d{1,5}\b[\])]?\s*(?:,\s*and|,|&|and)\s*"
+    r"(?:(?:ecf|dkt|doc)\.?\s*(?:nos?\.?)?\s*)?){1,8}[\[(#]?\b\d{1,5}\b)[\])]*\s*"
+    rf"(?::|(?:is|are)\s+(?:hereby\s+)?)\s*{_NET_RULING}\b",
+    re.I,
+)
+_MONTH_BEFORE = re.compile(
+    r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s*$|"
+    r"(?:courtroom|division|room|suite|chapter|section|title)\s*$|"
+    r"(?:case|civil|action|cause|mdl)\s+nos?\.?\s*$",
+    re.I,
+)
+# A sentence ends at a stop followed by a capitalized word, so "L.R. 7-11",
+# "ECF No. 45" and "Inc. filed" stay whole.
+_SENTENCE_END = re.compile(r"(?<=;)\s+|(?<=\.)\s+(?=[A-Z][A-Za-z])")
+# An entry that is the court's order on a motion and says no more: CM/ECF's
+# "ORDER on Motion to Dismiss", "ORDER re 45".
+_NET_ORDER_ON = re.compile(
+    r"\border\s+(?:re:?|on|regarding|resolving|disposing\s+of|ruling\s+on)\b|^\s*ruling\s+on\b",
+    re.I,
+)
+_FINDINGS = re.compile(r"^\s*findings\s+of\s+fact\b|^\s*ruling\b|^\s*decision\b", re.I)
+# Words that state what may or would happen, not what the court did: a
+# standing order's warning, an order to show cause. "Should" alone is not one,
+# since a court finds that a motion "should be denied".
+_HYPOTHETICAL = re.compile(
+    r"\b(?:if|unless|why|whether|may|might|could|result\s+in|any\s+motions?)\b", re.I
+)
+# What a ruling is on when the motion is only what that thing concerns: "the
+# request to adjourn argument on the motion to dismiss is granted". Read in
+# the words that lead up to the motion, with no verb or stop between.
+_LEADS_UP = re.compile(
+    rf"(?:{_NET_OTHER_SUBJECT.pattern}|\b(?:oral\s+argument|argument|adjourn\w*|oversized|"
+    r"time\s+to|(?:request|application|motion)\s+to\s+(?:file|adjourn|respond|oppose|exceed)|"
+    r"(?:opposition|respond|response|reply|objections?)\s+to)\b)"
+    r"(?:(?!\b(?:is|are|was|and)\b)[^.;,:])*$",
+    re.I,
+)
+_REFERRAL = re.compile(r"\brefer(?:s|red|ring|ral|ence)?\b", re.I)
+# A ruling word that opens a condition: "will be denied if", "dismissed unless".
+_THEN_CONDITION = re.compile(r"\w+(?:\s+\w+){0,2}?\s+(?:if|unless)\b", re.I)
+# A motion held for decision, which is its state and not another subject.
+_HELD_FOR_DECISION = re.compile(r"\bunder\s+(?:submission|advisement)\b", re.I)
+# The court's general order for its cases, which rules on no motion.
+_STANDING_ORDER = re.compile(r"^\s*(?:\w+\s+){0,2}(?:standing|scheduling)\s+order\b", re.I)
+# The adoption of a magistrate judge's report, which is made on a dispositive
+# motion; a voluntary dismissal; the injunction itself; and, for a motion to
+# dismiss, the amended complaint that follows its ruling or moots it.
+_ADOPTS_REPORT = re.compile(
+    r"\b(?:adopt|accept)\w*\b[^.;]{0,80}\b(?:report|recommendations?|findings)\b", re.I
+)
+_VOLUNTARY_DISMISSAL = re.compile(r"^\s*notice\s+of\s+voluntary\s+dismissal\b", re.I)
+_ENTERED_INJUNCTION = re.compile(r"^\s*(?:order\s+(?:and|of)\s+)?preliminary\s+injunction\b", re.I)
+_NEXT_PLEADING = re.compile(
+    r"^\s*(?:(?:first|second|third|fourth|corrected|consolidated)\s+)*amended\s+"
+    r"(?:class\s+action\s+)?complaint\b",
+    re.I,
+)
+_CONDITIONAL = re.compile(
+    r"\b(?:if|unless|until|once|when|should|why|could|may|might|would)\b", re.I
+)
+# The notation negated, or made of one party or one claim alone.
+_NOT_OVER_BEFORE = re.compile(r"\b(?:not|no|default|partial)\s+(?:\w+\s+){0,2}$", re.I)
+_NOT_OVER_AFTER = re.compile(
+    r"\w*\s*(?:(?:with|without)\s+prejudice\s+)?(?:as\s+to|until|unless|if|is\s+vacated)\b",
+    re.I,
+)
+# The clerk's and the court's notations that an action is over or has left the
+# court: closed, terminated, dismissed, transferred, remanded, or in judgment.
 _ACTION_OVER = re.compile(
-    r"^\s*(?:\*+\s*)?(?:civil\s+)?(?:case|action)\s+(?:closed|terminated|dismissed)\b|"
-    r"\b(?:case|action)\s+is\s+(?:hereby\s+)?(?:terminated|dismissed)\b|"
-    r"\b(?:case|action)\s+is\s+hereby\s+closed\b|"
-    r"\bclerk\b[^.;]{0,80}?\b(?:close|terminate)\s+(?:this|the)\s+(?:case|action|file)\b|"
-    r"^\s*(?:final\s+)?judgment\b",
+    r"\b(?:case|action|matter)\s+(?:is\s+|shall\s+be\s+|be\s+)?(?:hereby\s+)?"
+    r"(?:closed|terminated|dismissed|remanded|transferred\s+(?:to|out))\b|"
+    r"\bclerk\b[^.;]{0,80}?\b(?:close|terminate)\s+(?:this\s+|the\s+)?(?:case|action|file|matter)\b"
+    r"(?!\s+no\.?\s+\S+\s+(?:ecf|dkt|doc)\b)|"
+    r"\bclerk\b[^.;]{0,80}?\b(?:case|action|file|matter)\s+(?:as\s+)?closed\b|"
+    r"\border\s+(?:of\s+dismissal|(?:dismissing|transferring|remanding)\s+"
+    r"(?:this\s+|the\s+)?(?:case|action))\b|\bdismissal\s+order\b|"
+    r"\b(?:case|action)\s+(?:is\s+)?(?:hereby\s+)?discontinued\b|\border\s+of\s+discontinuance\b|"
+    r"\btransferring\s+(?:this\s+|the\s+)?(?:case|action|claims)\b|^\s*notice\s+of\s+settlement\b|"
+    r"^\s*(?:clerk['\u2019]?s\s+|final\s+)?judgment\b(?!\s+on\s+the\s+pleadings)|"
+    r"\bjudgment\s+(?:shall\s+|is\s+|will\s+)?(?:be\s+)?enter|\bjs-?6\b",
     re.I,
 )
+
+
+def _sentences(text: str) -> list[str]:
+    return [part for part in _SENTENCE_END.split(text) if part]
+
+
+def _action_over(text: str) -> bool:
+    """Whether a docket text says the action is over, in the present."""
+    for sentence in _sentences(text):
+        found = _ACTION_OVER.search(sentence)
+        if (
+            found is not None
+            and not _CONDITIONAL.search(sentence[: found.start()])
+            and not _NOT_OVER_BEFORE.search(sentence[: found.start()])
+            and not _NOT_OVER_AFTER.match(sentence, found.end())
+            and not re.search(r"\b(?:not|no)\b", found.group(0), re.I)
+        ):
+            return True
+    return False
+
+
+def action_over_signal(
+    entries: Iterable[Mapping[str, Any]], *, after: int | None = None
+) -> Citation | None:
+    """The first entry that may show the action over, or ``None``.
+
+    Wider than :func:`resolve_judgment`, and resolving nothing: a closure
+    (:func:`find_closure`), or the court's or the clerk's notation, on an
+    entry that is not a party's filing or the court of appeals', that the
+    case is closed, terminated, dismissed, transferred, remanded or in
+    judgment. A sentence that states it as a condition ("if no amended
+    complaint is filed, the Clerk shall close the case") is not one. With
+    ``after``, only the notations entered after that entry are read: a motion
+    filed in an action is not disposed of by what the docket said before it.
+    """
+    listed = _ordered(entries) if after is None else _after(list(entries), after)
+    closure = find_closure(listed)
+    if closure is not None:
+        return cite(closure)
+    for entry in listed:
+        text = _clean(_entry_text(entry))
+        if _APPELLATE.search(text) or _PARTY_FILING.search(text):
+            continue
+        if _action_over(text):
+            return cite(entry)
+    return None
+
+
+def _own_cited(text: str, own: int) -> list[int]:
+    """Where ``text`` names entry ``own``, in any form a docket uses."""
+    found = []
+    for match in _ENTRY_NUMBER.finditer(text):
+        if int(match.group(1)) != own:
+            continue
+        if _MONTH_BEFORE.search(text[max(0, match.start() - 14) : match.start()]):
+            continue
+        if re.match(r"\s*,\s*\d{4}\b|-cv-|-\d", text[match.end() :]):
+            continue
+        found.append(match.start())
+    return found
+
+
+#: How far a ruling word may stand from what it rules on.
+_REACH: Final = 160
+
+
+def _rules_near(text: str, anchors: list[tuple[int, int]]) -> bool:
+    """Whether a ruling word stands by one of ``anchors`` with nothing between.
+
+    "By" is within :data:`_REACH` characters either side, in either order
+    ("denying the motion to dismiss", "the motion to dismiss is denied"), and
+    "nothing between" is no procedural subject and no condition in the text
+    from one to the other: "GRANTS three more pages for the motion to
+    dismiss" rules on pages. What stands outside the two (a conference set in
+    the same order) does not matter, with three exceptions: a condition just
+    before the pair ("may result in the motion being granted"); a procedural
+    subject the motion's name hangs from ("argument on the motion to dismiss
+    is denied"); and a ruling whose sentence ended before the motion was
+    named ("Application granted. The motion to dismiss is due"). A
+    recommendation in an order of referral is where the motion was sent, not
+    what was recommended. A ruling word that opens a condition
+    ("will be denied if") is not a ruling, and one that is itself the anchor
+    ("the complaint is dismissed", for a motion to dismiss) is one unless its
+    own sentence states a condition before it ("why this action should not be
+    dismissed").
+    """
+    referral = _REFERRAL.search(text) is not None
+    rulings = [
+        (m.start(), m.end())
+        for m in _NET_RULING_WORD.finditer(text)
+        if not _THEN_CONDITION.match(text, m.start())
+        and not (referral and m.group(0).lower().startswith("recommend"))
+    ][:60]
+    for start, end in anchors[:60]:
+        for ruling, ruling_end in rulings:
+            first = min(start, ruling)
+            if _HYPOTHETICAL.search(text[max(0, first - 30) : first]):
+                continue
+            if ruling < end and start < ruling_end:
+                sentence = _SENTENCE_END.split(text[max(0, ruling - _REACH) : ruling])[-1]
+                if not _HYPOTHETICAL.search(sentence):
+                    return True
+                continue
+            passive = start < ruling
+            low, high = (end, ruling) if passive else (ruling_end, start)
+            if high - low > _REACH:
+                continue
+            between = _HELD_FOR_DECISION.sub(" ", text[low:high])
+            if _NET_OTHER_SUBJECT.search(between) or _HYPOTHETICAL.search(between):
+                continue
+            apart = len(_SENTENCE_END.split(between)) > 1
+            if apart and not passive:
+                continue
+            if not apart and passive and _LEADS_UP.search(text[max(0, start - _REACH) : start]):
+                continue
+            return True
+    return False
+
+
+def _may_rule(text: str, event: MotionEvent) -> bool:
+    """Whether one later entry's text may rule on motion ``event``."""
+    own = event.entry_number
+    if _STANDING_ORDER.search(text):
+        return False
+    ruled = {int(m.group(1)) for m in _RULES_ON_NUMBER.finditer(text)}
+    for run in _LIST_IS_RULED.finditer(text):
+        ruled.update(int(n) for n in re.findall(r"\d+", run.group(1)))
+    if own in ruled:
+        return True
+    # Rulings the entry places on another numbered entry are set aside, clause
+    # by clause, so an order granting an extension "re" the motion, or ruling
+    # on a neighbouring motion, leaves nothing behind. The motion's number
+    # joined to such a clause ("granting 58 and 45") is ruled on with it.
+    rest = _RULES_ON_NUMBER.sub("\x00", _LIST_IS_RULED.sub("\x00", text))
+    rest = _NUMBER_IS_RULED.sub(lambda m: m.group(0) if int(m.group(1)) == own else "\x00", rest)
+    if re.search(rf"\x00\s*(?:,|&|and|,\s*and)\s*[\[(#]?\s*{own}\b(?![\d/])", rest):
+        return True
+    cites = [(at, at + 1) for at in _own_cited(rest, own)]
+    others = {int(a or b) for a, b in _CITED_ENTRY.findall(rest) if int(a or b) != own}
+    kinds = [m.span() for m in _NET_KIND[event.moment].finditer(rest)]
+    # A ruling by the motion's number or its kind; or the court's order on the
+    # motion that says no more.
+    quiet = not _NET_OTHER_SUBJECT.search(rest)
+    bare_order = _NET_ORDER_ON.search(rest) is not None and bool(cites or kinds) and quiet
+    if bare_order or _rules_near(rest, cites) or _rules_near(rest, kinds):
+        return True
+    if others or "\x00" in rest:
+        return False
+    # On an entry that names no other entry: a ruling on "the motion", where
+    # what the motion is for, if the entry goes on to say, is nothing
+    # procedural; or an opinion, a decision or findings of fact.
+    bare = [
+        m.span()
+        for m in re.finditer(
+            r"\bmotions?\b(?!\s+to\b|\s+for\s+(?!(?:the\s+)?(?:foregoing\s+)?reasons\b))",
+            rest,
+            re.I,
+        )
+        if not _NET_OTHER_SUBJECT.search(
+            _HELD_FOR_DECISION.sub(" ", _SENTENCE_END.split(rest[m.end() : m.end() + _REACH])[0])
+        )
+    ]
+    opinion = _OPINION_ENTRY.search(rest) or _FINDINGS.search(rest)
+    return opinion is not None or _rules_near(rest, bare)
+
+
+def _withdraws(text: str, event: MotionEvent) -> bool:
+    """Whether a party's filing withdraws motion ``event``, in any wording."""
+    if not re.search(r"\bwithdr[ae]w", text, re.I) or re.search(
+        r"\battorney|\bcounsel", text, re.I
+    ):
+        return False
+    cited = bool(_own_cited(text, event.entry_number))
+    return cited or _NET_KIND[event.moment].search(text) is not None
 
 
 def motion_disposal_signal(
@@ -1059,44 +1351,50 @@ def motion_disposal_signal(
 ) -> Citation | Literal["motion-entry-absent"] | None:
     """What on this docket may already dispose of motion ``event``, or ``None``.
 
-    The reading a forward cell is refused on, and the opposite bias from
-    :func:`resolve_motion`: that one records an outcome and so passes over
-    whatever it cannot read exactly, this one asks whether an outcome may be
-    legible at all and so answers on any sign of one. It resolves nothing.
-
     A sign is the motion's own entry missing from ``entries``; an entry that
-    closes the action (:func:`find_closure`, a final judgment, a clerk's
-    notation that the case is closed, terminated or dismissed); or a court
-    entry after the motion that either rules on a motion of its kind in so
-    many words, with no number, or cites its number beside a ruling word and
-    names nothing procedural (an extension, a hearing, a page limit, a
-    stipulation, a stay). An order that sets a hearing on the motion, or
-    extends its briefing, is no sign.
+    may show the action over (:func:`action_over_signal`); a notice
+    withdrawing the motion or voluntarily dismissing; for a motion to dismiss,
+    an amended complaint filed after it; an entered preliminary
+    injunction; an order adopting a magistrate judge's report; or an entry
+    after the motion, not a party's filing or the court of appeals', that may
+    rule on it. Such an entry carries a ruling word standing by the motion's
+    number, by its kind or the relief it asks for, or, on an entry that cites
+    no other entry and has no ruling set aside, by "the motion" not named as
+    another kind, with no procedural subject and no condition between the
+    two (:func:`_rules_near`); or it is the court's bare order on the motion;
+    or it is an opinion, a decision or findings of fact on such an entry. A
+    ruling the entry places on another numbered entry is set aside first, so
+    an order that sets a hearing on the motion, extends its briefing, or
+    rules on a neighbouring motion is no sign, while the motion's number
+    joined to such a ruling, or standing in a list a ruling follows, is one.
+    The court's standing or scheduling
+    order is never one.
     """
     listed = list(entries)
     if not any(_number(e) == event.entry_number for e in listed):
         return "motion-entry-absent"
-    closure = find_closure(listed)
-    if closure is not None:
-        return cite(closure)
-    kind = _KIND_RULED[event.moment]
+    over = action_over_signal(listed, after=event.entry_number)
+    if over is not None:
+        return over
     for entry in _after(listed, event.entry_number):
-        text = _clean(_entry_text(entry))
-        if _APPELLATE.search(text):
-            continue
-        if _ACTION_OVER.search(text):
-            return cite(entry)
-        if not _is_court_entry(text):
-            continue
-        if kind.search(text) is not None:
-            return cite(entry)
-        if (
-            _cites(text, event.entry_number)
-            and _RULING_WORD.search(text)
-            and not _PROCEDURAL.search(text)
-        ):
+        if _entry_may_dispose(_clean(_entry_text(entry)), event):
             return cite(entry)
     return None
+
+
+def _entry_may_dispose(text: str, event: MotionEvent) -> bool:
+    """Whether one entry after the motion may dispose of motion ``event``."""
+    if _APPELLATE.search(text):
+        return False
+    if _VOLUNTARY_DISMISSAL.search(text):
+        return True
+    if event.moment is TrialMoment.dismissal and _NEXT_PLEADING.search(text):
+        return True
+    if _PARTY_FILING.search(text):
+        return _withdraws(text, event)
+    if event.moment is TrialMoment.preliminary_injunction and _ENTERED_INJUNCTION.search(text):
+        return True
+    return _ADOPTS_REPORT.search(text) is not None or _may_rule(text, event)
 
 
 # --- resolving a motion ------------------------------------------------------
