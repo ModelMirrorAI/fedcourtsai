@@ -72,7 +72,7 @@ set months later or not held.
 or its deadline has passed with none.
 
 **An appeal already open when the stage registers** follows the trial stage's
-rule: briefing closed and no disposition yet opens it on the day the slice is
+rule: briefing closed and no disposition yet opens it on the day its moment is
 switched on, as a forward event; a disposed appeal opens nothing.
 
 **No horizon.** An appeal can sit for a year after argument. The event stays
@@ -254,7 +254,7 @@ describe a different population from a hand-picked list.
 `fedcourts ai-watchlist-check` (`pipeline/ai_follow_ons.py`) reports each
 SCOTUS corpus row whose lower court and docket number are a listed docket's
 own. Nothing records a link, tags the petition or plans a forecast from it.
-The rule below registers with the watchlist slice.
+The rule below registers under the watchlist slice's process.
 
 **The link.** A petition for certiorari or an application to the Court arises
 from a listed case when the lower court and docket number it names are a
@@ -309,7 +309,7 @@ recorded per cell and read by every figure reader
 ([process-version.md](process-version.md) lists them), the watchlist's process
 to carry the Court's moments and prompt text under its own digest and counting
 windows, and those three invariants restated for a linked petition. None of
-that is built, and each is part of the change that switches the slice on.
+that is built, and each is part of the change that registers this rule.
 
 ## Out of scope
 

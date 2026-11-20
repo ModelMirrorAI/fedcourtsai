@@ -2372,7 +2372,10 @@ cert and interim readings can differ by grading date. The prompt
 change moves **every** evaluate digest, not only this grade's: the existing
 `reasoning_quality`, `big_case` and agreement readings start new signatures at
 that boundary, which is the cost of asking for the grade inside the evaluate
-cell.
+cell. A prediction slice's labels run in their own sequence, so a slice's
+judges are asked the grade from the slice's own floor label, `ai-watchlist-v1`
+for the AI-watchlist slice (`SLICE_PREDICTED_REASONING_GRADE_FROM` in
+`validate.py`).
 
 The already-resolved forward documents are graded **once**, in new evaluation
 runs stamped with the grading's process version; committed evaluations are

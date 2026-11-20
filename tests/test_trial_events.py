@@ -1,7 +1,7 @@
 """The trial stage's watchlist pass (``pipeline/trial_events.py``) and its adjudication list.
 
-No trial moment is switched on, so the cases that write an event switch the
-declared moments on for the test alone.
+The cases that write an event switch the declared moments on from a day of
+the test's own, so no case reads the committed switch-on day.
 """
 
 from __future__ import annotations
@@ -102,18 +102,18 @@ def stored(event_id: str, *, opened_at: date = SWITCHED_ON, resolved: bool = Fal
 # --- the declaration ----------------------------------------------------------
 
 
-def test_no_declared_moment_is_switched_on() -> None:
+def test_every_declared_moment_is_switched_on_with_its_day() -> None:
     assert all(
-        not spec.forecastable and spec.opens_from is None for spec in moments.DECLARED_TRIAL_MOMENTS
+        spec.forecastable and spec.opens_from is not None for spec in moments.DECLARED_TRIAL_MOMENTS
     )
 
 
 def test_the_switch_and_its_day_are_set_together() -> None:
     spec = moments.DECLARED_TRIAL_MOMENTS[0]
     with pytest.raises(ValueError, match="set together"):
-        dataclasses.replace(spec, forecastable=True)
+        dataclasses.replace(spec, forecastable=False)
     with pytest.raises(ValueError, match="set together"):
-        dataclasses.replace(spec, opens_from=SWITCHED_ON)
+        dataclasses.replace(spec, opens_from=None)
     with pytest.raises(ValueError, match="not a declared trial moment"):
         moments.trial_spec(Moment.grant)
 

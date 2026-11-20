@@ -20,7 +20,8 @@ from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
-from fedcourtsai.registry import enabled_evaluators
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import evaluators_for
 from fedcourtsai.review_hold import MeasuredSpend, ReviewHoldConfig
 from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
@@ -122,7 +123,9 @@ def _env(
 
     ``slices`` writes ``predict.slices`` (left out, the key is absent, as in a
     config that predates it) beside :data:`_SLICE_WATCHLIST`, the hermetic
-    watchlist the ``ai-watchlist`` slice reads.
+    watchlist the ``ai-watchlist`` slice reads, and gives each named slice a
+    roster of one actor, ``<slice>-actor``, in place of the committed slice
+    actors; the Court's roster is the committed one either way.
     """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
@@ -135,9 +138,16 @@ def _env(
         tracking += f"  slices: [{', '.join(slices)}]\n"
         (config_root / "ai-watchlist.yaml").write_text(_SLICE_WATCHLIST)
         # A slice's dockets go to the slice's own actors, so each enabled slice
-        # gets one: the registry's first entry again, under the slice's name.
+        # gets exactly one: the Court's actors are kept, the committed slice
+        # actors are left out, and the registry's first entry stands in again
+        # under the slice's name.
         for name, section in (("predictors.yaml", "predictors"), ("evaluators.yaml", "evaluators")):
             registry = yaml.safe_load((config_root / name).read_text())
+            registry[section] = [
+                actor
+                for actor in registry[section]
+                if actor.get("population", SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+            ]
             registry[section] += [
                 dict(registry[section][0], id=f"{slice_id}-actor", population=slice_id)
                 for slice_id in slices
@@ -3125,7 +3135,10 @@ def test_evaluate_matrix_with_no_body_file_derives_its_cases_from_the_backlog(
     # from the cells would let an evaluator silently vanishing from every cell
     # shrink both sides together and still pass.
     judges = {
-        e.id for e in enabled_evaluators(Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML)
+        e.id
+        for e in evaluators_for(
+            Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML, SCOTUS_POPULATION_KEY
+        )
     }
     assert minted == {(d, j) for d in (24001, 24002) for j in judges}
 
@@ -3290,7 +3303,9 @@ def test_force_is_refused_with_the_backlog(tmp_path: Path) -> None:
     nothing — so it is refused instead."""
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
     _resolve(env, "scotus/24001")
-    for evaluator in enabled_evaluators(Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML):
+    for evaluator in evaluators_for(
+        Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML, SCOTUS_POPULATION_KEY
+    ):
         seed_evaluation(tmp_path / "data", "scotus", 24001, EVENT, evaluator_id=evaluator.id)
 
     result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID", "--force"], env=env)

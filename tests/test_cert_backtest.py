@@ -50,9 +50,10 @@ from fedcourtsai.pipeline.runner import (
     StubRunner,
     get_runner,
 )
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
 from fedcourtsai.pricing import DEFAULT_MODELS
 from fedcourtsai.provision import redact_snapshot, truncate_snapshot
-from fedcourtsai.registry import enabled_predictors
+from fedcourtsai.registry import enabled_predictors, predictors_for
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -692,8 +693,12 @@ def test_replay_runs_the_stub_engine_over_redacted_snapshots(
     unavailable = outcome.unavailable
     assert unavailable == []  # the stub is always available
 
-    # One replayed backtester per enabled predictor, each covering the whole set.
-    expected = {p.id for p in enabled_predictors(Path("config") / "predictors.yaml")}
+    # One replayed backtester per predictor of the Court's population, each
+    # covering the whole set; a slice's predictor replays no cert petition.
+    expected = {
+        p.id for p in predictors_for(Path("config") / "predictors.yaml", SCOTUS_POPULATION_KEY)
+    }
+    assert expected
     assert {b.id for b in backtesters} == expected
     report = run_cert_backtest(backtesters, items)
     assert report.events_scored == 1
@@ -1574,10 +1579,14 @@ def test_cli_writes_valid_report_with_stub_replay(
     report = read_model(out, CertBacktest)
     assert report.stratum == "retrospective"
     assert report.events_scored == 1
-    # Offline baselines plus every enabled predictor.
+    # Offline baselines plus every predictor of the Court's population, and no
+    # predictor of a slice's.
     ids = {e.predictor_id for e in report.entries}
     assert {"constant-denied", "prior-vote"} <= ids
-    assert {p.id for p in enabled_predictors(Path("config") / "predictors.yaml")} <= ids
+    fleet = enabled_predictors(Path("config") / "predictors.yaml")
+    court = {p.id for p in fleet if p.population == SCOTUS_POPULATION_KEY}
+    assert court and court <= ids
+    assert {p.id for p in fleet if p.population != SCOTUS_POPULATION_KEY}.isdisjoint(ids)
     assert "always-deny floor" in result.output
     # Every replayed petition's clock rides the provenance, and its arm keys the
     # per-arm denial count beside the mix.

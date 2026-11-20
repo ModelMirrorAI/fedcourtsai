@@ -7,10 +7,12 @@ resolver (:mod:`fedcourtsai.pipeline.trial_resolver`) and does three things:
 
 - **Opens** the event of a motion that is fully briefed and that the court has
   not ruled on, and the final-disposition event of a listed case that is still
-  open. Only a moment that is switched on is written
+  open. Only a moment that is switched on by the day read is written
   (:class:`~fedcourtsai.pipeline.moments.TrialMomentSpec`); for a moment that
-  is not, the pass reports what it would open and writes nothing. An event
-  opens no earlier than the day its moment was switched on.
+  is not, the pass reports what it would open and writes nothing. Every
+  declared moment is switched on from
+  :data:`~fedcourtsai.pipeline.moments.TRIAL_SWITCH_ON`, and an event opens no
+  earlier than that day.
 - **Resolves** an event it wrote, when the resolver reads the ruling or a
   maintainer has recorded it (:mod:`fedcourtsai.trial_adjudications`): the
   outcome is written beside the event and the event is closed.

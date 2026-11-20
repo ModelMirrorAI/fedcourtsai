@@ -3,6 +3,10 @@
 # event (evaluator x predictor fan-out). Quantitative scores (correctness,
 # Brier, vote accuracy) are computed identically in code; evaluators add the
 # qualitative judgment of the predictor's own rationale (`reasoning.md`).
+# An evaluator grades the dockets of one prediction population (`population`,
+# the Court's `scotus` unless the entry names a slice from
+# src/fedcourtsai/prediction_slices.py), and there it scores the predictors of
+# that same population and no other.
 
 # Tool manifest: same shape and rules as config/predictors.yaml —
 # pinned MCP servers, referenced per evaluator by id, echoed into each cell's

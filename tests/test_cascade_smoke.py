@@ -46,7 +46,8 @@ from fedcourtsai.pipeline.semantic import (
     ordinal,
     summarize_semantic_grades,
 )
-from fedcourtsai.registry import enabled_evaluators, evaluators_for
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import evaluators_for
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
@@ -570,7 +571,11 @@ def test_stub_scheduled_evaluate_round_smoke(
     assert {(cell["court"], cell["docket"], cell["event_id"]) for cell in planned} == {
         (court, docket, BACKLOG_EVENT)
     }
-    judges = {evaluator.id for evaluator in enabled_evaluators(CONFIG_ROOT / "evaluators.yaml")}
+    judges = {
+        evaluator.id
+        for evaluator in evaluators_for(CONFIG_ROOT / "evaluators.yaml", SCOTUS_POPULATION_KEY)
+    }
+    assert judges
     assert {str(cell["evaluator_id"]) for cell in planned} == judges
     assert {cell["run_id"] for cell in planned} == {RUN}
 

@@ -22165,3 +22165,158 @@ freeze commit is recorded here.
     data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
     sort -u` prints `sal-v9` (and `null` on an unbanded cell), and 26-630's
     arrival cell freezes `band` `federal`.
+
+- **`ai-watchlist-v1`, the AI-watchlist slice's district-court forecasts are
+  switched on; recorded 2026-11-20.**
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/ai-watchlist-v1`**. The first label of a prediction slice, and
+  the first registration of the trial stage
+  ([trial-stage.md](trial-stage.md), the design this entry cites as it reads
+  at the carrying merge). Registered under the merge-stamped rule, so its
+  counting instant, its six bless moments and the opening of its three
+  windows are the carrying merge's committer time. **No Supreme Court
+  registration moves:** `proc-v24` stays the Court's label, its six digests
+  and its windows are unchanged, `FROZEN_SINCE` is unchanged, and no
+  committed prediction or grading is re-stamped or re-scored. No harness
+  boundary is registered here: no slice cell exists on the other side of
+  one.
+
+  **What is switched on.**
+  - *The slice.* `predict.slices` in `config/tracking.yaml` names
+    `ai-watchlist`, so the predict and evaluate queues admit the district
+    dockets `config/ai-watchlist.yaml` lists, on their trial events and on
+    nothing else.
+  - *The five moments.* `trial-dismissal`, `trial-class`,
+    `trial-summary-judgment`, `trial-preliminary-injunction` and
+    `trial-judgment` are forecastable from **2026-12-01**
+    (`pipeline.moments.TRIAL_SWITCH_ON`). A motion event opens on the later
+    of the day its briefing closed and that day; the final-disposition event
+    opens on the day the pass first writes it. A motion the court ruled on
+    before the pass first read it is never written.
+  - *Six actors, all of the `ai-watchlist` population.* Predictors
+    `claude-trial`, `codex-trial` and `gemini-trial` read
+    `.github/prompts/predict-trial.md`; judges `claude-trial-judge`,
+    `codex-trial-judge` and `gemini-trial-judge` read
+    `.github/prompts/evaluate-trial.md`. Each runs its engine's default
+    model at this commit (`claude-fable-5-2`, `gpt-6.2-astra`,
+    `gemini-4-carbon`) with the CourtListener MCP server, as the Court's six
+    do. Each judge grades the slice's three predictors and no other.
+  - *The rules in force.* The opener is `trial-opener-v2` and the resolver
+    `trial-resolver-v3`. The claim sets are `trial-motion-v1`,
+    `trial-dismissal-v1` and `trial-judgment-v1`. Nothing is voided: a
+    withdrawn or mooted motion resolves the headline claim at 0.
+
+  **Digests.**
+
+  | Actor | Digest |
+  | --- | --- |
+  | `claude-trial` | `sha256:3623c5472544b747bd2f7153cd95bae65b945a67586000c242aead7598cdd38e` |
+  | `codex-trial` | `sha256:bb19b96cc22aed2a42b0072b4afec0f2cc6a36f986e5289464f50f1bfd1b52af` |
+  | `gemini-trial` | `sha256:d004dffda95f9b6bde6173cdc057a68b4d490150385c9e6fd172d1ccdcede7fb` |
+  | `claude-trial-judge` | `sha256:4d0565c9bdc54dd38710c2e09a4a5a6aa44af27fc51765185d68225981f667a9` |
+  | `codex-trial-judge` | `sha256:cfed0292db775c3ed4290460e8a7d8b510d1e615d8dddd37b698da6c53ed630d` |
+  | `gemini-trial-judge` | `sha256:ac45e15e5d944d4b38ac47eb4660d368c9ca0db035515704b1ad2c6eb8b904df` |
+
+  **Why.** The maintainer chose on 2026-11-19 to register the trial stage
+  ahead of the appeal stage, and on 2026-11-20 to run all three engines on
+  the slice. The slice is the list the public AI-cases feed already
+  follows; no case was picked for forecasting.
+
+  **Pre-registered.**
+  - *No base rate and no skill figure.* The stage registers no base rate.
+    Two published Federal Judicial Center figures are given to a cell as
+    context, as [trial-stage.md](trial-stage.md) *Base rates* states them:
+    for `trial-dismissal`, granted 46%, granted in part 29%, denied 25%
+    (1,221 orders on Rule 12(b)(6) motions in 23 districts in 2010); for
+    `trial-summary-judgment`, granted 48%, granted in part 15%, denied 36%
+    (18,831 motions in civil cases terminated in fiscal year 2006). The
+    other three moments have none. Both describe general civil litigation,
+    a different population from a hand-curated list of AI cases, so **no
+    skill-over-base-rate figure is reported for the slice** and every
+    base-rate field of a trial grading is null. No claim has a baseline, so
+    none is scored under the claim rule.
+  - *What is scored.* `correct` and the Brier score on each event's
+    headline binary (a motion granted in whole or in part; judgment for the
+    plaintiff or mixed), the Brier score recomputed by the stamp from the
+    committed forecast and outcome. The distribution claims are collected
+    and resolved, not scored.
+  - *No direction is predicted* for any predictor, and no comparison of
+    the slice with the Court's docket is registered: the two populations
+    never pool, and a predictor id of the slice has no window on the Court.
+  - *Small and selected.* The list is 18 cases, chosen by hand for their
+    subject. A figure over the slice describes those cases and is not an
+    estimate for district courts or for AI litigation at large.
+  - *The judge may read the court's own order.* A ruling's docket text is
+    often one line, so a slice judge may read the order that decided its
+    event, in the snapshot or else through CourtListener, to grade what a
+    forecast said of the ground, and nothing else: no brief, report or
+    commentary. A claim the order cannot settle stays unresolved.
+  - *The Court's label thresholds do not reach a slice label.* Every
+    `*_FROM` threshold keyed on a `proc-vN` ordinal reads false for
+    `ai-watchlist-v1`. None of them governs a trial cell today. The one
+    grade a slice judge owes by label, `predicted_reasoning_quality`, is
+    asked from the slice's own floor, `ai-watchlist-v1`
+    (`validate.SLICE_PREDICTED_REASONING_GRADE_FROM`). A slice that later
+    gains a moment of the Court's stages needs its thresholds stated for
+    its own labels first.
+
+  **The masking surface.** A slice judge grades blind as the Court's do.
+  The identity scrub reads every registered actor id, so the six new ids
+  join the terms masked in every evaluate cell, the Court's included; no
+  committed Court artifact was found to hold one. The candidate set a slice
+  judge sees is the slice's three predictors.
+
+  **Step 0.** At `origin/main` `a8b3d7bfd`, the count of committed files
+  under `data/cases` naming `sha256:<digest>` is **0** for each of the six
+  newly blessed digests, **4625** files there carry a `process_version`
+  stamp, and `data/cases` holds no directory but `scotus`.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-trial` (`3623c547…`) | `ai-watchlist-v1` | this label's instant | open (new) |
+  | `codex-trial` (`bb19b96c…`) | `ai-watchlist-v1` | this label's instant | open (new) |
+  | `gemini-trial` (`d004dffd…`) | `ai-watchlist-v1` | this label's instant | open (new) |
+
+  No window closes, so no successor disclosure is owed. The registry holds
+  48 windows where it held 45.
+
+  **The motions already open that day, provisional.** The pass run in a
+  scratch copy with the read day set to 2026-12-01, over the corpus blob
+  `44a01acdb1f2` (newest pull stamp 2026-11-20) and an empty ledger: 26
+  dockets read, **17 events opened** on 15 dockets (2 `trial-dismissal`, 1
+  `trial-summary-judgment`, 14 `trial-judgment`), **8 held** because a
+  stored entry may already decide them (4 `trial-dismissal`, 2
+  `trial-preliminary-injunction`, 2 `trial-judgment`), none resolved, none
+  to triage, no docket failed. Every one of the 17 would open dated the
+  switch-on day. The dockets are read again daily until then, so the count
+  on the day may differ; the pass's own report on its first run from
+  2026-12-01 is the count of record, and a dated follow-up entry quotes it.
+
+  **Not exercised before this registration.** No engine has run a slice
+  cell: the paid smoke and the local cascade run the Court's actors only.
+  What was executed is the pass above; the predict plan over its output,
+  which mints 51 slice cells (17 events by three predictors) beside the
+  Court's and routes none of either population to the other's actors; and
+  provisioning of three of those cells, whose snapshots are 2.3, 5.5 and
+  18.6 MB. The first real round is priced over the unattended-release cap
+  per round, so it waits for the maintainer's release.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run fedcourts process-digest --all` prints `proc-v24`
+    with the Court's six digests unchanged and `ai-watchlist-v1` with the
+    six above;
+  - `jq '.labels[-1]' src/fedcourtsai/process_registry.json` is the
+    `ai-watchlist-v1` row with `population` `ai-watchlist` and a stamped
+    `since`, and `uv run fedcourts promotion-record --check-main
+    origin/main` reports no pending row a merge has carried;
+  - on the first pull window's watchlist refresh from 2026-12-01, the
+    run's log line `trial events (trial-opener-v2, trial-resolver-v3)`
+    reports events opened, and `git ls-tree -d --name-only origin/main
+    data/cases/` lists district courts beside `scotus`;
+  - on the first predict round after that, the collect PR holds
+    `prediction.json` files under `data/cases/<district>/` from the three
+    `-trial` predictors only, each stamped `ai-watchlist-v1`, and
+    `uv run fedcourts validate data` passes.

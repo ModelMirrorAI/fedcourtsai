@@ -455,7 +455,7 @@ class TrialMomentSpec:
 
     ``forecastable`` is the same switch :class:`MomentSpec` carries: a moment
     declared here mints no cell until it is switched on. ``opens_from`` is the
-    day it was switched on, set with the switch and never without it: the
+    day it is switched on from, set with the switch and never without it: the
     watchlist pass writes no event of a moment that has none, and an event it
     does write opens no earlier than that day, since a motion briefed before
     the registration is forecast from the registration
@@ -483,7 +483,7 @@ class TrialMomentSpec:
         return Stage.trial
 
 
-#: The day the trial moments were switched on: the first day the watchlist pass
+#: The day every declared trial moment is switched on from: the first day the watchlist pass
 #: writes their events and the predict fan-out forecasts them. A motion briefed
 #: before it and still undecided opens on it.
 TRIAL_SWITCH_ON = date(2026, 12, 1)

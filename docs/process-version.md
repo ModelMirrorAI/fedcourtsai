@@ -271,9 +271,9 @@ ledger walks) reads one population, the SCOTUS docket unless a caller names a
 prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
 enter a SCOTUS figure; the ops report's ledger census (`store.ledger_cell_counts`)
 keeps to the SCOTUS population too, so its funnel counts one population. The
-ops report's leakage digest is a diagnostic and reads every population. While
-no slice is switched on and every committed cell
-sits under `data/cases/scotus/`, the guard moves no figure.
+ops report's leakage digest is a diagnostic and reads every population. The
+`ai-watchlist` slice is switched on, and the guard is what keeps its cells,
+committed under their own courts' directories, out of every SCOTUS figure.
 
 **A prediction slice is its own process.** A slice runs its own moments and
 its own prompt text (the circuit's panel rules, the trial court's motion-level
@@ -281,8 +281,9 @@ outcomes), so its cells carry digests no SCOTUS cell carries, under a label of
 the slice's own that opens counting windows of its own. That is what keeps a
 slice from moving a SCOTUS figure: switching one on re-blesses no SCOTUS
 digest, and a SCOTUS window never holds a slice cell. Two slices never share a
-label, so they never pool either. No slice process is registered yet. The
-first is registered in the change that switches its slice on, with a dated
+label, so they never pool either. One slice process is registered, the
+`ai-watchlist` slice's under `ai-watchlist-v1`. A slice's first label is
+registered in the change that switches the slice on, with a dated
 freeze-record entry like any other label.
 
 The registry holds that separation row by row. A label row names its
@@ -672,8 +673,9 @@ registration of either kind waits behind any other still pending, so a
 promotion carries one label. A change that moves the digests of two
 populations at once (an engine's default model, a shared MCP pin) therefore
 has no single registration while a slice has enabled actors: Step 0 wants
-every enabled actor registered and one new label. No slice has an enabled
-actor. Where a
+every enabled actor registered and one new label. The `ai-watchlist` slice
+has six enabled actors, so such a change has no single registration under the
+one-label-per-promotion rule. Where a
 predictor digest moved, the label's counting instant, its new windows and its
 closes are pending. Where only evaluator digests moved, the label holds its
 predecessor's counting instant (the evaluator-half supersession below), opens

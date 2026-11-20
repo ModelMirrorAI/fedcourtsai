@@ -1,28 +1,32 @@
 # The trial stage
 
-What a district-court forecast is, before any is committed: the moments a
+What a district-court forecast is: the moments a
 trial-court case passes, what each predicts, when each opens, and how each
 resolves. The stage is court-agnostic, so every later district slice reuses it
 rather than minting its own. The first slice to use it is the AI-case watchlist
 (`config/ai-watchlist.yaml`), whose district dockets the corpus already keeps
 current ([data-pipeline.md](data-pipeline.md)).
 
-**Status: designed, not registered.** Nothing here is forecast yet. The stage
-registers under the watchlist slice's own process label, in the sequence
-*How the stage registers* sets out below. Its vocabulary exists: `trial` is a
-`Stage` and the five moments below are `Moment` values (`schemas.py`). The
-moments are declared and switched off in the stage's own table
-(`pipeline/moments.py`), the outcome record has the stage's three fields, and
+**Status: registered and switched on.** The stage is registered under the
+watchlist slice's own process label, `ai-watchlist-v1`, in the sequence
+*How the stage registers* sets out below, and the slice is enabled
+(`predict.slices` in `config/tracking.yaml`). `trial` is a `Stage` and the
+five moments below are `Moment` values (`schemas.py`). All five are switched
+on in the stage's own table (`pipeline/moments.py`) from the day
+`TRIAL_SWITCH_ON` names, the outcome record has the stage's three fields, and
 `validate` holds a trial record to both. Each moment names its claim set
-(`pipeline/claims.py`). No record carries any of it. The slice's two prompts
-are written (`.github/prompts/predict-trial.md`,
-`.github/prompts/evaluate-trial.md`) and no actor reads either: the
-switch-on registers the actors that do, and its entry is dated in
-[freeze-record.md](freeze-record.md).
-Until that entry is dated, this page is the design that entry cites, and a change to it
-needs no re-bless. The opener and the resolver below run in the watchlist
-refresh's pass (`pipeline/trial_events.py`), which writes an event only of a
-moment that is switched on: until one is, it reports what it would open and
+(`pipeline/claims.py`). Six actors of the slice read its two prompts: the
+predictors `claude-trial`, `codex-trial` and `gemini-trial` read
+`.github/prompts/predict-trial.md`, and the judges `claude-trial-judge`,
+`codex-trial-judge` and `gemini-trial-judge` read
+`.github/prompts/evaluate-trial.md`. The registration's entry is dated in
+[freeze-record.md](freeze-record.md). This page is the design that entry
+cites, so a change to a rule here is a change to a registered process and
+needs a re-bless under [process-version.md](process-version.md). The opener
+and the resolver below run in the watchlist refresh's pass
+(`pipeline/trial_events.py`), which writes an event only of a moment that is
+switched on by the day it runs: from `TRIAL_SWITCH_ON` on it writes every
+moment's events, and on an earlier day it reports what it would open and
 writes nothing. Provisioning's forward gates read a trial event by the stage's
 own rules (`provision-snapshot`).
 
@@ -343,8 +347,10 @@ figure waits until the slice's own resolved events can supply a rate.
 ## How the stage registers
 
 The registration is a sequence, and only its last step moves a process digest
-([process-version.md](process-version.md)). Until that step every moment is
+([process-version.md](process-version.md)). Before that step a moment is
 declared and switched off, the pattern the Court's later moments followed.
+All five trial moments are past it: the step registered the slice's label and
+actors and switched each moment on from `TRIAL_SWITCH_ON`.
 
 **The first registration is the trial stage alone.** The appeal stage
 ([appeal-stage.md](appeal-stage.md)) registers after it, under the same slice.
@@ -595,14 +601,16 @@ slice), the predict and evaluate matrices send a slice's docket to the
 slice's actors and every other docket to the Court's, and the Court's
 rosters (its backlogs, its coverage and missed-forecast reads, its
 back-tests) read the Court's actors alone. An entry that names a population
-no code declares is refused when the registry is loaded. No actor names a
-slice. So no Supreme Court digest
+no code declares is refused when the registry is loaded. Six actors name
+the `ai-watchlist` slice, three predictors and three judges, and no other
+actor does. So no Supreme Court digest
 moves when the slice is switched on, and no Court window holds a slice cell.
 The label half is built too: the registry's label rows name their population,
 a slice's label is `<slice>-vN` with a counting instant of its own, and
 `register-process --population` registers it over the slice's actors alone
 (*A prediction slice is its own process* in
-[process-version.md](process-version.md)). No slice label is registered.
+[process-version.md](process-version.md)). The slice's label is
+`ai-watchlist-v1`.
 The freeze-record entry that registers the label states the moments switched
 on, the references above, the motions already open that day, and the opener
 and resolver rule labels in force.

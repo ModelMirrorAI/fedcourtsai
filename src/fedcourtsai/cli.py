@@ -19618,9 +19618,11 @@ def watchlist_refresh_cmd(
     dockets (``docs/trial-stage.md``): it writes the event of a newly briefed
     motion whose moment is switched on and the outcome of an event it wrote
     that the court has since ruled on, and prints each event it sends to
-    triage. While no trial moment is switched on it writes nothing and reports
-    what it would open. The report's ``trial`` block carries identifiers and
-    reasons only. A docket the pass fails on is skipped and named there and on
+    triage. All five trial moments are switched on from ``TRIAL_SWITCH_ON``
+    (``pipeline/moments.py``): the pass writes from that day on, and on an
+    earlier day it writes nothing and reports what it would open. The
+    report's ``trial`` block carries identifiers and reasons only. A docket
+    the pass fails on is skipped and named there and on
     stderr by the error's type; it does not change the exit code, which is the
     refresh's. The district rules and the adjudication list are read before
     the plan, so a file that cannot be read stops the command before any
@@ -20638,8 +20640,9 @@ def trial_events_command(
     only, no docket text) and a three-line reading on stderr.
 
     Read-only: no upstream request, no write to the corpus, the ledger or
-    `data/`. Nothing here is registered or forecast; the trial stage is a
-    design (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
+    `data/`. The survey itself writes and forecasts nothing: the events are
+    written by `watchlist-refresh`'s pass and forecast by the `ai-watchlist`
+    slice's actors (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
     the watchlist, the local rules or `--today` cannot be read.
     """
     settings = get_settings()

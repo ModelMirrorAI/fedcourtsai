@@ -207,12 +207,14 @@ What the step adds:
   petition the gate selects is a SCOTUS case like any other, and one it has
   not selected is forecast in the watchlist's population only
   ([appeal-stage.md](appeal-stage.md#a-listed-case-at-the-supreme-court)).
-  Designed, not built; it registers with the slice.
+  Designed, not built or registered; it registers under the slice.
 - **The AI-cases feed before any forecast.** The feed carries new filings and
   rulings on watchlist dockets, with links to the public record; forecasts are
-  added once the district moments are registered. The feed is live and the
-  district stage is designed and not registered, so the step's model spend so
-  far is the ruling summaries alone, a few cents each.
+  added from the district moments' switch-on day. The feed is live and the
+  district stage is registered under the slice's label `ai-watchlist-v1`, with
+  its moments switched on from the day `TRIAL_SWITCH_ON` names
+  (`pipeline/moments.py`); apart from the slice's forecast and grading cells,
+  the step's model spend is the ruling summaries, a few cents each.
 - **Forecasts on a developer's own case.** Several watchlist cases name as a
   party the developer of one of the project's predictors. A comparison of how
   a predictor forecasts its own developer's cases against the other predictors

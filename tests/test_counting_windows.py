@@ -582,7 +582,7 @@ def test_proc_v24_closes_every_predictor_window_and_opens_one_for_each() -> None
         opened = by_label[("proc-v24", predictor)]
         assert opened.digest == live[predictor] != closed.digest
         assert opened.opens.at == v24 and opened.closes is None
-    assert len(rows) == 45
+    assert len([w for w in rows if process_version.label_ordinal(w.label) is not None]) == 45
 
 
 def test_the_counting_registry_is_well_formed() -> None:

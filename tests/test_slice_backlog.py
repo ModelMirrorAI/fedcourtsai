@@ -17,7 +17,7 @@ from fedcourtsai.pipeline.slice_backlog import (
     derive_slice_evaluate_backlog,
     derive_slice_predict_backlog,
 )
-from fedcourtsai.prediction_slices import Population
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY, Population
 from tests.conftest import seed_evaluation, seed_prediction
 
 SLICE = {"ai-watchlist": Population(key="ai-watchlist", case_ids=frozenset({"cand/101"}))}
@@ -37,8 +37,13 @@ def switched_on(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _registry(tmp_path: Path, name: str, section: str, ids: tuple[str, ...]) -> Path:
-    """The committed registry plus slice actors ``ids``."""
+    """The committed registry's Court actors, with ``ids`` as the slice's whole roster."""
     data = yaml.safe_load(Path("config", name).read_text())
+    data[section] = [
+        actor
+        for actor in data[section]
+        if actor.get("population", SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+    ]
     data[section] += [dict(data[section][0], id=i, population="ai-watchlist") for i in ids]
     path = tmp_path / name
     path.write_text(yaml.safe_dump(data))

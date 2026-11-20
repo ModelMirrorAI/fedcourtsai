@@ -32,10 +32,8 @@ from tests.conftest import seed_evaluation, seed_prediction
 _CONFIG = Path(__file__).resolve().parent.parent / "config"
 
 
-def test_the_committed_config_switches_no_slice_on() -> None:
-    # Groundwork: the mechanism exists, and the committed scope is still the
-    # SCOTUS docket alone.
-    assert load_predict_config(_CONFIG).slices == []
+def test_the_committed_config_switches_the_ai_watchlist_on() -> None:
+    assert load_predict_config(_CONFIG).slices == ["ai-watchlist"]
 
 
 def test_every_registered_slice_reads_a_committed_list_and_no_two_overlap() -> None:
