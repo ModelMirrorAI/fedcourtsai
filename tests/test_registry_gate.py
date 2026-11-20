@@ -25,6 +25,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import process_version
 from fedcourtsai.cli import app
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
 from fedcourtsai.process_registration import LiveActor, register_boundary
 from fedcourtsai.promotion_record import (
     DECLARATION_HEADING,
@@ -627,7 +628,11 @@ def _keep_the_court_s_actors(repo: Path) -> None:
         ("config/evaluators.yaml", "evaluators"),
     ):
         config = yaml.safe_load((repo / path).read_text(encoding="utf-8"))
-        config[key] = [a for a in config[key] if a.get("population", "scotus") == "scotus"]
+        config[key] = [
+            a
+            for a in config[key]
+            if a.get("population", SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+        ]
         assert config[key]
         _write(repo, path, yaml.safe_dump(config, sort_keys=False))
 

@@ -5,8 +5,9 @@ this repository. `CLAUDE.md` points here. Read this fully before doing anything.
 
 ## What this project is
 
-fedcourtsai predicts events in US federal courts — currently SCOTUS dockets
-only (cert grant/deny, votes, reasoning) — as a scheduled pipeline of GitHub
+fedcourtsai predicts events in US federal courts — SCOTUS dockets (cert
+grant/deny, votes, reasoning) and the district-court motions of a short list
+of AI cases — as a scheduled pipeline of GitHub
 Actions; see `docs/pipeline.md`. There are two very different kinds of work,
 and you are doing exactly one of them in any given run: **pipeline
 development** (change the Python package, workflows, docs, schemas, or prompts

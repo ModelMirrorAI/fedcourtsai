@@ -18,7 +18,7 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   — and the whole corpus is assembled precisely so predict/evaluate can **query
   the full history** for retrieval and back-testing, even for cases they never
   predict.
-- **Prediction scope — SCOTUS dockets only.** The agentic predict/evaluate
+- **Prediction scope — SCOTUS dockets and one committed slice.** The agentic predict/evaluate
   stages cost one to two orders of magnitude more than ingestion (see
   [budget.md](budget.md)), so they run on a deliberate subset:
   `predict.scope=scotus_docket` — only cases whose `court == "scotus"` (the

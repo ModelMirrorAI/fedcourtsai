@@ -223,3 +223,19 @@ def test_the_evaluate_prompt_asks_for_the_grade_and_the_pilot_note_does_not() ->
     note = (root / "pilot" / "predicted-reasoning-quality.md").read_text()
     assert "| Grade | Anchor |" not in note
     assert "central_claims" not in note
+
+
+def test_a_slice_judge_is_asked_from_its_slice_s_own_floor() -> None:
+    """A slice label has no ordinal among the Court's, so the Court's floor
+    never reaches it: a slice's judges are asked from the label its own floor
+    names, and a label of no registered slice asks for nothing."""
+
+    def asks(*labels: str) -> bool:
+        return asks_predicted_reasoning_grade(_OLD_JUDGE, blessing_labels={_OLD_JUDGE: labels})
+
+    assert asks("ai-watchlist-v1") and asks("ai-watchlist-v2")
+    assert not asks("ai-watchlist-v0") and not asks("no-such-slice-v3")
+    assert not asks("proc-v15")
+    live = [d for d, labels in EVALUATE_BLESSING_LABELS.items() if "ai-watchlist-v1" in labels]
+    assert len(live) == 3
+    assert all(asks_predicted_reasoning_grade(d) for d in live)

@@ -226,7 +226,8 @@ What the step adds:
   committed slice list, and docket push. The D.C. Circuit slice reuses each.
 
 A case reaches one or two moments in a typical year, so the watchlist is
-roughly 10–40 events a year. Lower-court records are larger than SCOTUS ones,
+roughly 10–40 events a year, the first of them each listed case's
+final-disposition event, which opens on the stage's switch-on day. Lower-court records are larger than SCOTUS ones,
 so a fully evaluated event is estimated at ≈$30–60, to be re-measured on the
 first events: ≈$1–2K of model spend a year. That fits
 the margin the bootstrapping envelope leaves above today's row except at the

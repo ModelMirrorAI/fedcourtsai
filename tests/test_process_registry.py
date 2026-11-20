@@ -460,9 +460,9 @@ GOLDEN_BLESSING_LABELS = {
     "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5": ("proc-v24",),
     "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022": ("proc-v24",),
     "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf": ("proc-v24",),
-    "sha256:4d0565c9bdc54dd38710c2e09a4a5a6aa44af27fc51765185d68225981f667a9": ("ai-watchlist-v1",),
-    "sha256:cfed0292db775c3ed4290460e8a7d8b510d1e615d8dddd37b698da6c53ed630d": ("ai-watchlist-v1",),
-    "sha256:ac45e15e5d944d4b38ac47eb4660d368c9ca0db035515704b1ad2c6eb8b904df": ("ai-watchlist-v1",),
+    "sha256:a13a262f8efeece0faf5e8f1909f2f38dcd2da55eb2fa3d5b911a57ed01bb0ba": ("ai-watchlist-v1",),
+    "sha256:e2a74c7a57a3a95476fa3f19f6786119c39c496da72f556f097834817ca428d1": ("ai-watchlist-v1",),
+    "sha256:656e90b9930605ab0c0841cdf0ee7ad4907f0512f57d2daaef57a0678ccd8cb7": ("ai-watchlist-v1",),
 }
 
 _SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"

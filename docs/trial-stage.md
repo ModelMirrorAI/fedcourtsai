@@ -347,10 +347,10 @@ figure waits until the slice's own resolved events can supply a rate.
 ## How the stage registers
 
 The registration is a sequence, and only its last step moves a process digest
-([process-version.md](process-version.md)). Before that step a moment is
-declared and switched off, the pattern the Court's later moments followed.
-All five trial moments are past it: the step registered the slice's label and
-actors and switched each moment on from `TRIAL_SWITCH_ON`.
+([process-version.md](process-version.md)). A moment is
+declared and switched off until that step, the pattern the Court's later
+moments followed. The five trial moments are switched on from
+`TRIAL_SWITCH_ON`, under the slice's label and actors.
 
 **The first registration is the trial stage alone.** The appeal stage
 ([appeal-stage.md](appeal-stage.md)) registers after it, under the same slice.
@@ -421,9 +421,9 @@ the pass that stores the dockets (`pipeline/trial_events.py`): after the
 dockets are refreshed, the opener and the resolver read every listed district
 docket as stored, a newly briefed motion's event is written, and a ruling the
 resolver reads closes its event with the outcome. Each declared moment
-carries the day it was switched on. The pass writes no event of a moment that
+carries the day it is switched on from. The pass writes no event of a moment that
 has none and reports what it would open; a motion event it writes opens on
-the day its briefing closed, or on the day the moment was switched on where
+the day its briefing closed, or on the day the moment is switched on from where
 that is later, and the final-disposition event opens on the day the pass
 first writes it. A motion the court ruled on before the pass first read it is never
 written, and a member docket opens no motion while its lead docket is not

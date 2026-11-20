@@ -271,7 +271,8 @@ ledger walks) reads one population, the SCOTUS docket unless a caller names a
 prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
 enter a SCOTUS figure; the ops report's ledger census (`store.ledger_cell_counts`)
 keeps to the SCOTUS population too, so its funnel counts one population. The
-ops report's leakage digest is a diagnostic and reads every population. The
+ops report's leakage digest and the tool-usage report (`fedcourts tool-usage`)
+are diagnostics and read every population. The
 `ai-watchlist` slice is switched on, and the guard is what keeps its cells,
 committed under their own courts' directories, out of every SCOTUS figure.
 
@@ -674,8 +675,9 @@ promotion carries one label. A change that moves the digests of two
 populations at once (an engine's default model, a shared MCP pin) therefore
 has no single registration while a slice has enabled actors: Step 0 wants
 every enabled actor registered and one new label. The `ai-watchlist` slice
-has six enabled actors, so such a change has no single registration under the
-one-label-per-promotion rule. Where a
+has six enabled actors, so such a change cannot be registered as the rule stands: it
+waits for the rule to admit one new label for each population in a
+promotion. Where a
 predictor digest moved, the label's counting instant, its new windows and its
 closes are pending. Where only evaluator digests moved, the label holds its
 predecessor's counting instant (the evaluator-half supersession below), opens

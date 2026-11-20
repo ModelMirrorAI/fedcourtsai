@@ -216,7 +216,7 @@
       }
     },
     {
-      "digest": "sha256:3623c5472544b747bd2f7153cd95bae65b945a67586000c242aead7598cdd38e",
+      "digest": "sha256:2f02233129d28e4a4ef84ee669a3f282dd65745fbfb84724e20143654c356595",
       "role": "predictor",
       "actor_id": "claude-trial",
       "label": "ai-watchlist-v1",
@@ -227,7 +227,7 @@
       }
     },
     {
-      "digest": "sha256:bb19b96cc22aed2a42b0072b4afec0f2cc6a36f986e5289464f50f1bfd1b52af",
+      "digest": "sha256:db9f38bd8c1844f068fb2f4fdb16eec0646c33816390e4e7eb86cfd784872cd3",
       "role": "predictor",
       "actor_id": "codex-trial",
       "label": "ai-watchlist-v1",
@@ -238,7 +238,7 @@
       }
     },
     {
-      "digest": "sha256:d004dffda95f9b6bde6173cdc057a68b4d490150385c9e6fd172d1ccdcede7fb",
+      "digest": "sha256:18ea23c9c65685cb5a21d3203997aa1ac1f9448956b9f2afbd684841d7e4a2f6",
       "role": "predictor",
       "actor_id": "gemini-trial",
       "label": "ai-watchlist-v1",
@@ -249,7 +249,7 @@
       }
     },
     {
-      "digest": "sha256:4d0565c9bdc54dd38710c2e09a4a5a6aa44af27fc51765185d68225981f667a9",
+      "digest": "sha256:a13a262f8efeece0faf5e8f1909f2f38dcd2da55eb2fa3d5b911a57ed01bb0ba",
       "role": "evaluator",
       "actor_id": "claude-trial-judge",
       "label": "ai-watchlist-v1",
@@ -260,7 +260,7 @@
       }
     },
     {
-      "digest": "sha256:cfed0292db775c3ed4290460e8a7d8b510d1e615d8dddd37b698da6c53ed630d",
+      "digest": "sha256:e2a74c7a57a3a95476fa3f19f6786119c39c496da72f556f097834817ca428d1",
       "role": "evaluator",
       "actor_id": "codex-trial-judge",
       "label": "ai-watchlist-v1",
@@ -271,7 +271,7 @@
       }
     },
     {
-      "digest": "sha256:ac45e15e5d944d4b38ac47eb4660d368c9ca0db035515704b1ad2c6eb8b904df",
+      "digest": "sha256:656e90b9930605ab0c0841cdf0ee7ad4907f0512f57d2daaef57a0678ccd8cb7",
       "role": "evaluator",
       "actor_id": "gemini-trial-judge",
       "label": "ai-watchlist-v1",
@@ -993,7 +993,7 @@
     },
     {
       "label": "ai-watchlist-v1",
-      "digest": "sha256:3623c5472544b747bd2f7153cd95bae65b945a67586000c242aead7598cdd38e",
+      "digest": "sha256:2f02233129d28e4a4ef84ee669a3f282dd65745fbfb84724e20143654c356595",
       "predictor_id": "claude-trial",
       "opens": {
         "at": null,
@@ -1005,7 +1005,7 @@
     },
     {
       "label": "ai-watchlist-v1",
-      "digest": "sha256:bb19b96cc22aed2a42b0072b4afec0f2cc6a36f986e5289464f50f1bfd1b52af",
+      "digest": "sha256:db9f38bd8c1844f068fb2f4fdb16eec0646c33816390e4e7eb86cfd784872cd3",
       "predictor_id": "codex-trial",
       "opens": {
         "at": null,
@@ -1017,7 +1017,7 @@
     },
     {
       "label": "ai-watchlist-v1",
-      "digest": "sha256:d004dffda95f9b6bde6173cdc057a68b4d490150385c9e6fd172d1ccdcede7fb",
+      "digest": "sha256:18ea23c9c65685cb5a21d3203997aa1ac1f9448956b9f2afbd684841d7e4a2f6",
       "predictor_id": "gemini-trial",
       "opens": {
         "at": null,
@@ -1142,13 +1142,13 @@
     "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf": [
       "proc-v24"
     ],
-    "sha256:4d0565c9bdc54dd38710c2e09a4a5a6aa44af27fc51765185d68225981f667a9": [
+    "sha256:a13a262f8efeece0faf5e8f1909f2f38dcd2da55eb2fa3d5b911a57ed01bb0ba": [
       "ai-watchlist-v1"
     ],
-    "sha256:cfed0292db775c3ed4290460e8a7d8b510d1e615d8dddd37b698da6c53ed630d": [
+    "sha256:e2a74c7a57a3a95476fa3f19f6786119c39c496da72f556f097834817ca428d1": [
       "ai-watchlist-v1"
     ],
-    "sha256:ac45e15e5d944d4b38ac47eb4660d368c9ca0db035515704b1ad2c6eb8b904df": [
+    "sha256:656e90b9930605ab0c0841cdf0ee7ad4907f0512f57d2daaef57a0678ccd8cb7": [
       "ai-watchlist-v1"
     ]
   },
