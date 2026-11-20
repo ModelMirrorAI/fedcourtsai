@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000654",
+  "run_id": "20261120T030648Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "In record/documents/petition.txt (truncated: true, 216 PDF pages), the appendix-trimming heuristic cut 42,173 characters from PDF pages 21-53 as an 'appendix item' while retaining Appendices A-E in full; per the Petition's Table of Contents, PDF pages 21-53 are actually pages 7-36 of the Petition's own Reasons for Granting the Writ (likely triggered by 'Appendix A' appearing earlier in the front-matter Table of Appendices). Impact on this cell was minimal because questions-presented.txt, the Petition's full Table of Contents and Table of Authorities, Appendix H (summary-judgment brief), and decision-below.txt were all intact."
+    }
+  ]
+}
