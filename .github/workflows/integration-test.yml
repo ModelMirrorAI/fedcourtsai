@@ -674,7 +674,8 @@ jobs:
     #
     # The engine deadline, in minutes, on the cells' terms: the engine step's
     # `timeout-minutes` reads it and the arm step derives the watchdog's fire
-    # time from it, a margin earlier. The application-repro leg runs a real
+    # time from it, a margin (and, for a real cell, the completion extension)
+    # earlier. The application-repro leg runs a real
     # evaluate cell, so it carries the cell workflows' value — a
     # workflow-shape test holds the three equal. The engine-actions-smoke
     # legs run the same bracket around a one-word boot probe at 13 minutes —
@@ -1587,8 +1588,8 @@ jobs:
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
-        # The cells' engine deadline; the watchdog armed above fires a margin
-        # earlier and is what ends a step the runner cannot.
+        # The cells' engine deadline; the watchdog armed above fires ahead of
+        # it and is what ends a step the runner cannot.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
@@ -2084,7 +2085,7 @@ jobs:
         id: actions_smoke_claude
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'claude-code' }}
         # The probe's engine deadline (13 minutes on this leg, the watchdog
-        # firing at ten) rather than the cells' fifty: one word is one turn, and a
+        # firing at ten) rather than the cells' fifty-five: one word is one turn, and a
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
@@ -2213,7 +2214,7 @@ jobs:
           # predictor at placeholder coordinates matching no case, over a
           # scratch data root under the runner temp dir — never `data/`, and
           # apart from the capture assertion's own root below. At this leg's
-          # 13-minute deadline the script's 20-minute retry floor is never met,
+          # 13-minute deadline the script's 25-minute retry floor is never met,
           # so the probe exercises the wrapper's single attempt and its
           # classification, never a retry.
           PREDICTOR_ID: ${{ steps.cell.outputs.predictor }}

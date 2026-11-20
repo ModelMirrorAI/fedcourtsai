@@ -3677,8 +3677,8 @@ def test_the_repro_leg_runs_under_the_cells_engine_deadline() -> None:
     """The repro leg reproduces a production cell, bound and all.
 
     Its engine step reads the same engine deadline the cells do, its watchdog
-    fires the cells' margin earlier, and its job cap leaves the tail room after
-    the deadline — raised for this leg alone, because a cap this long on the
+    fires the cells' margin and completion extension earlier, and its job cap
+    leaves the tail room after the deadline — raised for this leg alone, because a cap this long on the
     boot probes would turn a hung smoke into an hour of billed silence.
     """
     job = _load("integration-test.yml")["jobs"]["scenario"]

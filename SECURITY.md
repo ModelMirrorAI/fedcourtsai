@@ -259,7 +259,7 @@ runbook, [docs/security.md](docs/security.md).
   [docs/pipeline.md](docs/pipeline.md)) is trusted repo code that brackets
   **every** engine's cell step: one configured engine deadline per cell job,
   which every engine step's `timeout-minutes` reads and which the watchdog
-  fires a margin ahead of, so it can end a step's whole process tree before
+  fires a margin and a completion extension ahead of, so it can end a step's whole process tree before
   the runner's own timeout. Everything it records stays on the runner — its
   log, a marker, and a shapes-only diagnostics bundle — and leaves through the
   cell's own tail: the disarm step turns a marker into a `::warning::` and a
@@ -316,7 +316,12 @@ runbook, [docs/security.md](docs/security.md).
   routing and about the colour of its job, not a capability. The deadline markers (`FIRED`, `STOOD_DOWN`) are
   forgeable on the same terms, and a planted one buys less still: it sets the
   cell's `engine_deadline` in `status.json`, which only changes the reason the
-  draft PR names for a stop — it never readies a cell. The Gemini step's own
+  draft PR names for a stop — it never readies a cell. The completion extension
+  is a third thing a cell can switch, and buys only time: a cell that holds its
+  owed files complete at the watchdog's fire time defers the deadline once, by
+  the extension the arm step fixed before the agent ran, and that run still
+  ends inside the step's own timeout. Readiness across it rests on the same
+  complete-and-quiet reading the reaper always asks. The Gemini step's own
   clean conclusion over a failing exit (an engine-reported fault after
   complete, valid output; `scripts/gemini-cell.sh`) is a second route to
   `agent_ok` under the same bounds: a gemini agent controls its exit status

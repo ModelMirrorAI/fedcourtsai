@@ -67,7 +67,7 @@
 # watchdog is an observer and never a killer. The cost is stated rather than
 # hidden: a suspended cell has no watchdog for the rest of its run, so a wedge
 # that follows one is bounded by the engine step's own `timeout-minutes`
-# instead — the same configured engine deadline, a margin later. A run that is
+# instead — the same configured engine deadline, which the fire time sits under. A run that is
 # never suspended detects nothing and behaves exactly as above.
 #
 # Neither trigger is engine-specific: the reaper reads files the contract names
@@ -84,9 +84,10 @@
 #
 # Configuration, all from the arm step's env:
 #   WATCHDOG_DEADLINE_S  seconds to wait before firing. The workflows derive it
-#                        from the one configured engine deadline, a margin
-#                        below the engine step's own `timeout-minutes` (the
-#                        arm step states the arithmetic)
+#                        from the one configured engine deadline: a margin,
+#                        and for a real cell the completion extension, below
+#                        the engine step's own `timeout-minutes` (the arm step
+#                        states the arithmetic)
 #   WATCHDOG_DIR         where the diagnostics bundle and the marker are written
 #   WATCHDOG_SENTINEL_PATHS  the completion sentinel, as a newline-separated list
 #                        of the files a finished cell owes — `fedcourts
@@ -889,15 +890,22 @@ while [ "$elapsed" -lt "$limit_s" ]; do
   # Only a reap that actually ended a step ends this watchdog. Where there was
   # nothing to signal the loop keeps its deadline, which is the backstop for
   # every case discovery cannot see.
-  if outputs_quiescent && reap_completed_step; then
-    exit 0
+  if outputs_quiescent; then
+    if reap_completed_step; then
+      exit 0
+    fi
+    # Quiet already, and the reap found nothing to end or was withheld: no
+    # grace is pending, so there is nothing for an extension to wait out.
+    continue
   fi
-  # The pass that would end the wait, with the outputs complete and not reaped:
-  # defer the deadline once, so the grace is measured out rather than cut. Not
-  # for a watchdog that lost wall clock — its deadline is not a reading of this
-  # cell at all, and the stand-down below is what it gets.
+  # The pass that would end the wait, with the outputs complete and their grace
+  # still running: defer the deadline once, so the grace is measured out rather
+  # than cut. Not for a watchdog that lost wall clock — its deadline is not a
+  # reading of this cell at all, and the stand-down below is what it gets. And
+  # not where the quiescence test has no cut-off to carry: it can never be
+  # satisfied there, so an extension would only delay the deadline.
   if [ -z "$extended" ] && [ -z "$suspended" ] && [ "$extension_s" -gt 0 ] &&
-    [ "$elapsed" -ge "$deadline_s" ]; then
+    [ -n "$quiesce_ref" ] && [ "$elapsed" -ge "$deadline_s" ]; then
     extended=1
     limit_s=$((deadline_s + extension_s))
     log "deadline reached after ${deadline_s}s with the outputs complete; extending ${extension_s}s for the quiescence grace"

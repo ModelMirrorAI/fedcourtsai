@@ -847,23 +847,24 @@ def test_a_cell_complete_at_the_deadline_finishes_its_grace_and_is_reaped(tmp_pa
     out_dir = tmp_path / "cell"
     paths = _outputs(out_dir)
     _write_outputs(paths)
-    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", DEAF + "\n")
+    # A step that dies on the first signal, so the time this takes is the wait
+    # for the grace and not a kill escalation's.
+    tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
     try:
         watchdog_dir = tmp_path / "engine-watchdog"
-        started = time.monotonic()
+        written = time.monotonic()
         done = _run(
             watchdog_dir,
             f"watchdog-selftest-absent-{os.getpid()}",
             worker_match=f"watchdog-selftest-{os.getpid()}",
             deadline_s="3",
-            grace_s="6",
             sentinel_paths=paths,
             output_dir=out_dir,
             quiesce_s="8",
             extension_s="12",
         )
         assert done.returncode == 0, done.stdout + done.stderr
-        assert time.monotonic() - started >= 8, "the cell was reaped before its grace ran out"
+        assert time.monotonic() - written >= 8, "the cell was reaped before its grace ran out"
         assert "extending 12s for the quiescence grace" in done.stdout
         assert _await(lambda: _gone(tree.step_pid)), "the finished cell's step was not ended"
         reaped = (watchdog_dir / "REAPED").read_text()
@@ -957,10 +958,11 @@ def test_outputs_that_stop_being_complete_end_the_extension(tmp_path: Path) -> N
     out_dir = tmp_path / "cell"
     paths = _outputs(out_dir)
     _write_outputs(paths)
-    # A stand-in for the agent deleting a document to rewrite it, after the
-    # deadline has been deferred.
-    rewrite = subprocess.Popen(["bash", "-c", f'sleep 6; rm -f "{paths[0]}"'])
     tree = WorkerTree(tmp_path, f"Runner.Worker watchdog-selftest-{os.getpid()}", "sleep 300\n")
+    # A stand-in for the agent deleting a document to rewrite it, after the
+    # deadline has been deferred: well past the three-second deadline, so a
+    # loaded box cannot land it first.
+    rewrite = subprocess.Popen(["bash", "-c", f'sleep 12; rm -f "{paths[0]}"'])
     try:
         watchdog_dir = tmp_path / "engine-watchdog"
         started = time.monotonic()
@@ -984,6 +986,34 @@ def test_outputs_that_stop_being_complete_end_the_extension(tmp_path: Path) -> N
         rewrite.kill()
         rewrite.wait(timeout=10)
         tree.close()
+
+
+def test_a_quiet_cell_the_reap_could_not_end_is_not_extended(tmp_path: Path) -> None:
+    """The extension waits out a grace still running, and nothing else.
+
+    Complete and already quiet, with no step discovery can find: the reap ends
+    nothing, no grace is pending, and so the deadline is not deferred for one.
+    """
+    out_dir = tmp_path / "cell"
+    paths = _outputs(out_dir)
+    _write_outputs(paths)
+    watchdog_dir = tmp_path / "engine-watchdog"
+    started = time.monotonic()
+    done = _run(
+        watchdog_dir,
+        f"watchdog-selftest-absent-{os.getpid()}",
+        deadline_s="5",
+        sentinel_paths=paths,
+        output_dir=out_dir,
+        quiesce_s="1",
+        extension_s="60",
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert time.monotonic() - started < 40, "a cell with no grace pending waited out the extension"
+    assert "not reaping" in done.stdout
+    assert "extending" not in done.stdout
+    assert not (watchdog_dir / "REAPED").exists()
+    assert "deadline_extended_s" not in (watchdog_dir / "STOOD_DOWN").read_text()
 
 
 def test_an_incomplete_output_set_is_a_cell_still_working(tmp_path: Path) -> None:

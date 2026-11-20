@@ -21926,9 +21926,8 @@ freeze commit is recorded here.
 
   The runnable effect check once it is live: `uv run pytest
   tests/test_engine_watchdog.py tests/test_workflow_cell_invariants.py` is
-  green; and for every predict or evaluate cell on `main` whose job carries
-  the `engine watchdog` warning, the `watchdog.log` in the cell's artifact
-  shows no `completion sentinel observed` line followed by a `deadline
-  reached` line less than 320 seconds later without an `extending 320s` line
-  between them, and each cell whose artifact holds a `REAPED` marker with
-  `deadline_extended_s` sits in its round's merged PR.
+  green; and each predict or evaluate cell on `main` whose artifact holds a
+  `REAPED` marker carrying `deadline_extended_s`, and whose `status.json`
+  reads `validated: true`, sits in its round's merged PR with no `partial`
+  `attempt.json` for that run. A round with no such marker shows nothing
+  either way.

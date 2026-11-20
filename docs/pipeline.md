@@ -2257,7 +2257,7 @@ pattern rather than rediscovering it:
   runner: the diagnostics bundle, the disarm step that publishes it, the step
   summary, and the job log GitHub drops. The engine watchdog needs no channel
   off the runner because it acts *before* that cancellation — its fire time
-  sits a margin under the engine step's own `timeout-minutes`, which sits under
+  sits a margin and the completion extension under the engine step's own `timeout-minutes`, which sits under
   the job cap — and acting concludes the step, so the tail that turns its
   marker into a warning, a summary line and a `status.json` field runs. Any
   guard against a cancellation wants the same ordering: guard < step bound <
@@ -4373,7 +4373,7 @@ steps — the longest took 13.9 minutes (a predict claude cell), and per engine
 the p99 is 11.6 (claude), 9.4 (codex) and 7.6 (gemini) minutes; no step passed
 14. The watchdog ends a cell that has completed nothing just under 47 minutes
 in, over 3x the longest cell in that window, so a cell that
-reaches it is an anomaly worth ending rather than slow work; the rest of the 55
+reaches it with nothing complete is an anomaly worth ending rather than slow work; the rest of the 55
 is the completion extension and the escalation margin (below). The jobs that did
 run past fifty minutes were the codex runner wedge on an application record,
 not work: production predict cells on that docket cancelled at the job cap,
