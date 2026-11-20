@@ -347,6 +347,13 @@ class CasePaths:
         return self.record / "same-question.json"
 
     @property
+    def trial_record(self) -> Path:
+        # A trial-stage cell's judge, briefing entries and related dockets, read
+        # off its own snapshot and the watchlist (`pipeline.trial_record.build`).
+        # Gitignored with the rest of record/.
+        return self.record / "trial.json"
+
+    @property
     def argument_features(self) -> Path:
         # A post-argument cell's per-Justice questioning counts, parsed from the
         # transcript it was staged (`provision.staged_argument_features`).

@@ -13262,6 +13262,77 @@ class SameQuestionLists(_Strict):
     lists: list[SameQuestionList]
 
 
+class TrialBriefingEntry(_Strict):
+    """One docket entry of a motion's briefing: where it is, never what it says."""
+
+    entry_number: int | None = Field(description="The entry's number on the docket")
+    date_filed: date | None = Field(description="The day the docket gives the entry")
+
+
+class TrialMotionBriefing(_Strict):
+    """How the opener read one motion's briefing on the cell's snapshot."""
+
+    motion: TrialBriefingEntry = Field(description="The entry that filed the motion")
+    opposition: TrialBriefingEntry | None = Field(
+        description="The first opposition to the motion the opener read; `null` where it read none"
+    )
+    reply: TrialBriefingEntry | None = Field(
+        description="The first reply after that opposition; `null` where the opener read none"
+    )
+    opened_on: date | None = Field(
+        description="The day the opener reads the event as opening on this snapshot; "
+        "`null` where it does not read the briefing as closed"
+    )
+    opening_basis: str | None = Field(
+        description="What `opened_on` was read from: `reply`, `opposition`, "
+        "`docket-deadline` or `local-rule`"
+    )
+
+
+class TrialRelatedDocket(_Strict):
+    """Another docket of the listed case: an identifier, with none of its record."""
+
+    case_id: str
+    court: str
+    docket_number: str
+    relation: str = Field(
+        description="How the docket stands to the listed case (`appeal`, `transfer`, `mdl`, "
+        "`member`, `companion`), or `listed` for the listed case's own docket"
+    )
+
+
+class TrialRecord(_Strict):
+    """One trial-stage cell's ``record/trial.json`` (``pipeline.trial_record``).
+
+    What the cell's own snapshot and the watchlist say about its event: the
+    judge, the motion's briefing by entry, and the listed case's other dockets
+    by identifier.
+    """
+
+    case_id: str = Field(description="The docket the cell is placed on")
+    event_id: str
+    moment: str = Field(description="The trial moment the event belongs to")
+    assigned_judge: str | None = Field(
+        description="The judge the snapshot names as assigned; `null` where it names none"
+    )
+    referred_judge: str | None = Field(
+        description="The magistrate judge the snapshot names as referred to; `null` where "
+        "it names none"
+    )
+    briefing: TrialMotionBriefing | None = Field(
+        description="`null` for the judgment event, which names no motion, and for a motion "
+        "the opener does not read on this snapshot"
+    )
+    listed_case: str | None = Field(
+        description="The watchlist's name for the case the docket belongs to; `null` where "
+        "the watchlist names the docket nowhere"
+    )
+    related_dockets: list[TrialRelatedDocket] = Field(
+        default_factory=list,
+        description="The listed case's dockets other than the cell's own",
+    )
+
+
 class AuthorshipTally(_Strict):
     """Who has written from each argument sitting of a Term, as of one day.
 
@@ -17960,6 +18031,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "amicus_line_fit": AmicusLineFit,
     "authorship_tally": AuthorshipTally,
     "same_question_list": SameQuestionList,
+    "trial_record": TrialRecord,
     "argument_features": ArgumentFeatures,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
