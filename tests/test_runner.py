@@ -768,7 +768,8 @@ def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
         # Node's spellings of a dropped, refused or unresolved connection.
         "Error: read ECONNRESET",
         "connect ECONNREFUSED 127.0.0.1:8378",
-        "Error: write EPIPE",
+        # The same rejection on a capture with CRLF line endings.
+        "TypeError: terminated\r\n    at Fetch.onAborted",
         "getaddrinfo EAI_AGAIN generativelanguage.googleapis.com",
         "Error: socket hang up",
     ],
@@ -797,12 +798,15 @@ def test_transient_signatures_are_retryable(stderr: str) -> None:
         "the model returned a malformed tool call",
         "Response blocked by safety filter: the model returned an empty response",
         "finishReason: MAX_TOKENS — model returned an empty response",
-        # "terminated" buys a retry only as the whole of an error line, which is
-        # how a dropped response body reads. Inside a longer message it is an
+        # "terminated" buys a retry only as the whole of an error's message,
+        # which is how a dropped response body reads. Inside a longer message it is an
         # ended process or session, and that ends the same way again.
         "Error: terminated by signal SIGKILL",
         "Error: session terminated: the tool budget is spent",
         "the sandbox process was terminated",
+        # A pipe whose local reader is gone, a crashed tool server as readily
+        # as a lost connection.
+        "Error: write EPIPE",
     ],
 )
 def test_permanent_signatures_are_not_retryable(stderr: str) -> None:

@@ -1141,16 +1141,20 @@ _TRANSIENT_FAILURE = re.compile(
     # "other side closed" (code UND_ERR_SOCKET), and the gemini CLI exits 1
     # reporting only `{"type": "Error", "message": "terminated"}`. The report
     # is read alone, so the bare message has to be recognized; it is anchored
-    # as the whole of an error line, since "terminated" inside a longer message
-    # is how an ended process or session reads, which no retry clears. The
-    # cause's own wording covers a CLI that reports the cause instead.
-    | \b(?:Type)?Error:[ ]terminated[ \t]*$
+    # as the whole of an error's message, ending its line, since "terminated"
+    # inside a longer message is how an ended process or session reads, which
+    # no retry clears. The cause's own wording covers a CLI that reports the
+    # cause instead.
+    | \b(?:Type)?Error:[ ]terminated[ \t\r]*$
     | UND_ERR_SOCKET
     | other[\s_-]*side[\s_-]*closed
-    # Node's own spellings of the dropped, refused or unresolved connection the
-    # prose alternatives above already name, as they appear in an error's
-    # `code` or its "read ECONNRESET" message.
-    | \b(?:ECONNRESET|ECONNREFUSED|ECONNABORTED|EPIPE|EAI_AGAIN)\b
+    # Node's own spellings of the faults the alternatives above name in prose
+    # (a reset, refused or aborted connection) and of the name that did not
+    # resolve, which `fetch failed` stands for there, as they appear in an
+    # error's `code` or its "read ECONNRESET" message. EPIPE is left out: it is
+    # also how a local pipe whose reader crashed reads, which the next attempt
+    # meets again.
+    | \b(?:ECONNRESET|ECONNREFUSED|ECONNABORTED|EAI_AGAIN)\b
     | socket[\s_-]*hang[\s_-]*up
     """,
     re.IGNORECASE | re.MULTILINE | re.VERBOSE,
