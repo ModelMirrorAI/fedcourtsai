@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000714",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "web_fetch"
+  ],
+  "helpful": [
+    "mcp_courtlistener_search and mcp_courtlistener_read_document on CA9 docket 25-5724 surfaced DE 109 (entered Nov 18, 2026 at 4:01 PM PT granting a 7-day post-judgment administrative stay four hours after 26A714 was filed)",
+    "fedcourts query --docket-number retrieved exact ladder and amicus metadata for prior trips 24A1059, 25A326, and 26-48 plus withdrawn SG applications",
+    "metrics/statpack.json and metrics/statpack.md provided exact 10-Term finer interim base rates and federal unmarked applicant cuts"
+  ],
+  "gaps": [
+    "fedcourts query lacks an --applicant-class or --application-kind filter (e.g., filtering directly to substantive applications or federal applicants without post-filtering)"
+  ],
+  "notes": "Provisioned application.txt, snapshot 2026-11-18.json, corpus priors, and CourtListener RECAP filings integrated cleanly."
+}

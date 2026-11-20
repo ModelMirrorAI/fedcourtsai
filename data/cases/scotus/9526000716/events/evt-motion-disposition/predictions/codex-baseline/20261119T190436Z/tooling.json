@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000716",
+  "run_id": "20261119T190436Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener MCP search",
+    "metrics/statpack.md and metrics/statpack.json",
+    "Supreme Court docket JSON",
+    "fedcourts pdf-text"
+  ],
+  "helpful": [
+    "The private-capital split supplied a directly relevant comparison group.",
+    "The linked petition and its appendix let me compare Dennes’s jurisdictional argument with the state court’s order."
+  ],
+  "notes": "The corpus citation lookup and CourtListener state-order search both returned zero rows. The petition appendix supplied the state order."
+}

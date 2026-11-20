@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000715",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md and metrics/statpack.json",
+    "Supreme Court docket and public petition in No. 26-502",
+    "fedcourts pdf-text and visual inspection of scanned pages"
+  ],
+  "helpful": [
+    "The private-applicant cut supplied a close comparison group.",
+    "The application docket's link to the petition identified the underlying order and both constitutional questions."
+  ],
+  "gaps": [
+    "The public petition was a scan. Reading its page images recovered text that pdf-text could not extract."
+  ]
+}

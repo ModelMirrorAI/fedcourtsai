@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000715",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "forecast-exposure",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "During forward-mode google_web_search queries for factual background on the linked certiorari petition (No. 26-502, Rachel Beth Odom v. Oklahoma, including site:supremecourt.gov queries), Vertex AI Search grounding citations included scotusgate.com URLs alongside supremecourt.gov and okcourtsandmore.org. No prediction, probability, or mention of stay application 26A715 appeared in any returned text (only basic docket dates and 'Pending' status for No. 26-502), no scotusgate.com URL was ever fetched or opened, and it had zero effect on the forecast."
+    }
+  ]
+}

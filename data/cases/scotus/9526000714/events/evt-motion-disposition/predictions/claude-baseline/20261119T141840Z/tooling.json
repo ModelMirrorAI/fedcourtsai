@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000714",
+  "run_id": "20261119T141840Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md interim section"],
+  "helpful": ["applicant-class table", "docket-number lookup of the prior applications in the same case"],
+  "gaps": ["The application appendix (separate PDF) was not staged, so the lower-court orders were unavailable", "No staged text of the intervening merits decision the application relies on"],
+  "notes": null
+}

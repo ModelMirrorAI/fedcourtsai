@@ -1,0 +1,23 @@
+{
+  "available": [],
+  "available_rule": null,
+  "day": "2026-11-20",
+  "entries": [
+    {
+      "case": "Joshi v. OpenAI Foundation (N.D. Fla. product-liability suits)",
+      "category": "product-liability",
+      "court": "flnd",
+      "date_filed": "2026-11-16",
+      "docket_id": 73320881,
+      "docket_number": "4:26-cv-00222",
+      "entry_id": 486223545,
+      "entry_number": 73,
+      "kind": "motion",
+      "motion": null,
+      "supersedes": null,
+      "url": "https://www.courtlistener.com/docket/73320881/73/joshi-v-openai-foundation/"
+    }
+  ],
+  "rule": "ai-activity-v2",
+  "schema_version": "1.0"
+}
