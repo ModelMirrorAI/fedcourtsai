@@ -634,12 +634,12 @@ jobs:
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
     #
-    # The application-repro leg gets the cell jobs' 65 instead, for the cells'
+    # The application-repro leg gets the cell jobs' 70 instead, for the cells'
     # reason: it runs a real evaluate cell under the same engine deadline, and
     # a job that reaches its cap is cancelled and its log dropped. Per-leg
-    # rather than raised for everyone: a 65-minute cap on the boot probes would
-    # turn a hung smoke into an hour of billed silence.
-    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 65 || 45 }}
+    # rather than raised for everyone: a 70-minute cap on the boot probes would
+    # turn a hung smoke into over an hour of billed silence.
+    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 70 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s, the plan job's and the labeler smoke's (YAML
     # anchors do not work in workflows), and see the deploy-environment input
@@ -674,7 +674,8 @@ jobs:
     #
     # The engine deadline, in minutes, on the cells' terms: the engine step's
     # `timeout-minutes` reads it and the arm step derives the watchdog's fire
-    # time from it, a margin earlier. The application-repro leg runs a real
+    # time from it, a margin (and, for a real cell, the completion extension)
+    # earlier. The application-repro leg runs a real
     # evaluate cell, so it carries the cell workflows' value — a
     # workflow-shape test holds the three equal. The engine-actions-smoke
     # legs run the same bracket around a one-word boot probe at 13 minutes —
@@ -684,7 +685,7 @@ jobs:
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
-      ENGINE_DEADLINE_MINUTES: ${{ matrix.scenario == 'engine-actions-smoke' && '13' || '50' }}
+      ENGINE_DEADLINE_MINUTES: ${{ matrix.scenario == 'engine-actions-smoke' && '13' || '55' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -775,8 +776,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           # The repro leg's cell may still be querying the corpus up to its
-          # 50-minute engine deadline, so its credentials must outlive the
-          # 65-minute job cap rather than the sidecar's static default hour —
+          # 55-minute engine deadline, so its credentials must outlive the
+          # 70-minute job cap rather than the sidecar's static default hour —
           # 90 minutes, as in the cell workflows. The short legs keep the
           # stated default.
           role-duration-seconds: ${{ matrix.scenario == 'codex-application-repro' && '5400' || '3600' }}
@@ -1478,7 +1479,8 @@ jobs:
       #
       # The bound is the cells' own engine deadline (the job's
       # `ENGINE_DEADLINE_MINUTES`), armed the cells' way: the step's
-      # `timeout-minutes` reads it and the watchdog fires a margin earlier, so
+      # `timeout-minutes` reads it and the watchdog fires a margin and the
+      # completion extension earlier, so
       # a step that will not conclude is ended rather than riding to a job-cap
       # cancellation whose logs GitHub drops.
       - name: Arm the engine watchdog
@@ -1494,6 +1496,9 @@ jobs:
           # The cells' margin, for the cells' reason: the watchdog's own
           # escalation concludes the step before the runner's step timeout.
           DEADLINE_MARGIN_S: "180"
+          # The cells' completion extension: a cell complete at the deadline
+          # is given this long for its quiescence grace to run out.
+          COMPLETION_EXTENSION_S: "320"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -1534,22 +1539,23 @@ jobs:
           fi
           # The fire time, from the one configured deadline; digits checked
           # before the arithmetic, as in the cells.
-          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S" "$COMPLETION_EXTENSION_S"; do
             case "$value" in
               "" | *[!0-9]* | 0?*)
-                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                echo "::error::the engine deadline, its margin and the completion extension must be plain whole numbers"
                 exit 1
                 ;;
             esac
           done
-          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
-          echo "engine deadline armed (codex): step timeout ${ENGINE_DEADLINE_MINUTES} min, watchdog fires at ${WATCHDOG_DEADLINE_S}s" \
+          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S - COMPLETION_EXTENSION_S))
+          echo "engine deadline armed (codex): step timeout ${ENGINE_DEADLINE_MINUTES} min, watchdog fires at ${WATCHDOG_DEADLINE_S}s, or up to ${COMPLETION_EXTENSION_S}s later for a cell whose outputs are complete" \
             >> "$GITHUB_STEP_SUMMARY"
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it.
           cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
           WATCHDOG_DEADLINE_S="$WATCHDOG_DEADLINE_S" \
+            WATCHDOG_EXTENSION_S="$COMPLETION_EXTENSION_S" \
             WATCHDOG_OUTPUT_DIR="$sentinel_root" \
             WATCHDOG_SENTINEL_PATHS="$sentinel_paths" \
             nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
@@ -1582,8 +1588,8 @@ jobs:
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
-        # The cells' engine deadline; the watchdog armed above fires a margin
-        # earlier and is what ends a step the runner cannot.
+        # The cells' engine deadline; the watchdog armed above fires ahead of
+        # it and is what ends a step the runner cannot.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
@@ -2079,7 +2085,7 @@ jobs:
         id: actions_smoke_claude
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'claude-code' }}
         # The probe's engine deadline (13 minutes on this leg, the watchdog
-        # firing at ten) rather than the cells' fifty: one word is one turn, and a
+        # firing at ten) rather than the cells' fifty-five: one word is one turn, and a
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
@@ -2208,7 +2214,7 @@ jobs:
           # predictor at placeholder coordinates matching no case, over a
           # scratch data root under the runner temp dir — never `data/`, and
           # apart from the capture assertion's own root below. At this leg's
-          # 13-minute deadline the script's 20-minute retry floor is never met,
+          # 13-minute deadline the script's 25-minute retry floor is never met,
           # so the probe exercises the wrapper's single attempt and its
           # classification, never a retry.
           PREDICTOR_ID: ${{ steps.cell.outputs.predictor }}
