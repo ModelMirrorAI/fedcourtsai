@@ -473,6 +473,26 @@ A cell's record carries the docket, the motion's briefing, the judge, and the
 listed case's related dockets; none of the Court's fields (the term, the
 salience band, the cert anchor) is written for it.
 
+The last three are one file, `record/trial.json`
+(`pipeline/trial_record.py`), written for a forward cell and read off the
+cell's own snapshot and the watchlist. A replay cell gets none, since the
+watchlist is undated and a docket it lists can postdate the cell's cutoff. The
+judge is the one the snapshot's header names as assigned, with the magistrate
+judge it names as referred to. The briefing is the opener's reading of the
+event's motion on that snapshot: the entry that filed it, the first
+opposition and the first reply after it, each by entry number and filing
+date, and the day and basis the opener reads the event as opening on, read
+as of the day the cell is provisioned, as the pass that opened the event read
+it: a deadline counts as passed over the days since the snapshot. It is
+a pointer into the docket, not the papers: no district filing's own text is
+staged, and a cell that wants a brief retrieves it under its mode's rule. The
+judgment event names no motion and has no briefing, and neither has a motion
+the opener does not read on the snapshot. The related dockets are the listed
+case's other dockets (its appeal, the docket it was transferred from, the
+panel's docket, its member and companion dockets), each by court, docket
+number and relation, with the listed case's own docket among them for a cell
+placed on a member or companion docket. None of their snapshots is staged.
+
 The gates are built (`provision-snapshot`). A forward cell on a trial event is
 refused when the docket was last read longer ago than the bound, when the
 record already holds the event's outcome or the corpus records the docket
@@ -530,7 +550,8 @@ is not run, and the context of any lower-court docket states where the cell
 was placed and none of the Court's conditioning fields (the term, the band,
 the signals, the cert anchor); the contact-scrub note and the statpack build
 are written as for any cell. The briefing, the judge and the related dockets
-are added to the record with the slice's prompt.
+are written as `record/trial.json` for every trial event's forward cell; the slice's
+prompt, which names the file to a cell, is not written yet.
 
 **Its own process.** The slice's cells are made by predictors and graded by
 evaluators registered for the slice, each reading a prompt of the slice's own

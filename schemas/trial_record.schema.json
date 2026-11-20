@@ -1,0 +1,222 @@
+{
+  "$defs": {
+    "TrialBriefingEntry": {
+      "additionalProperties": false,
+      "description": "One docket entry of a motion's briefing: where it is, never what it says.",
+      "properties": {
+        "date_filed": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The day the docket gives the entry",
+          "title": "Date Filed"
+        },
+        "entry_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The entry's number on the docket",
+          "title": "Entry Number"
+        }
+      },
+      "required": [
+        "entry_number",
+        "date_filed"
+      ],
+      "title": "TrialBriefingEntry",
+      "type": "object"
+    },
+    "TrialMotionBriefing": {
+      "additionalProperties": false,
+      "description": "How the opener read one motion's briefing on the cell's snapshot.",
+      "properties": {
+        "motion": {
+          "$ref": "#/$defs/TrialBriefingEntry",
+          "description": "The entry that filed the motion"
+        },
+        "opened_on": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The day the opener reads the event as opening on this snapshot; `null` where it does not read the briefing as closed",
+          "title": "Opened On"
+        },
+        "opening_basis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "What `opened_on` was read from: `reply`, `opposition`, `docket-deadline` or `local-rule`",
+          "title": "Opening Basis"
+        },
+        "opposition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TrialBriefingEntry"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The first opposition to the motion the opener read; `null` where it read none"
+        },
+        "reply": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TrialBriefingEntry"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The first reply after that opposition; `null` where the opener read none"
+        }
+      },
+      "required": [
+        "motion",
+        "opposition",
+        "reply",
+        "opened_on",
+        "opening_basis"
+      ],
+      "title": "TrialMotionBriefing",
+      "type": "object"
+    },
+    "TrialRelatedDocket": {
+      "additionalProperties": false,
+      "description": "Another docket of the listed case: an identifier, with none of its record.",
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "court": {
+          "title": "Court",
+          "type": "string"
+        },
+        "docket_number": {
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "relation": {
+          "description": "How the docket stands to the listed case (`appeal`, `transfer`, `mdl`, `member`, `companion`), or `listed` for the listed case's own docket",
+          "title": "Relation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "court",
+        "docket_number",
+        "relation"
+      ],
+      "title": "TrialRelatedDocket",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One trial-stage cell's ``record/trial.json`` (``pipeline.trial_record``).\n\nWhat the cell's own snapshot and the watchlist say about its event: the\njudge, the motion's briefing by entry, and the listed case's other dockets\nby identifier.",
+  "properties": {
+    "assigned_judge": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The judge the snapshot names as assigned; `null` where it names none",
+      "title": "Assigned Judge"
+    },
+    "briefing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TrialMotionBriefing"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "`null` for the judgment event, which names no motion, and for a motion the opener does not read on this snapshot"
+    },
+    "case_id": {
+      "description": "The docket the cell is placed on",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "listed_case": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The watchlist's name for the case the docket belongs to; `null` where the watchlist names the docket nowhere",
+      "title": "Listed Case"
+    },
+    "moment": {
+      "description": "The trial moment the event belongs to",
+      "title": "Moment",
+      "type": "string"
+    },
+    "referred_judge": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The magistrate judge the snapshot names as referred to; `null` where it names none",
+      "title": "Referred Judge"
+    },
+    "related_dockets": {
+      "description": "The listed case's dockets other than the cell's own",
+      "items": {
+        "$ref": "#/$defs/TrialRelatedDocket"
+      },
+      "title": "Related Dockets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "moment",
+    "assigned_judge",
+    "referred_judge",
+    "briefing",
+    "listed_case"
+  ],
+  "title": "TrialRecord",
+  "type": "object"
+}

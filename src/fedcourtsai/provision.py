@@ -90,6 +90,7 @@ from .schemas import (
     StagedWriting,
     StagedWritings,
     StatPack,
+    TrialRecord,
 )
 from .serialize import read_model, write_json, write_raw_json, write_text
 from .supremecourt import october_term_year
@@ -1346,6 +1347,7 @@ class RecordWrite:
     related: tuple[RelatedPlacement, ...] = ()
     authorship_tally: AuthorshipTally | None = None
     same_question: SameQuestionList | None = None
+    trial: TrialRecord | None = None
 
 
 def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keyword
@@ -1359,6 +1361,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     related: Sequence[RelatedPlacement] = (),
     authorship_tally: AuthorshipTally | None = None,
     same_question: SameQuestionList | None = None,
+    trial: TrialRecord | None = None,
     decided_before: str | None = None,
     anchor_pool: AnchorPool | None = None,
     statpack_digest: str | None = None,
@@ -1375,7 +1378,9 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     ``authorship_tally`` is given and not held back
     (:data:`AUTHORSHIP_TALLY_WITHHELD`), ``authorship-tally.json``, and, where
     ``same_question`` is given and not held back (:data:`SAME_QUESTION_WITHHELD`),
-    ``same-question.json``, and, where a transcript is staged,
+    ``same-question.json``, and, where ``trial`` is given (a trial-stage cell,
+    :func:`fedcourtsai.pipeline.trial_record.build`), ``trial.json``, and, where a
+    transcript is staged,
     ``argument-features.json`` parsed from it (:func:`staged_argument_features`).
     A caller that wrote only the first would hand an agent a snapshot with no
     frozen mode, band or cutoff beside it — the cell would then have to guess
@@ -1431,6 +1436,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
         _clear_dir(paths.related_dir)
         paths.authorship_tally.unlink(missing_ok=True)
         paths.same_question.unlink(missing_ok=True)
+        paths.trial_record.unlink(missing_ok=True)
         paths.argument_features.unlink(missing_ok=True)
         clear_opinion_slot(paths)
     payload = placement.payload
@@ -1555,6 +1561,9 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     )
     if same_question_written and same_question is not None:
         write_raw_json(paths.same_question, same_question.model_dump(mode="json"))
+    trial_written = trial is not None and snapshot_dest is None
+    if trial_written and trial is not None:
+        write_raw_json(paths.trial_record, trial.model_dump(mode="json"))
     return RecordWrite(
         snapshot=dest,
         unrepresented=unrepresented,
@@ -1563,6 +1572,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
         related=tuple(related) if snapshot_dest is None else (),
         authorship_tally=authorship_tally if tally_written else None,
         same_question=same_question if same_question_written else None,
+        trial=trial if trial_written else None,
     )
 
 

@@ -349,6 +349,7 @@ from .pipeline import (
     sg_briefs,
     trial_events,
     trial_opener,
+    trial_record,
     vide_links,
     vided,
     vote_sources,
@@ -687,6 +688,7 @@ from .schemas import (
     StatPack,
     Stratum,
     SummaryPlan,
+    TrialRecord,
     UsageRole,
     VoidedEventsRecord,
     observed_mcp_conditions,
@@ -23778,8 +23780,58 @@ def _read_authorship_tally(
     return tally
 
 
+def _read_trial_record(
+    case: str,
+    court: str,
+    event: str,
+    payload: Mapping[str, Any],
+    *,
+    cutoff: date | None,
+    mode: str,
+) -> TrialRecord | None:
+    """A forward trial-stage cell's ``record/trial.json``, or ``None`` for any other cell.
+
+    Read off the snapshot the cell is placed on and two committed files, the
+    watchlist and the districts' local rules, so it costs no corpus read. A
+    replay cell gets none: the watchlist is undated, and a related docket it
+    lists (an appeal, say) can postdate the cell's cutoff. The docket is read
+    as of the cell's cutoff where it has one, and as of today otherwise, which
+    is how the pass that opened the event read it: a deadline counts as passed
+    over the days since the snapshot, which the forward staleness bound limits.
+    A checkout with no watchlist or no local rules still gets the judge and the
+    briefing the docket itself states; a file that is there and cannot be read
+    refuses the cell (exit 1) before anything is written.
+    """
+    if mode != "forward" or moments.trial_spec_for(event) is None:
+        return None
+    config_root = get_settings().config_root
+    rules_file = config_root / TRIAL_LOCAL_RULES_FILENAME
+    try:
+        rules = load_trial_local_rules(rules_file) if rules_file.exists() else {}
+        watchlist = _ai_cases_watchlist(config_root)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"::error::{case} trial record: {type(exc).__name__} reading config", err=True)
+        raise typer.Exit(code=1) from exc
+    return trial_record.build(
+        case,
+        event,
+        payload,
+        watchlist,
+        read_on=cutoff or datetime.now(UTC).date(),
+        local_rule=rules.get(court),
+    )
+
+
 def _echo_staged_lists(case: str, written: provision.RecordWrite, paths: CasePaths) -> None:
-    """Echo the authorship tally and same-question list a record was given, as counts."""
+    """Echo the lists and the trial record a cell's record was given, as counts."""
+    if written.trial is not None:
+        # Counts only: the judge and the dockets are public, and the file holds them.
+        briefing = written.trial.briefing
+        typer.echo(
+            f"{case} trial record: "
+            f"{'no motion briefing' if briefing is None else 'motion briefing read'}, "
+            f"{len(written.trial.related_dockets)} related docket(s) -> {paths.trial_record}"
+        )
     if written.authorship_tally is not None:
         # Counts only: the cases are public, and the file holds them.
         tallied = written.authorship_tally
@@ -24275,6 +24327,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
+            trial=(
+                _read_trial_record(case, court, event, placement.payload, cutoff=cutoff, mode=mode)
+                if event and out is None
+                else None
+            ),
             anchor_pool=_cert_anchor_pool(paths, event, committed_pack),
             statpack_digest=None if committed_pack is None else committed_pack.digest,
         )

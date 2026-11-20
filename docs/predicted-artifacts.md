@@ -65,7 +65,9 @@ fields that mean the same thing at every stage:
   merits cell's `authorship-tally.json` is held back on the same rule
   (`provision.AUTHORSHIP_TALLY_WITHHELD`). A forward cert cell's
   `same-question.json` lists the petitions whose questions presented read like
-  its own. `argument-features.json` is the
+  its own. A trial-stage cell's `trial.json` states its judge, its motion's
+  briefing by docket entry, and the listed case's other dockets
+  ([trial-stage.md](trial-stage.md)). `argument-features.json` is the
   deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
