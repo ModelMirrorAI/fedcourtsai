@@ -112,7 +112,8 @@ from types import MappingProxyType
 from .. import corpus, ids
 from ..matrix import cell_failure_count, event_has_predictions
 from ..paths import CasePaths
-from ..registry import enabled_predictors
+from ..prediction_slices import SCOTUS_POPULATION_KEY
+from ..registry import predictors_for
 from ..schemas import Moment, Stage
 from ..store import (
     PayloadReader,
@@ -610,7 +611,7 @@ def scan_predictionless_resolutions(  # noqa: PLR0912, PLR0915 - one pass, many 
     a gap with failures behind it is a cell that ran and failed rather than one
     that never ran, and the two want different remedies.
     """
-    predictor_ids = [p.id for p in enabled_predictors(predictors_path)]
+    predictor_ids = [p.id for p in predictors_for(predictors_path, SCOTUS_POPULATION_KEY)]
     court_dir = CasePaths(data_root, "scotus", 0).base.parent
     try:
         ledger_dockets = set(os.listdir(court_dir))

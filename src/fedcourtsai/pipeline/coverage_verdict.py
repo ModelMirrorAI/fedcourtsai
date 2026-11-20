@@ -55,7 +55,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from .. import alarm_issue, corpus, ids
 from ..agent_feedback import GhRunner, _gh
 from ..matrix import event_has_predictions
-from ..registry import enabled_predictors
+from ..prediction_slices import SCOTUS_POPULATION_KEY
+from ..registry import predictors_for
 from .federal_label import FederalLabelReport, SgPetitionListing, federal_label_check
 from .missed import DateSource, DeclineReason, scan_predictionless_resolutions
 from .unforecast import UnforecastReport, unforecast_outcomes
@@ -236,7 +237,7 @@ def coverage_verdict(
     capped = attempt_capped_cells(
         conn,
         data_root,
-        [p.id for p in enabled_predictors(predictors_path)],
+        [p.id for p in predictors_for(predictors_path, SCOTUS_POPULATION_KEY)],
         max_attempts=max_attempts,
     )
 

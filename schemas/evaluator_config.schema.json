@@ -59,6 +59,12 @@
       "default": null,
       "title": "Model"
     },
+    "population": {
+      "default": "scotus",
+      "description": "The prediction population whose dockets this evaluator grades: `scotus`, or the id of a prediction slice. A docket's cells go to its own population's evaluators and to no other's.",
+      "title": "Population",
+      "type": "string"
+    },
     "prompt": {
       "title": "Prompt",
       "type": "string"

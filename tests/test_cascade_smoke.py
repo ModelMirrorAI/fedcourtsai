@@ -46,7 +46,7 @@ from fedcourtsai.pipeline.semantic import (
     ordinal,
     summarize_semantic_grades,
 )
-from fedcourtsai.registry import enabled_evaluators
+from fedcourtsai.registry import enabled_evaluators, evaluators_for
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
@@ -545,7 +545,7 @@ def test_stub_scheduled_evaluate_round_smoke(
     # Holding the evaluators off is what leaves a backlog to derive — it is the
     # committed state a dropped evaluate run leaves behind, reached here without
     # having to fail a run to get it.
-    monkeypatch.setattr(cascade, "enabled_evaluators", lambda _path: [])
+    monkeypatch.setattr(cascade, "evaluators_for", lambda _path, _population: [])
     predicted = run_cascade(
         corpus_db_path=db,
         data_root=data_root,
@@ -555,7 +555,7 @@ def test_stub_scheduled_evaluate_round_smoke(
         docket=docket,
         run_id=RUN,
     )
-    monkeypatch.setattr(cascade, "enabled_evaluators", enabled_evaluators)
+    monkeypatch.setattr(cascade, "evaluators_for", evaluators_for)
 
     assert predicted.valid, predicted.problems
     assert predicted.events == (BACKLOG_EVENT,)

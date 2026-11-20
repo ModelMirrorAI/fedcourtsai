@@ -46,7 +46,8 @@ from ..matrix import (
     opinion_hold,
     predicted_case_ids,
 )
-from ..registry import enabled_evaluators, enabled_predictors
+from ..prediction_slices import SCOTUS_POPULATION_KEY
+from ..registry import evaluators_for, predictors_for
 from ..schemas import Moment, Stage
 from ..store import (
     PayloadReader,
@@ -696,7 +697,7 @@ def derive_evaluate_backlog(
     if cap <= 0:
         return EvaluateBacklog(entries=(), day=day)
     seen = already_queued or set()
-    evaluator_ids = [e.id for e in enabled_evaluators(evaluators_path)]
+    evaluator_ids = [e.id for e in evaluators_for(evaluators_path, SCOTUS_POPULATION_KEY)]
 
     # Drive from the resolved-event set and fetch each candidate's row, rather
     # than indexing the whole court and probing it. Only cases with a resolved
@@ -1890,7 +1891,7 @@ def derive_predict_backlog(
     if cap <= 0:
         return PredictBacklog(entries=(), day=day)
     seen = already_queued or set()
-    predictor_ids = [p.id for p in enabled_predictors(predictors_path)]
+    predictor_ids = [p.id for p in predictors_for(predictors_path, SCOTUS_POPULATION_KEY)]
     # Two bulk reads rather than a probe per row, exactly as the sweep takes
     # them: one ledger glob for the cohort-completion admission ground, and one
     # small ordered slice of the partial open-events index for the merits bypass.
