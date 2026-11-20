@@ -1063,7 +1063,11 @@ that:
 - **the filing's own body is never cut for its appendix** — the body (every page
   before the appendix starts: an `APPENDIX` divider, the appendix's own contents
   page or its first folio, read from the fourth page on and never on a contents
-  page of the filing itself) is kept whole, and only the appendix pays for the
+  page or on a page that prints a front-matter page number and no lettered
+  appendix folio: a lower-case roman numeral up to ninety-nine on a line of its
+  own, among the page's first two lines or as its last, which is how the
+  filing's own table of appendices is numbered) is kept whole,
+  and only the appendix pays for the
   overflow; a body that alone fills the cap is head-cut with the appendix;
 - **every appendix item keeps its opening** — the appendix is split into its
   items (by its own index, matched to the folio each page prints; else by its
@@ -1985,7 +1989,10 @@ the same link.
   (the document back-fill's scope) or, with the `all-live` option, the whole
   live slice. An untruncated row was never cut, so the two cuts agree on it; an
   OCR-recovered row is head-cut by design and has no text layer to re-read; a
-  row with a note was cut the appendix-aware way already; a set key or a link
+  row with a note was cut the appendix-aware way already, under the reading of
+  the appendix start in force when it was fetched, and a later change to that
+  reading does not bring it back into the class (the named cases below are how
+  such a row is reached); a set key or a link
   off the Court's host is not one the pass will GET. The ledger tallies the
   truncated rows left out under `ocr-derived`, `has-cut-note` and
   `unfetchable-url`, so a truncated row a reader expects to see and does not is
@@ -2029,6 +2036,26 @@ the same link.
   only that residue. The writer re-walks the class
   on an **empty slice** afterwards and requires exactly what the apply's ledger
   said it would leave behind.
+- **Named cases.** A dispatch that puts case ids in `repair_target` (at most
+  fifty, each `scotus/<docket id>`, each once, and not with `all-live`) re-cuts
+  those cases instead of walking a scope. The class is then each named case's
+  rows of the three kinds that are `truncated`, not `ocr_derived` and at one
+  Court link, **whether or not they carry a cut note**. It is the route for a
+  row cut the appendix-aware way under an earlier reading of the cut, for
+  example of where the appendix starts: nothing in the stored text says the
+  current reading would cut it differently, so no walked class can hold such
+  rows without holding every noted row forever, and a maintainer names them
+  from a census instead. Everything else is the pass as above: the same fetch,
+  guards, outcomes and questions-presented rule, with the stored text read up
+  to its own first cut note where the re-cut is compared with it; a stored
+  note so early that under 200 letters and digits are left to compare makes
+  the row `head-changed`, since nothing then shows the link still serves the
+  same filing. The ledger warns of a named case holding no row of the three
+  kinds and of a bound short of the named class. A named row
+  stays in its class after a re-cut unless the re-cut fits under the cap, so
+  the class does not drain: a second dispatch reads each row `unchanged`, and
+  the bound to give is the size of the named class. The cases ride in the
+  worklist, so the reader, the writer and the witness walk the same class.
 - **Terms.** Unchanged, as for the two passes above.
 
 ## The historical Term set: per-Term history through the same channel

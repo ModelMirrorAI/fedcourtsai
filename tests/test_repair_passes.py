@@ -24,6 +24,7 @@ import pytest
 import yaml
 
 from fedcourtsai import repair_passes
+from fedcourtsai.pipeline import document_recut
 from fedcourtsai.pipeline.refused_attempts import CELL as REMOVAL_CELL
 from fedcourtsai.repair_passes import PASSES, validate
 
@@ -168,6 +169,39 @@ def test_the_attempt_cell_list_is_refused_in_its_own_steps_words() -> None:
     assert not validate("refused-attempt-removal", mode="dry-run", target=CELL, bound="1").accepted
 
 
+def test_the_recut_takes_an_optional_case_list() -> None:
+    assert validate("recut", mode="dry-run").accepted
+    assert validate("recut", mode="apply", bound="5", target="scotus/1\n scotus/22\r\n").accepted
+    verdict = validate("recut", mode="dry-run", target="scotus/1 ca9/2 scotus/1 scotus/../3")
+    assert verdict.errors == (
+        "malformed case (want scotus/<docket id>, e.g. scotus/9026000654): ca9/2",
+        "case named twice: scotus/1",
+        "malformed case (want scotus/<docket id>, e.g. scotus/9026000654): scotus/../3",
+        repair_passes.CASE_LIST_REFUSED,
+    )
+    many = " ".join(f"scotus/{n}" for n in range(51))
+    assert validate("recut", mode="dry-run", target=many).errors == (
+        "repair=recut takes at most 50 cases in repair_target — split the list across dispatches.",
+    )
+    assert validate("recut", mode="dry-run", target="scotus/1", options="all-live").errors == (
+        "repair=recut with cases in repair_target takes no all-live option — the named "
+        "cases' rows are the class. Clear one of the two and re-dispatch.",
+    )
+
+
+def test_the_recut_steps_case_grammar_and_ceiling_are_the_tables() -> None:
+    step = next(
+        s
+        for s in _workflow()["jobs"]["handoff-projection"]["steps"]
+        if s.get("name") == "Write the re-cut worklist"
+    )
+    (pattern,) = re.findall(r"case_grammar='([^']+)'", str(step["run"]))
+    assert pattern == f"^{repair_passes.RECUT_CASE.pattern}$"
+    assert repair_passes.RECUT_CASE.pattern == document_recut.NAMED_CASE_RE.pattern
+    assert repair_passes.MAX_RECUT_CASES == document_recut.MAX_NAMED_CASES == 50
+    assert f'"${{#case_args[@]}}" -gt {2 * repair_passes.MAX_RECUT_CASES} ]' in str(step["run"])
+
+
 def test_a_value_that_spells_a_placeholder_is_printed_as_typed() -> None:
     verdict = validate("qp-backfill", mode="dry-run", options="${line}")
     assert verdict.errors[0] == (
@@ -193,7 +227,7 @@ def test_every_rendered_refusal_comes_from_a_registered_template() -> None:
         for name in ("none", "bogus", *PASSES)
         for mode in ("dry-run", "apply")
         for bound in ("", "1", "-1")
-        for target in ("", "24", "dist-v2", CELL, "x y")
+        for target in ("", "24", "dist-v2", CELL, "x y", "scotus/1", "scotus/1 scotus/1")
         for options in ("", "include-scored", "include-failed-attempts", "bogus")
     ]
     errors = {error for verdict in probes for error in verdict.errors}

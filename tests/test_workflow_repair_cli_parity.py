@@ -255,8 +255,9 @@ def _values(pass_name: str | None = None, handoff: Path | None = None) -> dict[s
         # below.
         "REPAIR_TARGET": REPAIR_TERM if pass_name == "application-backfill" else REPAIR_PARSE_LABEL,
         **_regrade_fields(),
-        # The refused-attempt removal splices each line of its cell list.
-        "line": ATTEMPT_CELL,
+        # The refused-attempt removal splices each line of its cell list, and
+        # the re-cut each line of its case list.
+        "line": "scotus/1" if pass_name == "recut" else ATTEMPT_CELL,
     }
 
 
@@ -644,28 +645,34 @@ def test_every_recut_invocation_walks_the_same_scope() -> None:
     by a predict-relevant re-walk would report a failed write on every dispatch.
     The projection reads the scope off the dispatch's options and writes it into
     the worklist; the reader and the writer take it from there and refuse
-    `--all-live`; the witness takes it off the writer's ledger.
+    `--all-live`; the witness takes it off the writer's ledger. The cases a
+    dispatch names in `repair_target` travel the same way.
     """
     (projection,) = [
         step for step in _steps_for("recut") if "--emit-worklist" in str(step.get("run", ""))
     ]
-    (emit,) = [
+    named_emit, emit = [
         argv
         for argv in command_argv(str(projection["run"]), FEDCOURTS)
         if argv and argv[0] == "recut-documents"
     ]
-    assert '"${scope_args[@]}"' in emit or "${scope_args[@]}" in emit
+    assert "${scope_args[@]}" in emit and "${case_args[@]}" not in emit
+    assert "${case_args[@]}" in named_emit and "${scope_args[@]}" not in named_emit
     (writer,) = [step for step in _steps_for("recut") if "ledger_field" in str(step.get("run", ""))]
     argvs = [
         argv
         for argv in command_argv(str(writer["run"]), FEDCOURTS)
         if argv and argv[0] == "recut-documents"
     ]
-    assert len(argvs) == 2, "the re-cut writer no longer runs its apply and witness"
-    apply, witness = argvs
+    assert len(argvs) == 3, "the re-cut writer no longer runs its apply and its two witnesses"
+    apply, named_witness, witness = argvs
     assert "--from-plan" in apply and "--all-live" not in apply
-    assert '"${scope_args[@]}"' in witness or "${scope_args[@]}" in witness
+    assert "${scope_args[@]}" in witness and "${case_args[@]}" not in witness
+    assert "${case_args[@]}" in named_witness and "${scope_args[@]}" not in named_witness
     assert "ledger_field /tmp/recut-apply.txt scope" in str(writer["run"])
+    # A named run's cases reach the witness off the same ledger, as `--case`.
+    assert '["cases"]' in str(writer["run"]) and 'case_args+=(--case "$line")' in str(writer["run"])
+    assert "cases" in DocumentRecutResult.model_fields
 
 
 def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:

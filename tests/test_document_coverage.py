@@ -37,6 +37,7 @@ from fedcourtsai.pipeline.documents import (
     KIND_PETITION,
     KIND_SG_INVITED_BRIEF,
     TEXT_COVERAGE_KINDS,
+    _appendix_start,
     cut_filing_text,
     extract_filing_text,
     extract_pdf_text,
@@ -708,6 +709,65 @@ def test_the_body_is_never_cut_for_the_appendix() -> None:
     notes = _notes(text)
     assert notes and all("appendix item" in note for note in notes)
     assert text.index(notes[0]) > len(body)
+
+
+def _petition_with_front_matter(table: list[str]) -> tuple[list[str], int]:
+    """A petition whose front matter ends in ``table`` pages; returns it and its body's end.
+
+    Cover, questions and contents, then the table of appendices, a
+    twenty-page body, an APPENDIX divider and two lettered items.
+    """
+    front = ["Cover", "i\nQUESTIONS PRESENTED", "ii\nTABLE OF CONTENTS", *table]
+    body = [_page(f"body{n}", 2_000, top=str(n + 1)) for n in range(20)]
+    appendix = ["APPENDIX"]
+    for letter, title in (("A", "Opinion of the Court of Appeals"), ("I", "Reply")):
+        appendix.append(_page(f"{letter}page0", 2_000, top=f"Appendix {letter}\n{title}"))
+        appendix += [_page(f"{letter}page{k}", 2_000) for k in range(1, 30)]
+    return [*front, *body, *appendix], len(front) + len(body)
+
+
+_ONE_ENTRY_LAST_PAGE = [
+    "vi\nTABLE OF APPENDICES\n"
+    + "Appendix A — Opinion of the Court of Appeals ........ 1a\n"
+    + "Appendix B — Order of the District Court ........ 50a",
+    "vii\nAppendix I \u2013 Reply in Support of the\n"
+    + " Motion for Summary Judgment ........ 154a",
+]
+_NO_LEADERS_FOLIO_AT_FOOT = [
+    "Appendix D\nOrder, Office of the Superintendent    App.124a\n"
+    + "Appendix E\nOrder, Court of Appeals    App.133a\nxlviii",
+]
+
+
+@pytest.mark.parametrize("table", [_ONE_ENTRY_LAST_PAGE, _NO_LEADERS_FOLIO_AT_FOOT])
+def test_a_table_of_appendices_is_not_where_the_appendix_starts(table: list[str]) -> None:
+    """The table's pages print the front matter's page number, so none starts the appendix.
+
+    Two shapes the contents test alone lets through: a table's last page
+    carrying one entry, and a table set with no leaders at all.
+    """
+    pages, body_end = _petition_with_front_matter(table)
+    assert _appendix_start(pages) == body_end
+    text, cut = cut_filing_text(pages, char_cap=80_000)
+    assert cut
+    body = "\n".join(pages[:body_end])
+    assert text.startswith(body)  # the argument is kept whole
+    notes = _notes(text)
+    assert notes and text.index(notes[0]) > len(body)
+
+
+def test_a_page_printing_an_appendix_folio_is_not_front_matter() -> None:
+    """A stray roman letter at the foot of the appendix's first page does not hide its start."""
+    pages = [_page(f"body{n}", 2_000, top=str(n + 1)) for n in range(5)]
+    opening = "1a\nAppendix A\nOpinion of the Court of Appeals\nv"
+    assert _appendix_start([*pages, opening, _page("Apage1", 2_000)]) == 5
+
+
+def test_a_roman_numeral_inside_a_page_is_not_its_page_number() -> None:
+    """Only a page's first two lines and its last are read for the number."""
+    opening = "Appendix A\nOpinion of the Court of Appeals\nPart\nii\nof the opinion follows here."
+    pages = [_page(f"body{n}", 2_000, top=str(n + 1)) for n in range(5)]
+    assert _appendix_start([*pages, opening, _page("Apage1", 2_000)]) == 5
 
 
 def test_every_appendix_item_keeps_its_opening() -> None:

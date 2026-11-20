@@ -413,9 +413,13 @@ from .pipeline.document_recut import (
     SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
 )
 from .pipeline.document_recut import (
+    SCOPE_NAMED as RECUT_SCOPE_NAMED,
+)
+from .pipeline.document_recut import (
     SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
 )
 from .pipeline.document_recut import DocumentRecutResult, recut_documents
+from .pipeline.document_recut import check_scope as check_recut_scope
 from .pipeline.document_recut_split import (
     RecutPlan,
     RecutWorklist,
@@ -4166,6 +4170,16 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             "(queued for prediction or selected by the salience gate).",
         ),
     ] = False,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Name the cases instead of walking a scope; repeatable. The class is "
+            "then each named case's truncated petition, application and appendix rows, "
+            "with or without a cut note: the rows a change to the cut itself left stale. "
+            "Not with --all-live.",
+        ),
+    ] = None,
     emit_worklist: Annotated[
         Path | None,
         typer.Option(
@@ -4228,6 +4242,13 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     `backfill-questions-presented`. Contract: *Contract for the re-cut pass*
     (`docs/live-sources.md`).
 
+    `--case` names the cases instead: the class is then each named case's
+    truncated, not OCR-derived rows of the three kinds at one Court URL, whether
+    or not they carry a cut note. It is how a row cut under an earlier reading
+    of where the appendix starts is re-cut under the current one. Such a row
+    stays in the named class after its re-cut, and a second run reads it
+    `unchanged`.
+
     Both modes fetch: the dry run re-cuts and writes nothing, the apply writes
     each re-cut as it is made. `--max-cases` is required on an apply and
     honored on a dry run; `--deadline-seconds` declines the rest of the slice
@@ -4251,6 +4272,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             apply
             or max_cases is not None
             or all_live
+            or case
             or emit_worklist
             or from_plan
             or bind_worklist
@@ -4266,6 +4288,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             apply=apply,
             max_cases=_slice_bound(max_cases, command=command),
             all_live=all_live,
+            cases=case or [],
             deadline_seconds=deadline_seconds,
             emit_worklist=emit_worklist,
             from_plan=from_plan,
@@ -4295,7 +4318,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
         ref = db_path.parent / (db_path.name + ".ref")
         if ref.is_file():
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
-    scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    scope = _recut_scope(all_live, case or [])
     with (
         corpus.connect_maintenance(db_path, apply=apply) as conn,
         SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
@@ -4308,9 +4331,32 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             today=date.today(),
             max_cases=max_cases,
             scope=scope,
+            cases=case or [],
             deadline=deadline,
         )
     _echo_recut(result, db_path, apply=apply)
+
+
+def _recut_class_noun(result: DocumentRecutResult) -> str:
+    """What the class holds: head-cut filings, or under the named scope the named rows."""
+    return "named filing(s)" if result.scope == RECUT_SCOPE_NAMED else "head-cut filing(s)"
+
+
+def _echo_recut_named(result: DocumentRecutResult) -> None:
+    """What a named run should not leave unsaid: an empty case, a bound short of the class."""
+    if result.scope != RECUT_SCOPE_NAMED:
+        return
+    for case_id in result.named_without_documents:
+        typer.echo(
+            f"::warning::recut-documents: named case {case_id} holds no stored petition, "
+            "application or appendix row — check the docket id"
+        )
+    if result.bound is not None and 0 < result.bound < result.candidates:
+        typer.echo(
+            f"::warning::recut-documents: the bound of {result.bound} is short of the "
+            f"{result.candidates} named filing(s); a named class does not drain, so the "
+            "rows past the bound are reached only by a bound that covers the class"
+        )
 
 
 def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> None:
@@ -4326,13 +4372,14 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
     verb = "re-cut" if apply else "would re-cut"
     typer.echo(
         f"recut-documents ({'applied' if apply else 'dry-run'}, {scope}): "
-        f"{result.candidates} head-cut filing(s) in the class of "
+        f"{result.candidates} {_recut_class_noun(result)} in the class of "
         f"{result.documents_seen} stored document(s) over {result.cases_seen} row(s) — "
         f"{verb} {result.recut}, {result.remaining} left in the class"
     )
     _echo_by_kind("class", result.candidates_by_kind)
     if result.excluded:
         _echo_by_kind("truncated but left out", result.excluded)
+    _echo_recut_named(result)
     typer.echo(
         f"  attempted {result.attempted} "
         f"(bound {'none' if result.bound is None else result.bound}); "
@@ -4352,7 +4399,8 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
     for key, reason in result.skipped.items():
         typer.echo(f"  {key}: SKIPPED ({reason})")
     _echo_unreached(result.unreached)
-    if result.bound and result.attempted == result.bound and result.recut == 0:
+    walked = result.scope != RECUT_SCOPE_NAMED
+    if walked and result.bound and result.attempted == result.bound and result.recut == 0:
         # A full slice that re-cut nothing is a head of residue (links that
         # 404, other filings) the class order keeps returning to.
         typer.echo(
@@ -4367,6 +4415,19 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
 def _recut_refuse(message: str) -> NoReturn:
     typer.echo(f"recut-documents: {message}", err=True)
     raise typer.Exit(code=2)
+
+
+def _recut_scope(all_live: bool, cases: Sequence[str]) -> str:
+    """The scope the flags name, refusing (exit 2) cases the named scope cannot take."""
+    if not cases:
+        return RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    if all_live:
+        _recut_refuse("--case names the class; it takes no --all-live.")
+    try:
+        check_recut_scope(RECUT_SCOPE_NAMED, cases)
+    except ValueError as exc:
+        _recut_refuse(f"{exc}.")
+    return RECUT_SCOPE_NAMED
 
 
 def _recut_parse(
@@ -4410,6 +4471,7 @@ def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per spli
     apply: bool,
     max_cases: int | None,
     all_live: bool,
+    cases: Sequence[str],
     deadline_seconds: float | None,
     emit_worklist: Path | None,
     from_plan: Path | None,
@@ -4447,12 +4509,12 @@ def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per spli
         )
         raise typer.Exit(code=1)
     if emit_worklist is not None:
-        scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+        scope = _recut_scope(all_live, cases)
         if apply:
             _recut_refuse("the projection writes nothing; the apply is the reader's (--from-plan).")
         try:
             with corpus.connect_maintenance(db_path, apply=False) as conn:
-                handed, reading = recut_worklist(conn, scope=scope, bound=max_cases)
+                handed, reading = recut_worklist(conn, scope=scope, bound=max_cases, cases=cases)
         except HandoffRefused as exc:
             typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
             raise typer.Exit(code=1) from exc
@@ -4463,9 +4525,10 @@ def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per spli
         write_handoff(emit_worklist, handed)
         return
     assert from_plan is not None and bind_worklist is not None  # narrowed above
-    if all_live:
+    if all_live or cases:
         _recut_refuse(
-            "the reader walks the scope the worklist was cut for; it takes no --all-live."
+            "the reader walks the scope the worklist was cut for; it takes no --all-live "
+            "and no --case."
         )
     if apply and max_cases is None:
         _recut_refuse(
@@ -4512,13 +4575,14 @@ def _echo_recut_class(result: DocumentRecutResult, db_path: Path) -> None:
         )
         raise typer.Exit(code=1)
     typer.echo(
-        f"recut-documents (projection, {result.scope}): {result.candidates} head-cut "
-        f"filing(s) in the class of {result.documents_seen} stored document(s) over "
-        f"{result.cases_seen} row(s)"
+        f"recut-documents (projection, {result.scope}): {result.candidates} "
+        f"{_recut_class_noun(result)} in the class of {result.documents_seen} stored "
+        f"document(s) over {result.cases_seen} row(s)"
     )
     _echo_by_kind("class", result.candidates_by_kind)
     if result.excluded:
         _echo_by_kind("truncated but left out", result.excluded)
+    _echo_recut_named(result)
 
 
 @app.command("enrich-opinions")

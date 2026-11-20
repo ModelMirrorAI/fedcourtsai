@@ -18,12 +18,20 @@ recorded in *Contract for the re-cut pass* (`docs/live-sources.md`):
   two cuts agree on it. An OCR-recovered row is head-cut by design
   (:func:`~fedcourtsai.pipeline.documents.extract_filing_text` says why) and
   re-reading it without OCR would empty it. A row whose text carries a note was
-  cut the appendix-aware way already. A set-keyed or off-host URL is one this
+  cut the appendix-aware way already, under the reading of the appendix start
+  in force when it was fetched; a later change to that reading does not bring
+  it back into this class. A set-keyed or off-host URL is one this
   pass will not GET.
 - **Scope.** The predict-relevant live-slice rows by default — queued for
   prediction or selected by the salience gate
   (:func:`~fedcourtsai.pipeline.document_backfill.is_predict_relevant`), the
   cases whose cells can still read the row — or the whole live slice.
+- **Named cases.** A third scope, ``named``, takes its cases from the caller
+  and takes each one's rows of the three kinds whether or not they carry a cut
+  note: the rows a change to the appendix-aware cut itself left stale, which no
+  test on the stored text picks out and a maintainer therefore names. Such a
+  row stays in its class after a re-cut, so the class is the named rows before
+  and after, and a second run reads each as ``unchanged``.
 - **Re-fetch.** By the row's own stored URL on supremecourt.gov, through the
   same polite client and the same guards the OCR recovery uses
   (:func:`~fedcourtsai.pipeline.ocr_recovery._refetch_document`).
@@ -45,6 +53,7 @@ recorded in *Contract for the re-cut pass* (`docs/live-sources.md`):
 from __future__ import annotations
 
 import logging
+import re
 import sqlite3
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -80,9 +89,17 @@ RECUT_KINDS: tuple[str, ...] = tuple(
     kind for kind in FETCHED_DOCUMENT_KINDS if kind in APPENDIX_BEARING_KINDS
 )
 
-#: The two scopes the population is walked over.
+#: The scopes the population is walked over. The first two walk the live slice
+#: for the head-cut class; ``named`` reads the cases the caller names.
 SCOPE_PREDICT_RELEVANT = "predict-relevant"
 SCOPE_ALL_LIVE = "all-live"
+SCOPE_NAMED = "named"
+SCOPES: tuple[str, ...] = (SCOPE_PREDICT_RELEVANT, SCOPE_ALL_LIVE, SCOPE_NAMED)
+
+#: One named case, and how many one run may name. The grammar is the split
+#: pass's worklist's; the count keeps a named run a deliberate, readable list.
+NAMED_CASE_RE = re.compile(r"scotus/[0-9]{1,12}")
+MAX_NAMED_CASES = 50
 
 # What one candidate is estimated to cost, which the slice deadline admits or
 # declines it on: one throttled GET of a filing that runs to a few megabytes,
@@ -127,6 +144,9 @@ OUTCOMES: tuple[str, ...] = (
 # cut and its re-cut agree there; a filing corrected and re-posted at the same
 # link with the same page count does not.
 HEAD_CHECK_CHARS = 2000
+# The least the two texts must share, in letters and digits, where the stored
+# text is cut short by a note of its own: under it the comparison says nothing.
+MIN_SHARED_HEAD = 200
 
 #: Why a stored row is out of the class. The first two are the ordinary shape
 #: of a corpus that is mostly fine and are not tallied; the rest are rows a
@@ -139,11 +159,12 @@ UNFETCHABLE_URL = "unfetchable-url"
 _TALLIED_EXCLUSIONS: tuple[str, ...] = (OCR_DERIVED, HAS_CUT_NOTE, UNFETCHABLE_URL)
 
 
-def exclusion_reason(document: corpus.CaseDocument) -> str | None:
+def exclusion_reason(document: corpus.CaseDocument, *, named: bool = False) -> str | None:
     """Why this row is out of the re-cut class, or ``None`` if it is in it.
 
     Stated as reasons rather than a conjunction, so the ledger's exclusion
-    tallies cannot drift from the test that excluded the rows.
+    tallies cannot drift from the test that excluded the rows. ``named`` is the
+    named scope's class, which a cut note does not take a row out of.
     """
     if document.kind not in APPENDIX_BEARING_KINDS:
         return NOT_A_RECUT_KIND
@@ -151,7 +172,7 @@ def exclusion_reason(document: corpus.CaseDocument) -> str | None:
         return NOT_TRUNCATED
     if document.ocr_derived:
         return OCR_DERIVED
-    if carries_cut_note(document.text):
+    if not named and carries_cut_note(document.text):
         return HAS_CUT_NOTE
     if not fetchable_document_url(document.url):
         return UNFETCHABLE_URL
@@ -199,11 +220,38 @@ class RecutScan:
     cases_seen: int
     documents_seen: int
     excluded: dict[str, int]
+    #: Cases in scope holding no stored row of an appendix-bearing kind: the
+    #: reading that tells a mistyped named case from one with nothing to re-cut.
+    without_documents: tuple[str, ...] = ()
 
 
-def _scope_rows(conn: corpus.ReadConnection, scope: str) -> list[str]:
-    if scope not in (SCOPE_PREDICT_RELEVANT, SCOPE_ALL_LIVE):
+def check_scope(scope: str, cases: Sequence[str]) -> None:
+    """Refuse a scope this pass does not walk, or cases that do not fit the scope.
+
+    The named scope takes between one and :data:`MAX_NAMED_CASES` distinct
+    cases in the worklist's own grammar; the other two take none.
+    """
+    if scope not in SCOPES:
         raise ValueError(f"unknown re-cut scope {scope!r}")
+    if scope != SCOPE_NAMED:
+        if cases:
+            raise ValueError(f"the {scope} scope names no cases")
+        return
+    if not cases:
+        raise ValueError("the named scope needs at least one case")
+    if len(cases) > MAX_NAMED_CASES:
+        raise ValueError(f"the named scope takes at most {MAX_NAMED_CASES} cases")
+    if len(set(cases)) != len(cases):
+        raise ValueError("the named scope's cases repeat")
+    for case_id in cases:
+        if NAMED_CASE_RE.fullmatch(case_id) is None:
+            raise ValueError(f"not a case id the named scope reads: {case_id!r}")
+
+
+def _scope_rows(conn: corpus.ReadConnection, scope: str, cases: Sequence[str]) -> list[str]:
+    check_scope(scope, cases)
+    if scope == SCOPE_NAMED:
+        return sorted(cases)
     return [
         row.case_id
         for row in corpus.iter_rows(conn, court="scotus", live_slice=True)
@@ -212,7 +260,10 @@ def _scope_rows(conn: corpus.ReadConnection, scope: str) -> list[str]:
 
 
 def recut_candidates(
-    conn: corpus.ReadConnection, *, scope: str = SCOPE_PREDICT_RELEVANT
+    conn: corpus.ReadConnection,
+    *,
+    scope: str = SCOPE_PREDICT_RELEVANT,
+    cases: Sequence[str] = (),
 ) -> RecutScan:
     """Every stored row in the re-cut class, in ``case_id`` then kind order.
 
@@ -220,10 +271,14 @@ def recut_candidates(
     rather than queried, because under the corpus split the text lives in the
     per-case content store and the blob's ``documents`` table holds none of it.
     The order is what makes a bounded slice self-advancing: a re-cut row
-    carries a cut note and leaves the class.
+    carries a cut note and leaves the class. The named scope's class does not
+    advance, since a cut note does not take a row out of it; its bound is the
+    whole named class.
     """
-    case_ids = _scope_rows(conn, scope)
+    case_ids = _scope_rows(conn, scope, cases)
+    named = scope == SCOPE_NAMED
     found: list[RecutCandidate] = []
+    without_documents: list[str] = []
     documents_seen = 0
     excluded: dict[str, int] = {}
     with prefetch_by_case(
@@ -231,15 +286,17 @@ def recut_candidates(
         lambda case_id: corpus.documents_for_case(conn, case_id),
         thread_name_prefix="document-recut",
     ) as fetched:
-        for _case_id, documents in fetched:
+        for case_id, documents in fetched:
             by_kind = {document.kind: document for document in documents}
             questions = by_kind.get(KIND_QUESTIONS_PRESENTED)
+            if not any(kind in by_kind for kind in RECUT_KINDS):
+                without_documents.append(case_id)
             for kind in RECUT_KINDS:
                 document = by_kind.get(kind)
                 if document is None:
                     continue
                 documents_seen += 1
-                reason = exclusion_reason(document)
+                reason = exclusion_reason(document, named=named)
                 if reason is not None:
                     if reason in _TALLIED_EXCLUSIONS:
                         excluded[reason] = excluded.get(reason, 0) + 1
@@ -255,6 +312,7 @@ def recut_candidates(
         cases_seen=len(case_ids),
         documents_seen=documents_seen,
         excluded={reason: excluded[reason] for reason in _TALLIED_EXCLUSIONS if reason in excluded},
+        without_documents=tuple(without_documents) if named else (),
     )
 
 
@@ -266,9 +324,21 @@ class DocumentRecutResult(BaseModel):
     applied: bool = Field(description="Whether the pass wrote the rows or only reported them")
     scope: str = Field(
         description="`predict-relevant` (live-slice rows queued for prediction or "
-        "selected by the salience gate) or `all-live` (the whole live slice)"
+        "selected by the salience gate), `all-live` (the whole live slice) or `named` "
+        "(the cases in `cases`, whose rows a cut note does not leave out)"
     )
-    cases_seen: int = Field(ge=0, description="Live-slice SCOTUS rows in scope")
+    cases: list[str] = Field(
+        default_factory=list,
+        description="The cases a `named` run was given, sorted; empty under the other scopes",
+    )
+    named_without_documents: list[str] = Field(
+        default_factory=list,
+        description="Named cases holding no stored petition, application or appendix row: "
+        "a docket id to check before reading the run as complete",
+    )
+    cases_seen: int = Field(
+        ge=0, description="Live-slice SCOTUS rows in scope; under `named`, the cases named"
+    )
     documents_seen: int = Field(
         ge=0,
         description="Stored rows of an appendix-bearing kind in scope — the denominator "
@@ -279,7 +349,8 @@ class DocumentRecutResult(BaseModel):
         ge=0,
         description="Stored petition, application and appendix rows that are truncated, "
         "not OCR-derived, carry no cut note and have one fetchable Court "
-        "URL — the whole re-cut class in scope",
+        "URL — the whole re-cut class in scope. Under `named`, a cut note does not "
+        "leave a row out",
     )
     candidates_by_kind: dict[str, int] = Field(
         default_factory=dict, description="The class cut by document kind"
@@ -287,8 +358,9 @@ class DocumentRecutResult(BaseModel):
     excluded: dict[str, int] = Field(
         default_factory=dict,
         description="Truncated rows left out of the class, by reason: `ocr-derived` "
-        "(head-cut by design), `has-cut-note` (already cut the appendix-aware way) and "
-        "`unfetchable-url` (a set key or a URL off the Court's host)",
+        "(head-cut by design), `has-cut-note` (already cut the appendix-aware way; not "
+        "a reason under `named`) and `unfetchable-url` (a set key or a URL off the "
+        "Court's host)",
     )
     bound: int | None = Field(
         default=None,
@@ -405,15 +477,27 @@ def _same_head(recut: str, stored: str) -> bool:
     filing. A re-cut head with no letter or digit opens no stored text that has one.
     The re-cut's unread-run notes are set aside first: they are the pipeline's
     lines, a stored text from before the extractor wrote them has none, and one
-    at the head would otherwise end the comparison before it began.
+    at the head would otherwise end the comparison before it began. Each text
+    is read up to its own first cut note, and the two are compared over the
+    length they share, which must reach :data:`MIN_SHARED_HEAD` where a stored
+    note is what cut it short.
     """
     recut = strip_unread_notes(recut)
     note = recut.find(_CUT_NOTE_OPENER)
     head = _letters_and_digits(recut[: min(HEAD_CHECK_CHARS, note if note >= 0 else len(recut))])
-    opening = _letters_and_digits(stored[: HEAD_CHECK_CHARS * 2])
+    # A stored row the named scope reaches carries cut notes of its own, and
+    # its filing's text ends at the first of them just as the re-cut's does.
+    stored = strip_unread_notes(stored)
+    stored_note = stored.find(_CUT_NOTE_OPENER)
+    stored_end = stored_note if stored_note >= 0 else len(stored)
+    opening = _letters_and_digits(stored[: min(HEAD_CHECK_CHARS * 2, stored_end)])
     if not head:
         return not opening
     length = min(len(head), len(opening))
+    if stored_note >= 0 and length < min(MIN_SHARED_HEAD, len(head)):
+        # A stored note this early leaves too little of the filing to tell it
+        # from another: not shown to be the same filing, so not written.
+        return False
     return head[:length] == opening[:length]
 
 
@@ -523,6 +607,7 @@ def recut_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected 
     today: date,
     max_cases: int | None = None,
     scope: str = SCOPE_PREDICT_RELEVANT,
+    cases: Sequence[str] = (),
     deadline: float | None = None,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> DocumentRecutResult:
@@ -550,10 +635,10 @@ def recut_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected 
     """
     if apply and max_cases is None:
         raise ValueError("an apply must carry its slice bound")
-    scan = recut_candidates(conn, scope=scope)
+    scan = recut_candidates(conn, scope=scope, cases=cases)
     candidates = scan.candidates
     slice_ = candidates if max_cases is None else candidates[:max_cases]
-    ledger = RecutLedger(conn, apply=apply)
+    ledger = RecutLedger(conn, apply=apply, named=scope == SCOPE_NAMED)
     for index, candidate in enumerate(slice_):
         if deadline is not None:
             estimate = estimated_candidate_seconds(candidate)
@@ -577,7 +662,7 @@ def recut_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected 
             candidate.document.kind,
             _recut_one(client, candidate, char_cap=char_cap, today=today),
         )
-    return ledger.result(scan, scope=scope, bound=max_cases, sliced=len(slice_))
+    return ledger.result(scan, scope=scope, cases=cases, bound=max_cases, sliced=len(slice_))
 
 
 class RecutLedger:
@@ -589,11 +674,14 @@ class RecutLedger:
     one its own fetch does.
     """
 
-    def __init__(self, conn: sqlite3.Connection | None, *, apply: bool) -> None:
+    def __init__(
+        self, conn: sqlite3.Connection | None, *, apply: bool, named: bool = False
+    ) -> None:
         if apply and conn is None:
             raise ValueError("an applying ledger writes through a connection")
         self._conn = conn
         self._apply = apply
+        self._named = named
         self._outcomes: dict[str, dict[str, int]] = {}
         self._counts = dict.fromkeys(OUTCOMES, 0)
         self._recuts: dict[str, str] = {}
@@ -627,19 +715,28 @@ class RecutLedger:
             assert self._conn is not None  # refused at construction otherwise
             corpus.upsert_documents(self._conn, [outcome.recut, *outcome.questions])
             # Counted off the written row rather than assumed: a re-cut leaves
-            # the class by carrying a cut note or fitting under the cap, and
-            # the step's witness compares `remaining` with a re-walk exactly.
-            self._left_class += exclusion_reason(outcome.recut) is not None
+            # the class by carrying a cut note or fitting under the cap (under
+            # the named scope, by fitting under the cap alone), and the step's
+            # witness compares `remaining` with a re-walk exactly.
+            self._left_class += exclusion_reason(outcome.recut, named=self._named) is not None
         self._recuts[key] = outcome.detail
 
     def result(
-        self, scan: RecutScan, *, scope: str, bound: int | None, sliced: int
+        self,
+        scan: RecutScan,
+        *,
+        scope: str,
+        bound: int | None,
+        sliced: int,
+        cases: Sequence[str] = (),
     ) -> DocumentRecutResult:
         """The ledger over ``scan``'s class, for a slice of ``sliced`` candidates."""
         counts = self._counts
         return DocumentRecutResult(
             applied=self._apply,
             scope=scope,
+            cases=sorted(cases),
+            named_without_documents=sorted(scan.without_documents),
             cases_seen=scan.cases_seen,
             documents_seen=scan.documents_seen,
             candidates=len(scan.candidates),

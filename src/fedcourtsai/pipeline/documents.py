@@ -2593,6 +2593,16 @@ _INDEX_TAIL_RE = re.compile(r"[.\u2026]\s*[a-z.\s-]{0,12}\d{1,4}\s*[a-z]{0,2}\s*
 # A line that is only a page number — an appendix folio, or an arabic or roman
 # one — and so says nothing about which item the page belongs to.
 _FOLIO_LINE_RE = re.compile(rf"{_FOLIO_TOKEN}|\d{{1,4}}|[ivxlc]{{1,7}}", re.IGNORECASE)
+# A front-matter page number as printed: a lower-case roman numeral up to
+# ninety-nine, on a line of its own. A filing numbers its tables in roman
+# numerals and its appendix in lettered folios ("1a"), so a page that prints
+# one and no lettered folio is the brief's own front matter, or an index page
+# inside the appendix, and never the appendix's first page of text. Only the
+# appendix start reads it; the item readings inside the appendix do not.
+_FRONT_MATTER_FOLIO_RE = re.compile(r"(?=[ivxl])(?:x[cl]|l?x{0,3})(?:i[xv]|v?i{0,3})")
+# How many of a page's first non-blank lines are read for that number; its last
+# one is read too, for a printer that sets the number at the foot.
+_FOLIO_TOP_LINES = 2
 # A court decision, read off an item's title: an opinion, an order, a judgment
 # and their kin, or a court's own caption — and not a party's paper that names
 # one ("Motion to vacate the order", "First Amended Complaint, United States
@@ -2680,20 +2690,40 @@ def _is_contents_page(page: str) -> bool:
     return False
 
 
+def _is_front_matter_page(page: str) -> bool:
+    """Whether a page prints a front-matter page number (:data:`_FRONT_MATTER_FOLIO_RE`).
+
+    Read off the page's first :data:`_FOLIO_TOP_LINES` non-blank lines and its
+    last one, where a printer sets the number. A page that also prints a
+    lettered appendix folio (:func:`_page_folios`) is an appendix page whatever
+    else it carries, so a stray "i" or "v" at its foot does not make it front
+    matter.
+    """
+    lines = [line for raw in page.splitlines() if (line := " ".join(raw.split()))]
+    lines = [line for line in lines if _UNREAD_NOTE_RE.fullmatch(line) is None]
+    printed = [*lines[:_FOLIO_TOP_LINES], *lines[-1:]]
+    if not any(_FRONT_MATTER_FOLIO_RE.fullmatch(line) for line in printed):
+        return False
+    return not _page_folios(page)
+
+
 def _appendix_start(pages: Sequence[str]) -> int | None:
     """The index of the page a bound appendix starts on, or ``None`` where none is read.
 
     The first page from the fourth on whose top lines carry an appendix opening
     (:data:`_APPENDIX_START_LINE_RE`) or an item heading
-    (:data:`_APPENDIX_ITEM_LINE_RE`), set as a heading — and which is not itself
-    a contents page: the filing's own table of contents lists the appendix items
-    under the same headings, and a start read there would hand the whole brief
-    to the appendix's budget. A filing where none is read is cut as one body,
-    which is the plain head cut with its note.
+    (:data:`_APPENDIX_ITEM_LINE_RE`), set as a heading — and which is neither a
+    contents page nor a front-matter page (:func:`_is_front_matter_page`): the
+    filing's own table of contents and its table of appendices list the
+    appendix items under the same headings, and a start read there would hand
+    the whole brief to the appendix's budget. The contents test alone misses a
+    table's last page that carries a single entry, and a table set without
+    leaders; both print the front matter's roman page number. A filing where
+    none is read is cut as one body, which is the plain head cut with its note.
     """
     for index in range(_APPENDIX_MIN_BODY_PAGES, len(pages)):
         page = pages[index]
-        if _is_contents_page(page):
+        if _is_contents_page(page) or _is_front_matter_page(page):
             continue
         for line in _top_lines(page):
             if _is_heading(line) and (
