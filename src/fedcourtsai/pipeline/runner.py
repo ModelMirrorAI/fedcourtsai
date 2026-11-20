@@ -1136,8 +1136,24 @@ _TRANSIENT_FAILURE = re.compile(
     # a bare "empty response" is also how a safety block or a MAX_TOKENS
     # truncation reads — both deterministic, both re-spent on every retry.
     | invalid[\s_-]*stream             # Gemini INVALID_STREAM
+    # A response the server stopped sending part-way: Node's fetch (undici)
+    # rejects the body with "TypeError: terminated", caused by a SocketError
+    # "other side closed" (code UND_ERR_SOCKET), and the gemini CLI exits 1
+    # reporting only `{"type": "Error", "message": "terminated"}`. The report
+    # is read alone, so the bare message has to be recognized; it is anchored
+    # as the whole of an error line, since "terminated" inside a longer message
+    # is how an ended process or session reads, which no retry clears. The
+    # cause's own wording covers a CLI that reports the cause instead.
+    | \b(?:Type)?Error:[ ]terminated[ \t]*$
+    | UND_ERR_SOCKET
+    | other[\s_-]*side[\s_-]*closed
+    # Node's own spellings of the dropped, refused or unresolved connection the
+    # prose alternatives above already name, as they appear in an error's
+    # `code` or its "read ECONNRESET" message.
+    | \b(?:ECONNRESET|ECONNREFUSED|ECONNABORTED|EPIPE|EAI_AGAIN)\b
+    | socket[\s_-]*hang[\s_-]*up
     """,
-    re.IGNORECASE | re.VERBOSE,
+    re.IGNORECASE | re.MULTILINE | re.VERBOSE,
 )
 
 # The provider wording that marks a quota as *spent* rather than throttled, which

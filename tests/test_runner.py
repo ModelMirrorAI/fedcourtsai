@@ -759,6 +759,18 @@ def test_retry_after_hint_is_capped_at_backoff_max(tmp_path: Path) -> None:
         # Gemini's INVALID_STREAM envelope, as the CLI writes it on exit.
         '{"error":{"type":"INVALID_STREAM","message":"Invalid stream: The model '
         + 'returned an empty response or malformed tool call."}}',
+        # A response the server stopped sending part-way, in each wording
+        # Node's fetch gives it: the rejection, its cause, and the cause's code.
+        "Error: terminated",
+        "Error when talking to Gemini API TypeError: terminated\n    at Fetch.onAborted",
+        "[cause]: SocketError: other side closed",
+        "code: 'UND_ERR_SOCKET',",
+        # Node's spellings of a dropped, refused or unresolved connection.
+        "Error: read ECONNRESET",
+        "connect ECONNREFUSED 127.0.0.1:8378",
+        "Error: write EPIPE",
+        "getaddrinfo EAI_AGAIN generativelanguage.googleapis.com",
+        "Error: socket hang up",
     ],
 )
 def test_transient_signatures_are_retryable(stderr: str) -> None:
@@ -785,6 +797,12 @@ def test_transient_signatures_are_retryable(stderr: str) -> None:
         "the model returned a malformed tool call",
         "Response blocked by safety filter: the model returned an empty response",
         "finishReason: MAX_TOKENS — model returned an empty response",
+        # "terminated" buys a retry only as the whole of an error line, which is
+        # how a dropped response body reads. Inside a longer message it is an
+        # ended process or session, and that ends the same way again.
+        "Error: terminated by signal SIGKILL",
+        "Error: session terminated: the tool budget is spent",
+        "the sandbox process was terminated",
     ],
 )
 def test_permanent_signatures_are_not_retryable(stderr: str) -> None:
@@ -804,6 +822,30 @@ _INVALID_STREAM_RESULT = (
 _FETCH_FAILED_RESULT = (
     '{"session_id": "s", "error": {"type": "Error", "message": '
     + '"exception TypeError: fetch failed sending request", "code": 1}}'
+)
+
+# What gemini-cli 0.49.0 leaves on stderr when the API closes the connection
+# while a response is streaming: Node's fetch rejection with its cause, then the
+# error object, whose message is the bare "terminated" (run-predict's gemini
+# cell on 2026-11-14, with the stack and the socket's addresses abridged).
+_TERMINATED_RESULT = (
+    '{\n  "session_id": "s",\n  "error": {\n    "type": "Error",\n'
+    + '    "message": "terminated",\n    "code": 1\n  }\n}\n'
+)
+_DROPPED_STREAM_STDERR = (
+    "YOLO mode is enabled. All tool calls will be automatically approved.\n"
+    + "Error executing tool mcp_courtlistener_call_endpoint: Error: MCP tool "
+    + "'call_endpoint' reported an error.\n"
+    + "Error when talking to Gemini API Full report available at: "
+    + "/tmp/gemini-client-error-Turn.run-sendMessageStream-2026-11-14T01-36-28-901Z.json "
+    + "TypeError: terminated\n"
+    + "    at Fetch.onAborted (node:internal/deps/undici/undici:13933:53)\n"
+    + "    at TCP.done (node:internal/tls/wrap:780:7) {\n"
+    + "  [cause]: SocketError: other side closed\n"
+    + "      at TLSSocket.onHttpSocketEnd (chunk-VLV2BYPM.js:207476:27) {\n"
+    + "    code: 'UND_ERR_SOCKET',\n"
+    + "    socket: {\n      remotePort: 443,\n      bytesRead: 44463\n    }\n  }\n}\n"
+    + _TERMINATED_RESULT
 )
 
 # The client error a turn ends on when the API refuses its request: the error
@@ -878,6 +920,20 @@ _BAD_REQUEST_RESULT = (
             + _FETCH_FAILED_RESULT,
             AttemptClass.transient,
         ),
+        # A connection the API dropped mid-stream: exit 1, the report on stderr
+        # saying only "terminated". Read alone, that report is the hiccup.
+        (1, "", _DROPPED_STREAM_STDERR, AttemptClass.transient),
+        # The same drop where the CLI wrote its result to stdout.
+        (1, _TERMINATED_RESULT, "", AttemptClass.transient),
+        # A dropped stream the turn recovered from does not make the client
+        # error it later ended on a hiccup.
+        (
+            1,
+            "",
+            "TypeError: terminated\n  [cause]: SocketError: other side closed\n"
+            + _BAD_REQUEST_RESULT,
+            AttemptClass.permanent,
+        ),
         # A reported spent quota is terminal whatever throttle preceded it, and
         # a recovered one does not make a later reported fault terminal.
         (
@@ -942,6 +998,8 @@ def test_classify_engine_attempt(
         "503 Service Unavailable",
         "connection reset",
         "TypeError: fetch failed",
+        "TypeError: terminated\n  [cause]: SocketError: other side closed",
+        "Error: terminated by signal SIGKILL",
         "TerminalQuotaError: exhausted your daily quota 429",
         "context length exceeded",
         "",
