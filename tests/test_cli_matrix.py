@@ -3772,6 +3772,39 @@ def test_evaluate_matrix_grades_an_enabled_slices_dockets_only(tmp_path: Path) -
     }
 
 
+def test_a_scheduled_round_queues_a_slice_dockets_open_motion_with_no_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _store_trial_event(tmp_path)
+    _switch_trial_moments_on(monkeypatch)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        # Read today: a docket the refresh has not read inside the bound is held.
+        conn.execute(
+            "UPDATE cases SET last_pulled = ? WHERE case_id = 'cand/101'",
+            (date.today().isoformat(),),
+        )
+        conn.commit()
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+    assert result.exit_code == 0, result.output
+    assert "Slice backlog: 1 docket(s) with 1 event(s) owed a forecast." in result.stderr
+    slice_cells = [c for c in _cells(result.stdout) if c["court"] != "scotus"]
+    assert {(c["court"], c["docket"], c["event_id"], c["predictor_id"]) for c in slice_cells} == {
+        ("cand", 101, _TRIAL_EVENT, "ai-watchlist-actor")
+    }
+
+
+def test_a_scheduled_round_queues_no_slice_docket_while_the_moments_are_off(
+    tmp_path: Path,
+) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _store_trial_event(tmp_path)
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+    assert result.exit_code == 0, result.output
+    assert "Slice backlog" not in result.stderr
+    assert {c["court"] for c in _cells(result.stdout)} <= {"scotus"}
+
+
 def test_predict_matrix_refuses_an_enabled_slice_whose_list_is_missing(tmp_path: Path) -> None:
     env = _slice_env(tmp_path, slices=("ai-watchlist",))
     (tmp_path / "config" / "ai-watchlist.yaml").unlink()
