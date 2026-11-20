@@ -548,7 +548,12 @@ from .pipeline.unforecast import Recall, unforecast_outcomes
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
-from .prediction_slices import Population, load_slices
+from .prediction_slices import (
+    SCOTUS_POPULATION_KEY,
+    Population,
+    load_slices,
+    routing_population,
+)
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .promotion_train import (
@@ -579,6 +584,7 @@ from .registry import (
     load_evaluators,
     load_mcp_servers,
     load_predictors,
+    predictors_for,
     resolve_mcp_servers,
 )
 from .release_sensitivity import (
@@ -6443,7 +6449,10 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     destination = out if out is not None else settings.metrics_root / "merits-backtest.json"
     _refuse_existing_record(record)
     skipped = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
-    known = {str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    known = {
+        str(p.engine)
+        for p in predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
+    }
     if skipped - known:
         raise typer.BadParameter(
             f"unknown engine(s): {', '.join(sorted(skipped - known))}; enabled engines "
@@ -6994,7 +7003,8 @@ def reasoning_pilot_merits_sample_cmd(
         )
     backend, db_path = _merits_corpus(corpus_backend)
     configured = {
-        p.id: str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+        p.id: str(p.engine)
+        for p in predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
     }
     try:
         run = merits_calibration.read_kept_run(kept, allow_stub=allow_stub, predictors=configured)
@@ -13197,7 +13207,10 @@ def cert_backtest_cmd(  # noqa: PLR0913, PLR0915, PLR0917 - a CLI entrypoint; op
         if engine:
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
             known_engines = {
-                str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+                str(p.engine)
+                for p in predictors_for(
+                    settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY
+                )
             }
             unknown_engines = skipped_engines - known_engines
             if unknown_engines:
@@ -13232,7 +13245,7 @@ def cert_backtest_cmd(  # noqa: PLR0913, PLR0915, PLR0917 - a CLI entrypoint; op
             clocks = outcome.clocks
             dropped = _report_replay_drops(
                 outcome,
-                enabled_predictors(settings.config_root / "predictors.yaml"),
+                predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY),
                 skipped_engines,
             )
             replayed = outcome.backtesters
@@ -13404,7 +13417,10 @@ def _comparison_arms(
     training cutoffs would describe a configuration that did not run.
     """
     settings = get_settings()
-    roster = {p.id: p for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    roster = {
+        p.id: p
+        for p in predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
+    }
     if predictor_id not in roster:
         raise typer.BadParameter(
             f"{predictor_id!r} is not an enabled predictor; choose one of "
@@ -14057,7 +14073,12 @@ def backtest_handoff_check_cmd(
     """
     if kind not in {"cert", "merits"}:
         raise typer.BadParameter("choose cert or merits", param_hint="--kind")
-    roster = {p.id for p in enabled_predictors(get_settings().config_root / "predictors.yaml")}
+    roster = {
+        p.id
+        for p in predictors_for(
+            get_settings().config_root / "predictors.yaml", SCOTUS_POPULATION_KEY
+        )
+    }
     problems = backtest_comparison.handoff_problems(
         kind=kind,
         comparison_predictor=comparison_predictor or None,
@@ -28521,7 +28542,11 @@ def _predict_fanout(
     # re-minted, so a re-queue where two of three engines landed mints only the
     # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
     matrix = predict_matrix(
-        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
+        settings.config_root / "predictors.yaml",
+        cases,
+        run_id,
+        data_root=settings.data_root,
+        slices=slices,
     )
     # The stranded-run guard, before the volume cap so the cap's budget goes to
     # genuinely new cells: a cell whose output sits in a run that has not reached
@@ -28759,7 +28784,7 @@ def _evaluate_fanout(
             settings.corpus_backend,
             for_grading=True,
             dropped_out=scope_dropped,
-            slices=load_slices(settings.config_root, predict_config.slices),
+            slices=(slices := load_slices(settings.config_root, predict_config.slices)),
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
@@ -28781,8 +28806,10 @@ def _evaluate_fanout(
         data_root=settings.data_root,
         skip_evaluated=not force,
         opinion_present=presence,
+        slices=slices,
     )
-    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
+    fleet = enabled_evaluators(evaluators_path)
+    candidates = 0
     today = run_day(run_id)
     # Report the gates separately: a cost gate (nothing to score), a deferral
     # (held for the opinion) and an idempotency gate (already scored). Collapsed,
@@ -28796,6 +28823,10 @@ def _evaluate_fanout(
     held: list[_DropRecord] = []
     for case in cases:
         case_id = ids.case_id(case.court, case.docket)
+        # The judges of the case's own population, as `evaluate_matrix` routes.
+        population = routing_population(case_id, slices)
+        evaluators = [e for e in fleet if e.population == population]
+        candidates += len(evaluators) * len(case.events)
         for event_id in case.events:
             if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
                 # Attribute an event that is both to the cost gate only; one
@@ -28870,7 +28901,7 @@ def _evaluate_fanout(
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
         held_awaiting_opinion=tuple(held),
-        candidates=len(evaluators) * sum(len(case.events) for case in cases),
+        candidates=candidates,
         matrix=matrix,
     )
 
@@ -29237,7 +29268,10 @@ class _LedgerGate:
 
 
 def _predict_ledger_gate(
-    resolved: list[CaseRequest], predictors_path: Path, data_root: Path
+    resolved: list[CaseRequest],
+    predictors_path: Path,
+    data_root: Path,
+    slices: Mapping[str, Population] | None = None,
 ) -> _LedgerGate:
     """Re-walk :func:`predict_matrix`'s product and report what removed cells from it.
 
@@ -29266,8 +29300,10 @@ def _predict_ledger_gate(
     reowed: list[_DropRecord] = []
     for predictor in enabled_predictors(predictors_path):
         for case in resolved:
-            candidates += len(case.events)
             case_id = ids.case_id(case.court, case.docket)
+            if predictor.population != routing_population(case_id, slices):
+                continue
+            candidates += len(case.events)
             if case.predictors and predictor.id not in case.predictors:
                 narrowed.extend(
                     _DropRecord(
@@ -29847,7 +29883,10 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
             day=replay_day,
         )
         gate = _predict_ledger_gate(
-            fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
+            fanout.resolved,
+            settings.config_root / "predictors.yaml",
+            settings.data_root,
+            load_slices(settings.config_root, load_predict_config(settings.config_root).slices),
         )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
@@ -32422,7 +32461,12 @@ def metrics_refresh_plan(
     # The roster feeds only a rendered PR's leaderboard line, so the no-change
     # path (empty diff -> null plan) never touches the config file at all.
     roster = (
-        [predictor.id for predictor in enabled_predictors(settings.config_root / "predictors.yaml")]
+        [
+            predictor.id
+            for predictor in predictors_for(
+                settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY
+            )
+        ]
         if changed
         else None
     )

@@ -161,6 +161,20 @@ def load_slices(config_root: Path, slice_ids: Iterable[str]) -> dict[str, Popula
     return populations
 
 
+def routing_population(case_id: str, slices: Mapping[str, Population] | None) -> str:
+    """The population whose actors a cell on ``case_id`` goes to.
+
+    An enabled slice's id for a docket the slice admits, and the Court's
+    population for every other docket: a docket no slice admits has no actors
+    of its own, and a request that names one is the Court's fleet's, as it is
+    with no slice enabled.
+    """
+    for slice_id, population in (slices or {}).items():
+        if population.admits_case(case_id):
+            return slice_id
+    return SCOTUS_POPULATION_KEY
+
+
 def population_of(case_id: str, slices: Mapping[str, Population]) -> str | None:
     """The population key of ``case_id``: ``scotus``, an enabled slice's id, or ``None``.
 

@@ -520,7 +520,15 @@ are added to the record with the slice's prompt.
 **Its own process.** The slice's cells are made by predictors and graded by
 evaluators registered for the slice, each reading a prompt of the slice's own
 that carries the stage's rules, under a label of the slice's own. The fan-out
-routes a case to the actors of its population. So no Supreme Court digest
+routes a case to the actors of its population, and that half is built: a
+predictor's or an evaluator's registry entry names the population whose
+dockets it forecasts or grades (`population`, the Court's unless it names a
+slice), the predict and evaluate matrices send a slice's docket to the
+slice's actors and every other docket to the Court's, and the Court's
+rosters (its backlogs, its coverage and missed-forecast reads, its
+back-tests) read the Court's actors alone. An entry that names a population
+no code declares is refused when the registry is loaded. No actor names a
+slice. So no Supreme Court digest
 moves when the slice is switched on, and no Court window holds a slice cell.
 The freeze-record entry that registers the label states the moments switched
 on, the references above, the motions already open that day, and the opener

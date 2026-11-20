@@ -53,7 +53,8 @@ from ..blinding import (
     unblind_evaluations,
 )
 from ..paths import CasePaths, EventPaths
-from ..registry import enabled_evaluators, enabled_predictors
+from ..prediction_slices import SCOTUS_POPULATION_KEY
+from ..registry import evaluators_for, predictors_for
 from ..schemas import (
     AuthorshipTally,
     Judgment,
@@ -572,7 +573,7 @@ def _provisioning_backend(backend: corpus.CorpusBackend | None) -> corpus.Corpus
 
 def _select_predictors(config_root: Path, predictor: str | None) -> list[PredictorConfig]:
     """The enabled predictors to fan out over: the one named, or all of them."""
-    predictors = enabled_predictors(config_root / "predictors.yaml")
+    predictors = predictors_for(config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
     if predictor is None:
         return predictors
     chosen = [p for p in predictors if p.id == predictor]
@@ -714,7 +715,7 @@ def _evaluate_event(  # noqa: PLR0913 - the cell coordinates, one arg each
         map_dir=map_dir,
     )
     written: list[Path] = []
-    for evaluator in enabled_evaluators(config_root / "evaluators.yaml"):
+    for evaluator in evaluators_for(config_root / "evaluators.yaml", SCOTUS_POPULATION_KEY):
         written.extend(
             runner.run(request(UsageRole.evaluator, evaluator.id, evaluator.prompt, event_id))
         )

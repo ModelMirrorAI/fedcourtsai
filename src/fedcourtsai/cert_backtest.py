@@ -81,8 +81,9 @@ from .pipeline.salience import (
     salience_bands,
     salience_score,
 )
+from .prediction_slices import SCOTUS_POPULATION_KEY
 from .provision import redact_snapshot, truncate_snapshot
-from .registry import enabled_predictors
+from .registry import predictors_for
 from .schemas import (
     CERT_BACKTEST_ARMS,
     CalibrationBin,
@@ -550,7 +551,7 @@ def _runners_by_predictor(
     """
     predictors = [
         p
-        for p in enabled_predictors(config_root / "predictors.yaml")
+        for p in predictors_for(config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
         if str(p.engine) not in skip_engines
     ]
     if arm is not None:
