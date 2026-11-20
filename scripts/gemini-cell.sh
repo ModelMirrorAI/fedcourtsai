@@ -24,7 +24,8 @@
 #     deadline whatever this script does; on top of that a retry starts only when
 #     at least `GEMINI_RETRY_MIN_REMAINING_S` of the step's deadline would
 #     remain after its backoff. That floor is measured against the step's
-#     timeout and so includes the watchdog's three-minute margin; what is left
+#     timeout and so includes the watchdog's three-minute margin and the
+#     completion extension it holds back for a finished cell; what is left
 #     before the watchdog fires is still more than a whole cell of the longest
 #     kind observed, so a retry is a fresh chance at the cell and not a cell the
 #     deadline then kills.
@@ -78,7 +79,7 @@ set -uo pipefail
 role="${1:?usage: gemini-cell.sh <predict|evaluate> <actor>}"
 actor="${2:?usage: gemini-cell.sh <predict|evaluate> <actor>}"
 max_attempts="${GEMINI_MAX_ATTEMPTS:-3}"
-min_remaining_s="${GEMINI_RETRY_MIN_REMAINING_S:-1200}"
+min_remaining_s="${GEMINI_RETRY_MIN_REMAINING_S:-1500}"
 backoff_s="${GEMINI_RETRY_BACKOFF_S:-15}"
 
 # Checked as digits before any arithmetic, and before the engine starts: a bad
