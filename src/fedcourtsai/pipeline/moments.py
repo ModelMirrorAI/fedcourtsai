@@ -483,6 +483,11 @@ class TrialMomentSpec:
         return Stage.trial
 
 
+#: The day the trial moments were switched on: the first day the watchlist pass
+#: writes their events and the predict fan-out forecasts them. A motion briefed
+#: before it and still undecided opens on it.
+TRIAL_SWITCH_ON = date(2026, 12, 1)
+
 #: Every declared trial moment. A motion event is opened by the motion's
 #: filing, so its kind is ``motion``; the final disposition is the court's act.
 DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
@@ -494,6 +499,8 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         decision_target="ruling",
         description="The district court's ruling on a motion to dismiss.",
         claim_set_version=CLAIM_SET_TRIAL_DISMISSAL_V1,
+        forecastable=True,
+        opens_from=TRIAL_SWITCH_ON,
     ),
     TrialMomentSpec(
         moment=Moment.trial_class,
@@ -503,6 +510,8 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         decision_target="ruling",
         description="The district court's ruling on a motion for class certification.",
         claim_set_version=CLAIM_SET_TRIAL_MOTION_V1,
+        forecastable=True,
+        opens_from=TRIAL_SWITCH_ON,
     ),
     TrialMomentSpec(
         moment=Moment.trial_summary_judgment,
@@ -512,6 +521,8 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         decision_target="ruling",
         description="The district court's ruling on one party's motion for summary judgment.",
         claim_set_version=CLAIM_SET_TRIAL_MOTION_V1,
+        forecastable=True,
+        opens_from=TRIAL_SWITCH_ON,
     ),
     TrialMomentSpec(
         moment=Moment.trial_preliminary_injunction,
@@ -521,6 +532,8 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         decision_target="ruling",
         description="The district court's ruling on a motion for a preliminary injunction.",
         claim_set_version=CLAIM_SET_TRIAL_MOTION_V1,
+        forecastable=True,
+        opens_from=TRIAL_SWITCH_ON,
     ),
     TrialMomentSpec(
         moment=Moment.trial_judgment,
@@ -530,6 +543,8 @@ DECLARED_TRIAL_MOMENTS: tuple[TrialMomentSpec, ...] = (
         decision_target="judgment",
         description="The district court's final disposition of the case.",
         claim_set_version=CLAIM_SET_TRIAL_JUDGMENT_V1,
+        forecastable=True,
+        opens_from=TRIAL_SWITCH_ON,
     ),
 )
 

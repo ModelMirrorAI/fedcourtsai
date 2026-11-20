@@ -63,3 +63,36 @@ evaluators:
     enabled: true
     mcp_servers: [courtlistener]
     description: Gemini evaluator, for cross-checking the Claude and Codex evaluators.
+
+  - id: claude-trial-judge
+    engine: claude-code
+    model: null
+    prompt: .github/prompts/evaluate-trial.md
+    enabled: true
+    mcp_servers: [courtlistener]
+    population: ai-watchlist
+    description: >-
+      Claude Code evaluator grading the AI-watchlist slice's district-court forecasts
+      against the outcome.
+
+  - id: codex-trial-judge
+    engine: codex
+    model: null
+    prompt: .github/prompts/evaluate-trial.md
+    enabled: true
+    mcp_servers: [courtlistener]
+    population: ai-watchlist
+    description: >-
+      Codex evaluator grading the AI-watchlist slice's district-court forecasts
+      against the outcome.
+
+  - id: gemini-trial-judge
+    engine: gemini
+    model: null
+    prompt: .github/prompts/evaluate-trial.md
+    enabled: true
+    mcp_servers: [courtlistener]
+    population: ai-watchlist
+    description: >-
+      Gemini evaluator grading the AI-watchlist slice's district-court forecasts
+      against the outcome.

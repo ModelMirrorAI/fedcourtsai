@@ -58,6 +58,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final
 
 from pydantic import ValidationError
@@ -81,7 +82,12 @@ from .pipeline.semantic import (
     semantic_grade_problems,
 )
 from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
-from .process_version import EVALUATE_BLESSING_LABELS, label_ordinal, resolvable_runs
+from .process_version import (
+    EVALUATE_BLESSING_LABELS,
+    label_ordinal,
+    label_ordinal_in,
+    resolvable_runs,
+)
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
@@ -189,6 +195,12 @@ CHECK_PREDICTED_REASONING_REGISTERED = "predicted_reasoning_grade_only_under_a_p
 #: the grade; one blessed only earlier never did, so a grade under it is one no
 #: pre-registration covers.
 PREDICTED_REASONING_GRADE_FROM: Final = "proc-v16"
+#: The same floor for each prediction slice, by population: the first of the
+#: slice's own labels whose evaluate prompt asks for the grade. A slice's
+#: labels run in their own sequence, so the SCOTUS floor says nothing of them.
+SLICE_PREDICTED_REASONING_GRADE_FROM: Final[Mapping[str, str]] = MappingProxyType(
+    {"ai-watchlist": "ai-watchlist-v1"}
+)
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 # `correct` is a function of two committed artifacts, so one cell's current
 # gradings must record the same bit whichever evaluator wrote them.
@@ -1620,6 +1632,9 @@ def asks_predicted_reasoning_grade(
 ) -> bool:
     """Whether an evaluator digest is blessed at ``from_label`` or a later label.
 
+    A prediction slice's judge digest is read against the slice's own floor
+    (:data:`SLICE_PREDICTED_REASONING_GRADE_FROM`).
+
     ``blessing_labels`` is the registry's evaluator-digest map, pending labels
     included, so a judge registered at the registering label counts from the
     change that registers it. A digest the map does not hold asks for nothing.
@@ -1628,9 +1643,20 @@ def asks_predicted_reasoning_grade(
     if digest is None or floor is None:
         return False
     return any(
-        (ordinal := label_ordinal(label)) is not None and ordinal >= floor
+        ((ordinal := label_ordinal(label)) is not None and ordinal >= floor)
+        or _slice_label_asks_grade(label)
         for label in blessing_labels.get(digest, ())
     )
+
+
+def _slice_label_asks_grade(label: str) -> bool:
+    """Whether ``label`` is a prediction slice's, at or after that slice's own floor."""
+    for population, first in SLICE_PREDICTED_REASONING_GRADE_FROM.items():
+        ordinal = label_ordinal_in(label, population)
+        floor = label_ordinal_in(first, population)
+        if ordinal is not None and floor is not None and ordinal >= floor:
+            return True
+    return False
 
 
 def check_predicted_reasoning_grade_registered(

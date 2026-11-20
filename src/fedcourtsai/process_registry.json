@@ -137,6 +137,15 @@
         "merge": "3482e88e7e4dbdfe7c85cc985032254893d8d94b",
         "source": "merge"
       }
+    },
+    {
+      "label": "ai-watchlist-v1",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "population": "ai-watchlist"
     }
   ],
   "blessings": [
@@ -203,6 +212,72 @@
       "blessed": {
         "at": "2026-11-18T22:03:05Z",
         "merge": "3482e88e7e4dbdfe7c85cc985032254893d8d94b",
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:3623c5472544b747bd2f7153cd95bae65b945a67586000c242aead7598cdd38e",
+      "role": "predictor",
+      "actor_id": "claude-trial",
+      "label": "ai-watchlist-v1",
+      "blessed": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:bb19b96cc22aed2a42b0072b4afec0f2cc6a36f986e5289464f50f1bfd1b52af",
+      "role": "predictor",
+      "actor_id": "codex-trial",
+      "label": "ai-watchlist-v1",
+      "blessed": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:d004dffda95f9b6bde6173cdc057a68b4d490150385c9e6fd172d1ccdcede7fb",
+      "role": "predictor",
+      "actor_id": "gemini-trial",
+      "label": "ai-watchlist-v1",
+      "blessed": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:4d0565c9bdc54dd38710c2e09a4a5a6aa44af27fc51765185d68225981f667a9",
+      "role": "evaluator",
+      "actor_id": "claude-trial-judge",
+      "label": "ai-watchlist-v1",
+      "blessed": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:cfed0292db775c3ed4290460e8a7d8b510d1e615d8dddd37b698da6c53ed630d",
+      "role": "evaluator",
+      "actor_id": "codex-trial-judge",
+      "label": "ai-watchlist-v1",
+      "blessed": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
+    },
+    {
+      "digest": "sha256:ac45e15e5d944d4b38ac47eb4660d368c9ca0db035515704b1ad2c6eb8b904df",
+      "role": "evaluator",
+      "actor_id": "gemini-trial-judge",
+      "label": "ai-watchlist-v1",
+      "blessed": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -915,6 +990,42 @@
       },
       "closes": null,
       "revoked_at": null
+    },
+    {
+      "label": "ai-watchlist-v1",
+      "digest": "sha256:3623c5472544b747bd2f7153cd95bae65b945a67586000c242aead7598cdd38e",
+      "predictor_id": "claude-trial",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "ai-watchlist-v1",
+      "digest": "sha256:bb19b96cc22aed2a42b0072b4afec0f2cc6a36f986e5289464f50f1bfd1b52af",
+      "predictor_id": "codex-trial",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "ai-watchlist-v1",
+      "digest": "sha256:d004dffda95f9b6bde6173cdc057a68b4d490150385c9e6fd172d1ccdcede7fb",
+      "predictor_id": "gemini-trial",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
     }
   ],
   "evaluate_blessing_labels": {
@@ -1030,6 +1141,15 @@
     ],
     "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf": [
       "proc-v24"
+    ],
+    "sha256:4d0565c9bdc54dd38710c2e09a4a5a6aa44af27fc51765185d68225981f667a9": [
+      "ai-watchlist-v1"
+    ],
+    "sha256:cfed0292db775c3ed4290460e8a7d8b510d1e615d8dddd37b698da6c53ed630d": [
+      "ai-watchlist-v1"
+    ],
+    "sha256:ac45e15e5d944d4b38ac47eb4660d368c9ca0db035515704b1ad2c6eb8b904df": [
+      "ai-watchlist-v1"
     ]
   },
   "harness_boundaries": [
