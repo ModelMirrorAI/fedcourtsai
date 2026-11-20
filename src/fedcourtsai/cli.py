@@ -17386,7 +17386,7 @@ def register_boundary_cmd(
 
 
 def _check_stamped_registry(text: str) -> object:
-    """Load a rendered registry under its own last label, refusing what the loader refuses."""
+    """Load a rendered registry under its own last SCOTUS label, as the loader refuses it."""
     current = (
         process_version.scotus_label_of(json.loads(text)) or process_version.CURRENT_PROCESS_LABEL
     )

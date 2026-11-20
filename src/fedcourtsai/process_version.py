@@ -31,6 +31,8 @@ they answer different questions even where they fall on the same moment:
   registration, which that merge's writer stamps.
 - the **counting instant**, :data:`FROZEN_SINCE`, is when the current label's
   cells start counting, and it opens every window the label newly blesses.
+  It is the SCOTUS docket's; a prediction slice's label carries an instant
+  of its own (:func:`counting_instant`).
   It sits at or after every bless moment. The carrying merge's writer
   stamps it at that merge's committer time, so the window between the two is
   zero-width and there is no cell to mint in it. A row set by hand under an

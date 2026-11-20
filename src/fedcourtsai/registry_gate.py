@@ -59,7 +59,7 @@ on the promotion PR and the maintainer's pre-flight read the same facts:
    dated freeze-record entry is the maintainer's to read; this check does
    not look for it.
 
-The batch must hold a registry that loads under its own last label, refusing
+The batch must hold a registry that loads under its own last SCOTUS label, refusing
 what :func:`fedcourtsai.process_version.load_process_registry` refuses; where
 it does not, that refusal and check 8 are all Step 0 reports, since the other
 checks read the document's fields.

@@ -95,8 +95,9 @@ def register_process(
     Refuses a registry whose freeze record has not declared merge-stamped
     instants (``merge_stamping_declared``), a label that is not named for the
     population or does not follow its last one, a label registration already
-    waiting for its merge, a fleet whose digests have not moved, and a digest
-    another population's label already blesses.
+    waiting for its merge, a fleet whose digests have not moved, a digest
+    another population's label already blesses, and a population's first label
+    with no enabled predictor, since nothing would open its counting window.
     """
     document: dict[str, Any] = copy.deepcopy(dict(registry))
     _refuse_undeclared(document, "label")

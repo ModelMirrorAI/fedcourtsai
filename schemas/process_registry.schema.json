@@ -2,7 +2,7 @@
   "$defs": {
     "RegistryBlessing": {
       "additionalProperties": false,
-      "description": "One digest the current process blesses, with its bless moment.",
+      "description": "One digest its population's current process blesses, with its bless moment.",
       "properties": {
         "actor_id": {
           "description": "The predictor or evaluator the digest is the process of",
@@ -264,10 +264,10 @@
     }
   },
   "additionalProperties": false,
-  "description": "``process_registry.json`` \u2014 the frozen-process registry, as committed data.\n\nThe single source of the counting partition's definition:\n:mod:`fedcourtsai.process_version` builds its freeze constants from it at\nimport (``FROZEN_PROCESS_DIGESTS`` from ``blessings``, ``FROZEN_SINCE``\nfrom the current label's ``since``, ``COUNTING_WINDOWS`` from\n``windows``, ``EVALUATE_BLESSING_LABELS`` and ``HARNESS_BOUNDARIES``), so\nevery reader keeps reading those names. Append-only in the same sense as\nthe freeze record: a successor closes and adds windows, and appends\nlabels, blessing labels and boundaries, but never rewrites a landed\ninstant. A pending instant is the one field written twice: null in the PR\nthat registers it, then stamped once by the merge that carries it.",
+  "description": "``process_registry.json`` \u2014 the frozen-process registry, as committed data.\n\nThe single source of the counting partition's definition:\n:mod:`fedcourtsai.process_version` builds its freeze constants from it at\nimport (``FROZEN_PROCESS_DIGESTS`` from ``blessings``, ``FROZEN_SINCE``\nfrom the SCOTUS docket's current label's ``since``, ``COUNTING_WINDOWS`` from\n``windows``, ``EVALUATE_BLESSING_LABELS`` and ``HARNESS_BOUNDARIES``), so\nevery reader keeps reading those names. Append-only in the same sense as\nthe freeze record: a successor closes and adds windows, and appends\nlabels, blessing labels and boundaries, but never rewrites a landed\ninstant. A pending instant is the one field written twice: null in the PR\nthat registers it, then stamped once by the merge that carries it.",
   "properties": {
     "blessings": {
-      "description": "The digests the current process blesses, one per actor, in order",
+      "description": "The digests each population's current process blesses, one per actor, in order",
       "items": {
         "$ref": "#/$defs/RegistryBlessing"
       },

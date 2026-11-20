@@ -6254,7 +6254,7 @@ class RegistryLabel(_Strict):
 
 
 class RegistryBlessing(_Strict):
-    """One digest the current process blesses, with its bless moment."""
+    """One digest its population's current process blesses, with its bless moment."""
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
@@ -6339,7 +6339,7 @@ class ProcessRegistry(_Strict):
     The single source of the counting partition's definition:
     :mod:`fedcourtsai.process_version` builds its freeze constants from it at
     import (``FROZEN_PROCESS_DIGESTS`` from ``blessings``, ``FROZEN_SINCE``
-    from the current label's ``since``, ``COUNTING_WINDOWS`` from
+    from the SCOTUS docket's current label's ``since``, ``COUNTING_WINDOWS`` from
     ``windows``, ``EVALUATE_BLESSING_LABELS`` and ``HARNESS_BOUNDARIES``), so
     every reader keeps reading those names. Append-only in the same sense as
     the freeze record: a successor closes and adds windows, and appends
@@ -6361,7 +6361,7 @@ class ProcessRegistry(_Strict):
     )
     labels: list[RegistryLabel] = Field(description="Every label with a counting window, in order")
     blessings: list[RegistryBlessing] = Field(
-        description="The digests the current process blesses, one per actor, in order"
+        description="The digests each population's current process blesses, one per actor, in order"
     )
     windows: list[RegistryWindow] = Field(
         description="Every counting window, in the order the registry opened them"

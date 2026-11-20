@@ -305,8 +305,8 @@ registration, and a slice's cell cannot be stamped before a label is
 registered for it. The `*_FROM` thresholds in `process_version.py` each date a
 rule of the SCOTUS docket's process and read a slice's label as outside the
 sequence, so a slice's cells take none of them. The provenance block a board
-embeds (`frozen_process_record`) holds one population's rows, the SCOTUS
-docket's by default, so registering a slice's label changes no SCOTUS board.
+embeds (`frozen_process_record`) holds one population's rows and every
+pending harness boundary, the SCOTUS docket's by default, so registering a slice's label changes no SCOTUS board.
 
 ## The stamp is the harness's word, not the agent's
 
@@ -481,9 +481,9 @@ field or a walk through `data/`'s history.
 ## Three states: shakedown → not-yet-frozen → frozen
 
 `fedcourtsai.process_version` holds three constants. `FROZEN_PROCESS_DIGESTS`
-is the blessed map — the current label's digests, each carrying the instant it
-was blessed, the retroactivity record. `FROZEN_SINCE` is the current label's
-counting instant. `COUNTING_WINDOWS` is the counting rule itself: one
+is the blessed map — each population's current label's digests, each carrying
+the instant it was blessed, the retroactivity record. `FROZEN_SINCE` is the
+SCOTUS docket's current label's counting instant. `COUNTING_WINDOWS` is the counting rule itself: one
 **window** per blessing of a predictor digest, running from the counting
 instant of the label that blessed it until the counting instant of the
 successor that stops blessing it (`closes`, null while open), each instant as
@@ -621,7 +621,8 @@ are read from a run at the refresh commit the release pins. `semantic-summary` p
 A registration can be written before any merge has carried it. A **pending**
 instant has `at` and `merge` both null (`source: "merge"`), and a pending
 harness boundary has `merge` and `at` null. Only the label a PR is registering
-may carry pending rows: `CURRENT_PROCESS_LABEL`, as the last label row, with
+may carry pending rows: the last label row (`CURRENT_PROCESS_LABEL` where it
+is a SCOTUS row, a prediction slice's own label where it is a slice's), with
 its own new blessings, the windows it opens and the windows it closes. A
 still-pending label holds no stamped blessing of its own. A harness boundary
 may be pending with or without a label. `load_process_registry` refuses a
@@ -869,8 +870,8 @@ direction or a false alarm in the other:
   fails the suite on either side.
   A digest carried forward byte-identical from an earlier label keeps that
   label's bless moment: those bytes have been immutable since then.
-- The **counting instant**, `FROZEN_SINCE`, is when the current label's
-  cells start counting — it opens every window the label newly blesses. The
+- The **counting instant**, `FROZEN_SINCE` for the SCOTUS docket, is when the
+  current label's cells start counting — it opens every window the label newly blesses. The
   carrying merge's writer stamps it at that merge's committer time, the same
   instant as the bless moments it stamps, so the span between the newly
   blessed digests' bless moment and the instant is empty. (The merge's clock

@@ -2456,7 +2456,8 @@ The mechanics:
   head's registry must exist and load; a batch carrying anything pending
   needs `main` to declare merge-stamped instants; no digest the batch holds
   pending may already stamp a committed cell on `main`; every enabled actor's
-  digest at the head must be registered; each predictor keeps at most one
+  digest at the head must be registered, under a label of the actor's own
+  population; each predictor keeps at most one
   open window, a pending close counting as a close; the batch carries at most
   one label new to `main`, with no `prereg/` tag yet; no boundary name may
   repeat; nothing may already sit pending on `main`; and no row `main` has
