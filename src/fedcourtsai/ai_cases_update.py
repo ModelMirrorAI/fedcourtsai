@@ -23,10 +23,16 @@ court's numbered entry, is one item: an entry another entry of the span
 supersedes is left out, and so is an entry superseding one recorded before the
 span, which an earlier update already carried.
 
+A listed state trial court case has no CourtListener docket and no activity
+record. Its items come from the watchlist itself: the entries the maintainer
+recorded by hand from the court's register of actions, each a date and a kind,
+listed in a *State courts* section beside a link to the court's own case
+information page.
+
 A span with nothing recorded renders as a short quiet note, so subscribers
 hear every week that the feed is alive.
 
-A last *Newly available* section lists, by case, the entries filed earlier
+A *Newly available* section lists, by case, the entries filed earlier
 whose documents became readable on CourtListener in the span (the record's
 ``available`` list, :data:`fedcourtsai.ai_activity.AVAILABILITY_RULE`), at most
 :data:`AVAILABLE_PER_CASE` per case, the rest counted beside a link to the
@@ -52,7 +58,7 @@ from typing import Final
 
 from .ai_activity import ACTIVITY_DIR, merge_available
 from .ai_rulings import RulingSummary, committed_summaries
-from .ai_watchlist import AiWatchlist
+from .ai_watchlist import AiWatchlist, StateRegisterEntry
 from .schemas import AiCaseActivity, AiCaseActivityEntry, AiCaseAvailableEntry
 from .serialize import read_model
 
@@ -167,6 +173,16 @@ COURT_NAMES: Final = {
 
 SITE_URL: Final = "https://fedcourts.ai/"
 
+_STATE_INTRO: Final = (
+    "Cases in state trial courts whose dockets CourtListener does not hold. Each item is "
+    + "recorded by hand from the court's own register of actions and links to the court's "
+    + "case information page."
+)
+_INTRO_WITH_STATE: Final = (
+    "New rulings and major filings in the {cases} FedCourtsAI "
+    + "follows, read from the public docket, and in the state court cases it follows by hand. "
+    + "Each federal item links to the record on CourtListener."
+)
 _INTRO: Final = (
     "New rulings and major filings in the {cases} FedCourtsAI "
     + "follows, read from the public docket. Each item links to the record on CourtListener."
@@ -191,6 +207,19 @@ class CaseIntro:
 
 
 @dataclass(frozen=True)
+class StateCaseItems:
+    """A listed state case and the hand-recorded register entries dated in the span."""
+
+    name: str
+    category: str
+    court: str
+    why: str
+    case_number: str
+    url: str
+    entries: tuple[StateRegisterEntry, ...]
+
+
+@dataclass(frozen=True)
 class AiCasesUpdate:
     start: date
     end: date
@@ -205,14 +234,17 @@ class AiCasesUpdate:
     # by name; empty when rendered without a watchlist.
     followed: int = 0
     intros: Mapping[str, CaseIntro] = field(default_factory=dict)
+    # The listed state cases with a register entry dated in the span, in watchlist order.
+    state: tuple[StateCaseItems, ...] = ()
 
     @property
     def empty(self) -> bool:
-        return not self.cases and not self.available
+        return not self.cases and not self.available and not self.state
 
     @property
     def items(self) -> int:
-        return sum(len(entries) for _, _, entries in (*self.cases, *self.available))
+        federal = sum(len(entries) for _, _, entries in (*self.cases, *self.available))
+        return federal + sum(len(case.entries) for case in self.state)
 
 
 def build_ai_cases_update(
@@ -260,7 +292,33 @@ def build_ai_cases_update(
         ),
         followed=len(listed),
         intros={case.name: CaseIntro(court=case.court, why=case.why) for case in listed},
+        state=_state_items(watchlist, start, end),
     )
+
+
+def _state_items(
+    watchlist: AiWatchlist | None, start: date, end: date
+) -> tuple[StateCaseItems, ...]:
+    """The listed state cases with a hand-recorded entry dated ``start`` through ``end``."""
+    if watchlist is None:
+        return ()
+    items = []
+    for case in watchlist.state_cases:
+        dated = tuple(entry for entry in case.entries if start <= entry.date <= end)
+        if dated:
+            court = watchlist.state_courts[case.court]
+            items.append(
+                StateCaseItems(
+                    name=case.name,
+                    category=case.category,
+                    court=court.short,
+                    why=case.why,
+                    case_number=case.case_number,
+                    url=court.case_information,
+                    entries=dated,
+                )
+            )
+    return tuple(items)
 
 
 def _recorded_before(data_root: Path, start: date, entry_ids: set[int]) -> set[int]:
@@ -297,7 +355,7 @@ def _escape(text: str) -> str:
     return re.sub(r"([\\`*_\[\]<>#|])", r"\\\1", " ".join(text.split()))
 
 
-def item_label(entry: AiCaseActivityEntry) -> str:
+def item_label(entry: AiCaseActivityEntry | StateRegisterEntry) -> str:
     """The entry's kind in the reader's words, naming its principal motion where known."""
     motion = MOTION_LABELS.get(entry.motion or "")
     if motion is None:
@@ -351,6 +409,7 @@ def _summary(summary: RulingSummary) -> list[str]:
 def tally(update: AiCasesUpdate) -> str:
     """The span's items counted by kind, weightiest first: "2 rulings · 1 appeal"."""
     kinds: Counter[str] = Counter(entry.kind for _, _, entries in update.cases for entry in entries)
+    kinds.update(entry.kind for case in update.state for entry in case.entries)
     parts = []
     for one, many, counted in _TALLY:
         n = sum(kinds[kind] for kind in counted)
@@ -440,6 +499,18 @@ def _available_lines(
     return [*lines, ""]
 
 
+def _state_lines(case: StateCaseItems) -> list[str]:
+    about = [case.category.replace("-", " ").capitalize(), case.court, case.why]
+    lines = [f"### {_escape(case.name)}", "", f"*{_escape(' · '.join(about))}*", ""]
+    where = _escape(f"{case.court} {case.case_number}")
+    for entry in case.entries:
+        when = f"{entry.date:%b} {entry.date.day}"
+        lines.append(
+            f"- {when}: {item_label(entry)} ({where}). [Court's case information page]({case.url})"
+        )
+    return [*lines, ""]
+
+
 def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
     """The update as Markdown, ready for an email body; ``title=False`` leaves it to the subject."""
     lines = [f"# {ai_cases_subject(update)}", ""] if title else []
@@ -449,7 +520,8 @@ def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
         span = "this week" if (update.end - update.start).days == 6 else "in this span"
         lines += [_QUIET.format(span=span, cases=followed), ""]
     else:
-        lines += [_INTRO.format(cases=followed), "", f"**This update:** {tally(update)}", ""]
+        intro = _INTRO_WITH_STATE if update.state else _INTRO
+        lines += [intro.format(cases=followed), "", f"**This update:** {tally(update)}", ""]
     for index, (heading, _) in enumerate(SECTIONS):
         cases = [case for case in update.cases if section_of(case[2]) == index]
         if not cases:
@@ -461,5 +533,9 @@ def render_ai_cases_update(update: AiCasesUpdate, *, title: bool = True) -> str:
         lines += ["## Newly available", "", _AVAILABLE_INTRO, ""]
         for name, category, readable in update.available:
             lines += _available_lines(update, name, category, readable)
+    if update.state:
+        lines += ["## State courts", "", _STATE_INTRO, ""]
+        for case in update.state:
+            lines += _state_lines(case)
     lines += ["---", "", _FOOTER, ""]
     return "\n".join(lines)

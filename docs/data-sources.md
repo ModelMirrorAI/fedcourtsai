@@ -795,6 +795,37 @@ Two layers of rights apply, and they are different:
 Attribution is given in the README *Data & attribution* section and the top-level
 [`NOTICE`](../NOTICE), and is required wherever CourtListener content is surfaced.
 
+### State trial courts: read by hand
+
+The AI-case watchlist admits one state trial court, the Superior Court of
+California, County of San Francisco (`state_courts` in
+`config/ai-watchlist.yaml`). CourtListener holds no dockets for it, so the
+court's own site is the only source, and nothing in the pipeline requests it.
+
+- **What the court offers.** Its
+  [case information](https://sf.courts.ca.gov/online-services/case-information)
+  service finds a civil case by case number or case name and shows its register
+  of actions without a stated viewing fee. It has no text search of filings and
+  publishes no bulk feed or API.
+- **Automated reads are not permitted.** The case query opens behind a check
+  the court says is there to verify "that a person is seeking to view case
+  information and not an automated computer program". California Rules of
+  Court, rule 2.504(c), lets a court condition access on use "only as
+  instructed by the court", and the check is such an instruction. So the
+  register is read by a person, and no command, workflow or agent cell fetches
+  the query.
+- **What is recorded and republished.** For each listed case the maintainer
+  records the date and kind of a new register entry in the watchlist, by PR.
+  The AI-cases update publishes that date and kind beside the court's short
+  name, the case number and a link to the court's case information page. No
+  entry text and no filed document is copied or stored: rule 2.504(d)(2) notes
+  that copyright may apply to material in a case file, and a date and a kind
+  are facts.
+- **Commercial aggregators are not a source.** The docket vendors that cover
+  this court publish terms that forbid redistributing their material, so one
+  could serve only as a private prompt to look at the court's page, and none is
+  used.
+
 ## What we redistribute
 
 The NoDerivatives term is why the **derived corpus is not publicly republished**.
