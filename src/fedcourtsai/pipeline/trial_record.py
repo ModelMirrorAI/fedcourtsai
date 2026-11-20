@@ -28,11 +28,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 from .. import ids
-from ..ai_watchlist import AiWatchlist, WatchlistCase
+from ..ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, WatchlistCase, load_ai_watchlist
 from ..schemas import TrialBriefingEntry, TrialMotionBriefing, TrialRecord, TrialRelatedDocket
+from ..trial_local_rules import TRIAL_LOCAL_RULES_FILENAME, load_trial_local_rules
 from . import moments, trial_opener
 from .trial_resolver import Citation
 
@@ -140,4 +142,41 @@ def build(
         briefing=_briefing(event_id, payload, read_on=read_on, local_rule=local_rule),
         listed_case=None if listed is None else listed.name,
         related_dockets=[] if listed is None else _others(case_id, listed),
+    )
+
+
+def build_for_cell(
+    config_root: Path,
+    case_id: str,
+    event_id: str,
+    payload: Mapping[str, Any],
+    *,
+    read_on: date,
+    mode: str,
+) -> TrialRecord | None:
+    """A forward trial-stage cell's ``record/trial.json``, or ``None`` for any other cell.
+
+    :func:`build` over the two committed files it reads beside the snapshot,
+    the watchlist and the districts' local rules under ``config_root``, so
+    every provisioner of a trial cell reads them one way. A replay cell gets
+    none: the watchlist is undated, and a related docket it lists (an appeal,
+    say) can postdate the cell's cutoff. A checkout with no watchlist or no
+    local rules still gets the judge and the briefing the docket itself
+    states; a file that is there and cannot be read raises (``OSError``,
+    ``ValueError`` or ``yaml.YAMLError``), and nothing is read for a cell that
+    gets no record.
+    """
+    if mode != "forward" or moments.trial_spec_for(event_id) is None:
+        return None
+    rules_file = config_root / TRIAL_LOCAL_RULES_FILENAME
+    rules = load_trial_local_rules(rules_file) if rules_file.exists() else {}
+    watchlist_file = config_root / AI_WATCHLIST_FILENAME
+    watchlist = load_ai_watchlist(watchlist_file) if watchlist_file.exists() else None
+    return build(
+        case_id,
+        event_id,
+        payload,
+        watchlist,
+        read_on=read_on,
+        local_rule=rules.get(case_id.partition("/")[0]),
     )

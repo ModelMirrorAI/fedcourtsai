@@ -913,7 +913,11 @@ prompts ask a cell to summarize rather than reproduce, to keep a quotation
 to the few words a point turns on (for a judge, the passage of the court's
 order a grade rests on), and to name no private individual who is not a
 party, counsel or the judge, which is what keeps a district cell's committed
-prose a characterization.
+prose a characterization. A cell's transcript is not held to those prompts'
+rule line by line, and a public repository's run log is a publication, so the
+engine smoke's rehearsal of a district cell keeps the transcript in runner
+files and prints only the report the command composes
+([pipeline.md](pipeline.md), *Rehearsing a slice cell*).
 
 A forecast **results release** adds one more surface: the release dataset, a flat
 export of the ledger built from the tagged commit by `fedcourts export` — a

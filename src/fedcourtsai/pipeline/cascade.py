@@ -36,24 +36,41 @@ The steps mirror what ``run-predict`` / ``run-evaluate`` do around the agent cal
    output is un-aliased after, before ``validate``.
 4. **Validate** the produced ledger (schema + git-only referential checks), the
    same gate CI runs on the resulting PR.
+
+A docket is routed to the actors of its **population**, as the matrices route
+it (:func:`fedcourtsai.prediction_slices.routing_population`): the Court's
+fleet for every docket no enabled slice admits, and a slice's own actors for
+a docket it lists. A slice docket is forecast on the trial stage's events
+alone, one named event per run. Where the watchlist pass has not yet written
+the event, the cascade can **rehearse** it (``rehearse_trial``): the docket's
+events are planned in the run by the pass's own reader
+(:func:`fedcourtsai.pipeline.trial_events.rehearse_docket`), read on the later
+of today and the stage's switch-on day, and the named one is forecast from a
+record provisioned as ``provision-snapshot`` provisions a forward trial cell.
+The corpus is only read; the event exists in the run's data root and nowhere
+else.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
+import yaml
+
 from .. import corpus, ids, provision, store
+from ..ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist
 from ..blinding import (
     latest_prediction_dirs,
     provision_blinded_predictions,
     unblind_evaluations,
 )
+from ..config import load_predict_config
 from ..paths import CasePaths, EventPaths
-from ..prediction_slices import SCOTUS_POPULATION_KEY
+from ..prediction_slices import SCOTUS_POPULATION_KEY, load_slices, routing_population
 from ..registry import evaluators_for, predictors_for
 from ..schemas import (
     AuthorshipTally,
@@ -63,17 +80,21 @@ from ..schemas import (
     PredictorConfig,
     SameQuestionList,
     Stage,
+    TrialRecord,
     UsageRole,
 )
 from ..serialize import write_json, write_yaml
+from ..trial_adjudications import TRIAL_ADJUDICATIONS_FILENAME, load_trial_adjudications
+from ..trial_local_rules import TRIAL_LOCAL_RULES_FILENAME, load_trial_local_rules
 from ..validate import run_ledger_referential_checks, validate_ledger
-from . import same_question, vide_links, vided
+from . import moments, same_question, trial_events, trial_record, vide_links, vided
 from .documents import BIO_URL_JOIN, COMBINED_KINDS, select_documents, unheld_document_kinds
 from .outcome import (
     NO_ORDER_MARKERS,
     OrderMarkers,
     build_merits_outcome,
     disposition_basis,
+    forward_leakage,
     granted_flag,
     interim_resolution_signals,
     is_machine_readable,
@@ -111,6 +132,10 @@ class CascadeReport:
 
     ``unforecastable`` names the ``forward`` targets the predict fan-out would
     not forecast (:func:`_unforecastable`).
+
+    ``rehearsed`` names the targets planned in the run rather than read from
+    the corpus's events (a trial rehearsal), and ``trial`` the
+    ``record/trial.json`` the last provisioning wrote, where it wrote one.
     """
 
     case_id: str
@@ -127,6 +152,8 @@ class CascadeReport:
     evaluations: tuple[Path, ...]
     valid: bool
     problems: tuple[str, ...]
+    rehearsed: tuple[str, ...] = ()
+    trial: Path | None = None
 
 
 def _select_events(events: list[corpus.CorpusEvent], event: str | None) -> list[corpus.CorpusEvent]:
@@ -200,6 +227,7 @@ class _Record:
     context: Path
     documents: tuple[Path, ...]
     placement: CellPlacement
+    trial: Path | None = None
 
 
 def _place_cell(
@@ -256,6 +284,7 @@ def _provision_record(  # noqa: PLR0913
     same_question_list: SameQuestionList | None = None,
     anchor_pool: provision.AnchorPool | None = None,
     statpack_digest: str | None = None,
+    trial: TrialRecord | None = None,
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
@@ -264,6 +293,7 @@ def _provision_record(  # noqa: PLR0913
     same placement and writer ``provision-snapshot`` uses, contact scrubs,
     the ``Vide``-linked companions under ``record/related/``, a merits cell's
     authorship tally, a cert cell's same-question list and its frozen anchor,
+    a forward trial cell's ``trial.json``,
     and the statpack build every predict cell was placed against, included. A
     cascade that wrote only the snapshot would hand the agent no frozen mode,
     band or cutoff, and the cell would have to guess the posture that
@@ -290,10 +320,12 @@ def _provision_record(  # noqa: PLR0913
             same_question=same_question_list,
             anchor_pool=anchor_pool,
             statpack_digest=statpack_digest,
+            trial=trial,
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
     return _Record(
+        trial=case_paths.trial_record if written.trial is not None else None,
         snapshot=written.snapshot,
         context=case_paths.cell_context,
         documents=tuple(case_paths.document(doc.kind) for doc in placement.documents),
@@ -571,16 +603,300 @@ def _provisioning_backend(backend: corpus.CorpusBackend | None) -> corpus.Corpus
     return chosen
 
 
-def _select_predictors(config_root: Path, predictor: str | None) -> list[PredictorConfig]:
-    """The enabled predictors to fan out over: the one named, or all of them."""
-    predictors = predictors_for(config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
+def _routed_population(config_root: Path, case_id: str, *, rehearse: bool = False) -> str:
+    """The population whose actors ``case_id``'s cells go to, as the matrices route it.
+
+    An enabled slice's id for a docket its committed list names, the Court's
+    population for every other docket
+    (:func:`fedcourtsai.prediction_slices.routing_population`). ``rehearse``
+    is refused on a docket of the Court's population, which has no trial event
+    to plan.
+    """
+    try:
+        slices = load_slices(config_root, load_predict_config(config_root).slices)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise CascadeError(f"cannot read the enabled prediction slices: {exc}") from exc
+    population = routing_population(case_id, slices)
+    if rehearse and population == SCOTUS_POPULATION_KEY:
+        raise CascadeError(
+            "--rehearse-trial plans a trial event on a docket an enabled prediction slice "
+            f"admits; {case_id} is not one"
+        )
+    return population
+
+
+@dataclass(frozen=True)
+class _Days:
+    """The two days a run reads on: today, and the day a rehearsal reads its docket."""
+
+    today: date
+    #: The later of today and the stage's switch-on day. The pass writes no
+    #: trial event before :data:`~fedcourtsai.pipeline.moments.TRIAL_SWITCH_ON`,
+    #: so a rehearsal run earlier reads the docket as the pass will on its
+    #: first writing day.
+    read_on: date
+
+    @classmethod
+    def on(cls, today: date) -> _Days:
+        return cls(today=today, read_on=max(today, moments.TRIAL_SWITCH_ON))
+
+
+def _select_predictors(
+    config_root: Path,
+    predictor: str | None,
+    population: str = SCOTUS_POPULATION_KEY,
+    case_id: str = "",
+) -> list[PredictorConfig]:
+    """The enabled predictors of ``population`` to fan out over: the one named, or all."""
+    predictors = predictors_for(config_root / "predictors.yaml", population)
     if predictor is None:
         return predictors
     chosen = [p for p in predictors if p.id == predictor]
     if not chosen:
         available = ", ".join(p.id for p in predictors) or "none"
-        raise CascadeError(f"predictor {predictor!r} is not enabled (have: {available})")
+        routed = (
+            f": {case_id} is routed to the {population!r} population's predictors"
+            if case_id
+            else ""
+        )
+        raise CascadeError(f"predictor {predictor!r} is not enabled (have: {available}){routed}")
     return chosen
+
+
+def _route(
+    config_root: Path, case_id: str, predictor: str | None, *, rehearse: bool, today: date | None
+) -> tuple[str, list[PredictorConfig], _Days]:
+    """The docket's population, its predictors the run fans out over, and the run's days.
+
+    ``today`` is UTC today where the caller names none.
+    """
+    population = _routed_population(config_root, case_id, rehearse=rehearse)
+    predictors = _select_predictors(config_root, predictor, population, case_id)
+    return population, predictors, _Days.on(today or datetime.now(UTC).date())
+
+
+def _rehearsal_plan(
+    conn: corpus.ReadConnection, config_root: Path, case_id: str, read_on: date
+) -> trial_events.DocketPlan:
+    """The pass's plan for one slice docket read on ``read_on``, from a read-only connection.
+
+    Beside the three committed files the pass itself is given: the watchlist,
+    the districts' local rules and the adjudication list. A file that cannot be
+    read refuses the run, as it stops the pass.
+    """
+    try:
+        watchlist = load_ai_watchlist(config_root / AI_WATCHLIST_FILENAME)
+        rules = load_trial_local_rules(config_root / TRIAL_LOCAL_RULES_FILENAME)
+        adjudicated = load_trial_adjudications(config_root / TRIAL_ADJUDICATIONS_FILENAME)
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        raise CascadeError(
+            f"cannot rehearse {case_id}: {type(exc).__name__} reading the trial stage's config"
+        ) from exc
+    try:
+        return trial_events.rehearse_docket(
+            conn, case_id, watchlist, today=read_on, local_rules=rules, adjudicated=adjudicated
+        )
+    except trial_events.NotRehearsable as exc:
+        raise CascadeError(f"cannot rehearse {case_id}: {exc}") from exc
+
+
+def _why_not_planned(
+    plan: trial_events.DocketPlan | None,
+    stored: Sequence[corpus.CorpusEvent],
+    event: str,
+    read_on: date,
+) -> str:
+    """Why ``event`` is not a target on a slice docket, in the pass's own terms."""
+    kept = next((e for e in stored if e.event_id == event), None)
+    held = next((i for i in (plan.held_ruled if plan else ()) if i.event_id == event), None)
+    if kept is not None and kept.resolved:
+        why = "the corpus records it resolved, and a trial event is forecast only while open"
+    elif kept is not None:
+        why = "it is not a trial-stage event, and a slice docket is forecast on those alone"
+    elif held is not None:
+        why = f"the pass holds it and writes no event ({held.reason})"
+    elif plan is not None and any(e.event_id == event for e in plan.would_open):
+        why = f"its moment is not switched on by {read_on.isoformat()}"
+    elif moments.trial_spec_for(event) is None:
+        why = "no declared trial moment writes that id"
+    elif plan is None:
+        why = "the corpus holds no such event for the docket"
+    else:
+        why = f"the opener plans no such event on the docket as read on {read_on.isoformat()}"
+    return why
+
+
+def _slice_targets(
+    conn: corpus.ReadConnection,
+    config_root: Path,
+    case_id: str,
+    population: str,
+    stored: Sequence[corpus.CorpusEvent],
+    event: str | None,
+    *,
+    rehearse: bool,
+    read_on: date,
+) -> tuple[corpus.CorpusEvent, bool]:
+    """The one trial event a slice docket's run forecasts, and whether it is a rehearsal.
+
+    A slice docket is forecast on the trial stage's events alone
+    (:func:`fedcourtsai.store.forecastable_event_ids`), so the stage-less
+    baseline its row carries is never a target. The candidates are the open
+    trial events the corpus stores and, under ``rehearse``, the events the pass
+    would write on ``read_on`` (:func:`_rehearsal_plan`). Exactly one is run and
+    it is named: a real engine spends on every cell. Refused, with the reason,
+    where the corpus stores none and no rehearsal was asked for, where no event
+    is named, and where the named one is held by the pass, already decided, or
+    not planned at all.
+    """
+    open_stored = [
+        e
+        for e in stored
+        if e.stage == Stage.trial
+        and moments.trial_spec_for(e.event_id) is not None
+        and not e.resolved
+    ]
+    plan = _rehearsal_plan(conn, config_root, case_id, read_on) if rehearse else None
+    if plan is None and not open_stored:
+        raise CascadeError(
+            f"{case_id} is a docket of the {population!r} slice and the corpus holds no open "
+            "trial event for it: the watchlist pass writes them from "
+            f"{moments.TRIAL_SWITCH_ON.isoformat()}. Pass --rehearse-trial to plan the "
+            "docket's events in the run, as the pass would, and forecast one without "
+            "writing the corpus"
+        )
+    planned = [] if plan is None else plan.opens
+    # A stored event the plan resolves today is one the pass closes, not one it
+    # leaves open to forecast.
+    closing = set() if plan is None else set(plan.outcomes)
+    candidates = [(e, False) for e in open_stored if e.event_id not in closing] + [
+        (e, True) for e in planned
+    ]
+    available = ", ".join(e.event_id for e, _ in candidates) or "none"
+    if event is None:
+        raise CascadeError(
+            f"a slice docket's run forecasts one named event: pass --event (available on "
+            f"{case_id}: {available})"
+        )
+    chosen = next((pair for pair in candidates if pair[0].event_id == event), None)
+    if chosen is None:
+        why = (
+            "the resolver reads its result on the docket, so the pass closes it"
+            if event in closing
+            else _why_not_planned(plan, stored, event, read_on)
+        )
+        raise CascadeError(
+            f"event {event!r} cannot be forecast on {case_id}: {why} (available: {available})"
+        )
+    return chosen
+
+
+def _targets(  # noqa: PLR0913 - one docket, what the corpus holds for it, the run's knobs
+    conn: corpus.ReadConnection,
+    config_root: Path,
+    row: corpus.CorpusRow,
+    population: str,
+    stored: list[corpus.CorpusEvent],
+    event: str | None,
+    found: tuple[date, dict[str, Any]] | None,
+    *,
+    rehearse: bool,
+    read_on: date,
+) -> tuple[list[corpus.CorpusEvent], tuple[str, ...], list[corpus.CorpusEvent]]:
+    """The run's target events, the ids among them planned in the run, and the docket's events.
+
+    The last is ``stored`` with a rehearsed target added: it is one of the
+    docket's events for the rest of the run, though no corpus row holds it.
+
+    The Court's population runs the named stored event or all of them
+    (:func:`_select_events`). A slice docket runs one trial event
+    (:func:`_slice_targets`), refused where its docket already shows the
+    ruling (:func:`_refuse_decided_trial_cell`).
+    """
+    if population == SCOTUS_POPULATION_KEY:
+        return _select_events(stored, event), (), stored
+    target, planned = _slice_targets(
+        conn,
+        config_root,
+        row.case_id,
+        population,
+        stored,
+        event,
+        rehearse=rehearse,
+        read_on=read_on,
+    )
+    _refuse_decided_trial_cell(row.case_id, row.court, target, row, found)
+    if not planned:
+        return [target], (), stored
+    return [target], (target.event_id,), [*stored, target]
+
+
+def _trial_records(
+    config_root: Path,
+    case_id: str,
+    placed: Mapping[str, provision.Placement | None],
+    reads: Mapping[str, provision.CellRead],
+    modes: Mapping[str, str],
+    rehearsed: Sequence[str],
+    days: _Days,
+) -> dict[str, TrialRecord]:
+    """Each placed forward trial target's ``trial.json``, as ``provision-snapshot`` builds it.
+
+    The docket is read as of the cell's cutoff where it has one, else the day
+    it is read on: today for a stored event, and for a rehearsed one the day
+    the plan that opened it read the docket.
+    """
+    trials: dict[str, TrialRecord] = {}
+    for event_id, placement in placed.items():
+        if placement is None:
+            continue
+        try:
+            built = trial_record.build_for_cell(
+                config_root,
+                case_id,
+                event_id,
+                placement.payload,
+                read_on=reads[event_id].cutoff
+                or (days.read_on if event_id in rehearsed else days.today),
+                mode=modes[event_id],
+            )
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            raise CascadeError(
+                f"{case_id} trial record: {type(exc).__name__} reading config"
+            ) from exc
+        if built is not None:
+            trials[event_id] = built
+    return trials
+
+
+def _refuse_decided_trial_cell(
+    case_id: str,
+    court: str,
+    event: corpus.CorpusEvent,
+    row: corpus.CorpusRow,
+    found: tuple[date, dict[str, Any]] | None,
+) -> None:
+    """Refuse a slice docket's cell that ``provision-snapshot``'s forward gates would refuse.
+
+    The record gate's row half and the snapshot-text gate
+    (:func:`fedcourtsai.pipeline.outcome.forward_leakage`), over the latest
+    payload: a trial cell is a forward cell or nothing, and one whose docket
+    already shows the ruling would be handed its answer.
+
+    Two of those gates are not applied here: the bound on how long ago the
+    docket was last read, which a hand-seeded docket would trip and which
+    guards a forecast of record, not a cell whose output leaves no runner;
+    and the committed-outcome half of the record gate, since the cascade's
+    ledger is the run's own.
+    """
+    if _cell_mode(event, row) != "forward":
+        raise CascadeError(
+            f"event {event.event_id!r} cannot be forecast on {case_id}: the corpus records "
+            "the case decided"
+        )
+    shown = None if found is None else forward_leakage(found[1], court, event.event_id)
+    if shown is not None:
+        raise CascadeError(f"event {event.event_id!r} cannot be forecast on {case_id}: {shown}")
 
 
 def _outcome_for_resolved(
@@ -688,8 +1004,9 @@ def _evaluate_event(  # noqa: PLR0913 - the cell coordinates, one arg each
     event_id: str,
     run_id: str,
     map_dir: Path,
+    population: str = SCOTUS_POPULATION_KEY,
 ) -> list[Path]:
-    """Score one resolved event with every enabled evaluator, graded blind.
+    """Score one resolved event with every enabled evaluator of its population, graded blind.
 
     The blind-grading bracket is the same one ``run-evaluate`` puts around its
     agent step (:mod:`fedcourtsai.blinding`): stage the candidates under opaque
@@ -715,7 +1032,7 @@ def _evaluate_event(  # noqa: PLR0913 - the cell coordinates, one arg each
         map_dir=map_dir,
     )
     written: list[Path] = []
-    for evaluator in evaluators_for(config_root / "evaluators.yaml", SCOTUS_POPULATION_KEY):
+    for evaluator in evaluators_for(config_root / "evaluators.yaml", population):
         written.extend(
             runner.run(request(UsageRole.evaluator, evaluator.id, evaluator.prompt, event_id))
         )
@@ -746,6 +1063,8 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     predictor: str | None = None,
     backend: corpus.CorpusBackend | None = None,
     require_record: bool = False,
+    rehearse_trial: bool = False,
+    today: date | None = None,
 ) -> CascadeReport:
     """Run the full predict → evaluate → validate cascade for one case.
 
@@ -780,11 +1099,25 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     ``metrics_root`` is where the committed statpack is read, as
     ``provision-snapshot`` reads it: a cert cell's anchor is frozen from it, and
     every predict cell records its digest.
+
+    The docket's population picks the actors (:func:`_routed_population`), and
+    ``predictor`` must name one of that population's. A docket an enabled slice
+    admits runs one named trial event (:func:`_slice_targets`), and
+    ``rehearse_trial`` plans that event in the run where the corpus does not
+    store it yet: read on the later of ``today`` (UTC today by default) and the
+    stage's switch-on day, written to ``data_root`` as the pass would write it,
+    and never to the corpus. It is refused on a docket of the Court's
+    population, so a rehearsal cannot be mistaken for any other run.
     """
     runner = get_runner(engine)
     anchor_pool = provision.read_anchor_pool(metrics_root, config_root)
     case_id = ids.case_id(court, docket)
     case_paths = CasePaths(data_root, court, docket)
+    # Before any corpus read: a predictor of another population, or a rehearsal
+    # of a docket no slice admits, is a refusal that should cost nothing.
+    population, predictors, days = _route(
+        config_root, case_id, predictor, rehearse=rehearse_trial, today=today
+    )
 
     chosen_backend = _provisioning_backend(backend)
     if chosen_backend == "local" and not corpus_db_path.exists():
@@ -798,7 +1131,17 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             raise CascadeError(f"case {case_id} is not in the corpus at {corpus_db_path}")
         all_events = corpus.events_for_case(conn, case_id)
         found = corpus.latest_snapshot(conn, case_id)
-        targets = _select_events(all_events, event)
+        targets, rehearsed, all_events = _targets(
+            conn,
+            config_root,
+            row,
+            population,
+            all_events,
+            event,
+            found,
+            rehearse=rehearse_trial,
+            read_on=days.read_on,
+        )
         # Before the remaining reads, not after: each cut target costs a
         # dated-snapshot lookup, and a refused run should pay for nothing more.
         if require_record and found is None:
@@ -808,7 +1151,15 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
                 "(--require-record)"
             )
         unforecastable = _unforecastable(
-            targets, row, store.forecastable_event_ids(conn, court, docket)
+            [ev for ev in targets if ev.event_id not in rehearsed],
+            row,
+            (
+                store.forecastable_event_ids(
+                    conn, court, docket, today=days.today, slice_docket=True
+                )
+                if population != SCOTUS_POPULATION_KEY
+                else store.forecastable_event_ids(conn, court, docket)
+            ),
         )
         stored_documents = corpus.documents_for_case(conn, case_id)
         # Every target's read on this one connection — the accounting rule
@@ -855,6 +1206,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             # Predict cells only: the evaluate placement names no event, and
             # `provision-snapshot` records no build for it either.
             statpack_digest=(anchor_pool.digest if event_id and anchor_pool is not None else None),
+            trial=trials.get(event_id) if role == "predict" else None,
         )
         placements.append(record.placement)
 
@@ -867,6 +1219,8 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     same_question_lists = _read_same_question_lists(
         corpus_db_path, chosen_backend, case_id, placed, reads, modes
     )
+
+    trials = _trial_records(config_root, case_id, placed, reads, modes, rehearsed, days)
 
     outcomes = _materialize_targets(case_paths, row, targets, found)
 
@@ -881,8 +1235,6 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             prompt=Path(prompt),
             data_root=data_root,
         )
-
-    predictors = _select_predictors(config_root, predictor)
 
     predictions: list[Path] = []
     for ev in targets:
@@ -929,6 +1281,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
                 # local cascade over a real engine keeps the key out of the tree
                 # the agent browses just as CI does.
                 map_dir=data_root.parent / ".blinding",
+                population=population,
             )
         )
 
@@ -953,4 +1306,6 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         evaluations=tuple(evaluations),
         valid=ledger.ok and all(c.passed for c in references),
         problems=tuple(problems),
+        rehearsed=rehearsed,
+        trial=record.trial if record else None,
     )

@@ -989,7 +989,8 @@ artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
 (the token-spending scenarios) a single real-engine cell over the service
-sidecar, a boot probe of each engine's own invocation block, the qp-topic
+sidecar (on a pinned district docket of a prediction slice, the slice's actor
+on a trial event rehearsed in the run; *Rehearsing a slice cell* below), a boot probe of each engine's own invocation block, the qp-topic
 labeler's own invocation block over a five-row synthetic extract, one
 **repro-family** cell — a real cell run against a record pinned to the shape a
 diagnosed engine defect keys on — dispatched around changes to corpus access, the sidecars, engine
@@ -1048,6 +1049,50 @@ system: what it guarantees is that the breakage is already in the run history
 when someone next looks, rather than being discovered by a paid round. Check it
 alongside the ops digest, and read a red one the way the run summary states it —
 the leg names which engine's invocation was refused.
+
+**Rehearsing a slice cell.** `engine-smoke` reads the settled case's court to
+choose its cell. `scotus` runs the engine's baseline predictor. Any other
+court runs the engine's trial predictor (`claude-trial`, `codex-trial`,
+`gemini-trial`) with `local-cascade --rehearse-trial`, which plans the pinned
+docket's trial events in the run and forecasts the one `event` names
+([trial-stage.md](trial-stage.md), *Rehearsing the stage*). Such a dispatch
+pins all three of `court`, `docket` and `event`: the case resolver screens for
+no slice, and the cascade refuses a rehearsal that names no event, an event
+the pass would hold, and a docket no slice lists, each before any token is
+spent. It is one predict cell's spend per dispatch and adds no dispatch
+input. A `gate` or `all` dispatch at the default court never rehearses, and
+the leg refuses a district docket under any selection but `engine-smoke`: a
+`gate` run is the promotion gate's evidence about the Court's cells, and one
+pinned to a district docket would have run none. The offline stub cascade
+does not rehearse either; a pinned district docket is for the engine smoke
+alone.
+
+A rehearsal's transcript is withheld from the run log, because a district
+cell reads party-authored filings and the agent's stream can quote them. The
+log and the run summary carry the report block on success, the cascade's own
+refusal line when it refuses before a cell runs, and a fixed line on any other
+failure, which is then reproduced with the same `local-cascade` command where
+the corpus is pulled. The leg runs under a 70-minute cap, the cell jobs' own,
+since a district record is several times a petition-stage one. The
+concurrency group of a single-scenario dispatch names its engine, so the three
+engines' rehearsals at one ref run side by side, and a second dispatch of the
+same engine there cancels the first.
+
+```bash
+gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke \
+  -f engine=<engine> -f court=<district court> -f docket=<docket id> \
+  -f event=<trial event id>
+```
+
+The docket has to be in the corpus the dispatch's environment reads. The
+staging pair is a slice seeded docket by docket (`staging-corpus-refresh`
+below), so a rehearsal at `staging` follows a refresh that names the district
+docket, and its lead docket where it is a member, alongside the dockets the
+pair already holds: a refresh rebuilds the index from the list it is given. A
+rehearsal of a docket the corpus lacks is refused before any token is spent.
+`fedcourts trial-events`
+surveys each listed docket's motions and the day each would open.
+
 See *Infra-bound integration* in [testing.md](testing.md).
 
 ## `corpus-check` — the check a PR asks for

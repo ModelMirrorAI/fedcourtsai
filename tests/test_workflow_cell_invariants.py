@@ -3891,6 +3891,52 @@ RUNNER_FEDERATION_ENV = {
 }
 
 
+def test_the_engine_smoke_names_its_cell_once_and_fences_a_rehearsal() -> None:
+    """One step decides the smoke cell's predictor, and a rehearsal is fenced.
+
+    The MCP sidecar, the MCP client config and the cascade all read the naming
+    step's outputs, so the three cannot disagree about which actor the cell is.
+    The naming step refuses a district docket unless the dispatch selected
+    `engine-smoke`, so a run the promotion gate counts cannot have run trial
+    cells in the Court's place. And the rehearsal arm of the cascade step sends
+    the command's output to runner files rather than the run log, where the
+    Court's arm tees it.
+    """
+    job = _load("integration-test.yml")["jobs"]["scenario"]
+    steps = job["steps"]
+    named = {step.get("name"): step for step in steps}
+    naming = named["Name the smoke cell's predictor"]
+    assert naming.get("id") == "smoke_cell"
+    assert naming["env"]["SELECTION"] == "${{ needs.plan.outputs.selection }}"
+    script = naming["run"]
+    guard = script.index('[ "$COURT" != scotus ] && [ "$SELECTION" != engine-smoke ]')
+    assert guard < script.index("GITHUB_OUTPUT"), "the refusal precedes any output"
+    assert "predictor=%s-baseline\\nrehearse=\\n" in script
+    assert "predictor=%s-trial\\nrehearse=--rehearse-trial\\n" in script
+
+    predictor = "${{ steps.smoke_cell.outputs.predictor }}"
+    cascade = named["Run one real-engine cascade cell over the service sidecar"]
+    assert cascade["env"]["PREDICTOR"] == predictor
+    assert cascade["env"]["REHEARSE"] == "${{ steps.smoke_cell.outputs.rehearse }}"
+    readers = [
+        step
+        for step in steps
+        if predictor in (step.get("with") or {}).values()
+        or predictor in (step.get("env") or {}).values()
+    ]
+    assert len(readers) == 3, "the sidecar, the client config and the cascade read one name"
+    assert steps.index(naming) < min(steps.index(step) for step in readers)
+
+    run = cascade["run"]
+    rehearsal, court_arm = run.split("\nelse\n", 1)
+    rehearsal = rehearsal[rehearsal.index('if [ -n "$REHEARSE" ]; then') :]
+    assert '"${cell[@]}" > cascade-output.log 2> cascade-stderr.log' in rehearsal
+    assert "tee" not in rehearsal, "a rehearsal's transcript never reaches the run log"
+    assert '"${cell[@]}" | tee cascade-output.log' in court_arm
+
+    assert "needs.plan.outputs.court != 'scotus'" in job["timeout-minutes"]
+
+
 def test_the_runner_driven_claude_cells_sign_in_by_federation() -> None:
     """The back-test's replays and the engine-smoke cascade federate like the cells.
 

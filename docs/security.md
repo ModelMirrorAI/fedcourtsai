@@ -1351,7 +1351,8 @@ changes weight rather than shape: the agent-env scrub (every `AWS_*` name and
 every credential-shaped name stripped from the agent subprocess) was a read-
 confidentiality control while staging's OIDC bought read alone; a
 staging-bound job that holds `id-token: write` *and* runs an agent over
-untrusted docket text — the engine-smoke legs — could otherwise mint the
+untrusted docket text (the engine-smoke legs, whose text is the Court's docket
+or, on a trial rehearsal, a district docket's party-authored filings) could otherwise mint the
 write role's credentials, so the scrub is now load-bearing for the staging
 pair's write integrity too.
 

@@ -615,6 +615,21 @@ The freeze-record entry that registers the label states the moments switched
 on, the references above, the motions already open that day, and the opener
 and resolver rule labels in force.
 
+**Rehearsing the stage.** No trial event is stored before the pass's first
+writing day, so until then no cell of the slice can run from the corpus. A
+rehearsal runs one anyway, without writing an event: `fedcourts local-cascade
+--rehearse-trial --event <id>` on a listed district docket plans the docket
+with the pass's own reader, as read on the later of today and
+`TRIAL_SWITCH_ON`, and forecasts the named event from the record
+`provision-snapshot` gives a forward trial cell: the snapshot, `context.json`
+and `record/trial.json`. The event's definition is written to the run's data
+root exactly as the pass would write it, and the corpus is only read. An event
+the pass would hold, or would not open, is refused with the reason. The
+`integration-test` engine smoke runs a rehearsal on each real engine when it
+is dispatched on a pinned district docket ([pipeline.md](pipeline.md),
+*Rehearsing a slice cell*). A rehearsal's prediction is not a forecast of
+record: it stays in the run's own tree and nothing commits it.
+
 **What reads the slice.** No published figure, board, update or export reads
 the slice's population until one is built for it. The public site reads every
 record under `data/cases/`, so the change that first writes a district record
