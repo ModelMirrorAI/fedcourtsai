@@ -4388,8 +4388,10 @@ cell jobs and the integration suite's application-repro leg).
 **Gemini's in-step retry** spends part of that deadline on purpose. gemini-cli
 ends a turn whose model stream went bad — after its own mid-stream retries —
 with a zero exit and an `INVALID_STREAM` error inside its JSON result, seconds
-into a cell while sibling cells on the same model complete. Left alone, such a
-cell lands no output and waits for a later scheduled run, by which time a
+into a cell while sibling cells on the same model complete. A connection the
+API closes while a response is streaming is a serving fault of the same kind,
+ending the turn on a failing exit whose report says only `terminated`. Left
+alone, either cell lands no output and waits for a later scheduled run, by which time a
 fast-moving event may have resolved and the cell turned retrospective. So both
 cell workflows' gemini step runs `scripts/gemini-cell.sh`, which takes up to
 three turns, each a fresh CLI process, under four rules the script states and
