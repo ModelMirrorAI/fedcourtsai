@@ -516,6 +516,9 @@ def test_a_stored_text_is_compared_up_to_its_own_first_note() -> None:
     stored = f"{filing[:300]}\n{_STALE_NOTE}\nAppendix text that follows the cut."
     assert document_recut._same_head(filing, stored)
     assert not document_recut._same_head("Another filing entirely. " * 100, stored)
+    # A note so early that almost nothing is left shows no filing to be the same.
+    assert not document_recut._same_head(filing, f"{_STALE_NOTE}\n{filing}")
+    assert not document_recut._same_head(filing, f"{filing[:40]}\n{_STALE_NOTE}")
 
 
 def _questions(case_id: str, text: str) -> corpus.CaseDocument:
@@ -744,6 +747,26 @@ def test_the_cli_recuts_named_cases(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert "recut-documents (dry-run, named): 1 named filing(s)" in result.output
     assert "scotus/1 petition: WOULD RE-CUT" in result.output
     assert '"cases":["scotus/1"]' in result.output.splitlines()[-1]
+    assert "::warning::" not in result.output
+
+
+def test_the_cli_says_when_a_named_case_is_empty_or_the_bound_is_short(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pdf = _pdf_pages(_pages())
+    rows = [_stale_cut("scotus/1", pdf), _stale_cut("scotus/2", pdf)]
+    _seed(tmp_path / "corpus", rows)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _patch_client(monkeypatch, {row.url: pdf for row in rows})
+    _small_cap(monkeypatch)
+    argv = ["recut-documents", "--case", "scotus/1", "--case", "scotus/2", "--case", "scotus/9"]
+    result = runner.invoke(app, [*argv, "--max-cases", "1"])
+    assert result.exit_code == 0, result.output
+    assert "named case scotus/9 holds no stored petition" in result.output
+    assert "the bound of 1 is short of the 2 named filing(s)" in result.output
+    assert '"named_without_documents":["scotus/9"]' in result.output.splitlines()[-1]
+    # A second look at rows already re-cut is not residue, so it is not warned as such.
+    assert "residue" not in result.output
 
 
 @pytest.mark.parametrize(

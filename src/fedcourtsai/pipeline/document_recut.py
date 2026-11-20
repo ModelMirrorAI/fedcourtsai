@@ -144,6 +144,9 @@ OUTCOMES: tuple[str, ...] = (
 # cut and its re-cut agree there; a filing corrected and re-posted at the same
 # link with the same page count does not.
 HEAD_CHECK_CHARS = 2000
+# The least the two texts must share, in letters and digits, where the stored
+# text is cut short by a note of its own: under it the comparison says nothing.
+MIN_SHARED_HEAD = 200
 
 #: Why a stored row is out of the class. The first two are the ordinary shape
 #: of a corpus that is mostly fine and are not tallied; the rest are rows a
@@ -217,6 +220,9 @@ class RecutScan:
     cases_seen: int
     documents_seen: int
     excluded: dict[str, int]
+    #: Cases in scope holding no stored row of an appendix-bearing kind: the
+    #: reading that tells a mistyped named case from one with nothing to re-cut.
+    without_documents: tuple[str, ...] = ()
 
 
 def check_scope(scope: str, cases: Sequence[str]) -> None:
@@ -272,6 +278,7 @@ def recut_candidates(
     case_ids = _scope_rows(conn, scope, cases)
     named = scope == SCOPE_NAMED
     found: list[RecutCandidate] = []
+    without_documents: list[str] = []
     documents_seen = 0
     excluded: dict[str, int] = {}
     with prefetch_by_case(
@@ -279,9 +286,11 @@ def recut_candidates(
         lambda case_id: corpus.documents_for_case(conn, case_id),
         thread_name_prefix="document-recut",
     ) as fetched:
-        for _case_id, documents in fetched:
+        for case_id, documents in fetched:
             by_kind = {document.kind: document for document in documents}
             questions = by_kind.get(KIND_QUESTIONS_PRESENTED)
+            if not any(kind in by_kind for kind in RECUT_KINDS):
+                without_documents.append(case_id)
             for kind in RECUT_KINDS:
                 document = by_kind.get(kind)
                 if document is None:
@@ -303,6 +312,7 @@ def recut_candidates(
         cases_seen=len(case_ids),
         documents_seen=documents_seen,
         excluded={reason: excluded[reason] for reason in _TALLIED_EXCLUSIONS if reason in excluded},
+        without_documents=tuple(without_documents) if named else (),
     )
 
 
@@ -320,6 +330,11 @@ class DocumentRecutResult(BaseModel):
     cases: list[str] = Field(
         default_factory=list,
         description="The cases a `named` run was given, sorted; empty under the other scopes",
+    )
+    named_without_documents: list[str] = Field(
+        default_factory=list,
+        description="Named cases holding no stored petition, application or appendix row: "
+        "a docket id to check before reading the run as complete",
     )
     cases_seen: int = Field(
         ge=0, description="Live-slice SCOTUS rows in scope; under `named`, the cases named"
@@ -464,7 +479,8 @@ def _same_head(recut: str, stored: str) -> bool:
     lines, a stored text from before the extractor wrote them has none, and one
     at the head would otherwise end the comparison before it began. Each text
     is read up to its own first cut note, and the two are compared over the
-    length they share.
+    length they share, which must reach :data:`MIN_SHARED_HEAD` where a stored
+    note is what cut it short.
     """
     recut = strip_unread_notes(recut)
     note = recut.find(_CUT_NOTE_OPENER)
@@ -478,6 +494,10 @@ def _same_head(recut: str, stored: str) -> bool:
     if not head:
         return not opening
     length = min(len(head), len(opening))
+    if stored_note >= 0 and length < min(MIN_SHARED_HEAD, len(head)):
+        # A stored note this early leaves too little of the filing to tell it
+        # from another: not shown to be the same filing, so not written.
+        return False
     return head[:length] == opening[:length]
 
 
@@ -716,6 +736,7 @@ class RecutLedger:
             applied=self._apply,
             scope=scope,
             cases=sorted(cases),
+            named_without_documents=sorted(scan.without_documents),
             cases_seen=scan.cases_seen,
             documents_seen=scan.documents_seen,
             candidates=len(scan.candidates),

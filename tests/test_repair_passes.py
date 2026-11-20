@@ -195,7 +195,7 @@ def test_the_recut_steps_case_grammar_and_ceiling_are_the_tables() -> None:
         for s in _workflow()["jobs"]["handoff-projection"]["steps"]
         if s.get("name") == "Write the re-cut worklist"
     )
-    (pattern,) = re.findall(r"case_pattern='([^']+)'", str(step["run"]))
+    (pattern,) = re.findall(r"case_grammar='([^']+)'", str(step["run"]))
     assert pattern == f"^{repair_passes.RECUT_CASE.pattern}$"
     assert repair_passes.RECUT_CASE.pattern == document_recut.NAMED_CASE_RE.pattern
     assert repair_passes.MAX_RECUT_CASES == document_recut.MAX_NAMED_CASES == 50

@@ -1937,13 +1937,13 @@ jobs:
           # interpolated into this script), split on whitespace, and every
           # line matched against the case grammar before the command sees it.
           # Empty names no case, which is the walked class.
-          case_pattern='^scotus/[0-9]{1,12}$'
+          case_grammar='^scotus/[0-9]{1,12}$'
           case_args=()
           case_malformed=0
           named_cases=" "
           while IFS= read -r line; do
             [ -n "$line" ] || continue
-            if ! [[ "$line" =~ $case_pattern ]]; then
+            if ! [[ "$line" =~ $case_grammar ]]; then
               echo "::error::malformed case (want scotus/<docket id>, e.g. scotus/9026000654): ${line}"
               case_malformed=1
             elif [[ "$named_cases" == *" ${line} "* ]]; then
@@ -3786,12 +3786,21 @@ jobs:
           fi
           # A named run's cases are the ledger's own list, one a line; the
           # command re-checks each against its grammar.
+          # Read into a variable first, so a ledger this cannot parse fails
+          # the step here rather than leaving the list empty; and a named
+          # ledger with no case would send the witness over another class.
+          ledger_cases="$(grep -h '^{"applied"' /tmp/recut-apply.txt | tail -n 1 \
+            | uv run python -c 'import json,sys; print("\n".join(json.load(sys.stdin)["cases"]))')"
           case_args=()
           while IFS= read -r line; do
             [ -n "$line" ] || continue
             case_args+=(--case "$line")
-          done < <(grep -h '^{"applied"' /tmp/recut-apply.txt | tail -n 1 \
-            | uv run python -c 'import json,sys; print("\n".join(json.load(sys.stdin)["cases"]))')
+          done <<< "${ledger_cases}"
+          if [ "$(ledger_field /tmp/recut-apply.txt scope)" = "named" ] \
+            && [ "${#case_args[@]}" -eq 0 ]; then
+            echo "::error::apply did not converge — its ledger reads a named scope and names no case, so there is no class for the witness to re-read"
+            exit 1
+          fi
           # `--max-cases 0` takes an empty slice, so it fetches nothing, and
           # what it reports is the class as the corpus now holds it: a
           # content-store write that failed would leave a re-cut row in the

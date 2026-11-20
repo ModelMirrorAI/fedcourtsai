@@ -2474,8 +2474,7 @@ gh workflow run run-repair.yml --ref main \
   -f repair=recut -f repair_mode=apply -f repair_bound=50
 
 # Named cases: the rows a change to the cut itself left stale carry a cut note,
-# so no walked class holds them. Name the cases (from the census the change's
-# record entry gives) and set the bound to at least the class the dry run's
+# so no walked class holds them. Name the cases, from a census, and set the bound to at least the class the dry run's
 # projection prints; the same target goes on both dispatches.
 gh workflow run run-repair.yml --ref main \
   -f repair=recut -f repair_mode=dry-run \

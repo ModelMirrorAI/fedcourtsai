@@ -2047,7 +2047,11 @@ the same link.
   rows without holding every noted row forever, and a maintainer names them
   from a census instead. Everything else is the pass as above: the same fetch,
   guards, outcomes and questions-presented rule, with the stored text read up
-  to its own first cut note where the re-cut is compared with it. A named row
+  to its own first cut note where the re-cut is compared with it; a stored
+  note so early that under 200 letters and digits are left to compare makes
+  the row `head-changed`, since nothing then shows the link still serves the
+  same filing. The ledger warns of a named case holding no row of the three
+  kinds and of a bound short of the named class. A named row
   stays in its class after a re-cut unless the re-cut fits under the cap, so
   the class does not drain: a second dispatch reads each row `unchanged`, and
   the bound to give is the size of the named class. The cases ride in the

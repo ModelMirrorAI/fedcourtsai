@@ -4342,6 +4342,23 @@ def _recut_class_noun(result: DocumentRecutResult) -> str:
     return "named filing(s)" if result.scope == RECUT_SCOPE_NAMED else "head-cut filing(s)"
 
 
+def _echo_recut_named(result: DocumentRecutResult) -> None:
+    """What a named run should not leave unsaid: an empty case, a bound short of the class."""
+    if result.scope != RECUT_SCOPE_NAMED:
+        return
+    for case_id in result.named_without_documents:
+        typer.echo(
+            f"::warning::recut-documents: named case {case_id} holds no stored petition, "
+            "application or appendix row — check the docket id"
+        )
+    if result.bound is not None and 0 < result.bound < result.candidates:
+        typer.echo(
+            f"::warning::recut-documents: the bound of {result.bound} is short of the "
+            f"{result.candidates} named filing(s); a named class does not drain, so the "
+            "rows past the bound are reached only by a bound that covers the class"
+        )
+
+
 def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> None:
     """The pass's ledger, as the pass in one job and the split's reader both print it."""
     scope = result.scope
@@ -4362,6 +4379,7 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
     _echo_by_kind("class", result.candidates_by_kind)
     if result.excluded:
         _echo_by_kind("truncated but left out", result.excluded)
+    _echo_recut_named(result)
     typer.echo(
         f"  attempted {result.attempted} "
         f"(bound {'none' if result.bound is None else result.bound}); "
@@ -4381,7 +4399,8 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
     for key, reason in result.skipped.items():
         typer.echo(f"  {key}: SKIPPED ({reason})")
     _echo_unreached(result.unreached)
-    if result.bound and result.attempted == result.bound and result.recut == 0:
+    walked = result.scope != RECUT_SCOPE_NAMED
+    if walked and result.bound and result.attempted == result.bound and result.recut == 0:
         # A full slice that re-cut nothing is a head of residue (links that
         # 404, other filings) the class order keeps returning to.
         typer.echo(
@@ -4563,6 +4582,7 @@ def _echo_recut_class(result: DocumentRecutResult, db_path: Path) -> None:
     _echo_by_kind("class", result.candidates_by_kind)
     if result.excluded:
         _echo_by_kind("truncated but left out", result.excluded)
+    _echo_recut_named(result)
 
 
 @app.command("enrich-opinions")
