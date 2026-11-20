@@ -287,7 +287,7 @@ widening under the old label would re-point a published constant at a
 population it was never measured on.
 
 `sal-v3` is a **frozen, superseded** scorer: `sal-v4` below is `sal-v3` read
-under a second distribution parse, and the active version is `sal-v8`. Everything in
+under a second distribution parse, and the active version is `sal-v9`. Everything in
 this section is `sal-v3`'s own record — the caption widening it registered, the
 review that licensed it, and the pools its frozen predictions still replay
 against — and none of it moved when the pointer did. Registration and activation are separate
@@ -429,7 +429,7 @@ unversioned, because an ancillary paper is distributed for the conference the
 petition is on and a case must sit in one cohort rather than one per parse.
 
 `sal-v1` through `sal-v3` pin `dist-v1`; `sal-v4` pins `dist-v2` (below), and
-so do `sal-v5`, `sal-v6`, `sal-v7` and the **active** `sal-v8`, which is also the reading the corpus's
+so do `sal-v5`, `sal-v6`, `sal-v7`, `sal-v8` and the **active** `sal-v9`, which is also the reading the corpus's
 `distribution_count` column now holds. The active scorer's parse and the column's therefore agree, which is the
 alignment that is load-bearing beyond banding: the relist-increment
 claim reads its prediction-time count from the frozen context (which follows the
@@ -1003,7 +1003,7 @@ entry, read past an extension application), fill-in latched and kept off the
 (`corpus.RETRIEVAL_WITHHELD_COLUMNS`). The release's sensitivity line reads the
 same entry through the same reader, so the two never disagree about which
 dockets are writs. The scope is `sal-v5`'s and `sal-v6`'s, not Tier 0: a writ
-stays in predict scope, and under the active `sal-v8`, whose segment is `sal-v6`'s, it is neither scored nor
+stays in predict scope, and under the active `sal-v9`, whose segment is `sal-v6`'s, it is neither scored nor
 selected. The live pass stamps it with the active version and no score, so the
 gate reads it as deferred, not as a row no pass has reached, which the gate's
 fail-open would fund; a writ latched under `sal-v4` keeps its latch, since the
@@ -1339,16 +1339,15 @@ cutpoints, the band vocabulary and the arrival draw are `sal-v7`'s, as the same
 callables, and the band, the carve-in and the reachable ladder read the class
 through `caption-v5` exactly as `sal-v7` reads it through `caption-v4`.
 
-`sal-v8` is the **active** scorer: `SALIENCE_VERSION` names it, so the live
-pass scores, latches and stamps under it, every band a cell freezes is a
-`sal-v8` band, and the pack's `segments` are its bands from the first refresh
-after the promotion that carries the flip, with `sal-v7`'s in `alt_segments`.
-On stored rows it bands as `sal-v7` does, so the live pass, the latches and the
-pack's pools do not move at the flip; only a forward cell's frozen band can. It
-pins `dist-v2`, so the flip moved one constant. It was registered inactive
-first, which put its bands in every rendered pack's `alt_segments` and its
-cells in every `salience-replay` before any cell froze a `sal-v8` band. The
-registration and activation records are in [freeze-record.md](freeze-record.md).
+`sal-v8` is a **frozen, superseded** scorer: `sal-v9` below is `sal-v8` read
+through `caption-v6`, and its bands stay published in `alt_segments` for the
+cells that froze them. On stored rows it bands as `sal-v7` does, so the live
+pass, the latches and the pack's pools did not move at its flip; only a forward
+cell's frozen band could. It pins `dist-v2`, so its flip moved one constant. It
+was registered inactive first, which put its bands in every rendered pack's
+`alt_segments` and its cells in every `salience-replay` before any cell froze a
+`sal-v8` band. The registration and activation records are in
+[freeze-record.md](freeze-record.md).
 
 **`caption-v5`.** `caption-v5` (`pipeline.caption.petitioner_class_v5`,
 registered in `CAPTION_RULES` beside the four earlier rules, which are
@@ -1449,11 +1448,16 @@ cutpoints, the band vocabulary and the arrival draw are `sal-v8`'s, as the same
 callables, and the band, the carve-in and the reachable ladder read the class
 through `caption-v6` exactly as `sal-v8` reads it through `caption-v5`.
 
-`sal-v9` is **registered, not active**: `SALIENCE_VERSION` stays `sal-v8`, so
-nothing the live pass selects, latches or stamps reads it, and no cell freezes
-a `sal-v9` band. Its bands are in every rendered pack's `alt_segments` and its
-cells in every `salience-replay`. It pins `dist-v2`, so its flip moves one
-constant. The registration record is in [freeze-record.md](freeze-record.md).
+`sal-v9` is the **active** scorer: `SALIENCE_VERSION` names it, so the live
+pass scores, latches and stamps under it, every band a cell freezes is a
+`sal-v9` band, and the pack's `segments` are its bands from the first refresh
+after the promotion that carries the flip, with `sal-v8`'s in `alt_segments`.
+It bands every stored row as `sal-v8` does but the rows `caption-v6` moves,
+which are pending, so the pack's resolved pools do not move at the flip. It
+pins `dist-v2`, so the flip moved one constant. It was registered inactive
+first, which put its bands in every pack rendered after the registration and
+its cells in every `salience-replay`. The registration and activation records
+are in [freeze-record.md](freeze-record.md).
 
 **`caption-v6`.** `caption-v6` (`pipeline.caption.petitioner_class_v6`,
 registered in `CAPTION_RULES` beside the five earlier rules, which are
@@ -1551,21 +1555,33 @@ sole-counsel reading, and a forward cell and a replay cell on one docket can
 freeze different bands, as under `sal-v8`.
 
 **The activation prerequisites,** stated here so the flip does not rediscover
-them:
+them, with where each stands; the activation entry of
+[freeze-record.md](freeze-record.md) carries the readings:
 
 - the first metrics refresh after the promotion carrying the registration, so
   the committed pack's `alt_segments` holds the `sal-v9` block a cell minted
-  under the flip pools its anchor from;
-- that block equal to the pack's `sal-v8` segments on everything but
-  `ingested`: `jq '[.terms[] | (.segments | map(del(.ingested))) ==
-  (.alt_segments[] | select(.salience_version == "sal-v9") | .segments |
-  map(del(.ingested)))] | all' metrics/statpack.json` prints `true`;
+  under the flip pools its anchor from. **Not met when the activation was
+  recorded:** the committed pack (`2c5e1ef4f`) was rendered before that
+  promotion and holds no `sal-v9` block, and a cell banded under a version the
+  pack does not publish freezes an anchor with a null rate. The flip is carried to `main` only after
+  a refresh has merged there;
+- that block present in every Term and equal to the pack's `sal-v8` segments on
+  everything but `ingested`: `jq '[.terms[] | [.alt_segments[] |
+  select(.salience_version == "sal-v9") | .segments | map(del(.ingested))] ==
+  [.segments | map(del(.ingested))]] | all' metrics/statpack.json` prints
+  `true` on a pack rendered while `sal-v8` is active. The comparison is of
+  one-element lists, so a pack with no `sal-v9` block prints `false`. Owed on
+  the committed pack with the refresh. A pack rendered from the activation's
+  blob with `sal-v9` active passes the mirrored comparison, its `sal-v8` block
+  against its `sal-v9` segments;
 - the band census re-run on the activation's blob, each moved row's caption
-  and counsel entry read, since the bar is the rule's outcome-free precision;
+  and counsel entry read, since the bar is the rule's outcome-free precision.
+  Met: one move, pending 26-630, its caption and its one counsel entry as the
+  registration read them;
 - the activation dry run (`scripts/checks/salience_activation_dry_run.py`)
   under `sal-v9`, whose new latches are the moved pending rows and no others.
-  At registration it plans 1 new latch, an arrival, where `sal-v8` plans 0,
-  and both refuse the same 257 rows.
+  Met: 1 new latch, 26-630's arrival, where `sal-v8` plans 0, and both refuse
+  the same 258 rows.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 
