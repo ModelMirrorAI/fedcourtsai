@@ -8,6 +8,7 @@ lower-court docket's cell is written.
 from __future__ import annotations
 
 import json
+import time
 from datetime import date, timedelta
 from typing import Any
 
@@ -140,56 +141,208 @@ def test_the_courts_terminal_scan_is_not_asked_of_a_trial_event() -> None:
 
 # --- the wider net a motion is held to ------------------------------------------
 
+# Forms of a ruling, or of the action ending, that the resolver's exact reading
+# passes over. Each must refuse the motion's cell.
+SIGNS = [
+    "ORDER: Defendants' motion to dismiss is GRANTED.",
+    "ORDER re 45: the motion is DENIED.",
+    "ORDER granting in part and denying in part OAI's motion to dismiss",
+    "ORDER granting OpenAI, Inc.'s Motion to Dismiss.",
+    "ORDER denying Defendants Microsoft Corporation and OpenAI OpCo LLC's Motion to Dismiss",
+    "ORDER granting in part (51) Motion to Dismiss; denying (45) Motion to Dismiss in 1:23-cv-1",
+    "Judge A: ELECTRONIC ORDER entered denying 45 Motion to Dismiss.",
+    "MINUTES (IN CHAMBERS) ORDER GRANTING DEFENDANT'S MOTION TO DISMISS [45] by Judge A.",
+    "MEMO ENDORSEMENT on re: 45 MOTION to Dismiss. ENDORSEMENT: Application DENIED. SO ORDERED.",
+    "Motions terminated: 45 MOTION to Dismiss.",
+    "NOTICE by Developer of withdrawal of its motion to dismiss",
+    "Minute Entry: Motion Hearing held re 45 MOTION to Dismiss. Motion DENIED on the record.",
+    "ORDER denying 45. Answer deadline is 14 days from this order.",
+    "ORDER: [45] is GRANTED; the hearing set for 7/1/2026 is VACATED.",
+    "ORDER: The motion at ECF No. 45 is denied. Defendant shall appear on 7/1.",
+    "ORDER granting 45.",
+    "ORAL ORDER: the motion (D.I. 45) is DENIED.",
+    "ORDER: For the reasons stated in the accompanying opinion, Defendant's motion is DENIED.",
+    "ORDER re 45 MOTION to Dismiss. Signed by Judge A on 6/10/26.",
+    "ORDER on Motion to Dismiss for Failure to State a Claim. Signed by Judge A.",
+    "MEMORANDUM OPINION. Signed by Judge A.",
+    "ORDER ADOPTING 58 Report and Recommendation in its entirety.",
+    "MEMORANDUM AND ORDER: The motion to dismiss is ALLOWED.",
+    "ORDER sustaining in part and overruling in part Defendant's Motion to Dismiss 45.",
+    "ORDER STRIKING 45 Motion to Dismiss for failure to comply with Local Rule 7.",
+    "ORDER dismissing Counts II and III of the Amended Complaint.",
+    "ORDER: The Amended Complaint is DISMISSED with leave to amend.",
+    "SECOND AMENDED COMPLAINT against Developer, Inc., filed by Listed Author.",
+    "NOTICE of Voluntary Dismissal by Listed Author as to Developer, Inc.",
+    "JUDGMENT in favor of Developer, Inc. against Plaintiff.",
+    "Civil Case Terminated.",
+    "ORDER: The motion is granted. This case is closed.",
+    "ORDER: The Clerk is directed to close this case.",
+    "ORDER DISMISSING CASE. Signed by Judge A.",
+    "ORDER TRANSFERRING CASE to the Southern District of New York.",
+    "STIPULATION of Dismissal with prejudice by all parties",
+    # A ruling beside something procedural the same order does.
+    "ORDER DENYING DEFENDANT'S MOTION TO DISMISS AND SETTING CASE MANAGEMENT CONFERENCE",
+    "ORDER GRANTING MOTION TO DISMISS AND VACATING HEARING",
+    "ORDER: The hearing on the motion to dismiss is vacated and the motion is DENIED.",
+    "ORDER vacating hearing and denying motion. Signed by Judge A.",
+    "Minute Entry: Hearing held re 45 MOTION to Dismiss. Taken under advisement; ruling: DENIED.",
+    # A ruling on the motion joined to one on a neighbouring entry.
+    "ORDER denying 58 and 45",
+    "ORDER granting [58] and [45]",
+    "ORDER denying 58 Motion to Strike & 45 Motion to Dismiss",
+    "ORDER denying 58 Motion to Strike, granting Motion to Dismiss",
+    "ORDER granting 58 Motion to Compel and the Court finds the Motion to Dismiss should be DENIED",
+    # A number that is no docket entry beside the ruling.
+    "ORDER: The motion is DENIED. Signed by Judge A on June 10, 2026.",
+    "MEMORANDUM OPINION AND ORDER. Signed by Judge A on 6/10/2026. (Courtroom 4)",
+    "OPINION AND ORDER (25 pages). Signed by Judge A.",
+    "OPINION. Civil Action No. 25-1234. Signed by Judge A.",
+    "ORDER: The complaint is dismissed without prejudice.",
+    "ORDER resolving 45 Motion to Dismiss. See attached order.",
+    "RULING on Defendant's Motion to Dismiss. Signed by Judge A.",
+    "ORDER OF DISCONTINUANCE. Signed by Judge A.",
+    "Notice of Settlement by Plaintiff.",
+    "ORDER: Upon the parties' joint request, the Clerk is directed to close this case.",
+    # The motion's number cited by "No.", or in a list before the ruling.
+    "ORDER: ECF No. 45 is DENIED.",
+    "ORDER: Dkt. No. 45 DENIED.",
+    "ORDER: [45] and [49] are DENIED.",
+    "ORDER: Defendants' motions (Dkts. 45, 46 & 48) are GRANTED.",
+    "ORDER: ECF Nos. 45, 47: DENIED.",
+    "MEMORANDUM & ORDER. (Ordered by Judge A on 6/10/2026)",
+    "ORDER: The Court declines to dismiss the complaint.",
+]
+
+# What a docket carries while the motion is pending. None may refuse it.
+PENDING = [
+    "ORDER setting hearing on 45 Motion to Dismiss for 3/1/2026.",
+    "ORDER granting 59 Motion for Extension of Time re 45 Motion.",
+    "ORDER granting 59 Stipulation re briefing on 45 Motion to Dismiss.",
+    "ORDER granting 59 Motion for Summary Judgment page limits.",
+    "ORDER granting 59 Motion to Strike Opposition to Motion to Dismiss",
+    "ORDER: the Court GRANTS three more pages for the motion to dismiss",
+    "ORDER: Exhibit 3 stays sealed until 90 days after this case is closed.",
+    "NOTICE by Listed Author re 45 Motion to Dismiss: it should be denied",
+    "ORDER of USCA denying petition as to 45 Motion to Dismiss",
+    "ORDER taking under submission 45 Motion to Dismiss. The hearing is vacated.",
+    "Minute Entry: Motion Hearing held re 45 MOTION to Dismiss. Motion taken under advisement.",
+    "ORDER denying 58 Motion to Stay Discovery pending ruling on 45 Motion to Dismiss.",
+    "ORDER denying 58 Motion to Dismiss counterclaims filed by Plaintiff.",
+    "ORDER granting 58 Motion to Withdraw as Attorney. Attorney C terminated.",
+    "ORDER: The parties shall submit supplemental briefs on 45 by 7/1/2026.",
+    "ORDER REASSIGNING CASE. Case reassigned to Judge B for all further proceedings.",
+    "STANDING ORDER regarding civil cases. Motions will be denied if not in compliance.",
+    "ORDER TO SHOW CAUSE why the case should not be dismissed for failure to prosecute.",
+    "ORDER: If no amended complaint is filed in 45 days, the Clerk shall close the case.",
+    "The Court granted 46 Other's motion to dismiss. As to 45, the parties shall confer.",
+    "ORDER: Plaintiff shall show cause why this action should not be dismissed.",
+    "INITIAL STANDING ORDER: failure to comply may result in the case being dismissed.",
+    "ORDER: Motion to Ascertain Status 58 is GRANTED, and Motion for Oral Argument 59 is DENIED.",
+    "ORDER GRANTING DEVELOPER'S MOTION PURSUANT TO CIVIL L.R. 7-11 TO SEAL ITS REPLY.",
+    "ORDER: Other's motion (ECF No. 59 in 5:26-cv-00880) is DENIED, and the hearing is VACATED.",
+    "ORDER denying letter motion. The Clerk is directed to close Case No. 24-CV-3285, ECF 58.",
+    "ORDER granting 58 Motion for Extension of Time to respond to 45 Motion to Dismiss",
+    # A ruling on another motion that carries no number.
+    "ORDER: Plaintiff's motion to remand is denied.",
+    "ORDER denying Motion to Strike.",
+    "SCHEDULING ORDER: Any motion to dismiss not timely filed will be denied.",
+    # A ruling on something the motion's name hangs from.
+    "ORDER: The motion for extension of time to respond to the motion to dismiss is GRANTED.",
+    "ORDER: Oral argument on the motion to dismiss is denied as unnecessary.",
+    "ORDER: The request to file an oversized opposition to the motion to dismiss is granted.",
+    "ORDER: Request granted. Defendants' motion to dismiss is due 4/1/2026.",
+    # A warning of what may follow.
+    "ORDER TO SHOW CAUSE why the motion to dismiss should not be granted as unopposed.",
+    "ORDER: Failure to respond may result in the motion being granted as unopposed.",
+    # A referral.
+    "ORDER: 45 MOTION to Dismiss referred to Magistrate Judge E for report and recommendation.",
+    "ORDER REFERRING CASE to Magistrate Judge K for recommendations on dispositive motions.",
+    # The action ended for one party alone, or not ended.
+    "ORDER: The Clerk shall not close the case.",
+    "ORDER: No judgment shall be entered until all claims are resolved.",
+]
+
 
 @pytest.mark.parametrize(
-    "later",
-    [
-        entry(70, "ORDER: Defendants' motion to dismiss is GRANTED.", "2026-07-20"),
-        {
-            **entry(0, "MINUTE ORDER granting Motion to Dismiss.", "2026-07-20"),
-            "entry_number": None,
-        },
-        entry(70, "ORDER re 45: the motion is DENIED.", "2026-07-20"),
-        entry(
-            70, "ORDER granting in part and denying in part OAI's motion to dismiss", "2026-07-20"
-        ),
-        entry(70, "JUDGMENT in favor of Developer, Inc. against Plaintiff.", "2026-07-20"),
-        entry(70, "Civil Case Terminated.", "2026-07-20"),
-        entry(70, "STIPULATION of Dismissal with prejudice by all parties", "2026-07-20"),
-    ],
+    "unit",
+    ["granted and denied in part and adopt 58 certify ", "grant deny ", "adopt ", "[45], "],
 )
-def test_a_sign_of_a_ruling_the_resolver_passes_over_refuses_the_motion(
-    later: dict[str, Any],
-) -> None:
-    reason = forward_leakage(payload(*BRIEFED, later), "cand", DISMISSAL)
+def test_the_net_reads_a_long_entry_in_bounded_time(unit: str) -> None:
+    """A docket text is not bounded in length; the net's reading of one is."""
+    longest = "ORDER " + unit * (50_000 // len(unit))
+    held = payload(*BRIEFED, entry(60, longest, "2026-02-10"))
+
+    began = time.perf_counter()
+    forward_leakage(held, "cand", DISMISSAL)
+
+    assert time.perf_counter() - began < 2
+
+
+@pytest.mark.parametrize("text", SIGNS)
+def test_a_sign_the_resolver_passes_over_refuses_the_motion(text: str) -> None:
+    reason = forward_leakage(payload(*BRIEFED, entry(70, text, "2026-07-20")), "cand", DISMISSAL)
 
     assert reason is not None
-    assert "ORDER" not in reason and "GRANTED" not in reason
+    assert text[:24] not in reason
+
+
+@pytest.mark.parametrize("text", PENDING)
+def test_an_entry_about_the_pending_motion_is_no_sign(text: str) -> None:
+    held = payload(*BRIEFED, entry(60, text, "2026-02-10"))
+
+    assert forward_leakage(held, "cand", DISMISSAL) is None
 
 
 @pytest.mark.parametrize(
-    "later",
+    ("moment_id", "motion", "text"),
     [
-        entry(60, "ORDER setting hearing on 45 Motion to Dismiss for 3/1/2026.", "2026-02-10"),
-        entry(60, "ORDER granting 59 Motion for Extension of Time re 45 Motion.", "2026-02-10"),
-        entry(
-            60, "ORDER granting 59 Stipulation re briefing on 45 Motion to Dismiss.", "2026-02-10"
+        (
+            "evt-motion-trial-summary-judgment-45",
+            "MOTION for Summary Judgment",
+            "ORDER granting summary judgment for defendant on all claims.",
         ),
-        entry(60, "ORDER granting 59 Motion for Summary Judgment page limits.", "2026-02-10"),
-        entry(
-            60, "ORDER granting 59 Motion to Strike Opposition to Motion to Dismiss", "2026-02-10"
+        (
+            "evt-motion-trial-preliminary-injunction-45",
+            "MOTION for Preliminary Injunction",
+            "PRELIMINARY INJUNCTION. Signed by Judge A.",
         ),
-        entry(
-            60, "ORDER: the Court GRANTS three more pages for the motion to dismiss", "2026-02-10"
+        (
+            "evt-motion-trial-preliminary-injunction-45",
+            "MOTION for Preliminary Injunction",
+            "ORDER: Plaintiffs' application for preliminary injunctive relief is denied.",
         ),
-        entry(
-            60, "NOTICE by Listed Author re 45 Motion to Dismiss: it should be denied", "2026-02-10"
+        (
+            "evt-motion-trial-class-45",
+            "MOTION to Certify Class",
+            "ORDER denying Plaintiffs' Renewed Motion for Class Certification and Appointment "
+            + "of Class Counsel.",
         ),
-        entry(60, "ORDER of USCA denying petition as to 45 Motion to Dismiss", "2026-02-10"),
     ],
 )
-def test_an_order_about_the_motion_is_no_sign_of_its_ruling(later: dict[str, Any]) -> None:
-    assert forward_leakage(payload(*BRIEFED, later), "cand", DISMISSAL) is None
+def test_the_net_reads_each_kind_of_motion(moment_id: str, motion: str, text: str) -> None:
+    filed = entry(45, f"{motion} filed by a party.", "2026-01-10")
+
+    assert forward_leakage(payload(filed), "cand", moment_id) is None
+    assert forward_leakage(payload(filed, entry(70, text, "2026-07-20")), "cand", moment_id)
+
+
+def test_an_unnumbered_ruling_names_no_entry() -> None:
+    minute = {
+        **entry(0, "MINUTE ORDER granting Motion to Dismiss.", "2026-07-20"),
+        "entry_number": None,
+    }
+
+    reason = forward_leakage(payload(*BRIEFED, minute), "cand", DISMISSAL)
+
+    assert reason == f"snapshot an unnumbered docket entry may dispose of {DISMISSAL}"
+
+
+def test_an_action_that_may_be_over_refuses_the_judgment_event() -> None:
+    closed = entry(80, "Civil Case Terminated.", "2026-07-01")
+
+    reason = forward_leakage(payload(*BRIEFED, closed), "cand", JUDGMENT)
+
+    assert reason == f"snapshot docket entry 80 may show the action over, for {JUDGMENT}"
 
 
 def test_a_snapshot_without_the_motions_entry_refuses_it() -> None:
