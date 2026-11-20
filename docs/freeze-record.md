@@ -22109,15 +22109,21 @@ freeze commit is recorded here.
     73.11% (212), high 34.88% (777), state 23.52% (421), elevated 24.81%
     (2,011), baseline 5.18% (12,668).
 
-  **The committed pack.** The pack on `main` when this entry was recorded
-  (`2c5e1ef4f`, refreshed 2026-11-16 05:56Z) was rendered before the promotion
-  that carried the registration and holds no `sal-v9` block, so the
-  registration's first prerequisite stood unmet on it, and its own effect
-  check's equality reads `true` there only because it compares nothing: the
-  check as `docs/salience.md` now states it prints `false` on a pack without
-  the block. A cell banded under a version the committed pack does not
-  publish freezes an anchor with a null rate, so no baseline, and this flip is carried to `main` only after a
-  metrics refresh has merged there.
+  **The committed pack.** The metrics refresh merged to `main` as
+  `50244479f` (2026-11-20 18:59Z), the first after the promotion tagged
+  `promotion/2026-11-16` carried the registration, renders one `sal-v9` block
+  in every Term's `alt_segments`. `jq '[.terms[] | [.alt_segments[] |
+  select(.salience_version == "sal-v9") | .segments | map(del(.ingested))] ==
+  [.segments | map(del(.ingested))]] | all' metrics/statpack.json` prints
+  `true` on it; `ingested` differs in OT2026 alone, as on the local render,
+  and `segment-anchors` pools `sal-v8` and `sal-v9` to the anchors above on
+  it. The pack it replaced (`2c5e1ef4f`, refreshed 2026-11-16 05:56Z) was
+  rendered before that promotion and held no `sal-v9` block; the
+  registration entry's equality check read `true` there only because it
+  compared nothing, which is why the check is restated here as a comparison
+  of one-element lists that prints `false` on a pack without the block. A
+  cell banded under a version the committed pack does not publish freezes an
+  anchor with a null rate, so the refresh preceded this activation.
 
   **No outcome-clean reading.** The one moved row is pending and no resolved
   row moves, and a `sal-v9` replay cell reads `caption-v4`'s fact. The

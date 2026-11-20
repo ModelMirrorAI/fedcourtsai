@@ -1560,20 +1560,17 @@ them, with where each stands; the activation entry of
 
 - the first metrics refresh after the promotion carrying the registration, so
   the committed pack's `alt_segments` holds the `sal-v9` block a cell minted
-  under the flip pools its anchor from. **Not met when the activation was
-  recorded:** the committed pack (`2c5e1ef4f`) was rendered before that
-  promotion and holds no `sal-v9` block, and a cell banded under a version the
-  pack does not publish freezes an anchor with a null rate. The flip is carried to `main` only after
-  a refresh has merged there;
+  under the flip pools its anchor from; a cell banded under a version the
+  pack does not publish freezes an anchor with a null rate. Met: the refresh
+  merged to `main` as `50244479f`;
 - that block present in every Term and equal to the pack's `sal-v8` segments on
   everything but `ingested`: `jq '[.terms[] | [.alt_segments[] |
   select(.salience_version == "sal-v9") | .segments | map(del(.ingested))] ==
   [.segments | map(del(.ingested))]] | all' metrics/statpack.json` prints
   `true` on a pack rendered while `sal-v8` is active. The comparison is of
-  one-element lists, so a pack with no `sal-v9` block prints `false`. Owed on
-  the committed pack with the refresh. A pack rendered from the activation's
-  blob with `sal-v9` active passes the mirrored comparison, its `sal-v8` block
-  against its `sal-v9` segments;
+  one-element lists, so a pack with no `sal-v9` block prints `false`. Met on
+  that pack, and `segment-anchors` pools the two versions to the same
+  anchors;
 - the band census re-run on the activation's blob, each moved row's caption
   and counsel entry read, since the bar is the rule's outcome-free precision.
   Met: one move, pending 26-630, its caption and its one counsel entry as the
