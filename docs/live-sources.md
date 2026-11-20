@@ -1063,7 +1063,10 @@ that:
 - **the filing's own body is never cut for its appendix** — the body (every page
   before the appendix starts: an `APPENDIX` divider, the appendix's own contents
   page or its first folio, read from the fourth page on and never on a contents
-  page of the filing itself) is kept whole, and only the appendix pays for the
+  page or on a page that prints a front-matter page number, a lower-case roman
+  numeral on a line of its own among the page's first two lines or as its last,
+  which is how the filing's own table of appendices is numbered) is kept whole,
+  and only the appendix pays for the
   overflow; a body that alone fills the cap is head-cut with the appendix;
 - **every appendix item keeps its opening** — the appendix is split into its
   items (by its own index, matched to the folio each page prints; else by its
