@@ -24,18 +24,22 @@ on the promotion PR and the maintainer's pre-flight read the same facts:
    on. The rest of the digest's shape (the canonical keys, the config models)
    is the running code's, so a batch that changes it is digested by the base's
    shape until it lands.
-4. **One open window per predictor.** At most one of a predictor's windows is
+4. **Each actor under its own population's label.** An enabled actor's
+   digest is registered under a label of the population the actor forecasts
+   or grades, the SCOTUS docket's or one prediction slice's: a slice actor
+   under a SCOTUS label would put its cells in a SCOTUS window.
+5. **One open window per predictor.** At most one of a predictor's windows is
    unrevoked with no close, a pending close counting as a close:
    ``register-process`` closes the predecessor pending, and a hand edit that
    forgot to would count two digests of one predictor at once.
-5. **One new label, untagged.** A batch carries at most one label ``main``
+6. **One new label, untagged.** A batch carries at most one label ``main``
    does not hold — the carrying merge mints ``prereg/<label>`` for that one
    label, an evaluator-only label included — and its tag must not exist yet.
-6. **No boundary name repeats.** Boundaries are named once.
-7. **Nothing pending already sits on ``main``.** A row a merge carried and no
+7. **No boundary name repeats.** Boundaries are named once.
+8. **Nothing pending already sits on ``main``.** A row a merge carried and no
    writer stamped leaves its cells uncounted indefinitely
    (:func:`fedcourtsai.promotion_record.pending_carried_problems`).
-8. **What ``main`` stamped stays as it is.** Every label, blessing, window and
+9. **What ``main`` stamped stays as it is.** Every label, blessing, window and
    boundary stamped on ``main`` reaches the merge field for field and in
    ``main``'s order (labels, windows and boundaries, whose order a reader
    takes as meaning), ``merge_stamping_declared`` stays as ``main`` set it,
@@ -55,9 +59,9 @@ on the promotion PR and the maintainer's pre-flight read the same facts:
    dated freeze-record entry is the maintainer's to read; this check does
    not look for it.
 
-The batch must hold a registry that loads under its own last label, refusing
+The batch must hold a registry that loads under its own last SCOTUS label, refusing
 what :func:`fedcourtsai.process_version.load_process_registry` refuses; where
-it does not, that refusal and check 7 are all Step 0 reports, since the other
+it does not, that refusal and check 8 are all Step 0 reports, since the other
 checks read the document's fields.
 """
 
@@ -73,7 +77,7 @@ from pathlib import Path
 from typing import Any
 
 from . import process_version
-from .process_registration import LiveActor
+from .process_registration import SCOTUS, LiveActor
 from .promotion_record import (
     FREEZE_RECORD_PATH,
     REGISTRY_PATH,
@@ -123,20 +127,23 @@ def live_actors_at(repo: Path, rev: str) -> list[LiveActor]:
         for name in _CONFIG_FILES:
             _write_at(repo, rev, f"{_CONFIG_ROOT}/{name}", root)
         rows = [
-            ("predictor", p.id, p.prompt)
+            ("predictor", p.id, p.prompt, p.population)
             for p in enabled_predictors(config_root / _CONFIG_FILES[0])
         ]
         rows += [
-            ("evaluator", e.id, e.prompt)
+            ("evaluator", e.id, e.prompt, e.population)
             for e in enabled_evaluators(config_root / _CONFIG_FILES[1])
         ]
-        for _role, _actor, prompt in rows:
+        for _role, _actor, prompt, _population in rows:
             _write_at(repo, rev, str(prompt), root)
         return [
             LiveActor(
-                role, actor, process_version.digest_for_actor(root, config_root, role, actor, code)
+                role,
+                actor,
+                process_version.digest_for_actor(root, config_root, role, actor, code),
+                population,
             )
-            for role, actor, _prompt in rows
+            for role, actor, _prompt, population in rows
         ]
 
 
@@ -239,10 +246,10 @@ def registry_gate(
         return RegistryGateResult(pending=0, problems=[f"no {REGISTRY_PATH} at {at}"])
     try:
         registry = _registry(text, at)
-        labels = registry.get("labels") or [{}]
         process_version.load_process_registry(
             text,
-            current_label=labels[-1].get("label") or process_version.CURRENT_PROCESS_LABEL,
+            current_label=process_version.scotus_label_of(registry)
+            or process_version.CURRENT_PROCESS_LABEL,
         )
     except (ValueError, PromotionRecordError) as exc:
         # The other checks read the document's fields; on a document the
@@ -267,6 +274,7 @@ def registry_gate(
             )
     problems += _ledger_problems(repo, registry, main_ref)
     problems += _unregistered_problems(registry, actors)
+    problems += _population_problems(registry, actors)
     problems += _window_problems(registry)
     problems += _label_problems(repo, registry, main_registry if main_text is not None else None)
     problems += _boundary_problems(registry)
@@ -309,6 +317,26 @@ def _unregistered_problems(registry: Mapping[str, Any], actors: Sequence[LiveAct
         "register; run `fedcourts register-process` in the PR that moved it"
         for actor in actors
         if actor.digest not in registered
+    ]
+
+
+def _population_problems(registry: Mapping[str, Any], actors: Sequence[LiveActor]) -> list[str]:
+    """Each enabled actor whose digest is registered under another population's label.
+
+    A label blesses and counts its own population's actors: a slice actor
+    under a SCOTUS label would put a slice cell in a SCOTUS window, and the
+    reverse would move a SCOTUS actor's cells onto a slice's instant.
+    """
+    population = {
+        entry["label"]: entry.get("population", SCOTUS) for entry in registry.get("labels", [])
+    }
+    label = {blessing["digest"]: blessing["label"] for blessing in registry.get("blessings", [])}
+    return [
+        f"{actor.role} {actor.actor_id} forecasts or grades population {actor.population!r}, "
+        f"and its digest is registered under {label[actor.digest]}, a label of "
+        f"{population.get(label[actor.digest])!r}: a label blesses its own population's actors"
+        for actor in actors
+        if actor.digest in label and population.get(label[actor.digest]) != actor.population
     ]
 
 
@@ -402,8 +430,8 @@ _ROWS: tuple[
         lambda row: row["merge"] is not None,
     ),
 )
-#: The sections whose order a reader takes as meaning: the last label row is
-#: the counting instant, and windows and boundaries publish in registry order.
+#: The sections whose order a reader takes as meaning: a population's last
+#: label row is its counting instant, and windows and boundaries publish in registry order.
 _ORDERED = frozenset({"labels", "windows", "harness_boundaries"})
 _PENDING = {"at": None, "merge": None, "source": "merge"}
 _MISSING = object()
@@ -411,7 +439,7 @@ _MISSING = object()
 
 @dataclass(frozen=True)
 class _Stamped:
-    """What check 8 compares: ``main``, its merge bases with the batch, and the batch.
+    """What check 9 compares: ``main``, its merge bases with the batch, and the batch.
 
     ``live`` and ``live_predictors`` are the digests the head's enabled actors
     compute; ``head_time`` is the head's committer time, which the carrying

@@ -598,6 +598,11 @@ back-tests) read the Court's actors alone. An entry that names a population
 no code declares is refused when the registry is loaded. No actor names a
 slice. So no Supreme Court digest
 moves when the slice is switched on, and no Court window holds a slice cell.
+The label half is built too: the registry's label rows name their population,
+a slice's label is `<slice>-vN` with a counting instant of its own, and
+`register-process --population` registers it over the slice's actors alone
+(*A prediction slice is its own process* in
+[process-version.md](process-version.md)). No slice label is registered.
 The freeze-record entry that registers the label states the moments switched
 on, the references above, the motions already open that day, and the opener
 and resolver rule labels in force.

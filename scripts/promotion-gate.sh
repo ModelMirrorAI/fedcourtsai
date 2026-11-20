@@ -72,7 +72,8 @@
 #       it to `main`. A batch carrying anything pending needs `origin/main` to
 #       declare merge-stamped instants; no digest it holds pending may already
 #       stamp a committed cell on `origin/main`; every enabled actor's digest
-#       at <sha> must be registered; each predictor keeps at most one open
+#       at <sha> must be registered, under a label of the actor's own
+#       population; each predictor keeps at most one open
 #       window (a pending close counts as a close); the batch carries at most
 #       one label new to `main`, with no `prereg/` tag yet; no boundary name
 #       may repeat; nothing may already sit pending on `origin/main`; and no

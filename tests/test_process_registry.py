@@ -753,7 +753,16 @@ def _raw() -> dict[str, Any]:
 @pytest.mark.parametrize(
     ("mutate", "match"),
     [
-        (lambda r: r["labels"].pop(), f"no label row for {process_version.CURRENT_PROCESS_LABEL}"),
+        (
+            lambda r: r["labels"].remove(
+                next(
+                    row
+                    for row in r["labels"]
+                    if row["label"] == process_version.CURRENT_PROCESS_LABEL
+                )
+            ),
+            f"no label row for {process_version.CURRENT_PROCESS_LABEL}",
+        ),
         (lambda r: r["labels"].append(r["labels"][0]), "a label has two rows"),
         (lambda r: r["blessings"].append(r["blessings"][0]), "a digest is blessed twice"),
         (lambda r: r["blessings"][0].update(label="proc-v7"), "proc-v7 has no label row"),
@@ -764,7 +773,7 @@ def _raw() -> dict[str, Any]:
         ),
         (
             lambda r: r["windows"][0]["closes"].update(at="2026-10-12T00:00:00Z"),
-            "closes off every label's counting instant",
+            "closes off every counting instant of its population",
         ),
     ],
     ids=[
