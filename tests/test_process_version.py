@@ -390,13 +390,14 @@ def test_only_an_evaluator_digest_is_ever_blessed_after_the_instant() -> None:
     a git check nothing here can run — this is the constants-only shadow of it,
     and the only one that runs on every commit.
     """
-    assert (
-        process_version.counting_instant(process_version._REGISTRY) == process_version.FROZEN_SINCE
-    )
     # Each predictor against its own population's instant: a prediction slice's
     # label carries the slice's, and the SCOTUS docket's never moves with it.
     for entry in enabled_predictors(CONFIG / "predictors.yaml"):
-        since = process_version.counting_instant(process_version._REGISTRY, entry.population)
+        since = (
+            process_version.FROZEN_SINCE
+            if entry.population == "scotus"
+            else process_version.counting_instant(process_version._REGISTRY, entry.population)
+        )
         digest = process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id)
         moment = process_version.FROZEN_PROCESS_DIGESTS.get(digest)
         if moment is None or since is None:

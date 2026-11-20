@@ -293,7 +293,12 @@ run in their own sequence and carry their own counting instant, so
 `FROZEN_SINCE` is the SCOTUS docket's last carried label's and a slice's label
 never moves it. A blessing and a window belong to the population of the label
 they name; a window closes only at a counting instant of its own population.
-The loader refuses a slice row that is not named for its slice, a row naming a
+A window sits under a label of the same population as the label blessing its
+digest, one predictor's windows are all one population's, and an evaluator
+digest's blessing labels are all one population's; the loader refuses a
+registry that breaks any of the three, since counting reads windows and a
+per-rubric reading is named by those labels. The loader also refuses a slice
+row that is not named for its slice, a row naming a
 population no code declares, and a SCOTUS row named like a slice's, since a
 slice row read as a SCOTUS one would move the SCOTUS counting instant.
 
@@ -664,7 +669,11 @@ the slice's label, leaves every SCOTUS row and `CURRENT_PROCESS_LABEL` as they
 are, and refuses a digest another population's label already blesses. A
 SCOTUS registration likewise leaves a slice's rows untouched. A label
 registration of either kind waits behind any other still pending, so a
-promotion carries one label. Where a
+promotion carries one label. A change that moves the digests of two
+populations at once (an engine's default model, a shared MCP pin) therefore
+has no single registration while a slice has enabled actors: Step 0 wants
+every enabled actor registered and one new label. No slice has an enabled
+actor. Where a
 predictor digest moved, the label's counting instant, its new windows and its
 closes are pending. Where only evaluator digests moved, the label holds its
 predecessor's counting instant (the evaluator-half supersession below), opens

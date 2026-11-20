@@ -30,7 +30,6 @@ from fedcourtsai.process_version import (
     scotus_label_of,
 )
 from fedcourtsai.promotion_record import (
-    REGISTRY_PATH,
     _prereg_message,
     dump_registry,
     pending_registrations,
@@ -46,10 +45,8 @@ from tests.test_promotion_record import (
     NEW_CLAUDE,
     NEW_LABEL,
     PENDING,
-    _commit,
     _iso,
     _live_fleet,
-    _write,
 )
 from tests.test_registry_gate import _history
 
@@ -206,6 +203,22 @@ def test_a_slice_s_evaluator_only_label_holds_the_slice_s_instant() -> None:
     _load(document)
 
 
+def test_a_scotus_evaluator_only_label_after_a_slice_label_holds_the_scotus_instant() -> None:
+    main = _carried_to_main(_slice_registered())
+    moved_judge = "sha256:" + "5" * 64
+    fleet = [*_live_fleet(claude=_carried("claude-baseline"), judge=moved_judge), *_slice_actors()]
+    document = register_process(main, NEW_LABEL, fleet)
+    assert document["labels"][-1] == {
+        "label": NEW_LABEL,
+        "since": _label_row(main, LAST_LABEL)["since"],
+    }
+    assert document["labels"][-1]["since"] != _label_row(main, SLICE_LABEL)["since"]
+    assert document["windows"] == main["windows"]
+    registry = _load(document, NEW_LABEL)
+    assert counting_instant(registry) == counting_instant(_load(COMMITTED))
+    assert counting_instant(registry, SLICE) == MERGED_AT
+
+
 @pytest.mark.parametrize(
     ("label", "population", "fleet", "match"),
     [
@@ -244,6 +257,11 @@ def test_a_slice_label_waits_behind_a_pending_scotus_label_and_the_reverse() -> 
 # --- the loader --------------------------------------------------------------
 
 
+def _label_row(document: dict[str, Any], label: str) -> dict[str, Any]:
+    row: dict[str, Any] = next(row for row in document["labels"] if row["label"] == label)
+    return row
+
+
 def _mutated(mutate: Any) -> dict[str, Any]:
     document = copy.deepcopy(_carried_to_main(_slice_registered()))
     mutate(document)
@@ -261,6 +279,26 @@ def _mutated(mutate: Any) -> dict[str, Any]:
             lambda d: d["windows"][-1].update(closes=d["labels"][0]["since"]),
             "closes off every counting instant of its population",
         ),
+        (
+            lambda d: d["windows"][-1].update(
+                label=LAST_LABEL, opens=dict(_label_row(d, LAST_LABEL)["since"])
+            ),
+            "its digest is blessed for 'ai-watchlist'",
+        ),
+        (
+            lambda d: d["windows"].append(
+                dict(d["windows"][-1], predictor_id="claude-baseline", digest="sha256:" + "9" * 64)
+            ),
+            "claude-baseline has windows in two populations",
+        ),
+        (
+            lambda d: d["evaluate_blessing_labels"][_carried("claude-judge")].append(SLICE_LABEL),
+            "blessed by labels of two populations",
+        ),
+        (
+            lambda d: d["evaluate_blessing_labels"][SLICE_JUDGE].append(LAST_LABEL),
+            "blessed by labels of two populations",
+        ),
     ],
     ids=[
         "slice-row-without-its-population",
@@ -268,6 +306,10 @@ def _mutated(mutate: Any) -> dict[str, Any]:
         "slice-row-named-like-scotus",
         "scotus-row-moved-to-a-slice",
         "slice-window-closing-at-a-scotus-instant",
+        "slice-digest-window-under-a-scotus-label",
+        "scotus-predictor-window-under-a-slice-label",
+        "slice-label-on-a-scotus-judge-digest",
+        "scotus-label-on-a-slice-judge-digest",
     ],
 )
 def test_a_registry_that_mixes_populations_is_refused(mutate: Any, match: str) -> None:
@@ -437,14 +479,15 @@ def test_a_scotus_actor_under_a_slice_label_is_refused(tmp_path: Path) -> None:
     assert any("'scotus'" in p and SLICE_LABEL in p for p in problems)
 
 
-def test_the_gate_reads_a_batch_whose_last_row_is_a_carried_slice_label(tmp_path: Path) -> None:
-    """A SCOTUS label registered after a slice's loads under its own name, not the slice's."""
+def test_a_scotus_label_after_a_carried_slice_label_passes_the_gate(tmp_path: Path) -> None:
+    """The SCOTUS label follows the slice row main stamped, and loads under its own name."""
     main = _carried_to_main(_slice_registered())
-    staging = register_process(main, NEW_LABEL, [*_live_fleet(), *_slice_actors()])
-    # The slice label stays the last row main stamped; the SCOTUS label follows it.
+    fleet = [*_live_fleet(), *_slice_actors()]
+    staging = register_process(main, NEW_LABEL, fleet)
     assert [row["label"] for row in staging["labels"][-2:]] == [SLICE_LABEL, NEW_LABEL]
-    repo, _ = _history(tmp_path, main_registry=DECLARED, staging_registry=main)
-    _write(repo, REGISTRY_PATH, dump_registry(staging))
-    at = _commit(repo, f"register {NEW_LABEL}", MERGED_AT)
-    result = registry_gate(repo, at, "main", [*_live_fleet(), *_slice_actors()])
-    assert not any("does not load" in p for p in result.problems)
+    repo, at = _history(tmp_path, main_registry=main, staging_registry=staging)
+    result = registry_gate(repo, at, "main", fleet)
+    assert result.problems == []
+    # The label's counting instant, its one new blessing, the window it opens and
+    # the claude-baseline window it closes.
+    assert result.pending == 4

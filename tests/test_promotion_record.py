@@ -120,11 +120,6 @@ def _fixture_main(live: dict[str, Any]) -> dict[str, Any]:
     of a slice's label registers its own on top.
     """
     scotus = {row["label"] for row in live["labels"] if row.get("population", "scotus") == "scotus"}
-    slice_judges = {
-        b["digest"]
-        for b in live["blessings"]
-        if b["label"] not in scotus and b["role"] != "predictor"
-    }
     stamped = _stamp_pending(
         {
             **live,
@@ -134,7 +129,7 @@ def _fixture_main(live: dict[str, Any]) -> dict[str, Any]:
             "evaluate_blessing_labels": {
                 digest: labels
                 for digest, labels in live["evaluate_blessing_labels"].items()
-                if digest not in slice_judges
+                if set(labels) <= scotus
             },
             "harness_boundaries": [b for b in live["harness_boundaries"] if b["merge"] is not None],
         },

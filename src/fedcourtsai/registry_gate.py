@@ -430,8 +430,8 @@ _ROWS: tuple[
         lambda row: row["merge"] is not None,
     ),
 )
-#: The sections whose order a reader takes as meaning: the last label row is
-#: the counting instant, and windows and boundaries publish in registry order.
+#: The sections whose order a reader takes as meaning: a population's last
+#: label row is its counting instant, and windows and boundaries publish in registry order.
 _ORDERED = frozenset({"labels", "windows", "harness_boundaries"})
 _PENDING = {"at": None, "merge": None, "source": "merge"}
 _MISSING = object()

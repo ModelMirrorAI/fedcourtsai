@@ -134,7 +134,10 @@ def load_process_registry(
     - one digest blessed twice, since the bless map holds one moment per digest;
     - a blessing or window naming a label with no row;
     - a window that does not open at its label's counting instant, or that
-      closes anywhere but at a counting instant of its own population.
+      closes anywhere but at a counting instant of its own population;
+    - a window under a label of another population than the label blessing its
+      digest, one predictor with windows in two populations, or an evaluator
+      digest whose blessing labels span two (:func:`_refuse_mixed_populations`).
     """
     raw = (
         text
@@ -173,7 +176,45 @@ def load_process_registry(
                 f"{where}: the {window.label} window of {window.digest} closes off every "
                 f"counting instant of its population"
             )
+    _refuse_mixed_populations(registry, where, population)
     return registry
+
+
+def _refuse_mixed_populations(
+    registry: ProcessRegistry, where: str, population: Mapping[str, str]
+) -> None:
+    """Refuse a row that puts one process in two populations.
+
+    Counting reads windows, so a slice digest's window under a SCOTUS label
+    would count slice cells in a SCOTUS window whatever its blessing says; and
+    a slice's label among a SCOTUS judge digest's blessing labels would name it
+    on a SCOTUS per-rubric reading.
+    """
+    blessed_in = {b.digest: population[b.label] for b in registry.blessings}
+    predictor_in: dict[str, str] = {}
+    for window in registry.windows:
+        own = population[window.label]
+        if blessed_in.get(window.digest, own) != own:
+            raise ValueError(
+                f"{where}: the {window.label} window of {window.digest} is under a label of "
+                f"{own!r}, and its digest is blessed for {blessed_in[window.digest]!r}"
+            )
+        if window.predictor_id is None:
+            continue
+        if predictor_in.setdefault(window.predictor_id, own) != own:
+            raise ValueError(
+                f"{where}: {window.predictor_id} has windows in two populations, "
+                f"{predictor_in[window.predictor_id]!r} and {own!r}"
+            )
+    for digest, labels in registry.evaluate_blessing_labels.items():
+        named = {population.get(label, SCOTUS_POPULATION_KEY) for label in labels}
+        if digest in blessed_in:
+            named.add(blessed_in[digest])
+        if len(named) > 1:
+            raise ValueError(
+                f"{where}: evaluator digest {digest} is blessed by labels of two "
+                f"populations ({', '.join(sorted(named))})"
+            )
 
 
 def label_ordinal_in(label: str, population: str) -> int | None:
