@@ -26,7 +26,8 @@ lookback_days: 21
 # magistrate docket that cites a judge's standing order on AI use does not);
 # a circuit docket and the JPML's always count. Every other court (bankruptcy,
 # the Court of Federal Claims, state courts, the Supreme Court) is dropped:
-# the watchlist's rule covers federal district courts and circuits only.
+# the search reads CourtListener, which holds no docket for the state trial
+# court the watchlist admits, and the rule admits none of the others.
 district_case_types: [cv, md]
 
 # The phrases a search marked `ai_terms: true` requires in the docket's

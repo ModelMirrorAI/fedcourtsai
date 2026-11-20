@@ -182,7 +182,10 @@ liability and so on), so the list's mix can be reported. Its cases carry an
 `ai` tag that follows them to every listed docket, an appeal included; a
 Supreme Court petition is reached by the link described below. `fedcourts watchlist-refresh` keeps every listed
 docket's record current in the corpus, facts only, on its own share of the
-CourtListener budget.
+CourtListener budget. The list also admits one state trial court, San
+Francisco Superior Court, whose cases have no docket in the corpus and are
+followed by hand from the court's own register of actions, facts only
+([data-sources.md](data-sources.md)).
 
 What the step adds:
 

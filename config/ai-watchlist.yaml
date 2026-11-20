@@ -3,7 +3,8 @@
 #
 # The rule. A case is listed when an AI developer, or an AI system's training,
 # outputs or deployment, is central to a claim or defense. Federal district
-# courts and circuits only; state courts are out. The list favours cases with
+# courts and circuits, and the state trial courts `state_courts` names; every
+# other state court is out. The list favours cases with
 # substantive rulings still ahead, and stays on the order of 10–20 cases.
 #
 # Changes. A case is added by a PR that cites this rule, on a dated `added`
@@ -19,6 +20,16 @@
 # it reaches. A SCOTUS petition from a listed case is found by the lower-court
 # docket it names (docs/appeal-stage.md), never by a line here, and the
 # salience gate never reads the list, so `scotus` is never listed here.
+#
+# State cases. A case in an admitted state trial court is listed under
+# `state_cases`, by the court's own case number, since CourtListener holds no
+# docket for it. Nothing reads its court automatically: each entry under
+# `entries` is a date and a kind (one of the activity kinds, with `motion`
+# where the entry names one) that the maintainer recorded from the court's
+# register of actions, added by a PR. Facts only: a state case gets no
+# forecast. Admitting another court is a rule change, made the same way as a
+# new case. A state case removed to federal court gets a `cases` entry for its
+# federal docket, under a name that tells the two apart.
 
 categories:
   copyright: Training on, or outputting, protected works (infringement, DMCA §1202, licence claims).
@@ -230,3 +241,13 @@ cases:
     added: 2026-10-30
     related:
       - {court: ca3, docket_id: 74794686, docket_number: "26-3299", relation: appeal}
+
+# The public case query of each court below sits behind a check that admits
+# people and not programs, so its register is read by hand (docs/data-sources.md).
+state_courts:
+  ca-super-sf:
+    name: Superior Court of California, County of San Francisco
+    short: S.F. Super. Ct.
+    case_information: https://sf.courts.ca.gov/online-services/case-information
+
+state_cases: []
