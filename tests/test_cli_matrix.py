@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import cli, corpus, planning_rates
@@ -133,6 +134,15 @@ def _env(
     if slices is not None:
         tracking += f"  slices: [{', '.join(slices)}]\n"
         (config_root / "ai-watchlist.yaml").write_text(_SLICE_WATCHLIST)
+        # A slice's dockets go to the slice's own actors, so each enabled slice
+        # gets one: the registry's first entry again, under the slice's name.
+        for name, section in (("predictors.yaml", "predictors"), ("evaluators.yaml", "evaluators")):
+            registry = yaml.safe_load((config_root / name).read_text())
+            registry[section] += [
+                dict(registry[section][0], id=f"{slice_id}-actor", population=slice_id)
+                for slice_id in slices
+            ]
+            (config_root / name).write_text(yaml.safe_dump(registry))
     if spend_ceiling_usd is not None:
         tracking += f"spend:\n  ceiling_usd: {spend_ceiling_usd}\n"
     (config_root / "tracking.yaml").write_text(tracking)

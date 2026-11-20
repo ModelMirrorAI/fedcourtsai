@@ -65,8 +65,9 @@ import httpx
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions, last_predicted_dates, predicted_case_ids
+from ..prediction_slices import SCOTUS_POPULATION_KEY
 from ..provision import WITHHELD_KINDS
-from ..registry import enabled_predictors
+from ..registry import predictors_for
 from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
     IFP_SERIAL_BASE,
@@ -1658,7 +1659,9 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
     # Resolve the enabled predictor ids once for the per-cell owed check. None
     # (no registry handle) selects the case-level fallback gate below.
     predictor_ids = (
-        [p.id for p in enabled_predictors(predictors_path)] if predictors_path is not None else None
+        [p.id for p in predictors_for(predictors_path, SCOTUS_POPULATION_KEY)]
+        if predictors_path is not None
+        else None
     )
     # One ledger glob per cycle, mirroring the `merits_open` read below: the
     # candidate filter consults it per row, and a per-row probe would walk the

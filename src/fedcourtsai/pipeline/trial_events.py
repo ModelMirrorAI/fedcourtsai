@@ -76,6 +76,10 @@ class DocketPlan:
     would_open: list[corpus.CorpusEvent] = field(default_factory=list)
     outcomes: dict[str, Outcome] = field(default_factory=dict)
     triage: list[Triage] = field(default_factory=list)
+    #: Events not written, whatever the switch says, because an entry may
+    #: already decide them. The event id is the one that would have been
+    #: written; no such event exists.
+    held_ruled: list[Triage] = field(default_factory=list)
 
 
 def _source(entry_number: int | None, *, adjudicated: bool = False) -> str:
@@ -278,6 +282,7 @@ def plan_docket(  # noqa: PLR0913 - one docket and everything read beside it
     """
     settled = adjudicated or {}
     plan = DocketPlan(case_id)
+    dated = [e for e in entries if (resolver.cite(e).date_filed or date.min) <= today]
     openings, _declined = trial_opener.read_docket(entries, today=today, local_rule=local_rule)
     read: dict[str, Opening] = {
         moments.trial_event_id(Moment(o.event.moment.value), o.event.entry_number): o
@@ -292,6 +297,21 @@ def plan_docket(  # noqa: PLR0913 - one docket and everything read beside it
         if not opening.is_event or opening.resolution is not None:
             continue
         assert opening.opens_on is not None  # `is_event`
+        # The net a forward cell on this motion would be refused on. An event
+        # opened past it could never be forecast; and where the sign is a
+        # ruling in a form the resolver passes over, the event would carry a
+        # decided motion as open.
+        sign = resolver.motion_disposal_signal(opening.event, dated)
+        if sign is not None:
+            weighed = (
+                () if isinstance(sign, str) or sign.entry_number is None else (sign.entry_number,)
+            )
+            plan.held_ruled.append(
+                Triage(
+                    case_id, event_id, "a later entry may already dispose of the motion", weighed
+                )
+            )
+            continue
         _place(
             plan,
             _event(
@@ -308,10 +328,24 @@ def plan_docket(  # noqa: PLR0913 - one docket and everything read beside it
     judgment_id = moments.trial_event_id(Moment.trial_judgment)
     final: JudgmentResolution | Unresolved | None = None
     if judgment or judgment_id in stored:
-        final = resolver.resolve_judgment(
-            [e for e in entries if (resolver.cite(e).date_filed or date.min) <= today]
+        final = resolver.resolve_judgment(dated)
+    over = (
+        resolver.action_over_signal(dated)
+        if judgment and judgment_id not in stored and final is None
+        else None
+    )
+    if over is not None:
+        # The same net, for the final disposition: an action that may be over
+        # in a form the resolver passes over opens no event.
+        plan.held_ruled.append(
+            Triage(
+                case_id,
+                judgment_id,
+                "an entry may show the action over",
+                () if over.entry_number is None else (over.entry_number,),
+            )
         )
-    if judgment and judgment_id not in stored and final is None:
+    elif judgment and judgment_id not in stored and final is None:
         _place(
             plan,
             _event(case_id, title, Moment.trial_judgment, entry_number=None, opened_at=today),
@@ -354,6 +388,8 @@ class TrialPassReport:
     would_open: list[tuple[str, str]] = field(default_factory=list)
     resolved: list[tuple[str, str]] = field(default_factory=list)
     triage: list[Triage] = field(default_factory=list)
+    #: Events not written because an entry may already decide them.
+    held_ruled: list[Triage] = field(default_factory=list)
     #: Member dockets whose lead docket is not stored: no motion opens on them.
     held_for_lead: list[str] = field(default_factory=list)
     #: case id -> the type of the error that stopped the pass on that docket.
@@ -362,6 +398,17 @@ class TrialPassReport:
     def as_json(self) -> dict[str, Any]:
         def pairs(found: list[tuple[str, str]]) -> list[dict[str, str]]:
             return [{"case_id": case_id, "event_id": event_id} for case_id, event_id in found]
+
+        def listed(items: list[Triage]) -> list[dict[str, Any]]:
+            return [
+                {
+                    "case_id": item.case_id,
+                    "event_id": item.event_id,
+                    "reason": item.reason,
+                    "entries": list(item.entries),
+                }
+                for item in items
+            ]
 
         return {
             "opener_rule": trial_opener.OPENER_RULE,
@@ -374,15 +421,8 @@ class TrialPassReport:
             "would_open": pairs(self.would_open),
             "resolved": pairs(self.resolved),
             "failed": dict(sorted(self.failed.items())),
-            "triage": [
-                {
-                    "case_id": item.case_id,
-                    "event_id": item.event_id,
-                    "reason": item.reason,
-                    "entries": list(item.entries),
-                }
-                for item in self.triage
-            ],
+            "triage": listed(self.triage),
+            "held_ruled": listed(self.held_ruled),
         }
 
     def summary_line(self) -> str:
@@ -390,7 +430,8 @@ class TrialPassReport:
             f"trial events ({trial_opener.OPENER_RULE}, {resolver.RESOLVER_RULE}): "
             f"{len(self.dockets_read)} docket(s) read, {len(self.opened)} opened, "
             f"{len(self.resolved)} resolved, {len(self.triage)} to triage, "
-            f"{len(self.would_open)} not opened (moment switched off)"
+            f"{len(self.would_open)} not opened (moment switched off), "
+            f"{len(self.held_ruled)} held (an entry may already decide the event)"
             + (f", {len(self.failed)} docket(s) failed" if self.failed else "")
         )
 
@@ -474,6 +515,7 @@ def _pass_docket(  # noqa: PLR0913 - one docket of the pass and what it reads
     report.opened.extend((case_id, e.event_id) for e in plan.opens)
     report.would_open.extend((case_id, e.event_id) for e in plan.would_open)
     report.triage.extend(plan.triage)
+    report.held_ruled.extend(plan.held_ruled)
     if plan.outcomes:
         record_outcomes(
             corpus_db_path, data_root, court, int(docket), Resolution(outcomes=plan.outcomes)

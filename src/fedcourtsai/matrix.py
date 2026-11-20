@@ -48,9 +48,10 @@ from .finalize import FinalizeRole
 from .ids import case_id, parse_run_id
 from .paths import CasePaths
 from .pipeline.moments import declares
+from .prediction_slices import Population, routing_population
 from .pricing import DEFAULT_MODELS
 from .registry import enabled_evaluators, enabled_predictors
-from .schemas import Judgment, Outcome, Stage
+from .schemas import Judgment, Outcome, PredictorConfig, Stage
 from .store import predictor_holds_no_counted_prediction
 from .supremecourt import is_live_docket_id
 from .voids import is_voided
@@ -202,6 +203,7 @@ def predict_matrix(
     data_root: Path | None = None,
     *,
     skip_predicted: bool = True,
+    slices: Mapping[str, Population] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Build the predictor x case x event matrix, dropping cells already predicted.
 
@@ -235,16 +237,27 @@ def predict_matrix(
     owed a blessed cell. A predictor already holding one is skipped here as
     before.
 
+    A case's cells go to the predictors of its own population and to no
+    other's (:func:`.prediction_slices.routing_population` over ``slices``, the
+    enabled prediction slices): a slice's docket to the slice's predictors,
+    every other docket to the Court's.
+
     The list is case-major — case, then event, then the predictors in
     :func:`fanout_order` for that ``(run_id, case, event)`` — so the order cells
     start in favours no engine. The gates above decide which cells exist; the
     order decides nothing about that set.
     """
-    predictors = enabled_predictors(predictors_path)
-    enabled_ids = {p.id for p in predictors}
+    fleet = enabled_predictors(predictors_path)
+
+    def owed(case: CaseRequest) -> list[PredictorConfig]:
+        population = routing_population(case_id(case.court, case.docket), slices)
+        return [p for p in fleet if p.population == population]
+
     for case in cases:
-        # Fail loud: a typo'd or disabled id silently skipping cells would make
-        # a backfill run look complete while delivering nothing for that engine.
+        # Fail loud: a typo'd or disabled id, or one of another population,
+        # silently skipping cells would make a backfill run look complete while
+        # delivering nothing for that engine.
+        enabled_ids = {p.id for p in owed(case)}
         unknown = [pid for pid in case.predictors if pid not in enabled_ids]
         if unknown:
             raise ValueError(
@@ -254,6 +267,7 @@ def predict_matrix(
     include: list[dict[str, Any]] = []
     for case in cases:
         cid = case_id(case.court, case.docket)
+        predictors = owed(case)
         for event_id in case.events:
             for predictor in fanout_order(predictors, run_id=run_id, case=cid, event_id=event_id):
                 if case.predictors and predictor.id not in case.predictors:
@@ -1231,6 +1245,7 @@ def evaluate_matrix(
     *,
     skip_evaluated: bool = True,
     opinion_present: Mapping[str, bool] | None = None,
+    slices: Mapping[str, Population] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Build the evaluator x case x event matrix, dropping cells with nothing to do.
 
@@ -1278,13 +1293,16 @@ def evaluate_matrix(
 
     The list is case-major with the judges in :func:`fanout_order` per
     ``(run_id, case, event)``, as in :func:`predict_matrix`, so no judge
-    systematically grades first or last.
+    systematically grades first or last. A case's cells go to the judges of
+    its own population, as its predict cells do.
     """
-    evaluators = enabled_evaluators(evaluators_path)
+    fleet = enabled_evaluators(evaluators_path)
     include: list[dict[str, Any]] = []
     today = run_day(run_id)
     for case in cases:
         cid = case_id(case.court, case.docket)
+        population = routing_population(cid, slices)
+        evaluators = [e for e in fleet if e.population == population]
         for event_id in case.events:
             if data_root is not None and not event_has_predictions(
                 data_root, case.court, case.docket, event_id

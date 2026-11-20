@@ -16803,6 +16803,12 @@ class PredictorConfig(_Strict):
         description="Manifest ids (see `mcp_servers:` in the same file) this predictor's "
         "cells are configured with. Explicit per predictor — attribution, not a default.",
     )
+    population: str = Field(
+        default="scotus",
+        description="The prediction population whose dockets this predictor forecasts: "
+        "`scotus`, or the id of a prediction slice. A docket's cells go to its own "
+        "population's predictors and to no other's.",
+    )
 
 
 class EvaluatorConfig(_Strict):
@@ -16817,6 +16823,12 @@ class EvaluatorConfig(_Strict):
     mcp_servers: list[str] = Field(
         default_factory=list,
         description="Manifest ids this evaluator's cells are configured with.",
+    )
+    population: str = Field(
+        default="scotus",
+        description="The prediction population whose dockets this evaluator grades: "
+        "`scotus`, or the id of a prediction slice. A docket's cells go to its own "
+        "population's evaluators and to no other's.",
     )
 
 

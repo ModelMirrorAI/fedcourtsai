@@ -199,6 +199,60 @@ def test_a_briefed_motion_opens_no_earlier_than_the_switch(switched_on: None) ->
     assert (event.opened_at, event.title) == (date(2026, 9, 15), CASE)
 
 
+def test_a_motion_a_later_entry_may_rule_on_is_held_and_not_opened(switched_on: None) -> None:
+    # A ruling in a form the resolver passes over: stated in a hearing's
+    # minute entry, with no order of its own.
+    minute = entry(
+        60,
+        "Minute Entry for proceedings held before Judge A. Bench: Motion Hearing held "
+        + "re 45 Motion to Dismiss. The Court granted 45 Developer's motion to dismiss "
+        + "with leave to amend for the reasons stated on the record.",
+        "2026-06-10",
+    )
+
+    plan = plan_docket(CASE, "Listed v. Developer", [*BRIEFED, minute], {}, today=TODAY)
+
+    assert plan.opens == [] and plan.would_open == []
+    assert [(h.event_id, h.entries) for h in plan.held_ruled] == [(DISMISSAL, (60,))]
+
+
+MINUTE = entry(
+    60,
+    "Minute Entry for proceedings held before Judge A. Bench: Motion Hearing held "
+    + "re 45 Motion to Dismiss. Motion DENIED for the reasons stated on the record.",
+    "2026-06-10",
+)
+
+
+def test_a_held_motion_is_not_reported_as_one_the_switch_holds() -> None:
+    plan = plan_docket(CASE, "Listed v. Developer", [*BRIEFED, MINUTE], {}, today=TODAY)
+
+    assert plan.would_open == []
+    assert [h.event_id for h in plan.held_ruled] == [DISMISSAL]
+
+
+def test_a_stored_open_event_is_left_open_when_a_sign_arrives(switched_on: None) -> None:
+    plan = plan_docket(
+        CASE, "Listed v. Developer", [*BRIEFED, MINUTE], {DISMISSAL: stored(DISMISSAL)}, today=TODAY
+    )
+
+    assert plan.held_ruled == [] and plan.outcomes == {} and plan.opens == []
+
+
+def test_an_action_that_may_be_over_opens_no_judgment_event(switched_on: None) -> None:
+    closed = entry(80, "Civil Case Terminated.", "2026-07-01")
+
+    plan = plan_docket(
+        CASE, "Listed v. Developer", [*BRIEFED, closed], {}, today=TODAY, judgment=True
+    )
+
+    assert plan.opens == []
+    assert [(h.event_id, h.entries) for h in plan.held_ruled] == [
+        (DISMISSAL, (80,)),
+        (JUDGMENT, (80,)),
+    ]
+
+
 def test_what_opens_nothing(switched_on: None) -> None:
     def opened(entries: list[dict[str, Any]], **kw: Any) -> list[str]:
         return [e.event_id for e in plan_docket(CASE, "", entries, {}, today=TODAY, **kw).opens]
@@ -451,6 +505,24 @@ def _watchlist() -> AiWatchlist:
 def _store(db: Path, case_id: str, entries: list[dict[str, Any]]) -> None:
     with corpus.connect(db) as conn:
         corpus.upsert_snapshot(conn, case_id, date(2026, 11, 1), {"docket_entries": entries})
+
+
+def test_the_pass_reports_what_it_held(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _store(db, CASE, [*BRIEFED, MINUTE])
+
+    report = run_pass(db, tmp_path / "data", _watchlist(), today=TODAY)
+
+    held = [h for h in report.as_json()["held_ruled"] if h["event_id"] == DISMISSAL]
+    assert held == [
+        {
+            "case_id": CASE,
+            "event_id": DISMISSAL,
+            "reason": "a later entry may already dispose of the motion",
+            "entries": [60],
+        }
+    ]
+    assert "held (an entry may already decide the event)" in report.summary_line()
 
 
 def test_a_switched_off_pass_writes_nothing(tmp_path: Path) -> None:
