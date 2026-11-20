@@ -1898,7 +1898,7 @@ is refused outright: the form's initial state cannot start a corpus write.
 | `repair` | choice, default `none` | which pass to run |
 | `repair_mode` | choice `dry-run`\|`apply`, default `dry-run` | write or not |
 | `repair_bound` | string | the blast-radius bound: a positive integer, the count read off the dry-run ledger |
-| `repair_target` | string | the pass's named subject — a parse label, a cell list, or a Term |
+| `repair_target` | string | the pass's named subject — a parse label, a cell list, a Term, or the re-cut's case list |
 | `repair_options` | string | space- or comma-separated switches from the selected pass's closed vocabulary |
 
 `repair_bound` and `repair_target` are separate fields because they are
@@ -1943,7 +1943,7 @@ passes, commits from the same record.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone; split: `--emit-worklist`, `--worklist --plan-out` or `--probe-only`, `--from-plan --bind-worklist`) | `--max-cases` (a slice, not a ceiling — the parse adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it; at most 200, the most one worklist carries); the class is cut per kind in the ledger | — | — |
 | `document-backfill` | `backfill-documents` (split: `--emit-worklist`, then `--worklist` alone on a dry run or `--worklist --plan-out` on an apply, then `--from-plan --bind-worklist --apply` in the writer) | `--max-cases` (a slice, not a ceiling — the parse adds its own `--deadline-seconds`, and the bound is honoured on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
-| `recut` | `recut-documents` (split: `--emit-worklist`, `--worklist --plan-out`, `--from-plan --bind-worklist`, with `--apply` in the writer and without it in the dry-run reader) | `--max-cases` (a slice, not a ceiling — the parse adds its own `--deadline-seconds`, and the bound is honoured on `dry-run` too, since both modes re-fetch and re-cut each candidate; without it a dry run's worklist is the whole class, which the parse's deadline bounds; the class is the stored `petition`, `application` and `appendix` rows still under the plain head cut, and the ledger cuts it and each outcome by kind) | — | `all-live` (walk the whole live slice rather than the predict-relevant rows; read by the projection, which writes the scope into the worklist the later jobs walk) |
+| `recut` | `recut-documents` (split: `--emit-worklist`, `--worklist --plan-out`, `--from-plan --bind-worklist`, with `--apply` in the writer and without it in the dry-run reader) | `--max-cases` (a slice, not a ceiling — the parse adds its own `--deadline-seconds`, and the bound is honoured on `dry-run` too, since both modes re-fetch and re-cut each candidate; without it a dry run's worklist is the whole class, which the parse's deadline bounds; the class is the stored `petition`, `application` and `appendix` rows still under the plain head cut, and the ledger cuts it and each outcome by kind) | optional: the cases to re-cut, as whitespace-separated `scotus/<docket id>` ids, at most 50 — the class is then those cases' truncated rows of the three kinds with or without a cut note, which is how a row cut under an earlier reading of the cut is reached; not with `all-live` | `all-live` (walk the whole live slice rather than the predict-relevant rows; read by the projection, which writes the scope into the worklist the later jobs walk) |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
@@ -2472,6 +2472,17 @@ gh workflow run run-repair.yml --ref main \
   -f repair=recut -f repair_mode=dry-run -f repair_bound=20
 gh workflow run run-repair.yml --ref main \
   -f repair=recut -f repair_mode=apply -f repair_bound=50
+
+# Named cases: the rows a change to the cut itself left stale carry a cut note,
+# so no walked class holds them. Name the cases (from the census the change's
+# record entry gives) and set the bound to at least the class the dry run's
+# projection prints; the same target goes on both dispatches.
+gh workflow run run-repair.yml --ref main \
+  -f repair=recut -f repair_mode=dry-run \
+  -f repair_target='scotus/9026000654 scotus/72483908'
+gh workflow run run-repair.yml --ref main \
+  -f repair=recut -f repair_mode=apply -f repair_bound=2 \
+  -f repair_target='scotus/9026000654 scotus/72483908'
 
 # The arrival back-fill's bound is an ordinary refusal threshold, so the number
 # is the fill count its dry run printed — a five-figure class is expected, and

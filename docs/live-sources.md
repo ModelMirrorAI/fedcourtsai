@@ -1991,7 +1991,8 @@ the same link.
   OCR-recovered row is head-cut by design and has no text layer to re-read; a
   row with a note was cut the appendix-aware way already, under the reading of
   the appendix start in force when it was fetched, and a later change to that
-  reading does not bring it back into the class; a set key or a link
+  reading does not bring it back into the class (the named cases below are how
+  such a row is reached); a set key or a link
   off the Court's host is not one the pass will GET. The ledger tallies the
   truncated rows left out under `ocr-derived`, `has-cut-note` and
   `unfetchable-url`, so a truncated row a reader expects to see and does not is
@@ -2035,6 +2036,22 @@ the same link.
   only that residue. The writer re-walks the class
   on an **empty slice** afterwards and requires exactly what the apply's ledger
   said it would leave behind.
+- **Named cases.** A dispatch that puts case ids in `repair_target` (at most
+  fifty, each `scotus/<docket id>`, each once, and not with `all-live`) re-cuts
+  those cases instead of walking a scope. The class is then each named case's
+  rows of the three kinds that are `truncated`, not `ocr_derived` and at one
+  Court link, **whether or not they carry a cut note**. It is the route for a
+  row cut the appendix-aware way under an earlier reading of the cut, for
+  example of where the appendix starts: nothing in the stored text says the
+  current reading would cut it differently, so no walked class can hold such
+  rows without holding every noted row forever, and a maintainer names them
+  from a census instead. Everything else is the pass as above: the same fetch,
+  guards, outcomes and questions-presented rule, with the stored text read up
+  to its own first cut note where the re-cut is compared with it. A named row
+  stays in its class after a re-cut unless the re-cut fits under the cap, so
+  the class does not drain: a second dispatch reads each row `unchanged`, and
+  the bound to give is the size of the named class. The cases ride in the
+  worklist, so the reader, the writer and the witness walk the same class.
 - **Terms.** Unchanged, as for the two passes above.
 
 ## The historical Term set: per-Term history through the same channel

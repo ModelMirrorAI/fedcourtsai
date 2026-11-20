@@ -21905,9 +21905,13 @@ freeze commit is recorded here.
     the dockets whose petition sets its table of appendices this way. It is
     **gradual**: fetching is idempotent per kind and URL, so a stored row
     keeps its cut until its link changes or a re-cut reaches it. The re-cut
-    pass's class leaves out a row that already carries a cut note and holds
-    no combined kind, so no pass reaches the stored rows today. Reaching
-    them is a change of its own. It is registered
+    pass's walked class leaves out a row that already carries a cut note, so
+    this change also lets a dispatch **name its cases** (`run-repair`'s
+    `recut` pass with case ids in `repair_target`; *Contract for the re-cut
+    pass* in [live-sources.md](live-sources.md)): the class is then the named
+    cases' truncated `petition`, `application` and `appendix` rows with or
+    without a note. The pass holds no combined kind, so a stored combined
+    row is reached only when its links change. It is registered
     **pending** in this change's own PR (`fedcourts register-boundary`), under
     the 2026-10-14 merge-stamping declaration, and its `merge` and `at` stay
     null until the promotion merge that carries it to `main` stamps them
@@ -21964,8 +21968,8 @@ freeze commit is recorded here.
   The runnable effect check once it is live:
   - `uv run pytest tests/test_document_coverage.py -k "table_of_appendices or
     roman_numeral"` is green;
-  - owed to the change that lets a re-cut reach a row carrying a cut note,
-    and run where the corpus is pulled once that re-cut has been applied:
+  - once a named re-cut of `scotus/9026000654` has been applied, where the
+    corpus is pulled:
     `uv run python -c "import re; from fedcourtsai import corpus; from
     fedcourtsai.config import get_settings; s = get_settings(); conn =
     corpus.connect_readonly(corpus.corpus_db_path(s.corpus_root),

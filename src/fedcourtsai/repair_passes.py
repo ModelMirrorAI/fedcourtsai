@@ -57,6 +57,10 @@ _TERM = re.compile(r"[0-9]{2}")
 #: `.` deliberately: with no dots no field can be a `..` path segment.
 REGRADE_CELL = re.compile(r"[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+")
 
+#: One case the re-cut is named, and how many one dispatch may name: the
+#: re-cut command's own grammar and ceiling.
+RECUT_CASE = re.compile(r"scotus/[0-9]{1,12}")
+MAX_RECUT_CASES = 50
 #: Separators the option list splits on: commas, spaces, tabs, line ends —
 #: exactly the shell copy's, so a token one copy splits the other does too.
 _OPTION_SEPARATORS = re.compile(r"[, \t\r\n]+")
@@ -84,9 +88,9 @@ BOUND_NOT_TAKEN = (
 )
 TARGET_NOT_TAKEN = (
     "repair=${REPAIR} takes no repair_target — only the distribution re-derivation "
-    "(a parse label), the re-grade and the refused-attempt removal (cell lists) and "
-    "the application back-fill (a Term) name a subject. Clear the field and "
-    "re-dispatch."
+    "(a parse label), the re-grade and the refused-attempt removal (cell lists), "
+    "the application back-fill (a Term) and the re-cut (a case list) name a subject. "
+    "Clear the field and re-dispatch."
 )
 BOUND_NEEDED_ON_APPLY = (
     "repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive "
@@ -126,6 +130,16 @@ MALFORMED_ATTEMPT_CELL = (
     "scotus/9526000634/evt-brief-response-disposition/20261105T203825Z/claude-baseline): ${line}"
 )
 NO_ATTEMPT_CELLS = "repair=refused-attempt-removal names no cells — set repair_target."
+MALFORMED_CASE = "malformed case (want scotus/<docket id>, e.g. scotus/9026000654): ${line}"
+REPEATED_CASE = "case named twice: ${line}"
+CASE_LIST_REFUSED = "refusing the whole case list — correct the lines above and re-dispatch."
+TOO_MANY_CASES = (
+    "repair=${REPAIR} takes at most 50 cases in repair_target — split the list across dispatches."
+)
+NAMED_CASES_TAKE_NO_ALL_LIVE = (
+    "repair=${REPAIR} with cases in repair_target takes no all-live option — the named "
+    "cases' rows are the class. Clear one of the two and re-dispatch."
+)
 
 #: Every refusal this gate can print, for the pairing test.
 REFUSALS = frozenset(
@@ -146,12 +160,19 @@ REFUSALS = frozenset(
         NO_CELLS,
         MALFORMED_ATTEMPT_CELL,
         NO_ATTEMPT_CELLS,
+        MALFORMED_CASE,
+        REPEATED_CASE,
+        CASE_LIST_REFUSED,
+        TOO_MANY_CASES,
+        NAMED_CASES_TAKE_NO_ALL_LIVE,
     }
 )
 
 #: The two options that change what the gate itself requires or says.
 INCLUDE_SCORED = "include-scored"
 INCLUDE_FAILED_ATTEMPTS = "include-failed-attempts"
+#: The re-cut's scope option, which a named case list replaces.
+ALL_LIVE = "all-live"
 
 # The corpus passes' job, and the three jobs each credential-split pass runs:
 # a projection, a credential-free parse, and the writer that lands its plan.
@@ -166,7 +187,8 @@ class RepairPass:
     ``bound_flag`` is the CLI flag ``repair_bound`` reaches, or empty for a pass
     that takes none. ``target_kind`` is how ``repair_target`` is read — a parse
     label, a cell list (``cells`` for the re-grade, ``attempts`` for the
-    refused-attempt removal) or a Term — or empty for a pass that names no subject.
+    refused-attempt removal), a Term, or the re-cut's optional case list
+    (``cases``) — or empty for a pass that names no subject.
     ``options`` is the pass's closed vocabulary for ``repair_options``.
     ``jobs`` are the workflow jobs a dispatch of the pass runs.
     """
@@ -224,7 +246,8 @@ PASSES: Mapping[str, RepairPass] = {
             "--max-cases",
             (*_HANDOFF, "documents-dry-run", "documents"),
             bound_read_on_dry_run=True,
-            options=("all-live",),
+            target_kind="cases",
+            options=(ALL_LIVE,),
         ),
         _bounded("arrival-backfill", "--max-fills"),
         _bounded("merits-phantom-removal", "--max-removals", options=(INCLUDE_FAILED_ATTEMPTS,)),
@@ -443,12 +466,38 @@ _CELL_LISTS: Mapping[str, tuple[str, str]] = {
 }
 
 
-def _subject_refusals(selected: RepairPass, target: str) -> tuple[str, ...]:
+def _case_refusals(selected: RepairPass, target: str, chosen: list[str]) -> tuple[str, ...]:
+    """The refusals of the re-cut's case list, which may be empty.
+
+    Every malformed or repeated case is named before the one refusal of the
+    whole list; then the ceiling, then the scope option a named list replaces.
+    """
+    seen: set[str] = set()
+    bad: list[str] = []
+    for case in _tokens(target, _CELL_SEPARATORS):
+        if RECUT_CASE.fullmatch(case) is None:
+            bad.append(_render(MALFORMED_CASE, line=case))
+        elif case in seen:
+            bad.append(_render(REPEATED_CASE, line=case))
+        else:
+            seen.add(case)
+    if bad:
+        return (*bad, CASE_LIST_REFUSED)
+    if len(seen) > MAX_RECUT_CASES:
+        return (_render(TOO_MANY_CASES, repair=selected.name),)
+    if seen and ALL_LIVE in chosen:
+        return (_render(NAMED_CASES_TAKE_NO_ALL_LIVE, repair=selected.name),)
+    return ()
+
+
+def _subject_refusals(selected: RepairPass, target: str, chosen: list[str]) -> tuple[str, ...]:
     """The refusals of a target that does not name the pass's subject.
 
-    Each grammar rejects the empty string, so a missing target is refused in
-    the words of the pass that wanted it.
+    Each grammar but the re-cut's optional case list rejects the empty string,
+    so a missing target is refused in the words of the pass that wanted it.
     """
+    if selected.target_kind == "cases":
+        return _case_refusals(selected, target, chosen)
     if selected.target_kind == "parse" and _PARSE_LABEL.fullmatch(target) is None:
         return (PARSE_LABEL_NEEDED,)
     if selected.target_kind == "term" and _TERM.fullmatch(target) is None:
@@ -473,8 +522,8 @@ def validate(
 ) -> Verdict:
     """Refuse anything the selected pass cannot legally run, in the shell's order.
 
-    The first refusal ends the check, except that a malformed option or cell
-    list names every bad token before the one refusal of the whole list.
+    The first refusal ends the check, except that a malformed option, cell or
+    case list names every bad token before the one refusal of the whole list.
     """
     if repair == NO_PASS:
         return Verdict(accepted=False, errors=(NO_PASS_NAMED,))
@@ -499,7 +548,7 @@ def validate(
             "include-failed-attempts: the removal will include phantoms whose only "
             "committed output is attempt.json cell-failure records."
         )
-    subject = _subject_refusals(selected, target)
+    subject = _subject_refusals(selected, target, chosen)
     if subject:
         return Verdict(accepted=False, errors=subject, notices=tuple(notices))
     notices.append(
