@@ -657,7 +657,12 @@ jobs:
     # a job that reaches its cap is cancelled and its log dropped. Per-leg
     # rather than raised for everyone: a 70-minute cap on the boot probes would
     # turn a hung smoke into over an hour of billed silence.
-    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 70 || 45 }}
+    #
+    # A trial rehearsal (the engine smoke pinned to a district docket) gets the
+    # same 70: its record is a whole district docket's filings, several times a
+    # petition-stage record, and the cell reads it under the same engine
+    # deadline the production cell does.
+    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 70 || (matrix.scenario == 'engine-smoke' && needs.plan.outputs.court != 'scotus') && 70 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s, the plan job's and the labeler smoke's (YAML
     # anchors do not work in workflows), and see the deploy-environment input
@@ -1079,14 +1084,25 @@ jobs:
       # `event`, each before any token is spent, so a mismatch here fails the
       # leg rather than running the wrong cell. Both values are fixed strings
       # chosen by this script; the court reaches it through the environment.
+      #
+      # A district docket is refused unless the dispatch selected `engine-smoke`
+      # itself: a `gate` or `canary` run is evidence about the Court's cells
+      # (the promotion gate counts a green `gate` run for its candidate), and
+      # one pinned to a district docket would stand as that evidence having run
+      # only trial cells.
       - name: Name the smoke cell's predictor
         id: smoke_cell
         if: ${{ matrix.scenario == 'engine-smoke' }}
         env:
           ENGINE: ${{ matrix.engine }}
           COURT: ${{ needs.plan.outputs.court }}
+          SELECTION: ${{ needs.plan.outputs.selection }}
         run: |
           set -euo pipefail
+          if [ "$COURT" != scotus ] && [ "$SELECTION" != engine-smoke ]; then
+            echo "::error::a district docket rehearses a trial cell only on scenario=engine-smoke; this run's evidence is about the Court's cells"
+            exit 1
+          fi
           case "$ENGINE" in
             claude-code) family=claude ;;
             codex) family=codex ;;
@@ -1266,10 +1282,44 @@ jobs:
           # certifying a posture it never ran in.
           # $REHEARSE is empty or the one fixed flag the naming step chose, so
           # a district docket's cell is a trial rehearsal and no other cell is.
-          uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
+          #
+          # A rehearsal's transcript stays off the run log as well. The run log
+          # of a public repository is a publication, and a district cell reads
+          # party-authored filings whose text the agent's stream can quote at
+          # length; the Court's cell reads the Court's own public docket, which
+          # is why its transcript may print. So the rehearsal's output goes to
+          # runner files that die with the runner, and the log gets only what
+          # the CLI itself composed: the report block on success, the refusal
+          # line on exit 2 (a cascade or engine-availability refusal, raised
+          # before or outside the agent's output), and otherwise a fixed line.
+          # An engine failure or a failed validation can carry model text in
+          # its message, so neither is printed.
+          # One command for both arms, so the two refusals above cannot be
+          # dropped from one of them.
+          cell=(uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
             --engine "$ENGINE" --predictor "$PREDICTOR" --corpus-backend ranged \
             --require-predictions --require-record \
-            ${REHEARSE:+"$REHEARSE"} ${EVENT:+--event "$EVENT"} | tee cascade-output.log
+            ${REHEARSE:+"$REHEARSE"} ${EVENT:+--event "$EVENT"})
+          if [ -n "$REHEARSE" ]; then
+            status=0
+            "${cell[@]}" > cascade-output.log 2> cascade-stderr.log || status=$?
+            if [ "$status" -eq 2 ]; then
+              tail -n 1 cascade-stderr.log
+              echo "::error::the cascade refused the rehearsal before a cell ran"
+              exit 1
+            elif [ "$status" -ne 0 ]; then
+              echo "::error::the rehearsal cell failed (exit ${status}); its transcript is withheld from the run log because it can quote filing text. Reproduce it with the same local-cascade command where the corpus is pulled."
+              exit 1
+            fi
+            # The last `local-cascade ` line opens the report: the agent's
+            # stream precedes it and could carry a line shaped like one.
+            start=$(grep -n '^local-cascade ' cascade-output.log | tail -n 1 | cut -d: -f1)
+            tail -n "+${start}" cascade-output.log > cascade-report.log
+            mv cascade-report.log cascade-output.log
+            cat cascade-output.log
+          else
+            "${cell[@]}" | tee cascade-output.log
+          fi
           {
             echo ""
             echo "## Engine smoke: one $ENGINE cell over the service sidecar"
