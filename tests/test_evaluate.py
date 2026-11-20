@@ -1244,7 +1244,8 @@ def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> Non
     ) == pytest.approx(39 / 79)
     # A version in neither place still gets the contracted no-baseline answer.
     assert (
-        realized_band_rate("high", "sal-v99", 2025, pack, risk_set=False, own_grant_family=1) is None
+        realized_band_rate("high", "sal-v99", 2025, pack, risk_set=False, own_grant_family=1)
+        is None
     )
 
 
