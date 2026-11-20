@@ -22056,3 +22056,112 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('appendix-start-past-front-matter' in {b.name for b in H})"` prints
     `True`.
+
+- **`sal-v9` activated; recorded 2026-11-20.** A distinct entry from the
+  `caption-v6` and `sal-v9` registration entry above, on the `sal-v8`
+  activation's pattern. No freeze commit belongs to this entry: the salience
+  version sits outside the process digest, carries its own data-visible
+  boundary (`context.salience_version`), and a flip re-blesses nothing.
+  `uv run fedcourts process-digest --all` prints the same digests before and
+  after this change, and no harness boundary is registered.
+
+  **The flip is one constant.** `SALIENCE_VERSION` goes `sal-v8` → `sal-v9`.
+  `sal-v9` pins `dist-v2`, which `cert_signals.DEFAULT_DISTRIBUTION_PARSE`
+  already names, and reads no corpus column `sal-v8` does not, so no
+  re-derivation or back-fill precedes it. Its score, relist rule, writ scope,
+  parse, cutpoints, band vocabulary and arrival draw are `sal-v8`'s
+  callables; the band, the carve-in and the reachable ladder read the class
+  through `caption-v6`, which is `caption-v5` with a petition whose
+  petitioner side has no counsel of record but the Solicitor General's
+  office read `federal`.
+
+  **The readings.** On blob
+  `519804de688663aa592d361e84cbe699c19c54ab6c2db356907b2417b505325e` (newest
+  pull 2026-11-20, newest stored snapshot row 2026-07-13; `origin/main`
+  `f5a88bb0b`), read on 2026-11-20:
+
+  - `uv run python scripts/checks/caption_v6_band_census.py`: of the 14,016
+    live-slice scored-segment rows `sal-v8` admits (13,588 resolved, 428
+    pending), one band move, pending 26-630 from `baseline` to `federal`, and
+    no resolved one. That row was last live-polled 2026-11-13, its docketing
+    day, so the counsel block read is a week old; its caption and its one petitioner-side counsel entry, the office as
+    counsel of record under a party label the caption does not carry, are as
+    the registration read them. The entry counts are the registration's: 26
+    rows carry an office entry of record at filing on the petitioner side that
+    `caption-v4`'s match does not read, and the office is the only counsel of
+    record on 23, of which 22 already read `federal` by their caption.
+  - `uv run python scripts/checks/salience_activation_dry_run.py` with each
+    version active, as of 2026-11-20: 20,884 eligible and scored under both;
+    `sal-v9` plans 1 new latch, 26-630, outside any conference (an
+    arrival, which its `federal` class carves in), where `sal-v8` plans 0;
+    both refuse 258 rows with the same latch and stamp breakdown, and the
+    latches standing in each pending conference read the same.
+  - `uv run fedcourts federal-label-check` under `sal-v9` reads 19 of the 421
+    pending paid petitions in predict scope `federal` and flags none, against
+    18 and the one alarm on 26-630 the daily check reads under `sal-v8`.
+  - `uv run fedcourts statpack` rendered from that blob with `sal-v9` active:
+    every Term carries one `sal-v8` block in `alt_segments`, equal to the
+    `sal-v9` segments apart from `ingested`, which differs in OT2026 alone
+    (`federal` 23 against 22, `baseline` 585 against 586). `uv run fedcourts
+    segment-anchors --term 2026 --salience-version <v> --statpack <that pack>`
+    pools `sal-v8` and `sal-v9` to the same anchors for an OT2026 docket
+    (lookback 10, risk-set rate, denial-reweighted resolved n): federal
+    73.11% (212), high 34.88% (777), state 23.52% (421), elevated 24.81%
+    (2,011), baseline 5.18% (12,668).
+
+  **The committed pack.** The metrics refresh merged to `main` as
+  `50244479f` (2026-11-20 18:59Z), the first after the promotion tagged
+  `promotion/2026-11-16` carried the registration, renders one `sal-v9` block
+  in every Term's `alt_segments`. `jq '[.terms[] | [.alt_segments[] |
+  select(.salience_version == "sal-v9") | .segments | map(del(.ingested))] ==
+  [.segments | map(del(.ingested))]] | all' metrics/statpack.json` prints
+  `true` on it; `ingested` differs in OT2026 alone, as on the local render,
+  and `segment-anchors` pools `sal-v8` and `sal-v9` to the anchors above on
+  it. The pack it replaced (`2c5e1ef4f`, refreshed 2026-11-16 05:56Z) was
+  rendered before that promotion and held no `sal-v9` block; the
+  registration entry's equality check read `true` there only because it
+  compared nothing, which is why the check is restated here as a comparison
+  of one-element lists that prints `false` on a pack without the block. A
+  cell banded under a version the committed pack does not publish freezes an
+  anchor with a null rate, so the refresh preceded this activation.
+
+  **No outcome-clean reading.** The one moved row is pending and no resolved
+  row moves, and a `sal-v9` replay cell reads `caption-v4`'s fact. The
+  activation proceeds on the bar `sal-v7`'s and `sal-v8`'s cleared, the
+  rule's outcome-free precision, here over one row whose caption and counsel
+  entry were read. The declared residual is the registration's.
+
+  **What it moves.** No frozen band changes: a prediction keeps the version
+  that banded it, and 26-630 has no cell. The live pass scores, latches and
+  stamps under `sal-v9`. Its first pass latches 26-630 as a carve-in arrival
+  and mints its `evt-petition-arrival-disposition` event, so the petition is
+  forecast where `sal-v8` left it unselected, and the `federal_label` alarm on
+  it clears. A cell minted after the flip on a petition whose petitioner side
+  has no counsel of record but the office freezes `federal` and pools the
+  federal anchor where `sal-v8` froze its caption class's. Every other row
+  bands as under `sal-v8`. The scored window opens at the first
+  post-promotion metrics refresh, as for every earlier flip; a cell minted
+  before it pools a `sal-v9` anchor from the committed `alt_segments` block
+  while `statpack.md`'s table is still `sal-v8`'s, the version mismatch every
+  earlier flip carried. 26-630's arrival cell is likely minted in that
+  window: its frozen anchor is the federal one, and the table beside it is
+  not its version's.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION; print(SALIENCE_VERSION)"` prints `sal-v9`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.terms[].salience_version' metrics/statpack.json | sort -u` prints
+    `sal-v9`, and every Term's `alt_segments` holds a `sal-v8` block;
+  - after the first pull window's salience pass, the daily forecast-coverage
+    verdict raises no `federal_label` alarm on 26-630, and
+    `data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/event.yaml`
+    exists on `main`;
+  - on the first predict run's collect PR after the carrying merge, `jq -r
+    '.context.salience_version'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
+    sort -u` prints `sal-v9` (and `null` on an unbanded cell), and 26-630's
+    arrival cell freezes `band` `federal`.

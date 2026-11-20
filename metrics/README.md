@@ -1036,7 +1036,7 @@ stays outside the gate:
   baseline / 17.40% elevated / 35.44% high / 75.82% federal / 22.82% state for
   an OT2025 docket and 5.09% / 17.00% / 35.69% / 73.30% / 23.52% for an OT2026
   one (`uv run fedcourts segment-anchors --term 2025 --term 2026
-  --salience-version sal-v4`; the bare command pools the active `sal-v8`). A band row
+  --salience-version sal-v4`; the bare command pools the active `sal-v9`). A band row
   that mixes docket Terms states its count per docket Term beside the anchors.
   Their complements are grant-family denial shares, not exact-match floors, so
   they are not comparable with `always_deny_accuracy`, and no lift is measured
@@ -2945,8 +2945,8 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The superseded `sal-v6` and `sal-v7`, the never-activated `sal-v5`,
-  the active `sal-v8` and the registered `sal-v9`.** Their cells and their statpack blocks cover a narrower population
+  **The superseded `sal-v6`, `sal-v7` and `sal-v8`, the never-activated
+  `sal-v5` and the active `sal-v9`.** Their cells and their statpack blocks cover a narrower population
   than every other version's: Rule 20 writs are outside their segment, so their
   `eligible`, recall and band pools leave them out, and a cross-version
   comparison spans that population change as well as the scoring. `sal-v6` is
@@ -2970,10 +2970,11 @@ the rendered table) and
   `sal-v7` with the class read through `caption-v5`, which reads every stored
   row and every replay cell exactly as `caption-v4` does, so its statpack
   block and its replay cells equal `sal-v7`'s; it differs only on a forward
-  cell rebuilt by truncation, which no replay cell is. `sal-v8` is the
-  active scorer. `sal-v9` is `sal-v8` with the class read through
+  cell rebuilt by truncation, which no replay cell is; it was active until
+  `sal-v9` superseded it. `sal-v9` is `sal-v8` with the class read through
   `caption-v6`, which also reads `federal` a petition whose petitioner side
-  has no counsel of record but the Solicitor General's office. Its replay
+  has no counsel of record but the Solicitor General's office; it is the
+  active scorer. Its replay
   cells read `caption-v4`'s fact, so they equal `sal-v8`'s and say nothing
   about that reading; its statpack block bands stored rows, and differs from
   `sal-v8`'s only where such a row exists, which is one pending row and no
@@ -3246,7 +3247,7 @@ the rendered table) and
   `record/context.json`'s `decided_before`).
 
   **The arrival cohort's claim rule** (the caption-banded scorers'
-  `cert@arrival` cells — the active `sal-v8`, and earlier versions' cells beside
+  `cert@arrival` cells — the active `sal-v9`, and earlier versions' cells beside
   it). The
   cohort is two selection rules with grant rates an order of magnitude apart —
   the unbiased random slice and the federal-petitioner carve-in — and the
