@@ -72,6 +72,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Final, Literal
 
+from .prediction_slices import SCOTUS_POPULATION_KEY, SLICES
 from .pricing import DEFAULT_MODELS
 from .promotion_record import pending_registrations
 from .registry import (
@@ -95,6 +96,8 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
+# The SCOTUS docket's label: a prediction slice's cells are stamped with the
+# slice's own, which the registry alone names (`current_label`).
 CURRENT_PROCESS_LABEL = "proc-v24"
 
 #: The committed frozen-process registry the freeze constants below are built
@@ -111,20 +114,25 @@ def load_process_registry(
 ) -> ProcessRegistry:
     """The frozen-process registry, validated; ``text`` overrides the packaged file.
 
-    ``current_label`` is the label the code stamps, :data:`CURRENT_PROCESS_LABEL`
-    unless a registration is checking the label it is about to set. Beyond the
-    schema it refuses a registry the counting rule cannot read as one partition:
+    ``current_label`` is the label the code stamps on the SCOTUS docket's
+    cells, :data:`CURRENT_PROCESS_LABEL` unless a registration is checking the
+    label it is about to set. Beyond the schema it refuses a registry the
+    counting rule cannot read as one partition per population:
 
     - a pending registration (``merge: null``) anywhere but the one label a PR
-      is registering: only ``current_label``, the last label row, may be
-      pending, and only its own blessings and windows, the windows it closes
-      and harness boundaries may be pending with it;
-    - no label row for ``current_label``, which leaves the counting instant
-      unregistered;
+      is registering: only the last label row may be pending, as
+      ``current_label`` where it is a SCOTUS row, and only its own blessings
+      and windows, the windows it closes and harness boundaries may be pending
+      with it;
+    - no SCOTUS label row for ``current_label``, which leaves the counting
+      instant unregistered;
+    - a label row whose name is not its population's (``proc-vN`` for the
+      SCOTUS docket, ``<slice>-vN`` for a declared prediction slice), since a
+      slice row read as a SCOTUS one would move the SCOTUS counting instant;
     - one digest blessed twice, since the bless map holds one moment per digest;
     - a blessing or window naming a label with no row;
     - a window that does not open at its label's counting instant, or that
-      closes anywhere but at some label's counting instant.
+      closes anywhere but at a counting instant of its own population.
     """
     raw = (
         text
@@ -133,11 +141,13 @@ def load_process_registry(
     )
     registry = ProcessRegistry.model_validate_json(raw)
     where = REGISTRY_RESOURCE
+    _refuse_misnamed_labels(registry, where)
     _refuse_misplaced_pending(registry, where, current_label)
     since = {entry.label: entry.since.at for entry in registry.labels}
+    population = {entry.label: entry.population for entry in registry.labels}
     if len(since) != len(registry.labels):
         raise ValueError(f"{where}: a label has two rows")
-    if current_label not in since:
+    if population.get(current_label) != SCOTUS_POPULATION_KEY:
         raise ValueError(f"{where}: no label row for {current_label}")
     digests = [blessing.digest for blessing in registry.blessings]
     if len(set(digests)) != len(digests):
@@ -147,25 +157,54 @@ def load_process_registry(
     ]:
         if named not in since:
             raise ValueError(f"{where}: {named} has no label row")
+    instants: dict[str, set[datetime | None]] = defaultdict(set)
+    for entry in registry.labels:
+        instants[entry.population].add(entry.since.at)
     for window in registry.windows:
         if window.opens.at != since[window.label]:
             raise ValueError(
                 f"{where}: the {window.label} window of {window.digest} does not open at "
                 f"its label's counting instant"
             )
-        if window.closes is not None and window.closes.at not in since.values():
+        if window.closes is not None and window.closes.at not in instants[population[window.label]]:
             raise ValueError(
                 f"{where}: the {window.label} window of {window.digest} closes off every "
-                f"label's counting instant"
+                f"counting instant of its population"
             )
     return registry
+
+
+def label_ordinal_in(label: str, population: str) -> int | None:
+    """The integer ``N`` of ``label`` in ``population``'s sequence, or ``None``.
+
+    The SCOTUS docket's labels are ``proc-vN``; a prediction slice's are
+    ``<slice>-vN``, so no label can be read as another population's.
+    """
+    prefix = "proc" if population == SCOTUS_POPULATION_KEY else population
+    match = re.fullmatch(re.escape(prefix) + r"-v(\d+)", label)
+    return int(match.group(1)) if match else None
+
+
+def _refuse_misnamed_labels(registry: ProcessRegistry, where: str) -> None:
+    """Refuse a label row of an undeclared population, or not named for its population."""
+    for entry in registry.labels:
+        if entry.population != SCOTUS_POPULATION_KEY and entry.population not in SLICES:
+            raise ValueError(
+                f"{where}: {entry.label} names population {entry.population!r}; known: "
+                f"{', '.join([SCOTUS_POPULATION_KEY, *SLICES])}"
+            )
+        if label_ordinal_in(entry.label, entry.population) is None:
+            raise ValueError(
+                f"{where}: {entry.label} is not a label of population {entry.population!r}"
+            )
 
 
 def _refuse_misplaced_pending(registry: ProcessRegistry, where: str, current_label: str) -> None:
     """Refuse a pending registration anywhere but the label a PR is registering.
 
-    One label per digest-moving promotion: only ``current_label``, as the last
-    label row, may be pending; a pending blessing must be that label's own (an
+    One label per digest-moving promotion: only the last label row may be
+    pending, and where it is a SCOTUS row it is ``current_label``, the label
+    the code stamps; a pending blessing must be that label's own (an
     evaluator-only label holds its predecessor's instant, so its label row is
     carried while its new blessings are pending); a still-pending label blesses
     nothing new that is already stamped; and a window may close pending only at
@@ -174,11 +213,19 @@ def _refuse_misplaced_pending(registry: ProcessRegistry, where: str, current_lab
     already holds.) A harness boundary may be pending with or without a label.
     """
     pending = [entry.label for entry in registry.labels if entry.since.pending]
-    last = registry.labels[-1].label if registry.labels else None
-    if pending and (pending != [current_label] or last != current_label):
-        raise ValueError(f"{where}: only {current_label}, the last label row, may be pending")
+    last = registry.labels[-1] if registry.labels else None
+    registering = (
+        last.label
+        if last is not None and last.population != SCOTUS_POPULATION_KEY
+        else current_label
+    )
+    last_label = last.label if last is not None else None
+    if pending and (pending != [registering] or last_label != registering):
+        raise ValueError(f"{where}: only {registering}, the last label row, may be pending")
     for blessing in registry.blessings:
-        if blessing.blessed.pending and (blessing.label != current_label or last != current_label):
+        if blessing.blessed.pending and (
+            blessing.label != registering or last_label != registering
+        ):
             raise ValueError(
                 f"{where}: {blessing.digest} is pending under {blessing.label}, which is not "
                 f"the label being registered"
@@ -194,6 +241,24 @@ def _refuse_misplaced_pending(registry: ProcessRegistry, where: str, current_lab
                 f"{where}: the {window.label} window of {window.digest} closes pending, "
                 f"with no label pending"
             )
+
+
+def scotus_label_of(document: Mapping[str, object]) -> str | None:
+    """The last SCOTUS label row of a registry document, or ``None`` with none.
+
+    The ``current_label`` a caller checking a rendered registry passes to
+    :func:`load_process_registry`: the label that document's own tree stamps
+    on the SCOTUS docket's cells, whatever slice rows follow it.
+    """
+    rows = document.get("labels")
+    labels = [
+        row.get("label")
+        for row in (rows if isinstance(rows, list) else [])
+        if isinstance(row, dict)
+        and row.get("population", SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+    ]
+    last = labels[-1] if labels else None
+    return last if isinstance(last, str) else None
 
 
 def _utc(moment: datetime) -> datetime:
@@ -256,7 +321,12 @@ _LABEL_PATTERN = re.compile(r"proc-v(\d+)")
 
 
 def label_ordinal(label: str | None) -> int | None:
-    """The integer ``N`` of a ``proc-vN`` label, or ``None`` for any other string."""
+    """The integer ``N`` of a ``proc-vN`` label, or ``None`` for any other string.
+
+    A prediction slice's label is such another string: every ``*_FROM``
+    threshold in this module dates a rule of the SCOTUS docket's process, and a
+    slice's cells take none of them by the accident of a number.
+    """
     if label is None:
         return None
     match = _LABEL_PATTERN.fullmatch(label)
@@ -466,10 +536,37 @@ def is_pending(process_version: ProcessVersion | None) -> bool:
 # by a promotion — its instant is unknown, and the instant in force is the
 # last carried label's: the freeze stays in force and nothing of the pending
 # label counts until its merge stamps it.
-def counting_instant(registry: ProcessRegistry) -> datetime | None:
-    """The counting instant in force: the last label row a merge has carried."""
-    carried = [entry.since.at for entry in registry.labels if entry.since.at is not None]
+def counting_instant(
+    registry: ProcessRegistry, population: str = SCOTUS_POPULATION_KEY
+) -> datetime | None:
+    """The counting instant in force for ``population``: its last label row a merge has carried.
+
+    Each population has its own, so a prediction slice's label never moves the
+    SCOTUS docket's instant.
+    """
+    carried = [
+        entry.since.at
+        for entry in registry.labels
+        if entry.population == population and entry.since.at is not None
+    ]
     return _utc(carried[-1]) if carried else None
+
+
+def current_label(population: str = SCOTUS_POPULATION_KEY) -> str:
+    """The label ``population``'s cells are stamped with.
+
+    :data:`CURRENT_PROCESS_LABEL` for the SCOTUS docket; a prediction slice's
+    is the last label row the registry holds for it, pending or carried, so a
+    slice has no label constant to drift from its registration. Raises
+    ``KeyError`` for a slice with no label row: a cell of a population nothing
+    registered is not stamped.
+    """
+    if population == SCOTUS_POPULATION_KEY:
+        return CURRENT_PROCESS_LABEL
+    labels = [entry.label for entry in _REGISTRY.labels if entry.population == population]
+    if not labels:
+        raise KeyError(f"no process label is registered for population {population!r}")
+    return labels[-1]
 
 
 FROZEN_SINCE: datetime | None = counting_instant(_REGISTRY)
@@ -663,6 +760,23 @@ def digest_for_actor(
         raise ValueError(f"role must be predictor or evaluator, not {role!r}")
     prompt_bytes = (repo_root / entry.prompt).read_bytes()
     return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry, code))
+
+
+def label_for_actor(config_root: Path, role: str, actor_id: str) -> str:
+    """The label ``actor_id``'s cells are stamped with: its population's current one.
+
+    Raises ``KeyError`` for an actor the registry does not hold, and for a
+    slice's actor before any label is registered for the slice.
+    """
+    if role == "predictor":
+        entry: PredictorConfig | EvaluatorConfig = _find(
+            load_predictors(config_root / "predictors.yaml"), actor_id, role
+        )
+    elif role == "evaluator":
+        entry = _find(load_evaluators(config_root / "evaluators.yaml"), actor_id, role)
+    else:
+        raise ValueError(f"role must be predictor or evaluator, not {role!r}")
+    return current_label(entry.population)
 
 
 def digest_for_configuration(
@@ -892,21 +1006,57 @@ def graded_in_window(evaluation: ProcessVersion | None, prediction: ProcessVersi
     return evaluation.stamped_at >= window.opens
 
 
-def frozen_process_record() -> FrozenProcessRecord:
-    """The freeze constants as the board-embeddable provenance block.
+def _of_population(registry: ProcessRegistry, population: str) -> ProcessRegistry:
+    """``registry`` with only ``population``'s labels, and the blessings and windows under them.
+
+    Evaluate blessing labels and harness boundaries are kept whole: neither is
+    a row of one population's partition.
+    """
+    labels = {entry.label for entry in registry.labels if entry.population == population}
+    return registry.model_copy(
+        update={
+            "labels": [entry for entry in registry.labels if entry.label in labels],
+            "blessings": [b for b in registry.blessings if b.label in labels],
+            "windows": [w for w in registry.windows if w.label in labels],
+        }
+    )
+
+
+def frozen_process_record(population: str = SCOTUS_POPULATION_KEY) -> FrozenProcessRecord:
+    """``population``'s freeze constants as the board-embeddable provenance block.
 
     The boards publish ``process_scope`` but the partition's *definition* lives
     in this module's constants, so a built artifact records them via this
     record (:class:`fedcourtsai.schemas.FrozenProcessRecord`) — what "frozen"
     meant at build time, the counting windows included, answerable from the
     artifact alone. Deterministic: the constants change only with a freeze
-    commit, so the same tree always yields the same record.
+    commit, so the same tree always yields the same record. One population's
+    rows only, the SCOTUS docket's unless a caller names a prediction slice,
+    so registering a slice's label leaves every SCOTUS board's block as it was.
+    Read off the constants at call time, like every counting function, so it
+    follows :func:`counting_windows`; a digest or a window label the registry
+    does not place is the SCOTUS docket's.
     """
+    own = _of_population(_REGISTRY, population)
+    scotus = population == SCOTUS_POPULATION_KEY
+    labels = {entry.label: entry.population for entry in _REGISTRY.labels}
+    placed = {blessing.digest: labels[blessing.label] for blessing in _REGISTRY.blessings}
     return FrozenProcessRecord(
-        digests=sorted(FROZEN_PROCESS_DIGESTS),
-        since=FROZEN_SINCE,
-        windows=list(COUNTING_WINDOWS),
-        pending=list(PENDING_REGISTRATIONS),
+        digests=sorted(
+            digest
+            for digest in FROZEN_PROCESS_DIGESTS
+            if placed.get(digest, SCOTUS_POPULATION_KEY) == population
+        ),
+        since=FROZEN_SINCE if scotus else counting_instant(own, population),
+        windows=[
+            window
+            for window in COUNTING_WINDOWS
+            if labels.get(window.label, SCOTUS_POPULATION_KEY) == population
+        ],
+        pending=[
+            f"{stamp.kind} {stamp.ident}"
+            for stamp in pending_registrations(own.model_dump(mode="json"))
+        ],
     )
 
 

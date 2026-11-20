@@ -390,23 +390,23 @@ def test_only_an_evaluator_digest_is_ever_blessed_after_the_instant() -> None:
     a git check nothing here can run — this is the constants-only shadow of it,
     and the only one that runs on every commit.
     """
-    since = process_version.FROZEN_SINCE
-    if not process_version.FROZEN_PROCESS_DIGESTS or since is None:
-        return
-    predictors = {
-        process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id): entry.id
-        for entry in enabled_predictors(CONFIG / "predictors.yaml")
-    }
-    late = {
-        predictors[digest]: moment
-        for digest, moment in process_version.FROZEN_PROCESS_DIGESTS.items()
-        if digest in predictors and moment > since
-    }
-    assert not late, (
-        f"predictor digest(s) blessed after the freeze instant {since.isoformat()}: {late} — "
-        "the held-instant exception is the evaluator half's alone; a predictor re-bless "
-        "moves the instant past its carrying promotion"
+    assert (
+        process_version.counting_instant(process_version._REGISTRY) == process_version.FROZEN_SINCE
     )
+    # Each predictor against its own population's instant: a prediction slice's
+    # label carries the slice's, and the SCOTUS docket's never moves with it.
+    for entry in enabled_predictors(CONFIG / "predictors.yaml"):
+        since = process_version.counting_instant(process_version._REGISTRY, entry.population)
+        digest = process_version.digest_for_actor(REPO, CONFIG, "predictor", entry.id)
+        moment = process_version.FROZEN_PROCESS_DIGESTS.get(digest)
+        if moment is None or since is None:
+            continue
+        assert moment <= since, (
+            f"predictor {entry.id}'s digest was blessed at {moment.isoformat()}, after its "
+            f"population's freeze instant {since.isoformat()} — the held-instant exception "
+            "is the evaluator half's alone; a predictor re-bless moves the instant past its "
+            "carrying promotion"
+        )
 
 
 def test_a_full_freeze_orders_the_instant_after_every_bless_it_carries() -> None:
@@ -588,7 +588,12 @@ def test_every_live_evaluator_digest_is_named_by_the_current_label() -> None:
     for entry in enabled_evaluators(Path("config") / "evaluators.yaml"):
         digest = process_version.digest_for_actor(Path("."), Path("config"), "evaluator", entry.id)
         labels = process_version.EVALUATE_BLESSING_LABELS.get(digest, ())
-        assert process_version.CURRENT_PROCESS_LABEL in labels, entry.id
+        # The judge's own population's label: the SCOTUS docket's for a SCOTUS
+        # judge, the slice's for a slice's.
+        current = process_version.label_for_actor(Path("config"), "evaluator", entry.id)
+        assert current in labels, entry.id
+        if entry.population == "scotus":
+            assert current == process_version.CURRENT_PROCESS_LABEL
 
 
 def test_the_blessing_labels_only_ever_grow() -> None:
@@ -606,11 +611,16 @@ def test_the_blessing_labels_only_ever_grow() -> None:
     registry = process_version.EVALUATE_BLESSING_LABELS
     for digest, labels in held.items():
         assert registry[digest][: len(labels)] == labels, digest
+    population = {entry.label: entry.population for entry in process_version._REGISTRY.labels}
     for digest, blessed in registry.items():
+        # One population's labels per judge digest, in that population's order.
+        populations = {population.get(label, "scotus") for label in blessed}
+        assert len(populations) == 1, digest
         ordinals = [
             ordinal
             for label in blessed
-            if (ordinal := process_version.label_ordinal(label)) is not None
+            if (ordinal := process_version.label_ordinal_in(label, next(iter(populations))))
+            is not None
         ]
         assert blessed and len(ordinals) == len(blessed), digest
         assert ordinals == sorted(set(ordinals)), digest

@@ -49,6 +49,7 @@ from fedcourtsai.promotion_record import (
     digest_census,
     dump_registry,
     pending_carried_problems,
+    pending_registrations,
     placeholders,
     plan_promotion_record,
     promotion_record_diff_problems,
@@ -114,11 +115,27 @@ def _fixture_main(live: dict[str, Any]) -> dict[str, Any]:
     label cannot be left out (its registration replaced the blessings it
     moved), so it is stamped an hour after the last carried label's instant,
     as the merge that carries it would. Then every instant moves together so
-    the newest label's lands on ``ANCHOR``.
+    the newest label's lands on ``ANCHOR``. A prediction slice's rows are left
+    out too: the fixture ``main`` is the SCOTUS docket's registry, and a test
+    of a slice's label registers its own on top.
     """
+    scotus = {row["label"] for row in live["labels"] if row.get("population", "scotus") == "scotus"}
+    slice_judges = {
+        b["digest"]
+        for b in live["blessings"]
+        if b["label"] not in scotus and b["role"] != "predictor"
+    }
     stamped = _stamp_pending(
         {
             **live,
+            "labels": [row for row in live["labels"] if row["label"] in scotus],
+            "blessings": [b for b in live["blessings"] if b["label"] in scotus],
+            "windows": [w for w in live["windows"] if w["label"] in scotus],
+            "evaluate_blessing_labels": {
+                digest: labels
+                for digest, labels in live["evaluate_blessing_labels"].items()
+                if digest not in slice_judges
+            },
             "harness_boundaries": [b for b in live["harness_boundaries"] if b["merge"] is not None],
         },
         _iso(max(_label_instants(live)) + timedelta(hours=1)),
@@ -129,8 +146,8 @@ def _fixture_main(live: dict[str, Any]) -> dict[str, Any]:
 
 _LIVE = json.loads((ROOT / REGISTRY_PATH).read_text(encoding="utf-8"))
 COMMITTED = _fixture_main(_LIVE)
-#: The last label the fixture ``main`` holds.
-LAST_LABEL = str(COMMITTED["labels"][-1]["label"])
+#: The last SCOTUS label the fixture ``main`` holds.
+LAST_LABEL = str(process_version.scotus_label_of(COMMITTED))
 
 
 def _at(hours: float) -> datetime:
@@ -340,8 +357,14 @@ def test_a_pending_close_with_no_label_pending_is_refused() -> None:
 
 def test_the_board_record_lists_pending_rows_and_omits_an_empty_list() -> None:
     live = process_version.frozen_process_record().model_dump(mode="json")
-    # The live board names exactly the rows the committed registry holds pending.
-    assert live.get("pending", []) == list(process_version.PENDING_REGISTRATIONS)
+    # The live board names exactly the rows the committed registry holds pending
+    # for the SCOTUS docket, and every harness boundary.
+    scotus = process_version._of_population(process_version._REGISTRY, "scotus")
+    assert live.get("pending", []) == [
+        f"{stamp.kind} {stamp.ident}"
+        for stamp in pending_registrations(scotus.model_dump(mode="json"))
+    ]
+    assert set(live.get("pending", [])) <= set(process_version.PENDING_REGISTRATIONS)
     assert "pending" not in FrozenProcessRecord(digests=[], since=None).model_dump(mode="json")
     record = FrozenProcessRecord(digests=[], since=None, pending=[f"label {NEW_LABEL}"])
     assert record.model_dump(mode="json")["pending"] == [f"label {NEW_LABEL}"]

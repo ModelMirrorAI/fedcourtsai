@@ -285,6 +285,29 @@ label, so they never pool either. No slice process is registered yet. The
 first is registered in the change that switches its slice on, with a dated
 freeze-record entry like any other label.
 
+The registry holds that separation row by row. A label row names its
+**population** (`population`, written only for a slice; a row without it is
+the SCOTUS docket's), and a label is named for it: `proc-vN` for the SCOTUS
+docket, `<slice>-vN` for a slice (`ai-watchlist-v1`). Each population's labels
+run in their own sequence and carry their own counting instant, so
+`FROZEN_SINCE` is the SCOTUS docket's last carried label's and a slice's label
+never moves it. A blessing and a window belong to the population of the label
+they name; a window closes only at a counting instant of its own population.
+The loader refuses a slice row that is not named for its slice, a row naming a
+population no code declares, and a SCOTUS row named like a slice's, since a
+slice row read as a SCOTUS one would move the SCOTUS counting instant.
+
+A cell is stamped with the current label of its actor's population
+(`process_version.label_for_actor`): `CURRENT_PROCESS_LABEL` for a SCOTUS
+actor, and for a slice's actor the last label row the registry holds for the
+slice, so a slice has no label constant that could drift from its
+registration, and a slice's cell cannot be stamped before a label is
+registered for it. The `*_FROM` thresholds in `process_version.py` each date a
+rule of the SCOTUS docket's process and read a slice's label as outside the
+sequence, so a slice's cells take none of them. The provenance block a board
+embeds (`frozen_process_record`) holds one population's rows, the SCOTUS
+docket's by default, so registering a slice's label changes no SCOTUS board.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
@@ -633,7 +656,14 @@ block's `pending`, so the board names the registrations it read as not yet in
 force.
 
 `fedcourts register-process --label <proc-vN>` writes a label's pending rows
-from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`. Where a
+from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`. With
+`--population <slice> --label <slice>-vN` it registers a prediction slice's
+label instead: it reads that slice's enabled actors alone, writes rows under
+the slice's label, leaves every SCOTUS row and `CURRENT_PROCESS_LABEL` as they
+are, and refuses a digest another population's label already blesses. A
+SCOTUS registration likewise leaves a slice's rows untouched. A label
+registration of either kind waits behind any other still pending, so a
+promotion carries one label. Where a
 predictor digest moved, the label's counting instant, its new windows and its
 closes are pending. Where only evaluator digests moved, the label holds its
 predecessor's counting instant (the evaluator-half supersession below), opens
@@ -653,6 +683,8 @@ refuses a batch whose registrations its merge could not stamp honestly:
   merge would stamp;
 - a pending digest that already stamps a committed cell on `main`;
 - an enabled actor whose digest at the head is not registered;
+- an enabled actor whose digest is registered under a label of another
+  population than the one it forecasts or grades;
 - a predictor with more than one open window (unrevoked, no close; a pending
   close counts as a close);
 - more than one label new to `main` (one label per promotion), or such a

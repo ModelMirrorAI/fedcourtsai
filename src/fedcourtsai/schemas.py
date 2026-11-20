@@ -6237,10 +6237,19 @@ class RegistryLabel(_Strict):
 
     model_config = ConfigDict(extra="forbid", use_enum_values=True, frozen=True)
 
-    label: str = Field(description="The process label (`proc-vN`)")
+    label: str = Field(
+        description="The process label: `proc-vN` for the SCOTUS docket, `<slice>-vN` for a "
+        "prediction slice"
+    )
     since: RegistryInstant = Field(
         description="The label's counting instant: it opens every window the label newly "
         "blesses and closes every window it stops blessing"
+    )
+    population: str = Field(
+        default="scotus",
+        description="The prediction population whose cells are stamped with this label: "
+        "`scotus`, or a prediction slice's id. A label blesses and counts its own "
+        "population's actors only, and the row is written without this key for `scotus`",
     )
 
 

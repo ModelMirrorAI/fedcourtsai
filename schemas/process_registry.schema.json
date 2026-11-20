@@ -174,8 +174,14 @@
       "description": "A process label and the counting instant from which its cells count.\n\nThe labels before ``proc-v8`` are deliberately absent: their digests were\nde-counted when each was superseded, so they open no window.",
       "properties": {
         "label": {
-          "description": "The process label (`proc-vN`)",
+          "description": "The process label: `proc-vN` for the SCOTUS docket, `<slice>-vN` for a prediction slice",
           "title": "Label",
+          "type": "string"
+        },
+        "population": {
+          "default": "scotus",
+          "description": "The prediction population whose cells are stamped with this label: `scotus`, or a prediction slice's id. A label blesses and counts its own population's actors only, and the row is written without this key for `scotus`",
+          "title": "Population",
           "type": "string"
         },
         "since": {

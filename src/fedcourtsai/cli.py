@@ -14852,13 +14852,18 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # digest *is* the process attribution being withheld, so resolving it would
     # fail a re-grade of a record whose actor the live registry no longer
     # carries — over a version this run does not write.
-    digest = ""
+    digest, stamp_label = "", ""
     update: dict[str, object] = {}
     case_paths = CasePaths(settings.data_root, court, docket)
     event_paths = case_paths.event(event)
     if not regrade:
-        digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
-        update |= _stamp_fields(_resolve_stamp(digest, pipeline_sha, stamped_at))
+        # The actor's own population's label: a prediction slice's cells are
+        # stamped with the slice's, never the SCOTUS docket's.
+        digest, stamp_label = (
+            process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor),
+            process_version.label_for_actor(settings.config_root, role, actor),
+        )
+        update |= _stamp_fields(_resolve_stamp(digest, pipeline_sha, stamped_at, stamp_label))
         # Before the tripwire below, so it appends to a file that parses, and
         # before `validate`, so an advisory note can never take the cell's output
         # with it. A re-grade is a correction over committed cells and leaves
@@ -14953,7 +14958,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             label = (
                 (record.process_version.label if record.process_version is not None else None)
                 if regrade
-                else process_version.CURRENT_PROCESS_LABEL
+                else stamp_label
             )
             skill_fields, basis_records[path] = _skill_record_for(
                 event_paths,
@@ -16044,8 +16049,10 @@ def _stamp_fields(stamp: ProcessVersion) -> dict[str, object]:
     return {"process_version": stamp, "created_at": stamp.stamped_at}
 
 
-def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVersion:
+def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str, label: str) -> ProcessVersion:
     """The ``ProcessVersion`` an ordinary stamp writes, over its resolved digest.
+
+    ``label`` is the current label of the actor's population.
 
     Exits non-zero rather than writing an unparseable or offset-less
     ``--stamped-at``, for the reason below.
@@ -16066,7 +16073,7 @@ def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVe
     else:
         stamp_moment = datetime.now(UTC)
     return ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
+        label=label,
         digest=digest,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         stamped_at=stamp_moment,
@@ -17241,7 +17248,12 @@ def process_digest_cmd(
         digest = process_version.digest_for_actor(
             Path.cwd(), settings.config_root, actor_role, actor_id
         )
-        typer.echo(f"{process_version.CURRENT_PROCESS_LABEL}  {actor_role}  {actor_id}  {digest}")
+        try:
+            label = process_version.label_for_actor(settings.config_root, actor_role, actor_id)
+        except KeyError:
+            # A slice's actor before the slice's first label is registered.
+            label = "unregistered"
+        typer.echo(f"{label}  {actor_role}  {actor_id}  {digest}")
 
 
 #: The source file whose ``CURRENT_PROCESS_LABEL`` names the label cells stamp.
@@ -17250,19 +17262,35 @@ _PROCESS_VERSION_SOURCE = "src/fedcourtsai/process_version.py"
 
 @app.command("register-process")
 def register_process_cmd(
-    label: Annotated[str, typer.Option(help="The label to register (`proc-vN`), named by hand.")],
+    label: Annotated[
+        str,
+        typer.Option(
+            help="The label to register, named by hand: `proc-vN`, or `<slice>-vN` with "
+            "--population."
+        ),
+    ],
+    population: Annotated[
+        str,
+        typer.Option(
+            help="The prediction population whose process moved: `scotus`, or a prediction "
+            "slice's id."
+        ),
+    ] = SCOTUS_POPULATION_KEY,
 ) -> None:
     """Register a moved process as a pending label, in the PR that moves it.
 
-    Reads every enabled actor's digest off this tree, as ``process-digest
-    --all`` prints it, and writes ``process_registry.json``: the label with a
-    pending counting instant, a pending blessing for each digest that moved
-    (a digest that did not is carried forward with its bless moment), a
-    pending window for each newly blessed predictor digest, a pending close on
-    each window no live predictor computes, and the label in each live
-    evaluator digest's blessing labels. Sets ``CURRENT_PROCESS_LABEL`` to the
-    label. The merge that carries the PR to ``main`` stamps every pending
-    instant with its SHA and committer time (``promotion-record``).
+    Reads the digest of every enabled actor of the population off this tree,
+    as ``process-digest --all`` prints it, and writes
+    ``process_registry.json``: the label with a pending counting instant, a
+    pending blessing for each digest that moved (a digest that did not is
+    carried forward with its bless moment), a pending window for each newly
+    blessed predictor digest, a pending close on each of the population's
+    windows no live predictor computes, and the label in each live evaluator
+    digest's blessing labels. Every other population's rows are left as they
+    are. For the SCOTUS docket it sets ``CURRENT_PROCESS_LABEL`` to the label;
+    a slice's label is the registry's word alone. The merge that carries the
+    PR to ``main`` stamps every pending instant with its SHA and committer
+    time (``promotion-record``).
     """
     settings = get_settings()
     repo = Path.cwd()
@@ -17271,32 +17299,37 @@ def register_process_cmd(
             role,
             actor_id,
             process_version.digest_for_actor(repo, settings.config_root, role, actor_id),
+            actor_population,
         )
-        for role, actor_id in [
-            ("predictor", p.id)
+        for role, actor_id, actor_population in [
+            ("predictor", p.id, p.population)
             for p in enabled_predictors(settings.config_root / "predictors.yaml")
         ]
         + [
-            ("evaluator", e.id)
+            ("evaluator", e.id, e.population)
             for e in enabled_evaluators(settings.config_root / "evaluators.yaml")
         ]
     ]
     registry_path = repo / promotion_record.REGISTRY_PATH
     source_path = repo / _PROCESS_VERSION_SOURCE
+    scotus = population == SCOTUS_POPULATION_KEY
     try:
         document = process_registration.register_process(
-            json.loads(registry_path.read_text(encoding="utf-8")), label, actors
+            json.loads(registry_path.read_text(encoding="utf-8")), label, actors, population
         )
         text = promotion_record.dump_registry(document)
-        process_version.load_process_registry(text, current_label=label)
-        source = process_registration.set_current_label(
-            source_path.read_text(encoding="utf-8"), label
-        )
+        source = source_path.read_text(encoding="utf-8")
+        if scotus:
+            process_version.load_process_registry(text, current_label=label)
+            source = process_registration.set_current_label(source, label)
+        else:
+            process_version.load_process_registry(text)
     except ValueError as exc:
         typer.echo(f"register-process: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     registry_path.write_text(text, encoding="utf-8")
-    source_path.write_text(source, encoding="utf-8")
+    if scotus:
+        source_path.write_text(source, encoding="utf-8")
     moved = [b for b in document["blessings"] if b["label"] == label]
     typer.echo(f"registered {label}, pending: {len(moved)} digest(s) moved")
     for blessing in moved:
@@ -17354,8 +17387,9 @@ def register_boundary_cmd(
 
 def _check_stamped_registry(text: str) -> object:
     """Load a rendered registry under its own last label, refusing what the loader refuses."""
-    labels = json.loads(text).get("labels") or [{}]
-    current = labels[-1].get("label") or process_version.CURRENT_PROCESS_LABEL
+    current = (
+        process_version.scotus_label_of(json.loads(text)) or process_version.CURRENT_PROCESS_LABEL
+    )
     return process_version.load_process_registry(text, current_label=current)
 
 
