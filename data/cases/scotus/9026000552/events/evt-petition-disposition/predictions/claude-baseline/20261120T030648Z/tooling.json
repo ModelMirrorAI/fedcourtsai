@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000552",
+  "run_id": "20261120T030648Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["appendix.txt with the decision below", "context.json cert_anchor and amicus line"],
+  "gaps": ["A base-rate cut for self-represented paid petitions and for waived-response petitions"],
+  "notes": "The corpus query has no filter that isolates comparable pro se paid petitions, so its rows were generic."
+}
