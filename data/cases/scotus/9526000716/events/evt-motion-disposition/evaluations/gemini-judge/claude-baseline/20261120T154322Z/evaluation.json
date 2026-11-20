@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.16,
+    "notes": "An execution-eve capital stay application carries irreversible life-or-death stakes for the applicant, elevating it above routine procedural motions. Its broader doctrinal and national reach is narrow, however: it presented a case-specific Wiggins trial-mitigation claim dismissed at the threshold under Texas Art. 11.071, sec. 5, drew zero amicus briefs, and was summarily denied alongside certiorari without separate writing or noted dissent."
+  },
+  "brier_score": 0.000225,
+  "brier_skill_score": 0.9834729197485207,
+  "case_id": "scotus/9526000716",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": 0.013389019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.003,
+          "Gorsuch": 0.004,
+          "Jackson": 0.03,
+          "Kagan": 0.004,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.04,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013389019934335404,
+    "total": 0.013389019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T16:07:45.305078Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed ~2026-11-19T19:10Z while 26A716 and 26-6187 were unresolved. retrieval_log.json (result_capture_coverage: 1.0) shows only local statpack/record reads and two fedcourts query calls (one prior sample with retrieved_doc_date 2026-11-17, and 26-6187 showing no disposition), with no web or live-docket lookups.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json records interim_reading: 'denied' (interim_granted: 0) on resolved_at: '2026-11-19', and the 2026-11-20 docket snapshot records a single Nov. 19 order denying both 26A716 and the petition for a writ of certiorari.",
+        "claim": "The Court will deny the stay application and will deny the linked certiorari petition (No. 26-6187) in the same order on November 19, 2026.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.referred_to_court is true, and the Nov. 19 order in 2026-11-20.json contains the exact phrase 'presented to Justice Alito and by him referred to the Court is denied.'",
+        "claim": "Justice Alito will refer the application to the full Court, and the order will read 'presented to Justice Alito and by him referred to the Court is denied'.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The primary procedural claim held: outcome.interim_signals.response_requested is false and no response call appears in 2026-11-20.json (though no uninvited Texas opposition entry was recorded on 26A716's docket before disposition either).",
+        "claim": "The Court will not call for a response (though Texas is expected to file an opposition uninvited).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.amicus_briefs is 0, outcome.noted_dissent_from_denial is null, outcome.writing_roles is null, and the Nov. 19 order is unsigned with no separate writing.",
+        "claim": "No amicus entry will appear before disposition, and the order will be unsigned with no noted dissent.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T190436Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T16:07:45.305078Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

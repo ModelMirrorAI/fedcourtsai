@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.34,
+    "notes": "Overton sought to halt his imminent execution. His challenge to Florida\u2019s clemency process and access to its records could also affect other prisoners under warrant. The Court resolved this application and the linked petition in a brief order that announced no rule for future cases."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.004,
+          "Gorsuch": 0.004,
+          "Jackson": 0.02,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.002,
+          "Sotomayor": 0.04,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:49:02.338122Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward forecast made November 15. All ten logged calls have captured results. They concern the opening record, statpack, tooling, an unrelated grant-filtered corpus query and the candidate\u2019s output. The rationale describes the November 14 submission and treats the decision as pending. Nothing points to retrieval of the November 19 order.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.2-astra",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.98,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 19 order says the application was presented to Justice Thomas, referred by him to the Court, and denied. Its next sentence denies certiorari.",
+        "claim": "Justice Thomas will refer the stay to the full Court, which will deny it and certiorari in the same short order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Florida filed on November 17, two calendar days after the forecast. The outcome records no response request.",
+        "claim": "Florida will file opposition promptly without a formal call for a response.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 19 docket lists only the application, Florida\u2019s response, Overton\u2019s reply, the referral and the order. The outcome records zero amicus briefs.",
+        "claim": "No amicus will file.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 19 entry confirms the predicted calendar date. The snapshot gives no time of day to check the afternoon cutoff.",
+        "claim": "The Court will act between November 17 and the afternoon of November 19, before the scheduled execution time.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The complete disposing entry consists of two sentences. It names no author or dissenter, gives no reasons and records no separate writing.",
+        "claim": "The order will give no reasons and most likely carry no noted dissent or separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261115T141636Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:49:02.338122Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

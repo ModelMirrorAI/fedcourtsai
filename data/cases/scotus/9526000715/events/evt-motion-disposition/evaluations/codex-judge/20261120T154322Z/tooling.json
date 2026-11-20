@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000715",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "Local file reads",
+    "Committed interim statpack",
+    "JSON Schema validation"
+  ],
+  "helpful": [
+    "The November 19 docket entry identifies who ruled and distinguishes the stay denial from the sealing grant. The capture markers show which retrieval results were observable."
+  ]
+}

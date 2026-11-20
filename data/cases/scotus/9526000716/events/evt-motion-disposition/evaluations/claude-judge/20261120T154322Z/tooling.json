@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000716",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json per candidate",
+    "outcome.interim_signals alongside the docket snapshot"
+  ],
+  "gaps": [
+    "outcome.json records the resolution date but not the time of the order, so a same-day forward prediction cannot be placed before or after it",
+    "Query slices in the retrieval log are truncated, which cut off the filter of one live-docket fetch I needed to read in full"
+  ],
+  "notes": "Did not rebuild the candidates' statpack; all three quoted the same interim counts and none was marked wrong on base rates."
+}

@@ -1,0 +1,30 @@
+# Evaluation of `codex-baseline` — `scotus/9526000715` (`evt-motion-disposition`)
+
+## Stage and scoring context
+
+This is an **`interim`-stage** cell (`moment: arrival`) resolving *Rachel Beth Odom v. Oklahoma*, No. `26A715`. On November 19, 2026—three days after the November 16 submission—Justice Gorsuch denied the stay application in chambers without calling for a response, without referring the application to the full Court, and without any amicus filings or separate writings (`outcome.interim_reading = "denied"`, `outcome.interim_granted = 0`, `response_requested = false`, `referred_to_court = false`, `amicus_briefs = 0`, `writing_roles = null`), while granting Odom's accompanying motion for leave to file the application and appendix under seal.
+
+Because the stage is `interim`, `segment_base_rate`, `brier_skill_score`, and `claim_scores` (`interim-v3`) are computed and stamped by the harness (`base_rate_basis` stays `null`, and `vote_accuracy` and `semantic_grades` do not apply). The committed `metrics/statpack.md` interim pool clears `INTERIM_BASE_RATE_MIN_RESOLVED = 50`, so the stamped segment base rate populates cleanly. `codex-baseline` predicted `predicted_disposition = "denied"` (`granted = 0`) at `probability = 0.04`, earning `correct = 1` and `brier_score = 0.0016`, improving substantially over the stamped segment base rate.
+
+## Analysis of `reasoning.md` (`reasoning_quality = 0.78`)
+
+`codex-baseline` combined strong primary-source extraction from the linked certiorari petition with notable miscalibration on the full-Court referral step and an overlooked finality barrier:
+
+- **Primary-source reading and statpack grounding:** Even though the public certiorari petition PDF in linked `No. 26-502` consisted of 56 scanned image pages with no extractable text layer, `codex-baseline` resourcefully rendered its image masks in memory and read the primary pages directly (`pp. i, iii, 6–10`) without falling back to web-search summaries. Uniquely among the candidates, `codex-baseline` identified that the unpublished Oklahoma Court of Civil Appeals decision rested on *three* state-law findings alongside *Baxter v. Palmigiano*, creating an evidentiary/harmlessness obstacle to reversal even on Odom's stronger parallel-prosecution Fifth Amendment theory, and weighed parental separation harm against the child's interest in timely placement. Its base-rate discussion properly leaned on `statpack.md`'s `private × unmarked` cell (`7.0%`, `63/906`) over the `all × unmarked` margin, noted the `16` unparsed applications across OT2016–OT2025 and escalation-selection caveats, and named the core factual uncertainty created by the sealed stay papers (what state-court action was imminent on November 16).
+- **Referral miscalibration and missing § 1257(a) finality analysis:** Two analytical gaps hold `reasoning.md` back from the top tier:
+  1. `codex-baseline` assigned a **`42%` probability to full-Court referral** (`referral-increment = 0.42`, alongside `17%` for `response-requested-increment`), suggesting Justice Gorsuch *"could also send the papers to the full Court for a short order (42%) without requesting a response."* Even after rightly observing that the statpack's escalation columns mix later developments and pending cases, `42%` fails to adjust for the strong institutional norm that Circuit Justices deny non-capital, unescalated private state family-law stay applications alone in chambers rather than referring them directly to Conference without a response.
+  2. Despite reading in the `26-502` petition that a motion to terminate parental rights remained pending in the state trial court, `reasoning.md` analyzed only evidentiary reversibility on the three state-law findings and omitted the threshold 28 U.S.C. § 1257(a) interlocutory non-finality obstacle (*Cox Broadcasting*) to four votes for certiorari under *Hollingsworth v. Perry*. It also noted the bundled sealing motion in the snapshot without addressing how procedural sealing leave is treated or likely resolved.
+
+## Predicted reasoning (`predicted_reasoning_quality = 0.80`)
+
+`codex-baseline`'s brief `predicted_reasoning.md` committed cleanly to three central claims, all of which held:
+
+1. **Short chambers denial by Justice Gorsuch within about two weeks (`borne-out`):** Expected Justice Gorsuch to deny the stay in a short order within about two weeks of the November 16 submission. Justice Gorsuch entered a one-line denial three days after submission, on November 19.
+2. **Action without response request or full-Court referral (`borne-out`):** Correctly forecast that Justice Gorsuch would act alone without calling for a response or referring the application to the full Court.
+3. **Zero additional amicus filings and no separate writing (`borne-out`):** Correctly forecast zero further amicus entries and an unreasoned order with no separate writing.
+
+Per the rubric, brevity itself earns no penalty, and every claim the document committed to was borne out. It lands at `0.80`—above `0.75`, yet modestly below a top-anchor grade—because it completely omitted the bundled motion for leave to file the application and appendix under seal (which accounted for half of the November 16 submission entry and half of Justice Gorsuch's November 19 order) and committed only to a broader two-week window rather than disposal within days.
+
+## Leakage check
+
+`retrieval_log.json` (`mode: "forward"`, `result_capture_coverage: 0.3538`, with top-level shell wrappers captured and inner sub-commands unobserved) logs calls between `14:36:57Z` and `14:40:32Z` on `2026-11-19` against arrival snapshot `2026-11-17.json`, before Justice Gorsuch's November 19 order was posted. Its external queries targeted `No. 26-502` in the corpus (`retrieved_doc_date: "2026-10-15"`), `558 U.S. 183`, `supremecourt.gov/rss/cases/json/26-502.json` explicitly filtered to entries before `2026-11-16`, and the October 15, 2026 scanned certiorari petition PDF in `No. 26-502`. `retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, and `leakage_suspected = false`.

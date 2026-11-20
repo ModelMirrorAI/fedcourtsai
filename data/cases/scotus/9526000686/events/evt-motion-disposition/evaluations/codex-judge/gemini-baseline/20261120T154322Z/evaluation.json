@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.34,
+    "notes": "Overton sought to halt his imminent execution. His challenge to Florida\u2019s clemency process and access to its records could also affect other prisoners under warrant. The Court resolved this application and the linked petition in a brief order that announced no rule for future cases."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9952989638395793,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.013550019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.001,
+          "Gorsuch": 0.003,
+          "Jackson": 0.015,
+          "Kagan": 0.004,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.025,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013550019934335404,
+    "total": 0.013550019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:49:02.338122Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward forecast made November 15. The log shows requests for both live dockets, the November 14 petition and appendix, and earlier Florida cases. All 61 calls have outcome_only capture, so the log preserves queries and call status without returned text. The candidate reports both dockets pending. The staged docket independently dates Florida\u2019s response and Overton\u2019s reply to November 17 and the referral and denial to November 19. Nothing in the reasoning reports those later events as known.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.2-astra",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 1.0,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The docket records Florida\u2019s response and then Overton\u2019s reply on November 17. The outcome records no formal response request.",
+        "claim": "Florida will oppose the stay without a formal request by November 16 or 17, and Overton will reply.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 19 order says the application was presented to Justice Thomas, referred by him to the Court, and denied. Its next sentence denies certiorari.",
+        "claim": "Justice Thomas will refer the application and the full Court will deny the stay and linked petition together.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 19 docket lists only the application, Florida\u2019s response, Overton\u2019s reply, the referral and the order. The outcome records zero amicus briefs.",
+        "claim": "No amicus brief will arrive before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket establishes the November 19 disposition and confirms the forecast\u2019s calendar window. It gives no time to test the within-day prediction.",
+        "claim": "The Court will enter the denial on November 18 or by the afternoon of November 19, before the scheduled execution.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The entry says \u201cpresented to Justice Thomas and by him referred to the Court is denied.\u201d It records no separate writing or named dissenter.",
+        "claim": "The order will use the usual referral-and-denial language and carry no recorded separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261115T141636Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:49:02.338122Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000686",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-brief-response-disposition",
+      "message": "gemini-baseline's reasoning.md attributes facts and pinpoint citations to documents that do not contain them: a December 2013 clemency interview, a Florida Supreme Court holding that the clemency claim was untimely and procedurally barred under Fla. R. Crim. P. 3.851(d) ('slip op. at 10-11 & n.6', 'application-response.txt at 5-6'), and a single-claim application. The staged application and response say none of this, and a CourtListener check of the decision below (opinion 11528932) found no 'interview' or 'untimely' and a merits rejection of the clemency claim. I lowered reasoning_quality to 0.45 on that basis; a grader who did not check the decision below would likely grade it higher, so expect panel disagreement on this cell. Prediction, correct and brier_score are unaffected.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0"
+}

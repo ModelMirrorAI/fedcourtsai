@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000714",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "All three predictions were created on the resolution date (2026-11-19, about 14:35-14:57Z), and outcome.json's resolved_at carries a date only. I graded leakage as not applicable on the strength of the withdrawal letter's docket filename stamp (2026-11-19 15:55) being later than the predictions, plus the two candidates that checked the live docket reporting it as still pending. A resolution timestamp in the outcome would make this same-day ordering checkable directly."
+    }
+  ]
+}

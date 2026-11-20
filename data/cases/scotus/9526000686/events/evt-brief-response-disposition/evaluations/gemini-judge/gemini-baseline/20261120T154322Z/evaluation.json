@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.08,
+    "notes": "While every execution carries ultimate life-or-death stakes for the individual applicant, in doctrinal, institutional, and national terms this was a routine, cursory end-stage Florida capital stay application raising repetitive clemency-discretion and state-law clemency-records claims the Court had summarily rejected in multiple recent Florida warrant cases, drawing zero amici, no Court-requested response, and an unsigned denial without noted dissent."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.004,
+          "Jackson": 0.015,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.001,
+          "Sotomayor": 0.025,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:58:06.267441Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction run on 2026-11-17T21:49:21Z (outcome_only capture), two days before the 2026-11-19 disposition. Queries covered provisioned files, statpack data, pending linked petition 26-6154, prior resolved SCOTUS warrant dockets, and pre-existing lower-court opinions via CourtListener; the event was genuinely open when predicted.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.68,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json interim_signals records response_requested: false and amicus_briefs: 0.",
+        "claim": "Neither Justice Thomas nor the full Court will enter a request for a response, and no amicus curiae brief or motion will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals records referred_to_court: true, and record/snapshots/2026-11-19.json recites that exact referral phrasing in the November 19 denial order.",
+        "claim": "Justice Thomas will refer the application to the full Court upon disposition, with the order reciting in standard form that the application presented to Justice Thomas and by him referred to the Court is denied.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition 'denied', interim_reading 'denied', and resolved_at '2026-11-19'; record/snapshots/2026-11-19.json confirms concurrent denial of the stay and certiorari on November 19, 2026.",
+        "claim": "The Court will act on November 18 or the afternoon of November 19, 2026, denying the stay application in full alongside a concurrent denial of certiorari in No. 26-6154.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "record/snapshots/2026-11-19.json shows an unsigned summary denial stating no rationale, and staged record/documents/application.txt and application-response.txt contradict the stated posture: neither mentions a December 2013 interview, October 20, 2026 warrant, or Rule 3.851(d) clemency bar, and application-response.txt shows two questions presented including clemency-records access.",
+        "claim": "The Court will conclude stay relief is foreclosed because the application's sole question\u2014a thirteen-year gap between a December 2013 clemency interview and an October 20, 2026 death warrant\u2014is barred under Fla. R. Crim. P. 3.851(d), lacks a Woodard conflict, and is dilatory.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records writing_roles: null, noted_dissent_from_denial: null, and votes: [], and record/snapshots/2026-11-19.json shows an unsigned order with no separate writings.",
+        "claim": "The order denying the stay application will issue as an unsigned miscellaneous order with no separate opinion from any Justice.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261117T214921Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:58:06.267441Z"
+  },
+  "reasoning_quality": 0.52,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

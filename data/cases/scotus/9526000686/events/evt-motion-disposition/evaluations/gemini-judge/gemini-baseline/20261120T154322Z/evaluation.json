@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Although an imminent execution carries irreversible individual stakes and the application framed constitutional challenges to Florida's clemency and death-warrant processes, the full record shows a routine, splitless end-stage warrant stay application barred by decade-late state procedural defaults (following a 2014 clemency proceeding), attracting zero amici, no formal response call, and a summary unsigned denial with no noted dissents."
+  },
+  "brier_score": 6.4e-05,
+  "brier_skill_score": 0.9952989638395793,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.008,
+        "score": 0.013550019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.001,
+          "Gorsuch": 0.003,
+          "Jackson": 0.015,
+          "Kagan": 0.004,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.025,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013550019934335404,
+    "total": 0.013550019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:52:53.235133Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed at 20261115T141636Z, four days before the 2026-11-19 disposition. Retrieval log (23 calls, result_capture_coverage: 0.0 due to standing engine telemetry shape) queried local statpack/corpus records, CourtListener pre-arrival opinions, and one 2026-11-15 web search for the pre-arrival 2026-11-12 Florida Supreme Court decision (SC2026-1724 / SC2026-1725), candidly disclosed in retrieval.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.97,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Snapshot 2026-11-19.json and outcome.json (interim_signals) show Florida filed its response on November 17, 2026 without any 'Response requested' entry (response_requested: false), Overton's CCRC-Middle counsel filed a reply on November 17, 2026 (application-reply.txt), and amicus_briefs was 0.",
+        "claim": "Florida's Attorney General will file a brief in opposition on November 16 or 17, 2026 without a formal 'Response requested' order from the Court or Circuit Justice, followed by a short reply from Overton's CCRC-Middle counsel and zero amicus briefs.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "On November 19, 2026, Justice Thomas referred Application 26A686 to the Court (referred_to_court: true) and the Court issued an unsigned order reading: 'Application (26A686) for stay of execution of sentence of death presented to Justice Thomas and by him referred to the Court is denied. The petition for a writ of certiorari is denied.' (interim_reading: 'denied', interim_granted: 0).",
+        "claim": "Justice Thomas will refer Application 26A686 to the full Court, and on November 18 or November 19, 2026 the Court will deny both the stay application and linked certiorari petition No. 26-6154 in a brief unsigned order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.json records noted_dissent_from_denial: null, votes: [], and writing_roles: null, and snapshot 2026-11-19.json shows no separate statement or noted dissent.",
+        "claim": "The denial order will issue with no separate opinions and no publicly noted dissents.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The two-sentence November 19, 2026 order stated no merits rationale, and Respondent's November 17, 2026 opposition (application-response.txt) confirmed every predicted defect: Rule 3.851(d)(1) untimeliness following Overton's 2014 clemency denial, lack of a constitutional right to effective state clemency counsel, and rejection on the merits under Woodard and Dumschat.",
+        "claim": "The Court's order will state no substantive rationale, while the underlying record reflects independent state-law timeliness/procedural bars under Fla. R. Crim. P. 3.851(d) on decades-old clemency/conflict claims, absence of a constitutional right to effective state clemency counsel, and settled Woodard/Dumschat precedent.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261115T141636Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:52:53.235133Z"
+  },
+  "reasoning_quality": 0.95,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

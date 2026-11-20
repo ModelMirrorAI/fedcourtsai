@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "The application concerned protection from removal and work authorization for hundreds of thousands of Venezuelans. The immediate question was who would keep the district court's judgment on hold during remand. Withdrawal left the Supreme Court with no new ruling on the scope of TPS review."
+  },
+  "brier_score": 0.32489999999999997,
+  "brier_skill_score": -22.86510388313609,
+  "case_id": "scotus/9526000714",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.57,
+        "score": -0.31128598006566455
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.74,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.73,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.75,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.02,
+          "Gorsuch": 0.04,
+          "Jackson": 0.1,
+          "Kagan": 0.03,
+          "Kavanaugh": 0.04,
+          "Roberts": 0.01,
+          "Sotomayor": 0.05,
+          "Thomas": 0.03
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.31128598006566455,
+    "total": -0.31128598006566455
+  },
+  "correct": 0,
+  "created_at": "2026-11-20T15:54:04.082169Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward run. The log records a live 26A714 docket fetch at 14:40 UTC on November 19 and a read of Ninth Circuit document 109. The calls are outcome_only, so their returned text is unavailable. The candidate reports a pending Supreme Court application and quotes the lower court's November 18 extension. That pre-resolution order was available for forward retrieval. Neither the queries nor the reasoning show that the November 19 withdrawal was known.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.2-astra",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.32,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The only letter recorded after submission is the November 19 letter withdrawing the application.",
+        "claim": "The Solicitor General is more likely to file a supplemental letter maintaining the application than to withdraw promptly.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The application was withdrawn the next day. The outcome records no response, referral or amici, and the condition for this forecast never arose.",
+        "claim": "If the application survives immediate withdrawal, the likely course includes a response request, referral and one to three amicus submissions.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The recorded interim reading is withdrawn and interim_granted is 0.",
+        "claim": "On the scored, non-moot outcomes, the likelier disposition is a Supreme Court stay pending appeal and any timely certiorari petition.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Submission on November 18 was followed by the withdrawal letter and closure on November 19, with no referral or amici. The staged docket does not give the reason for withdrawal.",
+        "claim": "A substantial alternative is withdrawal within 24\u201348 hours, closing the docket before referral or amicus filings.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Withdrawal ended the proceeding before the Court addressed the stay factors or recorded votes.",
+        "claim": "If the full Court reaches the stay factors, six Justices will grant relief on the strength of the prior stay and Doe.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T141840Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:54:04.082169Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
