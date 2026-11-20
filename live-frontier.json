@@ -710,7 +710,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 207
+      "petitions": 217
     }
   ],
   "discovery": {
@@ -718,14 +718,14 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-19",
-        "cursor": 653,
-        "frontier": 653,
+        "checked_on": "2026-11-20",
+        "cursor": 657,
+        "frontier": 657,
         "holes": 0,
         "holes_reprobed": 0,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-18",
+        "newest_filed": "2026-11-19",
         "outside_serial": 526,
         "outside_source": "order-list 2026-11-16",
         "problems": [],
@@ -735,16 +735,16 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-19",
-        "cursor": 6191,
-        "frontier": 6191,
+        "checked_on": "2026-11-20",
+        "cursor": 6196,
+        "frontier": 6196,
         "holes": 0,
-        "holes_reprobed": 1,
+        "holes_reprobed": 0,
         "holes_serving": [],
         "lookahead_hits": [],
         "newest_filed": "2026-11-19",
-        "outside_serial": 6095,
-        "outside_source": "miscellaneous-order 2026-11-12",
+        "outside_serial": 6187,
+        "outside_source": "miscellaneous-order 2026-11-19",
         "problems": [],
         "quiet_business_days": 0,
         "stall_threshold": 7,
@@ -752,16 +752,16 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-19",
-        "cursor": 716,
-        "frontier": 716,
+        "checked_on": "2026-11-20",
+        "cursor": 722,
+        "frontier": 722,
         "holes": 2,
         "holes_reprobed": 2,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-18",
-        "outside_serial": 661,
-        "outside_source": "miscellaneous-order 2026-11-12",
+        "newest_filed": "2026-11-19",
+        "outside_serial": 716,
+        "outside_source": "miscellaneous-order 2026-11-19",
         "problems": [],
         "quiet_business_days": 0,
         "stall_threshold": 3,
@@ -770,11 +770,11 @@
     ],
     "term": 26
   },
-  "documents_provisioned": 160,
-  "generated_on": "2026-11-19",
+  "documents_provisioned": 161,
+  "generated_on": "2026-11-20",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 207,
+  "next_conference_petitions": 217,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 765
+  "watchlist": 775
 }
