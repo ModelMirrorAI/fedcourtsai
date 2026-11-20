@@ -455,6 +455,125 @@ def _own_dockets(watchlist: AiWatchlist) -> frozenset[str]:
     )
 
 
+@dataclass(frozen=True)
+class _DocketRead:
+    """One docket as the pass reads it, before it is planned."""
+
+    case_id: str
+    title: str
+    entries: list[dict[str, Any]]
+    #: The docket's stored events, by id.
+    held: dict[str, corpus.CorpusEvent]
+    #: The motion entries the lead docket also holds.
+    lead_owned: frozenset[int]
+    #: Whether the docket is a member whose lead docket is not stored.
+    lead_unread: bool
+
+    def plan(
+        self,
+        *,
+        today: date,
+        local_rule: DistrictRule | None,
+        adjudicated: Mapping[tuple[str, str], Adjudication] | None,
+        judgment: bool,
+    ) -> DocketPlan:
+        return plan_docket(
+            self.case_id,
+            self.title,
+            self.entries,
+            self.held,
+            today=today,
+            local_rule=local_rule,
+            lead_owned=self.lead_owned,
+            adjudicated=adjudicated,
+            judgment=judgment,
+            lead_unread=self.lead_unread,
+        )
+
+
+def _read_docket(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    lead: str | None,
+    cache: dict[str, list[dict[str, Any]] | None],
+) -> _DocketRead | None:
+    """One docket's stored inputs to the plan; ``None`` where the corpus stores no entries.
+
+    The read half of the pass, shared with :func:`rehearse_docket`: the
+    docket's stored entries, the entries its lead docket also holds, its row's
+    caption and its stored events. Writes nothing.
+    """
+    if case_id not in cache:
+        cache[case_id] = _entries(conn, case_id)
+    entries = cache[case_id]
+    if not entries:
+        return None
+    owned: frozenset[int] = frozenset()
+    lead_unread = False
+    if lead is not None:
+        if lead not in cache:
+            cache[lead] = _entries(conn, lead)
+        lead_unread = not cache[lead]
+        owned = trial_opener.owned_by_lead(cache[lead] or (), entries)
+    row = corpus.get_row(conn, case_id)
+    return _DocketRead(
+        case_id=case_id,
+        title="" if row is None else (row.case_name or row.docket_number or ""),
+        entries=entries,
+        held={e.event_id: e for e in corpus.events_for_case(conn, case_id)},
+        lead_owned=owned,
+        lead_unread=lead_unread,
+    )
+
+
+class NotRehearsable(ValueError):
+    """The trial stage plans nothing on the docket: it is not one it reads, or is not stored."""
+
+
+def rehearse_docket(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    watchlist: AiWatchlist,
+    *,
+    today: date,
+    local_rules: Mapping[str, DistrictRule] | None = None,
+    adjudicated: Mapping[tuple[str, str], Adjudication] | None = None,
+) -> DocketPlan:
+    """What the pass would do on one listed docket read on ``today``, writing nothing.
+
+    The plan :func:`run_pass` acts on for the same docket and day, read the
+    same way (:func:`_read_docket`) over a read-only connection: ``opens``
+    holds the events the pass would write, each as it would write it. The
+    caller that forecasts one of them before the pass has written it, the
+    local cascade's rehearsal, takes the event from here so its definition
+    cannot differ from the pass's. Raises :class:`NotRehearsable` for a docket
+    the stage does not read or the corpus holds no entries for.
+    """
+    surveyed = [
+        lead for docket, lead in trial_opener.survey_dockets(watchlist) if docket == case_id
+    ]
+    if not surveyed:
+        raise NotRehearsable(
+            f"{case_id} is not a district docket the trial stage reads off the watchlist"
+        )
+    # The first listing, as the pass reads a docket listed twice.
+    lead = surveyed[0]
+    read = _read_docket(conn, case_id, lead, {})
+    if read is None:
+        raise NotRehearsable(f"the corpus holds no stored docket entries for {case_id}")
+    if read.lead_unread:
+        raise NotRehearsable(
+            f"{case_id} is a member docket whose lead docket {lead} is not stored, so no "
+            "motion opens on it"
+        )
+    return read.plan(
+        today=today,
+        local_rule=(local_rules or {}).get(case_id.partition("/")[0]),
+        adjudicated=adjudicated,
+        judgment=case_id in _own_dockets(watchlist),
+    )
+
+
 def _pass_docket(  # noqa: PLR0913 - one docket of the pass and what it reads
     report: TrialPassReport,
     corpus_db_path: Path,
@@ -470,36 +589,16 @@ def _pass_docket(  # noqa: PLR0913 - one docket of the pass and what it reads
 ) -> None:
     court, _, docket = case_id.partition("/")
     with corpus.connect(corpus_db_path) as conn:
-        if case_id not in cache:
-            cache[case_id] = _entries(conn, case_id)
-        entries = cache[case_id]
-        if not entries:
+        read = _read_docket(conn, case_id, lead, cache)
+        if read is None:
             report.dockets_missing.append(case_id)
             return
         report.dockets_read.append(case_id)
-        owned: frozenset[int] = frozenset()
-        lead_unread = False
-        if lead is not None:
-            if lead not in cache:
-                cache[lead] = _entries(conn, lead)
-            lead_unread = not cache[lead]
-            owned = trial_opener.owned_by_lead(cache[lead] or (), entries)
-        if lead_unread:
+        if read.lead_unread:
             report.held_for_lead.append(case_id)
-        row = corpus.get_row(conn, case_id)
-        held = {e.event_id: e for e in corpus.events_for_case(conn, case_id)}
-        title = "" if row is None else (row.case_name or row.docket_number or "")
-        plan = plan_docket(
-            case_id,
-            title,
-            entries,
-            held,
-            today=today,
-            local_rule=local_rule,
-            lead_owned=owned,
-            adjudicated=adjudicated,
-            judgment=judgment,
-            lead_unread=lead_unread,
+        held = read.held
+        plan = read.plan(
+            today=today, local_rule=local_rule, adjudicated=adjudicated, judgment=judgment
         )
         # A stored open event with no committed definition is a write that
         # stopped between the corpus and the ledger: written again, from the

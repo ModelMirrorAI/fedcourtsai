@@ -366,6 +366,21 @@ case carrying a resolved event as well as an open one the evaluate half
 re-provisions last, and its uncut record says nothing about how the
 forecasters were placed.
 
+The leg's cell follows the settled case's court. `scotus` runs the engine's
+baseline predictor. Any other court makes the leg a **trial rehearsal**: the
+dispatch pins a district docket a prediction slice lists and names one trial
+event, the leg runs the engine's trial predictor (`<engine>-trial`) under
+`local-cascade --rehearse-trial`, and the cascade plans that event in the run
+with the watchlist pass's own reader, provisions the forward trial record
+(`record/trial.json` included) and runs one predict cell on the trial prompt.
+The corpus is only read, so the event exists in the runner's checkout alone.
+A rehearsal is the one way a real engine runs a slice cell before the pass has
+written an event. It differs from a `run-predict` trial cell in what the
+paragraph below lists and in three further ways: the event is the pass's plan
+for the later of today and the switch-on day rather than a stored row, the
+codex leg alone has the CourtListener MCP surface, and the cell runs without
+the forward gate's ten-day bound on how long ago the docket was read.
+
 What the leg still does not reach, each covered somewhere else: the **invocation
 block** (`engine-actions-smoke`'s whole subject, below), the **post-agent harness
 steps** — `stamp-cell` and collect, which the local cascade path does not run

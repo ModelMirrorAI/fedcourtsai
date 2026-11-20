@@ -161,7 +161,9 @@ on:
           token-free one, not promotion evidence. SPENDS MODEL TOKENS: `gate`
           (three smoke cells, three boot probes), `all`, `engine-smoke`,
           `engine-actions-smoke`, `codex-application-repro` (one codex
-          evaluate cell) and `qp-labeler-smoke` (cents).
+          evaluate cell) and `qp-labeler-smoke` (cents). `engine-smoke` on a
+          pinned district docket of a prediction slice runs the slice's actor
+          on a rehearsal event.
         type: choice
         default: offline-gate
         options:
@@ -216,8 +218,21 @@ on:
       # post-cutover channels mutate (SCOTUS dockets) have; pre-cutover
       # index-only rows (circuit courts) serve the query/open-events reads but
       # never a snapshot.
+      #
+      # The engine smoke reads the court to choose its cell. `scotus` runs the
+      # engine's baseline predictor. Any other court runs the engine's trial
+      # predictor on a rehearsal event (`local-cascade --rehearse-trial`): the
+      # pinned docket is one a prediction slice lists, `event` names the trial
+      # event to forecast, and the event is planned in the run by the
+      # watchlist pass's own reader, never read from or written to the corpus.
+      # Such a dispatch pins `docket` and `event` both: the resolver screens
+      # for no slice, and a rehearsal without a named event is refused before
+      # any token is spent.
       court:
-        description: Court to resolve a case in, or the court half of a pinned case.
+        description: >-
+          Court to resolve a case in, or the court half of a pinned case. A
+          court other than `scotus` makes engine-smoke a trial rehearsal on a
+          pinned slice docket.
         type: string
         default: scotus
       docket:
@@ -225,7 +240,8 @@ on:
         # its own record in its steps, because that record is the scenario.
         description: >-
           Empty resolves a known-good case from this run's corpus; a docket id
-          pins that case instead. Ignored by repro scenarios.
+          pins that case instead (required for a district docket's
+          engine-smoke rehearsal). Ignored by repro scenarios.
         type: string
         default: ""
       engine:
@@ -247,7 +263,9 @@ on:
       event:
         description: >-
           Event id to narrow the cascade scenarios to; empty runs every event.
-          Pair it with a pinned `docket`.
+          Pair it with a pinned `docket`. Required for a district docket's
+          engine-smoke rehearsal, where it names the trial event planned in
+          the run.
         type: string
         default: ""
       deploy-environment:
@@ -1049,6 +1067,41 @@ jobs:
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
 
+      # Which predictor the smoke cell runs as, decided once for the three
+      # steps that name it (the MCP sidecar, the MCP client config, the
+      # cascade). The settled case's court picks the population, as the predict
+      # matrix's routing does for a listed docket: `scotus` is the Court's
+      # docket and runs the engine's baseline predictor; any other court is a
+      # pinned district docket of a prediction slice and runs the engine's
+      # trial predictor, with `--rehearse-trial` so the cascade plans the named
+      # trial event in the run. The cascade itself refuses a predictor of the
+      # wrong population, a docket no slice lists, and a rehearsal with no
+      # `event`, each before any token is spent, so a mismatch here fails the
+      # leg rather than running the wrong cell. Both values are fixed strings
+      # chosen by this script; the court reaches it through the environment.
+      - name: Name the smoke cell's predictor
+        id: smoke_cell
+        if: ${{ matrix.scenario == 'engine-smoke' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          COURT: ${{ needs.plan.outputs.court }}
+        run: |
+          set -euo pipefail
+          case "$ENGINE" in
+            claude-code) family=claude ;;
+            codex) family=codex ;;
+            gemini) family=gemini ;;
+            *)
+              echo "::error::no smoke predictor is mapped for this engine"
+              exit 1
+              ;;
+          esac
+          if [ "$COURT" = scotus ]; then
+            printf 'predictor=%s-baseline\nrehearse=\n' "$family" >> "$GITHUB_OUTPUT"
+          else
+            printf 'predictor=%s-trial\nrehearse=--rehearse-trial\n' "$family" >> "$GITHUB_OUTPUT"
+          fi
+
       # The CourtListener MCP half of the cell posture, wired for the codex
       # leg only. The corpus sidecar above gives every leg its corpus
       # retrieval; this pair gives codex the same MCP surface a live cell
@@ -1075,7 +1128,7 @@ jobs:
         if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
         with:
           role: predictor
-          actor: codex-baseline
+          actor: ${{ steps.smoke_cell.outputs.predictor }}
           courtlistener-api-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
 
       # The tested `mcp-config` command emits codex's client format from the
@@ -1087,11 +1140,13 @@ jobs:
       # per-client stdio spawn.
       - name: Configure the codex cell's MCP retrieval
         if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
+        env:
+          PREDICTOR: ${{ steps.smoke_cell.outputs.predictor }}
         run: |
           set -euo pipefail
           mkdir -p .codex
           uv run fedcourts mcp-config --engine codex \
-            --role predictor --actor codex-baseline \
+            --role predictor --actor "$PREDICTOR" \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
           mkdir -p .codex/rules
           uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
@@ -1129,11 +1184,14 @@ jobs:
       # the sidecar, exactly like a live cell. The runner seam scrubs the AWS
       # credentials and every other engine's key from the agent env, so the
       # agent holds only its own engine's key (the ternaries below); the
-      # predictor ids map each engine to its baseline in
-      # config/predictors.yaml (an id drift fails loudly, naming the enabled
+      # predictor id is the one the step above named, the engine's baseline
+      # in config/predictors.yaml or its trial predictor for a district
+      # docket (an id drift fails loudly, naming the enabled
       # ids). One predictor cell, so the spend is one cell's worth against
       # the settled open-event case (a resolved event would also replay
-      # evaluator cells — the input description says so). The engine keys
+      # evaluator cells — the input description says so). A trial rehearsal
+      # is one predict cell and nothing else: its event is open, so no
+      # evaluator runs. The engine keys
       # resolve from the deployment environment like every other secret, so a
       # dispatch naming an environment without the keys gets an empty key and
       # the cell fails closed regardless of step ordering. Output lands only in the
@@ -1157,6 +1215,8 @@ jobs:
           COURT: ${{ needs.plan.outputs.court }}
           DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
+          PREDICTOR: ${{ steps.smoke_cell.outputs.predictor }}
+          REHEARSE: ${{ steps.smoke_cell.outputs.rehearse }}
           AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
@@ -1186,11 +1246,6 @@ jobs:
           CODEX_HOME: ${{ github.workspace }}/.codex
         run: |
           set -euo pipefail
-          case "$ENGINE" in
-            claude-code) predictor=claude-baseline ;;
-            codex) predictor=codex-baseline ;;
-            gemini) predictor=gemini-baseline ;;
-          esac
           # The agent's transcript is untrusted model output: it stays in the
           # run log (plain text) and out of the *rendered* step summary, where
           # a stray fence-closer could inject live Markdown. Only the
@@ -1209,10 +1264,12 @@ jobs:
           # through silently — an estate holding no snapshot for the case the
           # plan job settled — so an unprovisioned run fails instead of
           # certifying a posture it never ran in.
+          # $REHEARSE is empty or the one fixed flag the naming step chose, so
+          # a district docket's cell is a trial rehearsal and no other cell is.
           uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
-            --engine "$ENGINE" --predictor "$predictor" --corpus-backend ranged \
+            --engine "$ENGINE" --predictor "$PREDICTOR" --corpus-backend ranged \
             --require-predictions --require-record \
-            ${EVENT:+--event "$EVENT"} | tee cascade-output.log
+            ${REHEARSE:+"$REHEARSE"} ${EVENT:+--event "$EVENT"} | tee cascade-output.log
           {
             echo ""
             echo "## Engine smoke: one $ENGINE cell over the service sidecar"

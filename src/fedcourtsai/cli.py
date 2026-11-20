@@ -23824,7 +23824,6 @@ def _read_authorship_tally(
 
 def _read_trial_record(
     case: str,
-    court: str,
     event: str,
     payload: Mapping[str, Any],
     *,
@@ -23833,35 +23832,27 @@ def _read_trial_record(
 ) -> TrialRecord | None:
     """A forward trial-stage cell's ``record/trial.json``, or ``None`` for any other cell.
 
-    Read off the snapshot the cell is placed on and two committed files, the
-    watchlist and the districts' local rules, so it costs no corpus read. A
-    replay cell gets none: the watchlist is undated, and a related docket it
-    lists (an appeal, say) can postdate the cell's cutoff. The docket is read
+    :func:`fedcourtsai.pipeline.trial_record.build_for_cell`, the builder the
+    local cascade shares, read off the snapshot the cell is placed on and two
+    committed files, so it costs no corpus read. The docket is read
     as of the cell's cutoff where it has one, and as of today otherwise, which
     is how the pass that opened the event read it: a deadline counts as passed
     over the days since the snapshot, which the forward staleness bound limits.
-    A checkout with no watchlist or no local rules still gets the judge and the
-    briefing the docket itself states; a file that is there and cannot be read
+    A file that is there and cannot be read
     refuses the cell (exit 1) before anything is written.
     """
-    if mode != "forward" or moments.trial_spec_for(event) is None:
-        return None
-    config_root = get_settings().config_root
-    rules_file = config_root / TRIAL_LOCAL_RULES_FILENAME
     try:
-        rules = load_trial_local_rules(rules_file) if rules_file.exists() else {}
-        watchlist = _ai_cases_watchlist(config_root)
+        return trial_record.build_for_cell(
+            get_settings().config_root,
+            case,
+            event,
+            payload,
+            read_on=cutoff or datetime.now(UTC).date(),
+            mode=mode,
+        )
     except (OSError, ValueError, yaml.YAMLError) as exc:
         typer.echo(f"::error::{case} trial record: {type(exc).__name__} reading config", err=True)
         raise typer.Exit(code=1) from exc
-    return trial_record.build(
-        case,
-        event,
-        payload,
-        watchlist,
-        read_on=cutoff or datetime.now(UTC).date(),
-        local_rule=rules.get(court),
-    )
 
 
 def _echo_staged_lists(case: str, written: provision.RecordWrite, paths: CasePaths) -> None:
@@ -24370,7 +24361,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             authorship_tally=tally,
             same_question=listed,
             trial=(
-                _read_trial_record(case, court, event, placement.payload, cutoff=cutoff, mode=mode)
+                _read_trial_record(case, event, placement.payload, cutoff=cutoff, mode=mode)
                 if event and out is None
                 else None
             ),
@@ -25849,7 +25840,10 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
     event: Annotated[
         str,
-        typer.Option(help="Event id to run; default: every event the case defines."),
+        typer.Option(
+            help="Event id to run; default: every event the case defines. Required on a "
+            "docket an enabled prediction slice admits, which runs one trial event."
+        ),
     ] = "",
     engine: Annotated[
         str,
@@ -25866,7 +25860,8 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     predictor: Annotated[
         str,
         typer.Option(
-            help="Run only this enabled predictor id (one cell); default: every enabled predictor."
+            help="Run only this enabled predictor id (one cell), which must be one of the "
+            "docket's population; default: every enabled predictor of that population."
         ),
     ] = "",
     corpus_backend: CorpusBackendOption = "",
@@ -25889,6 +25884,17 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             "context.json and no documents; the integration smoke certifies the "
             "production cell posture, so an unprovisioned run must fail rather "
             "than pass having certified nothing.",
+        ),
+    ] = False,
+    rehearse_trial: Annotated[
+        bool,
+        typer.Option(
+            "--rehearse-trial",
+            help="On a docket an enabled prediction slice admits, plan the docket's "
+            "trial events in the run, as the watchlist pass would on the later of "
+            "today and the stage's switch-on day, and forecast the one --event names. "
+            "The corpus is only read: the event is written to the run's data root "
+            "alone. Refused on any other docket.",
         ),
     ] = False,
 ) -> None:
@@ -25914,6 +25920,18 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     one-cell shape a token-spending smoke run wants. ``--require-record`` refuses
     a case the corpus holds no snapshot for before any token is spent, so a smoke
     certifying the production cell posture cannot pass over an unprovisioned cell.
+
+    A docket is routed to its population's actors, as the predict matrix routes
+    it: the Court's fleet, or a prediction slice's own for a docket the slice
+    lists, and ``--predictor`` naming an actor of the other population is
+    refused. A slice docket runs one trial event, named by ``--event``, as a
+    forward cell with the ``record/trial.json`` ``provision-snapshot`` stages,
+    and is refused where the docket already shows the ruling. Where the corpus
+    stores no open trial event for the docket, which is every docket before the
+    watchlist pass's first writing day, ``--rehearse-trial`` plans the docket's
+    events in the run with the pass's own reader and forecasts the named one:
+    an event the pass would hold, or would not open, is refused with its
+    reason. A rehearsal has no evaluate half, since its event is open.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
     ``--engine replay`` is also offline but emits a captured real prediction from
@@ -25942,6 +25960,7 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             predictor=predictor or None,
             backend=_corpus_backend(corpus_backend),
             require_record=require_record,
+            rehearse_trial=rehearse_trial,
         )
     except KeyError as exc:
         # Unknown engine backend (get_runner names the available ones).
@@ -25965,6 +25984,8 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     typer.echo(f"  snapshot:    {report.snapshot or 'none in corpus'}")
     typer.echo(f"  context:     {report.context or 'not provisioned'}")
     typer.echo(f"  documents:   {len(report.documents)} file(s)")
+    if report.trial is not None:
+        typer.echo(f"  trial:       {report.trial}")
     for placed in report.placements:
         cut = f"cut {placed.cutoff.isoformat()}" if placed.cutoff is not None else "no cut"
         typer.echo(
@@ -25974,6 +25995,11 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             + (
                 ", not a cell run-predict mints"
                 if placed.role == "predict" and placed.event_id in report.unforecastable
+                else ""
+            )
+            + (
+                ", a rehearsal: the event is planned in this run and not stored in the corpus"
+                if placed.role == "predict" and placed.event_id in report.rehearsed
                 else ""
             )
         )
