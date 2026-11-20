@@ -2593,12 +2593,13 @@ _INDEX_TAIL_RE = re.compile(r"[.\u2026]\s*[a-z.\s-]{0,12}\d{1,4}\s*[a-z]{0,2}\s*
 # A line that is only a page number — an appendix folio, or an arabic or roman
 # one — and so says nothing about which item the page belongs to.
 _FOLIO_LINE_RE = re.compile(rf"{_FOLIO_TOKEN}|\d{{1,4}}|[ivxlc]{{1,7}}", re.IGNORECASE)
-# A front-matter page number as printed: a lower-case roman numeral on a line
-# of its own. A filing numbers its tables in roman numerals and its appendix in
-# lettered folios ("1a"), so a page that prints one is the brief's own front
-# matter, or an index page inside the appendix, and never the appendix's first
-# page of text.
-_FRONT_MATTER_FOLIO_RE = re.compile(r"(?=[ivxl])l?x{0,3}(?:i[xv]|v?i{0,3})")
+# A front-matter page number as printed: a lower-case roman numeral up to
+# ninety-nine, on a line of its own. A filing numbers its tables in roman
+# numerals and its appendix in lettered folios ("1a"), so a page that prints
+# one and no lettered folio is the brief's own front matter, or an index page
+# inside the appendix, and never the appendix's first page of text. Only the
+# appendix start reads it; the item readings inside the appendix do not.
+_FRONT_MATTER_FOLIO_RE = re.compile(r"(?=[ivxl])(?:x[cl]|l?x{0,3})(?:i[xv]|v?i{0,3})")
 # How many of a page's first non-blank lines are read for that number; its last
 # one is read too, for a printer that sets the number at the foot.
 _FOLIO_TOP_LINES = 2
@@ -2693,12 +2694,17 @@ def _is_front_matter_page(page: str) -> bool:
     """Whether a page prints a front-matter page number (:data:`_FRONT_MATTER_FOLIO_RE`).
 
     Read off the page's first :data:`_FOLIO_TOP_LINES` non-blank lines and its
-    last one, where a printer sets the number.
+    last one, where a printer sets the number. A page that also prints a
+    lettered appendix folio (:func:`_page_folios`) is an appendix page whatever
+    else it carries, so a stray "i" or "v" at its foot does not make it front
+    matter.
     """
-    lines = _top_lines(page, len(page))
-    return any(
-        _FRONT_MATTER_FOLIO_RE.fullmatch(line) for line in [*lines[:_FOLIO_TOP_LINES], *lines[-1:]]
-    )
+    lines = [line for raw in page.splitlines() if (line := " ".join(raw.split()))]
+    lines = [line for line in lines if _UNREAD_NOTE_RE.fullmatch(line) is None]
+    printed = [*lines[:_FOLIO_TOP_LINES], *lines[-1:]]
+    if not any(_FRONT_MATTER_FOLIO_RE.fullmatch(line) for line in printed):
+        return False
+    return not _page_folios(page)
 
 
 def _appendix_start(pages: Sequence[str]) -> int | None:

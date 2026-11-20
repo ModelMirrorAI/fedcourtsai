@@ -1063,9 +1063,10 @@ that:
 - **the filing's own body is never cut for its appendix** — the body (every page
   before the appendix starts: an `APPENDIX` divider, the appendix's own contents
   page or its first folio, read from the fourth page on and never on a contents
-  page or on a page that prints a front-matter page number, a lower-case roman
-  numeral on a line of its own among the page's first two lines or as its last,
-  which is how the filing's own table of appendices is numbered) is kept whole,
+  page or on a page that prints a front-matter page number and no lettered
+  appendix folio: a lower-case roman numeral up to ninety-nine on a line of its
+  own, among the page's first two lines or as its last, which is how the
+  filing's own table of appendices is numbered) is kept whole,
   and only the appendix pays for the
   overflow; a body that alone fills the cap is head-cut with the appendix;
 - **every appendix item keeps its opening** — the appendix is split into its
@@ -1988,7 +1989,9 @@ the same link.
   (the document back-fill's scope) or, with the `all-live` option, the whole
   live slice. An untruncated row was never cut, so the two cuts agree on it; an
   OCR-recovered row is head-cut by design and has no text layer to re-read; a
-  row with a note was cut the appendix-aware way already; a set key or a link
+  row with a note was cut the appendix-aware way already, under the reading of
+  the appendix start in force when it was fetched, and a later change to that
+  reading does not bring it back into the class; a set key or a link
   off the Court's host is not one the pass will GET. The ledger tallies the
   truncated rows left out under `ocr-derived`, `has-cut-note` and
   `unfetchable-url`, so a truncated row a reader expects to see and does not is

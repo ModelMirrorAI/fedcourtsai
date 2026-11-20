@@ -21876,14 +21876,19 @@ freeze commit is recorded here.
   was then budgeted as appendix items.
 
   **What moved.** `pipeline.documents._appendix_start` also passes over a page
-  that prints a front-matter page number (`_is_front_matter_page`): a
-  lower-case roman numeral on a line of its own, among the page's first two
-  non-blank lines or as its last. A filing numbers its tables in roman
-  numerals and its appendix in lettered folios, so such a page is the brief's
-  own front matter or an index page inside the appendix. Nothing else in the
-  cut moves: the contents-page test, the item readings, the budget passes and
-  the notes are as they were. A filing whose start is read nowhere else is
-  cut as one body, as before.
+  that prints a front-matter page number and no lettered appendix folio
+  (`_is_front_matter_page`): a lower-case roman numeral up to ninety-nine on
+  a line of its own, among the page's first two non-blank lines or as its
+  last. A filing numbers its tables in roman numerals and its appendix in
+  lettered folios, so such a page is the brief's own front matter or an index
+  page inside the appendix. The start is read by the cut of the `petition`
+  and `application` kinds and by the cut of a combined row
+  (`cut_combined_text`: the opposition, the cert-stage replies, the
+  supplemental briefs and the party letters), which splits each of its
+  filings at the same start. Nothing else in either cut moves: the
+  contents-page test, the item readings, the budget passes and the notes are
+  as they were. A filing whose start is read nowhere else is cut as one body,
+  as before.
 
   No prompt byte and no registry field other than the boundary row moves, so
   no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
@@ -21899,9 +21904,10 @@ freeze commit is recorded here.
     every predictor and its reach is `all`, because no registered reach names
     the dockets whose petition sets its table of appendices this way. It is
     **gradual**: fetching is idempotent per kind and URL, so a stored row
-    keeps its cut until its link changes or a re-cut reaches it, and the
-    re-cut pass's class leaves out a row that already carries a cut note.
-    Reaching the stored rows is a change of its own. It is registered
+    keeps its cut until its link changes or a re-cut reaches it. The re-cut
+    pass's class leaves out a row that already carries a cut note and holds
+    no combined kind, so no pass reaches the stored rows today. Reaching
+    them is a change of its own. It is registered
     **pending** in this change's own PR (`fedcourts register-boundary`), under
     the 2026-10-14 merge-stamping declaration, and its `merge` and `at` stay
     null until the promotion merge that carries it to `main` stamps them
@@ -21914,8 +21920,9 @@ freeze commit is recorded here.
   **The population.** Read on 2026-11-20 over blob
   `09f88411f498424fcfa5a2c123b6f1ea570667e90ea2f0b87e5aaec9a964d8a4` (newest
   pull 2026-11-20, newest stored snapshot row 2026-07-13) with documents from
-  the per-case content store, from an interactive session, counts and
-  identifiers only. Of the 59,874 live-slice dockets, 3,805 are
+  the per-case content store, counts and identifiers only. The read was made
+  from an interactive session with scratch scripts and each suspect's PDF
+  fetched from the Court's site; no committed command reproduces it. Of the 59,874 live-slice dockets, 3,805 are
   predict-relevant. The live slice stores 1,382 petitions and 10 applications
   that are truncated and carry a cut note; 1,272 petitions and 3 applications
   among them carry an appendix-item note, 566 and 2 of them
@@ -21928,13 +21935,16 @@ freeze commit is recorded here.
   `scotus/73278994`. On each of the 21 the old start is a front-matter page,
   between PDF pages 5 and 12. On 20 the new start falls later in the filing,
   between PDF pages 21 and 70, and on one, `scotus/72471748`, no start is
-  read and the filing is cut as one body. Four of the five predict-relevant starts sat on
-  a table's one-entry last page and one on a table set without leaders. On
+  read and the filing is cut as one body. Four of the five predict-relevant starts sat on a table's
+  one-entry last page and one on a table set without leaders. On
   the other 41 suspects the start does not move. Beyond the suspects, 70 of
-  the predict-relevant petitions carrying an appendix-item note were drawn at
-  random and none moves. The suspect test is not a census of the
-  rows the rule moves: a row whose conclusion precedes its first note was
-  read only through that draw.
+  the 555 predict-relevant petitions that carry an appendix-item note and are
+  not suspects were drawn at random, and none moves. The suspect test is not
+  a census of the rows the rule moves. The 655 such petitions outside the
+  predict-relevant rows and the 3 applications were not read, so a row there
+  whose conclusion precedes its first note may move uncounted. No combined
+  row was read: how many stored opposition, reply, supplemental or letter
+  rows the rule moves is not known.
 
   **What the change does not reach.** A table of appendices on a page that
   prints no roman page number, or prints it elsewhere than the page's first
@@ -21954,10 +21964,17 @@ freeze commit is recorded here.
   The runnable effect check once it is live:
   - `uv run pytest tests/test_document_coverage.py -k "table_of_appendices or
     roman_numeral"` is green;
-  - once a re-cut has reached the row, the stored petition of
-    `scotus/9026000654` carries no appendix-item note before its
-    `CONCLUSION` line, and its first appendix-item note names a PDF page
-    after 53;
+  - owed to the change that lets a re-cut reach a row carrying a cut note,
+    and run where the corpus is pulled once that re-cut has been applied:
+    `uv run python -c "import re; from fedcourtsai import corpus; from
+    fedcourtsai.config import get_settings; s = get_settings(); conn =
+    corpus.connect_readonly(corpus.corpus_db_path(s.corpus_root),
+    backend=s.corpus_backend).__enter__(); t = next(d.text for d in
+    corpus.documents_for_case(conn, 'scotus/9026000654') if d.kind ==
+    'petition'); n = re.search(r'\[pipeline note: [^\]]*appendix item[^\]]*
+    PDF page (\d+)', t); c = re.search(r'(?m)^\s*CONCLUSION\s*$', t);
+    print(c is not None and c.start() < n.start(), int(n.group(1)) > 53)"`
+    prints `True True`;
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('appendix-start-past-front-matter' in {b.name for b in H})"` prints

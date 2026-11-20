@@ -18,7 +18,9 @@ recorded in *Contract for the re-cut pass* (`docs/live-sources.md`):
   two cuts agree on it. An OCR-recovered row is head-cut by design
   (:func:`~fedcourtsai.pipeline.documents.extract_filing_text` says why) and
   re-reading it without OCR would empty it. A row whose text carries a note was
-  cut the appendix-aware way already. A set-keyed or off-host URL is one this
+  cut the appendix-aware way already, under the reading of the appendix start
+  in force when it was fetched; a later change to that reading does not bring
+  it back into this class. A set-keyed or off-host URL is one this
   pass will not GET.
 - **Scope.** The predict-relevant live-slice rows by default — queued for
   prediction or selected by the salience gate
