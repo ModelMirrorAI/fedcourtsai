@@ -18,7 +18,7 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   — and the whole corpus is assembled precisely so predict/evaluate can **query
   the full history** for retrieval and back-testing, even for cases they never
   predict.
-- **Prediction scope — SCOTUS dockets only.** The agentic predict/evaluate
+- **Prediction scope — SCOTUS dockets and one committed slice.** The agentic predict/evaluate
   stages cost one to two orders of magnitude more than ingestion (see
   [budget.md](budget.md)), so they run on a deliberate subset:
   `predict.scope=scotus_docket` — only cases whose `court == "scotus"` (the
@@ -61,7 +61,8 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   registered, `ai-watchlist`, which reads `config/ai-watchlist.yaml` and admits
   every docket that file names, each listed case's own and its related ones. A
   slice is switched on by naming it in `predict.slices` (`config/tracking.yaml`);
-  the committed list is empty, so the scope is the SCOTUS docket alone. A
+  the committed list names `ai-watchlist`, so the scope is the SCOTUS docket
+  and that slice's dockets. A
   switched-on slice admits exactly its dockets at the matrix backstop (the
   predict and evaluate matrices, and `predict-plan` / `evaluate-plan`, which
   rehearse them) and no other docket of their courts. The hard exclusions and
@@ -113,8 +114,9 @@ its own `watchlist` share, sized for one run a day (the day's first run-pull
 pull window). It stores **facts only**: a dated snapshot when the docket changed and
 the `cases` row stamped `last_pulled`, with no entry-pinned event extraction,
 no Supreme Court outcome detection and no queue. The trial stage's pass
-follows it over the stored district dockets and writes nothing while no trial
-moment is switched on ([trial-stage.md](trial-stage.md)).
+follows it over the stored district dockets and writes the event and outcome
+records of every trial moment switched on by that day, which is all five from
+the stage's switch-on day ([trial-stage.md](trial-stage.md)).
 Each run opens with one onboard, a whole read of a docket the corpus holds no
 snapshot of (the lead rotates among them by day), while the whole share is
 there to cover it. It then reads incrementally every docket refreshed before:

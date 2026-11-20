@@ -873,6 +873,17 @@ at 2,000 characters by schema. Both are original
 analysis attributing CourtListener as the source, not a republication of their
 dataset.
 
+A district-court cell of a prediction slice reads a different input: its
+snapshot is CourtListener's docket with the text of the filings the RECAP
+archive holds, which is the CC BY-ND docket layer and, filing by filing, its
+author's own work, and a district filing can name people who are no party to
+the case. The snapshot is gitignored and never committed. The slice's two
+prompts ask a cell to summarize rather than reproduce, to keep a quotation
+to the few words a point turns on (for a judge, the passage of the court's
+order a grade rests on), and to name no private individual who is not a
+party, counsel or the judge, which is what keeps a district cell's committed
+prose a characterization.
+
 A forecast **results release** adds one more surface: the release dataset, a flat
 export of the ledger built from the tagged commit by `fedcourts export` — a
 predictions table and a gradings table (CSV and Parquet), the reasoning

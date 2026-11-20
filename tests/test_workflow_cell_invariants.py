@@ -385,6 +385,8 @@ def _gemini_allowlist(name: str) -> set[str]:
 GEMINI_CELL_PROMPTS = (
     Path(".github/prompts/predict.md"),
     Path(".github/prompts/evaluate.md"),
+    Path(".github/prompts/predict-trial.md"),
+    Path(".github/prompts/evaluate-trial.md"),
 )
 
 

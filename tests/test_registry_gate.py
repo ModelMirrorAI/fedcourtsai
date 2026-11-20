@@ -20,10 +20,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import process_version
 from fedcourtsai.cli import app
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
 from fedcourtsai.process_registration import LiveActor, register_boundary
 from fedcourtsai.promotion_record import (
     DECLARATION_HEADING,
@@ -618,9 +620,27 @@ def _cli(repo: Path, at: str) -> Any:
         os.chdir(previous)
 
 
+def _keep_the_court_s_actors(repo: Path) -> None:
+    """Drop every slice actor from ``repo``'s actor registries, leaving the
+    fleet a registry holding only the Court's labels registers."""
+    for path, key in (
+        ("config/predictors.yaml", "predictors"),
+        ("config/evaluators.yaml", "evaluators"),
+    ):
+        config = yaml.safe_load((repo / path).read_text(encoding="utf-8"))
+        config[key] = [
+            a
+            for a in config[key]
+            if a.get("population", SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+        ]
+        assert config[key]
+        _write(repo, path, yaml.safe_dump(config, sort_keys=False))
+
+
 def test_the_command_passes_a_registered_fleet_and_refuses_a_moved_one(tmp_path: Path) -> None:
     repo = _init(tmp_path)
     paths = _carry_fleet(repo)
+    _keep_the_court_s_actors(repo)
     _write(repo, REGISTRY_PATH, dump_registry(DECLARED))
     _write(repo, FREEZE_RECORD_PATH, RECORD)
     _commit(repo, "main", MAIN_AT)

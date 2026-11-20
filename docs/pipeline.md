@@ -1179,8 +1179,8 @@ that runs (later windows and same-day dispatches skip it). It is
 the window what `pull-all` wrote, and the window's summary carries the step's
 outcome and the dockets refreshed, failed and deferred. The same command then
 runs the trial stage's pass over the stored district dockets
-([trial-stage.md](trial-stage.md)), whose event and outcome records, once a
-trial moment is switched on, ride the window's commit like any other the pull
+([trial-stage.md](trial-stage.md)), whose event and outcome records, from
+the trial moments' switch-on day, ride the window's commit like any other the pull
 writes. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
@@ -3156,7 +3156,7 @@ workflow passes one, because a case list a round did not derive is a case list
 nothing authenticated. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons, plus the dockets
-of any prediction slice `predict.slices` switches on; none is on, see the
+of any prediction slice `predict.slices` switches on, which is `ai-watchlist`; see the
 *Scope* section of [data-pipeline.md](data-pipeline.md)), so `plan` first
 pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix.

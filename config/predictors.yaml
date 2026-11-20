@@ -12,6 +12,8 @@
 #   prompt:      repo-relative path to the prompt template
 #   enabled:     skipped when false
 #   mcp_servers: manifest ids (below) this predictor's cells get
+#   population:  the prediction population whose dockets it forecasts: `scotus`
+#                when absent, else a prediction slice's id (`ai-watchlist`)
 
 # Tool manifest: the pinned MCP servers cells may be configured with,
 # referenced per predictor by id. This is the pipeline-attribution record once
@@ -102,3 +104,36 @@ predictors:
     description: >-
       Baseline Gemini predictor using the same prompt for an apples-to-apples
       comparison against claude-baseline and codex-baseline.
+
+  - id: claude-trial
+    engine: claude-code
+    model: null
+    prompt: .github/prompts/predict-trial.md
+    enabled: true
+    mcp_servers: [courtlistener]
+    population: ai-watchlist
+    description: >-
+      Claude Code forecaster for the AI-watchlist slice's district-court motions and
+      final dispositions.
+
+  - id: codex-trial
+    engine: codex
+    model: null
+    prompt: .github/prompts/predict-trial.md
+    enabled: true
+    mcp_servers: [courtlistener]
+    population: ai-watchlist
+    description: >-
+      Codex forecaster for the AI-watchlist slice's district-court motions and
+      final dispositions.
+
+  - id: gemini-trial
+    engine: gemini
+    model: null
+    prompt: .github/prompts/predict-trial.md
+    enabled: true
+    mcp_servers: [courtlistener]
+    population: ai-watchlist
+    description: >-
+      Gemini forecaster for the AI-watchlist slice's district-court motions and
+      final dispositions.

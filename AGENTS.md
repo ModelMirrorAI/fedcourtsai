@@ -5,8 +5,9 @@ this repository. `CLAUDE.md` points here. Read this fully before doing anything.
 
 ## What this project is
 
-fedcourtsai predicts events in US federal courts — currently SCOTUS dockets
-only (cert grant/deny, votes, reasoning) — as a scheduled pipeline of GitHub
+fedcourtsai predicts events in US federal courts — SCOTUS dockets (cert
+grant/deny, votes, reasoning) and the district-court motions of a short list
+of AI cases — as a scheduled pipeline of GitHub
 Actions; see `docs/pipeline.md`. There are two very different kinds of work,
 and you are doing exactly one of them in any given run: **pipeline
 development** (change the Python package, workflows, docs, schemas, or prompts
@@ -628,7 +629,7 @@ task-specific instructions: the prompt file named in your run
 | What must a merits vote forecast beat before its accuracy means anything? (majority alignment and unanimity built, with a read-only readout over the corpus's merits lineups; the side coder's prompt, extract, append-only codes artifact and run mode built, and the score baselines' read-only readout, with positions estimated from the lineups and a valence split, read over the first run's codes; the unanimity and majority-alignment floors on the leaderboard's merits blocks; the frozen per-Term fit file, its command and its writer built, and the coded baselines read from it on the leaderboard's merits blocks; the clean check owed) | `docs/merits-alignment-baseline.md` |
 | How does a development cycle run: sweep, rank, fan out, promote, close out? | `docs/work-cycle.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
-| What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage designed, not registered; its vocabulary, moments and claim sets declared and switched off; its opener and resolver run by a dry-run command and by the watchlist refresh's pass, which writes nothing while no moment is switched on) | `docs/trial-stage.md` |
+| What is a district-court forecast, and how does it resolve? (the court-agnostic trial stage registered for the AI-watchlist slice under `ai-watchlist-v1`, with three predictors and three judges of its own; its five moments switched on from the day `TRIAL_SWITCH_ON` names; its opener and resolver run by a dry-run command and by the watchlist refresh's pass, which writes events and outcomes from that day on; no skill-over-base-rate figure, and no published board reads the slice) | `docs/trial-stage.md` |
 | How is a watchlist case's appeal forecast, and what happens when it reaches the Supreme Court? (the court-agnostic appeal stage and the linked-petition rule designed, not registered; the disposition reader built as library code, read by a dry-run command and a sampling command that measures it, and wired into nothing else) | `docs/appeal-stage.md` |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
 | What does a cell agent have to produce? | `.github/prompts/` |

@@ -764,7 +764,12 @@ runbook, [docs/security.md](docs/security.md).
   CourtListener's extraction of the lower court's opinion and docket, reached
   by a match on the lower court's docket number, on a docket row or in an
   opinion's caption, that can be wrong, and neither
-  party-authored nor the Court's own record. No round takes a case list from anything a
+  party-authored nor the Court's own record. A district-court cell of a
+  prediction slice reads more of it: its snapshot carries the text of the
+  docket's filings where the RECAP archive holds them, party-authored and far
+  larger than a petition's papers, a forward cell may retrieve briefs and related
+  rulings the snapshot lacks, and its judge may retrieve the court's own
+  order on the event, which quotes the parties. No round takes a case list from anything a
   requester wrote, since the matrix is derived from committed corpus state.
   Agents are instructed to treat all of it as data, not instructions, and the
   cell's credential carries no `contents: write` — its output rides to `collect`

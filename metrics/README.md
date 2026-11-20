@@ -1651,9 +1651,10 @@ stratified cells beside it. Its leakage digest is the exception by design: it
 reads every population, since contamination in a slice's cell is as much its
 subject as in the Court's, and it is not a performance figure. `fedcourts
 validate` warns on a committed cell whose case no population admits, since no
-figure reads it. No slice is
-switched on, so no artifact's shape or figures change. A slice's figures, once
-it has cells, are built over its own population, under its own process
+figure reads it. One slice is
+switched on, `ai-watchlist`, and no artifact here reads it, so no artifact's
+shape or figures change. A slice's figures, once
+built, are built over its own population, under its own process
 version, and are never differenced against or pooled into a SCOTUS figure.
 
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,

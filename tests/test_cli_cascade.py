@@ -11,15 +11,17 @@ from typer.testing import CliRunner
 from fedcourtsai import cli
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.cascade import CascadeReport, CellPlacement
-from fedcourtsai.registry import enabled_evaluators, enabled_predictors
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import evaluators_for, predictors_for
 
 from .conftest import FixtureCorpus
 
 RESOLVED = ["--court", "ca9", "--docket", "101"]
 
-# Fan-out (and thus the reported file counts) is driven by the enabled registry.
-_N_PRED = len(enabled_predictors(Path("config") / "predictors.yaml"))
-_N_EVAL = len(enabled_evaluators(Path("config") / "evaluators.yaml"))
+# Fan-out (and thus the reported file counts) is driven by the Court's
+# population of the enabled registry: a slice's actors run no cascade cell.
+_N_PRED = len(predictors_for(Path("config") / "predictors.yaml", SCOTUS_POPULATION_KEY))
+_N_EVAL = len(evaluators_for(Path("config") / "evaluators.yaml", SCOTUS_POPULATION_KEY))
 
 # A predict cell writes prediction.json, reasoning.md, and predicted_reasoning.md;
 # an evaluate cell an evaluation.json + evaluation.md pair per predictor scored.

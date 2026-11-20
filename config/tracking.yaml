@@ -407,7 +407,7 @@ predict:
   # forecast only on its slice's own switched-on events (the trial stage's),
   # never on its stage-less baseline. A slice is switched
   # on with its own moments, prompts and process version; empty admits none.
-  slices: []
+  slices: [ai-watchlist]
   # Salience-INDEPENDENT hard cap on predict cells (predictor x case x event jobs)
   # queued into one run. A backstop *below* the salience gate, not part of it: it
   # holds whatever selection did, so a selection that fails open cannot fan out an

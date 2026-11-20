@@ -52,8 +52,9 @@ PLANNING_USD_PER_CELL = 4.11
 #: by up to ~1.9x.
 #:
 #: Engine keys, not actor ids: a cell carries its resolved ``engine``, and the
-#: per-actor measurements behind these rows are one actor per engine in the
-#: shipped registries.
+#: per-actor measurements behind these rows are the Supreme Court docket's
+#: actor on each engine. A prediction slice's cell on the same engine is
+#: priced at the same row, which no measurement of a slice cell stands behind.
 PLANNING_RATES_USD_PER_CELL: dict[str, dict[str, float]] = {
     "predict": {"claude-code": 4.27, "codex": 3.00, "gemini": 5.30},
     "evaluate": {"claude-code": 5.92, "codex": 2.20, "gemini": 3.95},

@@ -27,7 +27,7 @@ from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
-from fedcourtsai.process_version import CURRENT_PROCESS_LABEL
+from fedcourtsai.process_version import CURRENT_PROCESS_LABEL, current_label
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -575,9 +575,12 @@ def test_process_digest_all_lists_every_enabled_actor() -> None:
     result = runner.invoke(app, ["process-digest", "--all"])
     assert result.exit_code == 0, result.output
     lines = [line for line in result.output.splitlines() if line.strip()]
-    # Three predictors + three evaluators in the shipped registry.
-    assert len(lines) == 6
-    assert all("sha256:" in line and CURRENT_PROCESS_LABEL in line for line in lines)
+    # Each population's three predictors and three evaluators, every line
+    # under its own population's label.
+    assert len(lines) == 12
+    assert all("sha256:" in line for line in lines)
+    assert sum(CURRENT_PROCESS_LABEL in line for line in lines) == 6
+    assert sum(current_label("ai-watchlist") in line for line in lines) == 6
 
 
 def test_stamp_evaluator_derives_the_base_rate_salience_version(_data_root: Path) -> None:

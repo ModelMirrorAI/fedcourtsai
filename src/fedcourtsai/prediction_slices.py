@@ -25,14 +25,15 @@ the design rather than options:
   salience-deferred.
 
 A slice docket is forecast on its slice's own events alone: the trial
-stage's, once their moment is switched on
+stage's, from the day their moment is switched on
 (:func:`fedcourtsai.store.forecastable_event_ids`). The stage-less baseline
 event every lower-court docket carries earns no cell by being listed.
 
 Admitting a slice's cases is only the scope half. A slice is switched on
 together with its own moments, prompts and decision model, and under its own
 process version (``docs/process-version.md``), so that no SCOTUS digest moves
-when a slice opens; until those exist the registry's slices stay off.
+when a slice opens. ``ai-watchlist`` is switched on that way, under the label
+``ai-watchlist-v1`` and with the trial stage's moments.
 """
 
 from __future__ import annotations
