@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000686",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "mcp:courtlistener:search_document"
+  ],
+  "helpful": [
+    "The final docket snapshot settled every procedural claim in the forecast documents.",
+    "CourtListener search_document let me check pinpoint citations to the decision below without reading the whole opinion."
+  ],
+  "gaps": [
+    "The decision below is not provisioned in record/documents, so a candidate's citations to it can only be checked by retrieval.",
+    "Opinion ids in a candidate's log are not labelled with case names, so matching an id to a case takes a lookup."
+  ],
+  "notes": "Read only the interim section header of the committed statpack; all three candidates quoted the same pooled figures, so I did not rebuild their statpack with statpack-at."
+}

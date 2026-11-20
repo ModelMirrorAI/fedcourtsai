@@ -1,0 +1,46 @@
+# Evaluation of `gemini-baseline` — `scotus/9526000686` (`evt-brief-response-disposition`)
+
+## Stage, Outcome, and Quantitative Summary
+
+This is an **interim** cell (`stage: interim`, `moment: response-filed`) scoring Application No. 26A686 (*Thomas M. Overton v. Florida, et al.*), a capital stay-of-execution application resolved on November 19, 2026.
+
+- **Realized outcome (`outcome.json`):** `actual_disposition: "denied"`, `interim_reading: "denied"`, `interim_granted: 0` (`actual_granted: 0`), `interim_signals: {"amicus_briefs": 0, "referred_to_court": true, "response_requested": false}`, `noted_dissent_from_denial: null`, `writing_roles: null`.
+- **Predicted outcome (`gemini-baseline`):** `predicted_disposition: "denied"`, `granted: 0`, `probability: 0.005`.
+- **Scored binary fields:** `correct = 1` (matching `interim_granted = 0` on the granted/ungranted line) and `brier_score = (0.005 - 0)^2 = 0.000025`.
+- **Baseline and skill ownership:** Because this is an interim cell, `segment_base_rate` and `brier_skill_score` (along with `claim_scores`) belong to the harness rather than the evaluator and are left unset for `stamp-cell` to populate against the stamped segment base rate. The committed statpack's interim finer-reading pool over `2016–2025` clears the 50-application floor with zero `finer_unread` outcomes, supporting the harness-stamped baseline.
+
+## Reasoning Quality (`reasoning.md` — `0.52`)
+
+`gemini-baseline`'s `reasoning.md` combines strong empirical/corpus conditioning with serious factual and procedural confabulations in its case-specific legal analysis, warranting a split score (`0.52`):
+
+- **What `reasoning.md` got right (empirical and institutional conditioning):** `gemini-baseline` did thorough quantitative work on the interim docket structure. Beyond citing the `private` × `capital` ten-Term cut (`10/288 = 3.5%`), it inspected per-Term `applicant_cuts` in `metrics/statpack.json` to observe that `private` × `capital` went `0/88` across `OT2024–OT2025`, explained clearly why the overall `response-filed` grant rate (`115/339 = 33.9%`) does not carry positive selection signal when a state files an unsolicited capital warrant opposition (`response_requested: false`), and ran targeted `fedcourts query` lookups on recent OT2026 capital stay applications (`26A623` and `26A634` *Guardado*, `26A524` *Reaves*, `26A405` *Beasley*, `26A414` and `26A428` *Pike*) to verify empirically that `6/6` resolved with `referred_to_court: true` despite summary denials without separate writings.
+- **Major factual and doctrinal errors (confabulated case premises):** Despite reading `application.txt`, `application-response.txt`, `documents.json`, and all three chunks of the Florida Supreme Court's November 13, 2026 opinion in *Overton v. State* (`opinion_id=11528932`, Nos. SC2026-1724 & SC2026-1725), `gemini-baseline` invented a detailed factual and procedural narrative that appears in none of those sources:
+  1. It described `application.txt` as a "5-page stay application" raising "a single claim" under *Woodard* based on a "December 2013" clemency interview, an "October 20, 2026" death warrant, and the absence of a post-2013 update hearing. In fact, `application.txt` is **4 pages** (`documents.json`: `"pages": 4`), never cites *Woodard*, and never mentions December 2013, October 20, 2026 (which was the *Reaves* cert-denial date), or a 13-year clemency-interview gap.
+  2. As its second central merits pillar, `gemini-baseline` asserted that both the circuit court and the Florida Supreme Court held Overton's **clemency** claim "untimely and procedurally barred under Fla. R. Crim. P. 3.851(d)" (*citing* "*Overton v. State*, slip op. at 10–11 & n.6; `application-response.txt` at 5–6"), defeating Supreme Court jurisdiction under *Coleman v. Thompson*. That holding does not exist. In *Overton v. State*, slip op. pp. 10–11 & n.6 address **Rule 3.852 public-records demands**; Rule 3.851(d) timeliness is applied only to Overton's **actual-innocence** claim in Part III.A (pp. 13–14); and Part III.B (p. 15 & n.11) rejects Overton's clemency/warrant challenge **solely on the merits as "legally non-cognizable"**, with no Rule 3.851(d) timeliness bar and no mention of a December 2013 clemency interview or Florida Executive Clemency Rule 15B. Nor does `application-response.txt` pp. 5–6 assert a Rule 3.851(d) timeliness bar on the clemency claim.
+  3. `gemini-baseline` further asserted that "no innocence ... question is raised" and that Overton "dropped his other state-court claims (including public-records objections...)" — whereas Part III.A of *Overton v. State* was an actual-innocence claim and `application-response.txt` (pp. 1, 2, 4, 7) explicitly states that Overton's second question presented in the Supreme Court challenges the denial of clemency records. (It likewise misstated *Guardado*'s clemency interview as "2014" when *Guardado* n.7 places the scheduled interview in July 2026.)
+
+Even though the bottom-line `0.005` grant probability and `0.96` referral forecast were well calibrated to the true boilerplate posture, resting half of the case-specific legal analysis on fabricated dates, a non-existent *Coleman v. Thompson* / Rule 3.851(d) procedural bar on the clemency claim, and a misstated set of questions presented substantially lowers `reasoning_quality`.
+
+## Base-Rate Usage
+
+`gemini-baseline`'s statistical handling of the committed statpack (`statpack_digest: sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4`, matching HEAD) was thorough and accurate. Every count it quoted (`156/1,337` over `2016–2025` with zero `finer_unread`; `10/288 = 3.5%` in `private` × `capital` vs `30/316 = 9.5%` on the capital margin; `0/44` in `OT2024` and `0/44` in `OT2025`; `115/339` on `response-filed` across the interim docket) reproduces exactly from `metrics/statpack.md` and `metrics/statpack.json`, and it properly respected `band: null`.
+
+## Forecast Document Quality (`predicted_reasoning.md` — `0.68`)
+
+Graded strictly against the staged record (`outcome.json`, `record/snapshots/2026-11-19.json`, and `record/documents/`), `gemini-baseline`'s `predicted_reasoning.md` got every concrete procedural and order-level prediction right while embedding its inaccurate framing of the staged stay papers into the "Disposition Rationale" section:
+
+1. **No response request and zero amici (`borne-out`):** Correctly forecast `response_requested: false` and `amicus_briefs: 0` (`outcome.json`).
+2. **Full-Court referral upon disposition (`borne-out`):** Correctly forecast `referred_to_court: true` and the standard order language reciting presentation to Justice Thomas and referral to the Court (`outcome.json` and `2026-11-19.json`).
+3. **Timing and concurrent stay/certiorari denial (`borne-out`):** Correctly forecast pre-execution denial on November 18 or November 19 alongside concurrent denial of certiorari in No. `26-6154` (`2026-11-19.json`).
+4. **Disposition rationale and "sole question presented" framing (`not-borne-out`):** Asserted unconditionally that the Court would conclude relief was foreclosed by a Rule 3.851(d) timeliness bar on a thirteen-year-old December 2013 clemency interview following an October 20, 2026 warrant as "the sole question presented in the application." The staged November 19 order in `2026-11-19.json` stated no rationale at all, and the staged filings (`application.txt`, `application-response.txt`) directly contradict that framing of the application's posture and questions presented.
+5. **Unsigned order with no separate writings (`borne-out`):** Correctly forecast an unsigned miscellaneous order with no separate opinion (`writing_roles: null`, `noted_dissent_from_denial: null`).
+
+Because four of the five central claims — covering disposition, concurrent cert denial, timing, referral, order wording, lack of response call/amici, and lack of separate writings — were specific and completely borne out while the rationale/posture claim failed against the staged record, `0.68` (just below the `0.75` "mostly borne out; one claim failed" anchor) reflects both halves fairly without double-counting the deeper `reasoning.md` critique.
+
+## Leakage Check (`not_applicable` / `leakage_suspected: false`)
+
+`gemini-baseline` ran in `forward` mode on `2026-11-17T21:49:21Z` (`created_at: 2026-11-17T22:19:59Z`), two days before the `2026-11-19` disposition (`result_capture_coverage: 0.0`, `outcome_only` capture). Inspection of `retrieval_log.json` confirms all corpus queries and CourtListener MCP calls targeted pre-existing prior dockets, the still-pending companion petition (`26-6154`), and lower-court opinions decided on or before November 13, 2026. The event was genuinely open when predicted and no outcome-revealing material existed.
+
+## Independent Big-Case Read (`0.08`)
+
+Formed independently from the case posture and outcome before inspecting candidate scores: despite the ultimate individual stakes of an execution, doctrinally and institutionally this was a routine, boilerplate end-stage Florida capital stay application raising recurring clemency-discretion and state-law records claims repeatedly turned away by the Court, drawing zero amici, no requested response, and an unsigned summary denial without noted dissent (`evaluator_score = 0.08`).

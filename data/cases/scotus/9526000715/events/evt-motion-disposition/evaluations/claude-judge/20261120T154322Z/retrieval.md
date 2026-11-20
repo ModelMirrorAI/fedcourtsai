@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (I read the committed `metrics/statpack.md` and `metrics/statpack.json` interim section to check the candidates' quoted base rates; no corpus query, CourtListener lookup or web search.)

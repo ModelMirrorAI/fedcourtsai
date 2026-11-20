@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Third emergency application in the Venezuela TPS litigation: the immigration status and work authorisation of several hundred thousand people, and (per the application) roughly 1,800 detainees, turned on whether the district court's judgment stayed on hold. Stakes are high in human and operational terms. Tempered because the governing legal question was largely settled by Mullin v. Doe before this application, and because the application was withdrawn a day after filing without the Court acting, so it produced no ruling."
+  },
+  "brier_score": 0.9025,
+  "brier_skill_score": -65.29195523093358,
+  "case_id": "scotus/9526000714",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.95,
+        "score": -0.8888859800656645
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.71,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.02,
+          "Gorsuch": 0.03,
+          "Jackson": 0.38,
+          "Kagan": 0.06,
+          "Kavanaugh": 0.05,
+          "Roberts": 0.01,
+          "Sotomayor": 0.1,
+          "Thomas": 0.02
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.8888859800656645,
+    "total": -0.8888859800656645
+  },
+  "correct": 0,
+  "created_at": "2026-11-20T15:51:45.650294Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; prediction created 2026-11-19 ~14:3x-14:5xZ). The outcome is a withdrawal docketed Nov 19 2026; the withdrawal letter's docket filename carries a 2026-11-19 15:55 stamp, later in the day than the prediction. No retrieved_doc_date on or after resolution, no read of data/qp-topics, and the reasoning treats the application as pending. Capture coverage is 0.42: the CourtListener calls and several others are unobserved, so they are graded on their queries, which target the Ninth Circuit supplemental brief, Mullin v. Doe and the earlier sibling dockets. retrieval.md discloses a check of the live 26A714 docket on Nov 18-19 that found no response or amicus entries, consistent with a still-pending application.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.0,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json interim_signals: response_requested false, referred_to_court false.",
+        "claim": "Justice Kagan will request a prompt response from the Alliance and refer the application to the full Court.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The docket carries three entries only (application, withdrawal letter, withdrawal); the Court entered no administrative stay.",
+        "claim": "A short administrative stay will issue by November 20 to hold the district court's judgment during briefing.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json: actual_disposition withdrawn, interim_granted 0, resolved 2026-11-19.",
+        "claim": "Within roughly two weeks the full Court will stay the Venezuela portions of the judgment pending appeal and any petition.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals.amicus_briefs is 0.",
+        "claim": "One or two amicus filings will arrive.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "No order issued, so there was nothing to write on.",
+        "claim": "Justice Jackson is the most likely author of a separate writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T141840Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:51:45.650294Z"
+  },
+  "reasoning_quality": 0.3,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

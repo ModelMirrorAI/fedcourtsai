@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000714",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "The decided-docket snapshot under record/snapshots, whose withdrawal-letter filename timestamp let me confirm the predictions predated the same-day withdrawal."
+  ],
+  "gaps": [
+    "The staged record does not carry the lower-court order a candidate relied on, so a claim about why the application was withdrawn cannot be settled without retrieval beyond the record."
+  ],
+  "notes": "Did not run statpack-at: all three candidates' base-rate figures matched the committed pack."
+}

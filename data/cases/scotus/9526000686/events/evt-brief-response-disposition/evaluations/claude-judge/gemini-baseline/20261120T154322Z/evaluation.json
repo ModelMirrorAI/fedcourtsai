@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "End-stage capital stay application on recurring Florida clemency-discretion and clemency-records claims that the Court had turned away in other Florida warrant cases within the preceding weeks; denied with the linked certiorari petition in a one-sentence unsigned order, no writing or noted dissent, no amicus participation. The stakes for the applicant are total, but the doctrinal and public significance beyond the execution itself is low."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.004,
+          "Jackson": 0.015,
+          "Kagan": 0.005,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.001,
+          "Sotomayor": 0.025,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:48:06.465005Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. Every logged call is timestamped 17-18 Nov 2026, before the 19 Nov resolution; the log and prose show no retrieved document dated on or after resolution, no disposing order, and no read under data/qp-topics/. No call's result was captured (outcome_only throughout), so each is graded on its query: CourtListener opinion searches bounded filed_before 2026-11-17 (Florida Supreme Court Overton and Guardado opinions, Barwick, SCOTUS Guardado/Reaves), a docket search for parallel federal proceedings bounded before 2026-11-18, and corpus queries for companion and comparator dockets (26-6154, 26-6013, 26-5865, 26-78). The 26-6154 lookup is the linked petition, queried on 17 Nov while it was still pending. The decision below (13 Nov 2026) predates resolution and is legitimate forward signal.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.7,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry Nov 19 2026: application denied and 'The petition for a writ of certiorari is denied.'",
+        "claim": "The Court will deny the stay application in full, together with a concurrent denial of certiorari in No. 26-6154, on November 18 or the afternoon of November 19.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket entries Nov 19 2026: 'Application (26A686) referred to the Court' and a disposing entry in exactly that form.",
+        "claim": "Justice Thomas will refer the application to the full Court at disposition, and the order will recite that the application presented to him and by him referred to the Court is denied.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals: response_requested false, amicus_briefs 0.",
+        "claim": "No call for a response and no amicus filing will occur before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order is unexplained, so the Court's ground cannot be read from the staged record. The premise is not supported by the staged filings either: the State's response describes the Florida Supreme Court as applying settled law on clemency records and its precedent that the clemency process meets minimal due process, and names no Rule 3.851(d) timeliness holding on the clemency claim.",
+        "claim": "The denial will rest on an independent and adequate state procedural bar (Rule 3.851(d) untimeliness of the clemency claim), the absence of a certworthy Woodard conflict, and equitable delay.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "The disposing order carries no writing or noted dissent; outcome.json writing_roles null.",
+        "claim": "The order will issue unsigned with no separate opinion, not even from Justices Sotomayor or Jackson.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261117T214921Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:48:06.465005Z"
+  },
+  "reasoning_quality": 0.45,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

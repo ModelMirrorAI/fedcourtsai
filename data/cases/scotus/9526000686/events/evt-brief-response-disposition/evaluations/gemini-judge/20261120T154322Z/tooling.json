@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000686",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener.read_document"
+  ],
+  "helpful": [
+    "Provisioned application, response, reply, and 2026-11-19 snapshot files",
+    "courtlistener.read_document for verifying cited lower-court opinion holdings in reasoning.md",
+    "metrics/statpack.json per-Term interim applicant_cuts"
+  ],
+  "gaps": [],
+  "notes": "CourtListener read_document made it straightforward to check specific lower-court pinpoint citations and procedural-bar claims in predictor reasoning documents against the actual Florida Supreme Court opinion below."
+}

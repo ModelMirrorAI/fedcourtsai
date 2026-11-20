@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "Application 26A715 is a sealed, single-family interlocutory stay request in an Oklahoma juvenile child-deprivation case resolved by a routine one-line chambers denial with zero institutional mobilization; only the underlying Fifth Amendment parallel-prosecution question in linked No. 26-502 gives the dispute modest doctrinal salience beyond the immediate parties."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000715",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.012,
+          "Jackson": 0.006,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.001,
+          "Sotomayor": 0.008,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T16:01:15.105692Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed between 14:40Z and 15:08Z on 2026-11-19 against arrival snapshot 2026-11-17.json before Justice Gorsuch's November 19 denial order posted. All 47 logged calls (outcome_only capture) targeted linked cert petition No. 26-502, Oklahoma lower-court case No. 123,076, precedent, or corpus comparison rows; gemini-baseline also transparently disclosed incidental search-grounding URL metadata on No. 26-502 containing no forecast or 26A715 disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "On November 19, 2026\u2014three days after the November 16 submission\u2014Justice Gorsuch denied Application 26A715 alone in chambers by a one-line order, with response_requested: false and referred_to_court: false in outcome.json.",
+        "claim": "Justice Gorsuch, as Circuit Justice for the Tenth Circuit, will deny the stay application without calling for a response or referring it to the full Court, disposing of it by a brief order within roughly three to ten days of its November 16, 2026 submission.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 19, 2026 docket entry in record/snapshots/2026-11-20.json states: 'Application (26A715) for stay denied by Justice Gorsuch. Motion for leave to file application and appendix under seal granted by Justice Gorsuch.'",
+        "claim": "Justice Gorsuch will act simultaneously to accommodate the accompanying motion for leave to file the application and appendix under seal.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals.amicus_briefs is 0 and the resolved snapshot records no amicus filings.",
+        "claim": "Zero further amicus briefs or submissions will be filed on the 26A715 docket.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_reading is 'denied', outcome.writing_roles is null, outcome.noted_dissent_from_denial is null, and the November 19, 2026 order carries no separate writing.",
+        "claim": "Conditional on a merits disposition of the interim request, the stay will be denied without any separate statement or dissent.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Explicitly conditioned on interim relief being granted; because Justice Gorsuch denied the stay in one line (interim_granted: 0), the condition never occurred.",
+        "claim": "If interim relief were granted in whole or in part, it would be limited to a narrow stay of Tulsa County termination-of-parental-rights trial proceedings pending disposition of No. 26-502 on the Fifth Amendment compulsion question.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T141840Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T16:01:15.105692Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

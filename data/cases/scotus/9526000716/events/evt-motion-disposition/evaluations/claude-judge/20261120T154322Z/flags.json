@@ -1,0 +1,15 @@
+{
+  "actor_id": "claude-judge",
+  "case_id": "scotus/9526000716",
+  "flags": [
+    {
+      "category": "capture-gap",
+      "event_id": "evt-motion-disposition",
+      "message": "All three predictions were written between 19:10Z and 19:25Z on 2026-11-19, the day the application was referred and denied. outcome.json records only the date, so the record cannot show whether the order had issued before the predictions ran. codex-baseline fetched the live supremecourt.gov docket JSON for the linked petition No. 26-6187 at 19:12Z that day; the logged commands print only the Nov 18 petition-filing entry (one query's filter is truncated in the log) and its prose shows no knowledge of the result, so I graded leakage not_applicable for all three. A maintainer with the order's timestamp could confirm the cell was genuinely open.",
+      "severity": "info"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0"
+}
