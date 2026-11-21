@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000714",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "grep_search",
+    "write_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "Provisioned application.txt, 2026-11-20.json snapshot, and outcome.json settled every docket timing and resolution question without external egress",
+    "metrics/statpack.md interim section verified all candidates' reference-class counts directly",
+    "Harness-captured retrieval_log.json timestamps made forward-mode non-leakage verification exact"
+  ],
+  "gaps": [],
+  "notes": "Provisioned inputs and committed statpack were sufficient to evaluate all three blinded candidates end to end with zero external corpus or MCP calls."
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000686",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener.analyze_citations",
+    "courtlistener.search"
+  ],
+  "helpful": [
+    "Provisioned post-arrival application-response.txt and application-reply.txt alongside snapshot 2026-11-19.json allowed direct verification of candidates' arrival-stage procedural and state-law timeliness inferences.",
+    "courtlistener.analyze_citations and fedcourts query quickly verified all federal, state, and OT2026 Florida warrant comparators cited across the blinded submissions."
+  ],
+  "gaps": [
+    "So. 3d parallel citations for recent Florida Supreme Court opinions are not indexed in CourtListener's reporter lookup, requiring a quick fallback name/court opinion search."
+  ],
+  "notes": "All three candidates froze the same statpack_digest as the committed metrics/statpack.json, so no historical statpack rebuild was needed."
+}

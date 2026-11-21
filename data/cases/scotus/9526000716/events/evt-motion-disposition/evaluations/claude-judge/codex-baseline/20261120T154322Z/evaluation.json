@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "Execution-eve capital stay application on a fact-bound Wiggins mitigation claim that the Texas Court of Criminal Appeals dismissed under art. 11.071 sec. 5. The individual stakes are the highest there are, but the application drew no amicus, no called-for response and no noted dissent, and the unexplained denial sets no rule beyond this prisoner."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000716",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.002,
+          "Jackson": 0.028,
+          "Kagan": 0.008,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.045,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T16:00:09.486943Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; the default applies. Checked rather than assumed: at 19:12Z on 2026-11-19 (the resolution date) the log shows three shell fetches of the live supremecourt.gov docket JSON for the linked petition No. 26-6187, plus fetches of the petition and appendix PDFs filed Nov 18. The visible query text filters the printed entries to the Nov 18 'Petition for a writ of certiorari filed' entry (the third query's filter is truncated in the log but opens on the same filing-text test), so the log does not show a disposing entry being printed, and outcome.json carries a date but no time, so the record cannot say whether the order had issued by then. Nothing in reasoning.md or the forecast reads the outcome as decided: referral is forecast at 0.97 rather than stated, a response call is put at 0.16 (none came), and the order is 'expected'. The candidate disclosed the fetches in retrieval.md. The CourtListener search was bounded filed_before 2026-11-19 and reported zero results (its result is unobserved in the log). No read of data/qp-topics.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.interim_signals: referred_to_court true, response_requested false, amicus_briefs 0. The order reads 'by him referred to the Court'.",
+        "claim": "Justice Alito will refer the stay application to the full Court to be acted on alongside the linked petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.json: actual_disposition denied, interim_reading denied, interim_granted 0, resolved 2026-11-19; docket entry of Nov 19 2026: 'presented to Justice Alito and by him referred to the Court is denied. The petition for a writ of certiorari is denied.'",
+        "claim": "The Court will deny the stay in a short order on November 19, before the scheduled execution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals: referred_to_court true, response_requested false, amicus_briefs 0.",
+        "claim": "No formal call for a response and no amicus filing before decision; Texas may oppose on its own.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome.json records no votes, writing_roles null and no noted dissent; the docket entry names no Justice writing or dissenting.",
+        "claim": "The denial will come without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order is unexplained; the staged record gives no ground for the denial.",
+        "claim": "The denial follows because the state court dismissed at the threshold and too few Justices would think they could reach and reverse on the sentencing claim.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T190436Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T16:00:09.486943Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000552",
+  "run_id": "20261120T030648Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "appendix.txt and petition.txt exposed the mismatch between the lower courts' jurisdictional dismissal and the petition's merits questions",
+    "context.json frozen cert_anchor and cert_amicus_line rates alongside metrics/statpack.md cuts",
+    "CourtListener MCP opinion lookup and chunked reads for Li, Lissack, and Kennedy"
+  ],
+  "gaps": [
+    "fedcourts query lacks a text or statutory-section filter to find prior SCOTUS cert petitions citing a given statute"
+  ],
+  "notes": "Provisioned snapshot and filings were complete and cleanly scrubbed; ranged corpus queries and CourtListener MCP worked smoothly."
+}

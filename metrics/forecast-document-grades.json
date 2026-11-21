@@ -6,33 +6,33 @@
     {
       "agreement": [
         {
-          "cases": 2,
+          "cases": 23,
           "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
           "evaluator_id": "claude-judge",
           "labels": [
             "proc-v22",
             "proc-v23"
           ],
-          "tau_b": 0.6232890249579993,
-          "units": 18,
+          "tau_b": 0.5822432041860199,
+          "units": 108,
           "within_predictor": [
             {
               "predictor_id": "claude-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.4326108392269038,
+              "units": 36
             },
             {
               "predictor_id": "codex-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.520015120915886,
+              "units": 36
             },
             {
               "predictor_id": "gemini-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.7335942132182607,
+              "units": 36
             }
           ],
-          "within_predictor_tau_b": null
+          "within_predictor_tau_b": 0.5620733911203502
         },
         {
           "cases": 19,
@@ -63,33 +63,33 @@
           "within_predictor_tau_b": 0.503840409345135
         },
         {
-          "cases": 2,
+          "cases": 23,
           "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
           "evaluator_id": "codex-judge",
           "labels": [
             "proc-v22",
             "proc-v23"
           ],
-          "tau_b": 0.6744084094672809,
-          "units": 18,
+          "tau_b": 0.5676240139190516,
+          "units": 108,
           "within_predictor": [
             {
               "predictor_id": "claude-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.3495987315799572,
+              "units": 36
             },
             {
               "predictor_id": "codex-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.5802146969127343,
+              "units": 36
             },
             {
               "predictor_id": "gemini-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.7186561285777695,
+              "units": 36
             }
           ],
-          "within_predictor_tau_b": null
+          "within_predictor_tau_b": 0.5494898523568204
         },
         {
           "cases": 19,
@@ -121,33 +121,33 @@
           "within_predictor_tau_b": 0.4373408058841805
         },
         {
-          "cases": 2,
+          "cases": 23,
           "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
           "evaluator_id": "gemini-judge",
           "labels": [
             "proc-v22",
             "proc-v23"
           ],
-          "tau_b": 0.6734849713721891,
-          "units": 18,
+          "tau_b": 0.6574481484705391,
+          "units": 108,
           "within_predictor": [
             {
               "predictor_id": "claude-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.6070185981369056,
+              "units": 36
             },
             {
               "predictor_id": "codex-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.5333340740756173,
+              "units": 36
             },
             {
               "predictor_id": "gemini-baseline",
-              "tau_b": null,
-              "units": 6
+              "tau_b": 0.7348697419480011,
+              "units": 36
             }
           ],
-          "within_predictor_tau_b": null
+          "within_predictor_tau_b": 0.625074138053508
         },
         {
           "cases": 19,
@@ -180,13 +180,13 @@
       ],
       "by_call": [
         {
-          "correct_mean": 0.7018181818181818,
-          "correct_n": 11,
-          "correct_spread": 0.19618257645821946,
+          "correct_mean": 0.7436274509803921,
+          "correct_n": 102,
+          "correct_spread": 0.14861312595873888,
           "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
           "evaluator_id": "claude-judge",
           "incorrect_mean": null,
-          "incorrect_n": 7,
+          "incorrect_n": 6,
           "incorrect_spread": null,
           "labels": [
             "proc-v22",
@@ -209,13 +209,13 @@
           "unscored_n": 0
         },
         {
-          "correct_mean": 0.8009090909090909,
-          "correct_n": 11,
-          "correct_spread": 0.16104514022497743,
+          "correct_mean": 0.8462745098039215,
+          "correct_n": 102,
+          "correct_spread": 0.14169091996747812,
           "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
           "evaluator_id": "codex-judge",
           "incorrect_mean": null,
-          "incorrect_n": 7,
+          "incorrect_n": 6,
           "incorrect_spread": null,
           "labels": [
             "proc-v22",
@@ -239,13 +239,13 @@
           "unscored_n": 0
         },
         {
-          "correct_mean": 0.7436363636363637,
-          "correct_n": 11,
-          "correct_spread": 0.18331655320152065,
+          "correct_mean": 0.7751960784313725,
+          "correct_n": 102,
+          "correct_spread": 0.13956325709053705,
           "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
           "evaluator_id": "gemini-judge",
           "incorrect_mean": null,
-          "incorrect_n": 7,
+          "incorrect_n": 6,
           "incorrect_spread": null,
           "labels": [
             "proc-v22",
@@ -268,8 +268,8 @@
           "unscored_n": 0
         }
       ],
-      "cases": 21,
-      "cells": 102,
+      "cases": 42,
+      "cells": 192,
       "family": [
         {
           "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
@@ -279,10 +279,10 @@
             "proc-v22",
             "proc-v23"
           ],
-          "other_mean": 0.6958333333333333,
-          "other_n": 12,
-          "own_mean": null,
-          "own_n": 6
+          "other_mean": 0.6858333333333334,
+          "other_n": 72,
+          "own_mean": 0.7769444444444444,
+          "own_n": 36
         },
         {
           "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -304,10 +304,10 @@
             "proc-v22",
             "proc-v23"
           ],
-          "other_mean": 0.8341666666666666,
-          "other_n": 12,
-          "own_mean": null,
-          "own_n": 6
+          "other_mean": 0.8056944444444444,
+          "other_n": 72,
+          "own_mean": 0.835,
+          "own_n": 36
         },
         {
           "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -330,10 +330,10 @@
             "proc-v22",
             "proc-v23"
           ],
-          "other_mean": 0.8183333333333334,
-          "other_n": 12,
-          "own_mean": null,
-          "own_n": 6
+          "other_mean": 0.78125,
+          "other_n": 72,
+          "own_mean": 0.678611111111111,
+          "own_n": 36
         },
         {
           "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -348,14 +348,14 @@
           "own_n": 28
         }
       ],
-      "graded_by_all": 102,
+      "graded_by_all": 192,
       "missing_judge": 0,
       "null_by_all": 0,
       "reads_not_asked": 1179,
       "series": [
         {
-          "cells": 34,
-          "graded_by_all": 34,
+          "cells": 64,
+          "graded_by_all": 64,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": null,
@@ -367,8 +367,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.7769444444444444,
+              "n": 36
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -386,8 +386,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.8500000000000001,
+              "n": 36
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -406,8 +406,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.79,
+              "n": 36
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -419,22 +419,42 @@
               "n": 28
             }
           ],
-          "reads_graded": 102,
+          "reads_graded": 192,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 1,
-          "graded_by_all": 1,
+          "cells": 2,
+          "graded_by_all": 2,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": "proc-v11",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
                 "proc-v20"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
               ],
               "mean": null,
               "n": 1
@@ -450,6 +470,16 @@
               "n": 1
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -459,7 +489,7 @@
               "n": 1
             }
           ],
-          "reads_graded": 3,
+          "reads_graded": 6,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -506,13 +536,23 @@
           "split_on_mask": 0
         },
         {
-          "cells": 3,
-          "graded_by_all": 3,
+          "cells": 14,
+          "graded_by_all": 14,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": "proc-v14",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.78,
+              "n": 11
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
@@ -520,6 +560,16 @@
               ],
               "mean": null,
               "n": 3
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.9045454545454544,
+              "n": 11
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -532,6 +582,16 @@
               "n": 3
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.8145454545454546,
+              "n": 11
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -541,18 +601,28 @@
               "n": 3
             }
           ],
-          "reads_graded": 9,
+          "reads_graded": 42,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 1,
-          "graded_by_all": 1,
+          "cells": 7,
+          "graded_by_all": 7,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": "proc-v15",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
@@ -560,6 +630,16 @@
               ],
               "mean": null,
               "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -572,6 +652,16 @@
               "n": 1
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -581,7 +671,7 @@
               "n": 1
             }
           ],
-          "reads_graded": 3,
+          "reads_graded": 21,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -590,7 +680,7 @@
           "graded_by_all": 2,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
-          "process_window": "proc-v20",
+          "process_window": "proc-v16",
           "readings": [
             {
               "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
@@ -628,8 +718,92 @@
           "split_on_mask": 0
         },
         {
-          "cells": 11,
-          "graded_by_all": 11,
+          "cells": 1,
+          "graded_by_all": 1,
+          "null_by_all": 0,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v17",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            }
+          ],
+          "reads_graded": 3,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 4,
+          "graded_by_all": 4,
+          "null_by_all": 0,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v20",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            }
+          ],
+          "reads_graded": 12,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 15,
+          "graded_by_all": 15,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": "proc-v8",
@@ -642,7 +816,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 1
+              "n": 5
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -661,7 +835,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 1
+              "n": 5
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -681,7 +855,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 1
+              "n": 5
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -693,13 +867,13 @@
               "n": 10
             }
           ],
-          "reads_graded": 33,
+          "reads_graded": 45,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 14,
-          "graded_by_all": 14,
+          "cells": 17,
+          "graded_by_all": 17,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": "proc-v9",
@@ -712,7 +886,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 1
+              "n": 4
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -731,7 +905,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 1
+              "n": 4
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -751,7 +925,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 1
+              "n": 4
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -763,13 +937,13 @@
               "n": 13
             }
           ],
-          "reads_graded": 42,
+          "reads_graded": 51,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 34,
-          "graded_by_all": 34,
+          "cells": 64,
+          "graded_by_all": 64,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
           "process_window": null,
@@ -781,8 +955,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.7200000000000001,
+              "n": 36
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -800,8 +974,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.835,
+              "n": 36
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -820,8 +994,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.7725,
+              "n": 36
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -833,7 +1007,77 @@
               "n": 28
             }
           ],
-          "reads_graded": 102,
+          "reads_graded": 192,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 3,
+          "graded_by_all": 3,
+          "null_by_all": 0,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v10",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v20"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v20",
+                "proc-v21"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v20"
+              ],
+              "mean": null,
+              "n": 2
+            }
+          ],
+          "reads_graded": 9,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -842,53 +1086,33 @@
           "graded_by_all": 2,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
-          "process_window": "proc-v10",
-          "readings": [
-            {
-              "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
-              "evaluator_id": "claude-judge",
-              "labels": [
-                "proc-v20"
-              ],
-              "mean": null,
-              "n": 2
-            },
-            {
-              "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
-              "evaluator_id": "codex-judge",
-              "labels": [
-                "proc-v20",
-                "proc-v21"
-              ],
-              "mean": null,
-              "n": 2
-            },
-            {
-              "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
-              "evaluator_id": "gemini-judge",
-              "labels": [
-                "proc-v20"
-              ],
-              "mean": null,
-              "n": 2
-            }
-          ],
-          "reads_graded": 6,
-          "reads_null": 0,
-          "split_on_mask": 0
-        },
-        {
-          "cells": 1,
-          "graded_by_all": 1,
-          "null_by_all": 0,
-          "predictor_id": "codex-baseline",
           "process_window": "proc-v11",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
                 "proc-v20"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
               ],
               "mean": null,
               "n": 1
@@ -904,6 +1128,16 @@
               "n": 1
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -913,7 +1147,7 @@
               "n": 1
             }
           ],
-          "reads_graded": 3,
+          "reads_graded": 6,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -960,13 +1194,23 @@
           "split_on_mask": 0
         },
         {
-          "cells": 3,
-          "graded_by_all": 3,
+          "cells": 14,
+          "graded_by_all": 14,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
           "process_window": "proc-v14",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.7654545454545455,
+              "n": 11
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
@@ -974,6 +1218,16 @@
               ],
               "mean": null,
               "n": 3
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.9072727272727273,
+              "n": 11
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -986,6 +1240,16 @@
               "n": 3
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.8281818181818181,
+              "n": 11
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -995,18 +1259,28 @@
               "n": 3
             }
           ],
-          "reads_graded": 9,
+          "reads_graded": 42,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 1,
-          "graded_by_all": 1,
+          "cells": 7,
+          "graded_by_all": 7,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
           "process_window": "proc-v15",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
@@ -1014,6 +1288,16 @@
               ],
               "mean": null,
               "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -1026,6 +1310,16 @@
               "n": 1
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -1035,7 +1329,7 @@
               "n": 1
             }
           ],
-          "reads_graded": 3,
+          "reads_graded": 21,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -1044,7 +1338,7 @@
           "graded_by_all": 2,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
-          "process_window": "proc-v20",
+          "process_window": "proc-v16",
           "readings": [
             {
               "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
@@ -1082,8 +1376,92 @@
           "split_on_mask": 0
         },
         {
-          "cells": 23,
-          "graded_by_all": 23,
+          "cells": 1,
+          "graded_by_all": 1,
+          "null_by_all": 0,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v17",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            }
+          ],
+          "reads_graded": 3,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 4,
+          "graded_by_all": 4,
+          "null_by_all": 0,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v20",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            }
+          ],
+          "reads_graded": 12,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 29,
+          "graded_by_all": 29,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
           "process_window": "proc-v8",
@@ -1096,7 +1474,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 2
+              "n": 8
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -1115,7 +1493,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 2
+              "n": 8
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -1135,7 +1513,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 2
+              "n": 8
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -1147,13 +1525,13 @@
               "n": 21
             }
           ],
-          "reads_graded": 69,
+          "reads_graded": 87,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 34,
-          "graded_by_all": 34,
+          "cells": 64,
+          "graded_by_all": 64,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
           "process_window": null,
@@ -1165,8 +1543,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.6516666666666667,
+              "n": 36
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -1184,8 +1562,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.7613888888888889,
+              "n": 36
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -1204,8 +1582,8 @@
                 "proc-v22",
                 "proc-v23"
               ],
-              "mean": null,
-              "n": 6
+              "mean": 0.678611111111111,
+              "n": 36
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -1217,7 +1595,77 @@
               "n": 28
             }
           ],
-          "reads_graded": 102,
+          "reads_graded": 192,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 3,
+          "graded_by_all": 3,
+          "null_by_all": 0,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v10",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v20"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v20",
+                "proc-v21"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v20"
+              ],
+              "mean": null,
+              "n": 2
+            }
+          ],
+          "reads_graded": 9,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -1226,53 +1674,33 @@
           "graded_by_all": 2,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
-          "process_window": "proc-v10",
-          "readings": [
-            {
-              "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
-              "evaluator_id": "claude-judge",
-              "labels": [
-                "proc-v20"
-              ],
-              "mean": null,
-              "n": 2
-            },
-            {
-              "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
-              "evaluator_id": "codex-judge",
-              "labels": [
-                "proc-v20",
-                "proc-v21"
-              ],
-              "mean": null,
-              "n": 2
-            },
-            {
-              "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
-              "evaluator_id": "gemini-judge",
-              "labels": [
-                "proc-v20"
-              ],
-              "mean": null,
-              "n": 2
-            }
-          ],
-          "reads_graded": 6,
-          "reads_null": 0,
-          "split_on_mask": 0
-        },
-        {
-          "cells": 1,
-          "graded_by_all": 1,
-          "null_by_all": 0,
-          "predictor_id": "gemini-baseline",
           "process_window": "proc-v11",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
                 "proc-v20"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
               ],
               "mean": null,
               "n": 1
@@ -1288,6 +1716,16 @@
               "n": 1
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -1297,7 +1735,7 @@
               "n": 1
             }
           ],
-          "reads_graded": 3,
+          "reads_graded": 6,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -1344,13 +1782,23 @@
           "split_on_mask": 0
         },
         {
-          "cells": 3,
-          "graded_by_all": 3,
+          "cells": 14,
+          "graded_by_all": 14,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v14",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.7227272727272728,
+              "n": 11
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
@@ -1358,6 +1806,16 @@
               ],
               "mean": null,
               "n": 3
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.8,
+              "n": 11
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -1370,6 +1828,16 @@
               "n": 3
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": 0.6981818181818181,
+              "n": 11
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -1379,18 +1847,28 @@
               "n": 3
             }
           ],
-          "reads_graded": 9,
+          "reads_graded": 42,
           "reads_null": 0,
           "split_on_mask": 0
         },
         {
-          "cells": 1,
-          "graded_by_all": 1,
+          "cells": 7,
+          "graded_by_all": 7,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v15",
           "readings": [
             {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
+            },
+            {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
               "evaluator_id": "claude-judge",
               "labels": [
@@ -1398,6 +1876,16 @@
               ],
               "mean": null,
               "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -1410,6 +1898,16 @@
               "n": 1
             },
             {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 6
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -1419,7 +1917,7 @@
               "n": 1
             }
           ],
-          "reads_graded": 3,
+          "reads_graded": 21,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -1428,7 +1926,7 @@
           "graded_by_all": 2,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
-          "process_window": "proc-v20",
+          "process_window": "proc-v16",
           "readings": [
             {
               "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
@@ -1466,8 +1964,92 @@
           "split_on_mask": 0
         },
         {
-          "cells": 23,
-          "graded_by_all": 23,
+          "cells": 1,
+          "graded_by_all": 1,
+          "null_by_all": 0,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v17",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            }
+          ],
+          "reads_graded": 3,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 4,
+          "graded_by_all": 4,
+          "null_by_all": 0,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v20",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 4
+            }
+          ],
+          "reads_graded": 12,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 29,
+          "graded_by_all": 29,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
           "process_window": "proc-v8",
@@ -1480,7 +2062,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 2
+              "n": 8
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -1499,7 +2081,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 2
+              "n": 8
             },
             {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
@@ -1519,7 +2101,7 @@
                 "proc-v23"
               ],
               "mean": null,
-              "n": 2
+              "n": 8
             },
             {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -1531,7 +2113,7 @@
               "n": 21
             }
           ],
-          "reads_graded": 69,
+          "reads_graded": 87,
           "reads_null": 0,
           "split_on_mask": 0
         }
@@ -1567,6 +2149,35 @@
               "predictor_id": "gemini-baseline",
               "tau_b": null,
               "units": 5
+            }
+          ],
+          "within_predictor_tau_b": null
+        },
+        {
+          "cases": 1,
+          "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+          "evaluator_id": "claude-judge",
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "tau_b": null,
+          "units": 3,
+          "within_predictor": [
+            {
+              "predictor_id": "claude-baseline",
+              "tau_b": null,
+              "units": 1
+            },
+            {
+              "predictor_id": "codex-baseline",
+              "tau_b": null,
+              "units": 1
+            },
+            {
+              "predictor_id": "gemini-baseline",
+              "tau_b": null,
+              "units": 1
             }
           ],
           "within_predictor_tau_b": null
@@ -1628,6 +2239,34 @@
           "within_predictor_tau_b": null
         },
         {
+          "cases": 1,
+          "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+          "evaluator_id": "claude-judge",
+          "labels": [
+            "proc-v24"
+          ],
+          "tau_b": null,
+          "units": 6,
+          "within_predictor": [
+            {
+              "predictor_id": "claude-baseline",
+              "tau_b": null,
+              "units": 2
+            },
+            {
+              "predictor_id": "codex-baseline",
+              "tau_b": null,
+              "units": 2
+            },
+            {
+              "predictor_id": "gemini-baseline",
+              "tau_b": null,
+              "units": 2
+            }
+          ],
+          "within_predictor_tau_b": null
+        },
+        {
           "cases": 4,
           "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
           "evaluator_id": "codex-judge",
@@ -1658,6 +2297,63 @@
           "within_predictor_tau_b": null
         },
         {
+          "cases": 1,
+          "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+          "evaluator_id": "codex-judge",
+          "labels": [
+            "proc-v24"
+          ],
+          "tau_b": null,
+          "units": 6,
+          "within_predictor": [
+            {
+              "predictor_id": "claude-baseline",
+              "tau_b": null,
+              "units": 2
+            },
+            {
+              "predictor_id": "codex-baseline",
+              "tau_b": null,
+              "units": 2
+            },
+            {
+              "predictor_id": "gemini-baseline",
+              "tau_b": null,
+              "units": 2
+            }
+          ],
+          "within_predictor_tau_b": null
+        },
+        {
+          "cases": 1,
+          "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+          "evaluator_id": "codex-judge",
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "tau_b": null,
+          "units": 3,
+          "within_predictor": [
+            {
+              "predictor_id": "claude-baseline",
+              "tau_b": null,
+              "units": 1
+            },
+            {
+              "predictor_id": "codex-baseline",
+              "tau_b": null,
+              "units": 1
+            },
+            {
+              "predictor_id": "gemini-baseline",
+              "tau_b": null,
+              "units": 1
+            }
+          ],
+          "within_predictor_tau_b": null
+        },
+        {
           "cases": 4,
           "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
           "evaluator_id": "codex-judge",
@@ -1682,6 +2378,35 @@
               "predictor_id": "gemini-baseline",
               "tau_b": null,
               "units": 6
+            }
+          ],
+          "within_predictor_tau_b": null
+        },
+        {
+          "cases": 1,
+          "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+          "evaluator_id": "gemini-judge",
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "tau_b": null,
+          "units": 3,
+          "within_predictor": [
+            {
+              "predictor_id": "claude-baseline",
+              "tau_b": null,
+              "units": 1
+            },
+            {
+              "predictor_id": "codex-baseline",
+              "tau_b": null,
+              "units": 1
+            },
+            {
+              "predictor_id": "gemini-baseline",
+              "tau_b": null,
+              "units": 1
             }
           ],
           "within_predictor_tau_b": null
@@ -1746,6 +2471,34 @@
         },
         {
           "cases": 1,
+          "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+          "evaluator_id": "gemini-judge",
+          "labels": [
+            "proc-v24"
+          ],
+          "tau_b": null,
+          "units": 6,
+          "within_predictor": [
+            {
+              "predictor_id": "claude-baseline",
+              "tau_b": null,
+              "units": 2
+            },
+            {
+              "predictor_id": "codex-baseline",
+              "tau_b": null,
+              "units": 2
+            },
+            {
+              "predictor_id": "gemini-baseline",
+              "tau_b": null,
+              "units": 2
+            }
+          ],
+          "within_predictor_tau_b": null
+        },
+        {
+          "cases": 1,
           "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
           "evaluator_id": "gemini-judge",
           "labels": [
@@ -1792,6 +2545,21 @@
         },
         {
           "correct_mean": null,
+          "correct_n": 3,
+          "correct_spread": null,
+          "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+          "evaluator_id": "claude-judge",
+          "incorrect_mean": null,
+          "incorrect_n": 0,
+          "incorrect_spread": null,
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "unscored_n": 0
+        },
+        {
+          "correct_mean": null,
           "correct_n": 9,
           "correct_spread": null,
           "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -1819,6 +2587,20 @@
           "unscored_n": 0
         },
         {
+          "correct_mean": null,
+          "correct_n": 6,
+          "correct_spread": null,
+          "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+          "evaluator_id": "claude-judge",
+          "incorrect_mean": null,
+          "incorrect_n": 0,
+          "incorrect_spread": null,
+          "labels": [
+            "proc-v24"
+          ],
+          "unscored_n": 0
+        },
+        {
           "correct_mean": 0.8586666666666667,
           "correct_n": 15,
           "correct_spread": 0.07517682858138908,
@@ -1835,6 +2617,35 @@
           "unscored_n": 0
         },
         {
+          "correct_mean": null,
+          "correct_n": 6,
+          "correct_spread": null,
+          "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+          "evaluator_id": "codex-judge",
+          "incorrect_mean": null,
+          "incorrect_n": 0,
+          "incorrect_spread": null,
+          "labels": [
+            "proc-v24"
+          ],
+          "unscored_n": 0
+        },
+        {
+          "correct_mean": null,
+          "correct_n": 3,
+          "correct_spread": null,
+          "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+          "evaluator_id": "codex-judge",
+          "incorrect_mean": null,
+          "incorrect_n": 0,
+          "incorrect_spread": null,
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "unscored_n": 0
+        },
+        {
           "correct_mean": 0.8327777777777778,
           "correct_n": 18,
           "correct_spread": 0.07984746260182986,
@@ -1846,6 +2657,21 @@
           "labels": [
             "proc-v20",
             "proc-v21"
+          ],
+          "unscored_n": 0
+        },
+        {
+          "correct_mean": null,
+          "correct_n": 3,
+          "correct_spread": null,
+          "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+          "evaluator_id": "gemini-judge",
+          "incorrect_mean": null,
+          "incorrect_n": 0,
+          "incorrect_spread": null,
+          "labels": [
+            "proc-v22",
+            "proc-v23"
           ],
           "unscored_n": 0
         },
@@ -1881,6 +2707,20 @@
         },
         {
           "correct_mean": null,
+          "correct_n": 6,
+          "correct_spread": null,
+          "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+          "evaluator_id": "gemini-judge",
+          "incorrect_mean": null,
+          "incorrect_n": 0,
+          "incorrect_spread": null,
+          "labels": [
+            "proc-v24"
+          ],
+          "unscored_n": 0
+        },
+        {
+          "correct_mean": null,
           "correct_n": 9,
           "correct_spread": null,
           "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
@@ -1894,8 +2734,8 @@
           "unscored_n": 0
         }
       ],
-      "cases": 8,
-      "cells": 33,
+      "cases": 10,
+      "cells": 42,
       "family": [
         {
           "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
@@ -1910,6 +2750,19 @@
           "other_n": 10,
           "own_mean": null,
           "own_n": 5
+        },
+        {
+          "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+          "engine": "claude-code",
+          "evaluator_id": "claude-judge",
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "other_mean": null,
+          "other_n": 2,
+          "own_mean": null,
+          "own_n": 1
         },
         {
           "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -1936,6 +2789,18 @@
           "own_n": 3
         },
         {
+          "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+          "engine": "claude-code",
+          "evaluator_id": "claude-judge",
+          "labels": [
+            "proc-v24"
+          ],
+          "other_mean": null,
+          "other_n": 4,
+          "own_mean": null,
+          "own_n": 2
+        },
+        {
           "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
           "engine": "codex",
           "evaluator_id": "codex-judge",
@@ -1950,6 +2815,31 @@
           "own_n": 5
         },
         {
+          "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+          "engine": "codex",
+          "evaluator_id": "codex-judge",
+          "labels": [
+            "proc-v24"
+          ],
+          "other_mean": null,
+          "other_n": 4,
+          "own_mean": null,
+          "own_n": 2
+        },
+        {
+          "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+          "engine": "codex",
+          "evaluator_id": "codex-judge",
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "other_mean": null,
+          "other_n": 2,
+          "own_mean": null,
+          "own_n": 1
+        },
+        {
           "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
           "engine": "codex",
           "evaluator_id": "codex-judge",
@@ -1961,6 +2851,19 @@
           "other_n": 12,
           "own_mean": null,
           "own_n": 6
+        },
+        {
+          "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+          "engine": "gemini",
+          "evaluator_id": "gemini-judge",
+          "labels": [
+            "proc-v22",
+            "proc-v23"
+          ],
+          "other_mean": null,
+          "other_n": 2,
+          "own_mean": null,
+          "own_n": 1
         },
         {
           "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
@@ -1989,6 +2892,18 @@
           "own_n": 3
         },
         {
+          "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+          "engine": "gemini",
+          "evaluator_id": "gemini-judge",
+          "labels": [
+            "proc-v24"
+          ],
+          "other_mean": null,
+          "other_n": 4,
+          "own_mean": null,
+          "own_n": 2
+        },
+        {
           "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
           "engine": "gemini",
           "evaluator_id": "gemini-judge",
@@ -2001,14 +2916,14 @@
           "own_n": 3
         }
       ],
-      "graded_by_all": 33,
+      "graded_by_all": 42,
       "missing_judge": 0,
       "null_by_all": 0,
       "reads_not_asked": 189,
       "series": [
         {
-          "cells": 11,
-          "graded_by_all": 11,
+          "cells": 14,
+          "graded_by_all": 14,
           "null_by_all": 0,
           "predictor_id": "claude-baseline",
           "process_window": null,
@@ -2023,6 +2938,16 @@
               ],
               "mean": null,
               "n": 5
+            },
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -2043,6 +2968,15 @@
               "n": 3
             },
             {
+              "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
               "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -2054,6 +2988,25 @@
               "n": 5
             },
             {
+              "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -2062,6 +3015,16 @@
               ],
               "mean": null,
               "n": 6
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
             },
             {
               "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
@@ -2084,6 +3047,15 @@
               "n": 3
             },
             {
+              "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -2093,7 +3065,7 @@
               "n": 3
             }
           ],
-          "reads_graded": 33,
+          "reads_graded": 42,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -2308,8 +3280,89 @@
           "split_on_mask": 0
         },
         {
-          "cells": 11,
-          "graded_by_all": 11,
+          "cells": 1,
+          "graded_by_all": 1,
+          "null_by_all": 0,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v21",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            }
+          ],
+          "reads_graded": 3,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 2,
+          "graded_by_all": 2,
+          "null_by_all": 0,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v23",
+          "readings": [
+            {
+              "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            }
+          ],
+          "reads_graded": 6,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 14,
+          "graded_by_all": 14,
           "null_by_all": 0,
           "predictor_id": "codex-baseline",
           "process_window": null,
@@ -2324,6 +3377,16 @@
               ],
               "mean": null,
               "n": 5
+            },
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -2344,6 +3407,15 @@
               "n": 3
             },
             {
+              "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
               "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -2355,6 +3427,25 @@
               "n": 5
             },
             {
+              "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -2363,6 +3454,16 @@
               ],
               "mean": null,
               "n": 6
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
             },
             {
               "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
@@ -2385,6 +3486,15 @@
               "n": 3
             },
             {
+              "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -2394,7 +3504,7 @@
               "n": 3
             }
           ],
-          "reads_graded": 33,
+          "reads_graded": 42,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -2609,8 +3719,89 @@
           "split_on_mask": 0
         },
         {
-          "cells": 11,
-          "graded_by_all": 11,
+          "cells": 1,
+          "graded_by_all": 1,
+          "null_by_all": 0,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v21",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            }
+          ],
+          "reads_graded": 3,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 2,
+          "graded_by_all": 2,
+          "null_by_all": 0,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v23",
+          "readings": [
+            {
+              "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            }
+          ],
+          "reads_graded": 6,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 14,
+          "graded_by_all": 14,
           "null_by_all": 0,
           "predictor_id": "gemini-baseline",
           "process_window": null,
@@ -2625,6 +3816,16 @@
               ],
               "mean": null,
               "n": 5
+            },
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
             },
             {
               "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
@@ -2645,6 +3846,15 @@
               "n": 3
             },
             {
+              "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
               "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -2656,6 +3866,25 @@
               "n": 5
             },
             {
+              "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
               "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
               "evaluator_id": "codex-judge",
               "labels": [
@@ -2664,6 +3893,16 @@
               ],
               "mean": null,
               "n": 6
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
             },
             {
               "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
@@ -2686,6 +3925,15 @@
               "n": 3
             },
             {
+              "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
               "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
               "evaluator_id": "gemini-judge",
               "labels": [
@@ -2695,7 +3943,7 @@
               "n": 3
             }
           ],
-          "reads_graded": 33,
+          "reads_graded": 42,
           "reads_null": 0,
           "split_on_mask": 0
         },
@@ -2906,6 +4154,87 @@
             }
           ],
           "reads_graded": 9,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 1,
+          "graded_by_all": 1,
+          "null_by_all": 0,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v21",
+          "readings": [
+            {
+              "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            },
+            {
+              "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v22",
+                "proc-v23"
+              ],
+              "mean": null,
+              "n": 1
+            }
+          ],
+          "reads_graded": 3,
+          "reads_null": 0,
+          "split_on_mask": 0
+        },
+        {
+          "cells": 2,
+          "graded_by_all": 2,
+          "null_by_all": 0,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v23",
+          "readings": [
+            {
+              "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+              "evaluator_id": "claude-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+              "evaluator_id": "codex-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            },
+            {
+              "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+              "evaluator_id": "gemini-judge",
+              "labels": [
+                "proc-v24"
+              ],
+              "mean": null,
+              "n": 2
+            }
+          ],
+          "reads_graded": 6,
           "reads_null": 0,
           "split_on_mask": 0
         }

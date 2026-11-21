@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000654",
+  "run_id": "20261120T030648Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "fedcourts pdf-text", "CourtListener MCP opinion search and text"],
+  "helpful": ["The filed PDF link made the missing argument recoverable.", "The opinions showed which circuit had actually addressed requests for immediate donations."],
+  "gaps": ["The petition text cap removed substantive argument as appendix material."]
+}

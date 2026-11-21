@@ -1,12 +1,12 @@
 {
-  "cases": 419,
-  "cases_at_court_next_conference": 31,
+  "cases": 425,
+  "cases_at_court_next_conference": 32,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 381,
+      "cases": 387,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1254,
+  "current_reads": 1272,
   "declared_no_view": 28,
   "frozen_process": {
     "digests": [
@@ -3498,7 +3498,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-12-04",
+          "date": "2026-12-15",
           "kind": "response_due"
         }
       ],
@@ -8090,6 +8090,124 @@
       "score_range": 0.13,
       "short_caption": "Havlish v. Taliban",
       "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Mullin",
+      "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. National TPS Alliance, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000714",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Third emergency application in the Venezuela TPS litigation; status of several hundred thousand people and the lower courts' compliance with the Court's own TPS ruling are at stake, though the legal question is largely settled.",
+          "big_case_score": 0.72,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        },
+        {
+          "big_case_rationale": "The stay affects protection from removal and permission to work for hundreds of thousands of Venezuelans while the Ninth Circuit reconsiders the scope of judicial review.",
+          "big_case_score": 0.91,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        },
+        {
+          "big_case_rationale": "Nationwide termination of Venezuela's 2023 TPS designation affecting hundreds of thousands of beneficiaries, ~1,800 detainees, and ~332 final removal orders on a third Supreme Court trip testing Mullin v. Doe's review-bar scope as applied to vacaturs of prior extensions.",
+          "big_case_score": 0.72,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        }
+      ],
+      "docket_id": 9526000714,
+      "docket_number": "26A714",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a714.html",
+      "events": [
+        {
+          "actual_disposition": "withdrawn",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Third emergency application in the Venezuela TPS litigation; status of several hundred thousand people and the lower courts' compliance with the Court's own TPS ruling are at stake, though the legal question is largely settled.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9526000714/events/evt-motion-disposition/predictions/claude-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000714/events/evt-motion-disposition/predictions/claude-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.84,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "The stay affects protection from removal and permission to work for hundreds of thousands of Venezuelans while the Ninth Circuit reconsiders the scope of judicial review.",
+              "big_case_score": 0.91,
+              "cell_path": "data/cases/scotus/9526000714/events/evt-motion-disposition/predictions/codex-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000714/events/evt-motion-disposition/predictions/codex-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.95,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "Nationwide termination of Venezuela's 2023 TPS designation affecting hundreds of thousands of beneficiaries, ~1,800 detainees, and ~332 final removal orders on a third Supreme Court trip testing Mullin v. Doe's review-bar scope as applied to vacaturs of prior extensions.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9526000714/events/evt-motion-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000714/events/evt-motion-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.57,
+              "run_id": "20261119T141840Z"
+            }
+          ],
+          "resolved_at": "2026-11-19",
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. National TPS Alliance, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7833,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-18",
+      "n": 3,
+      "other_party": "National TPS Alliance",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Mullin gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Mullin does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.91,
+      "score_min": 0.72,
+      "score_range": 0.19,
+      "short_caption": "Mullin v. National TPS Alliance",
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -34360,6 +34478,174 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Tedford's Tenancy",
+      "caption": "Tedford's Tenancy, LLC v. City of New York, New York, et al.",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000110",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Takings-ripeness doctrine with an asserted split and New York rent stabilization as backdrop; five cert-stage amicus briefs, but an unpublished-style state intermediate ruling with an alternative merits holding.",
+          "big_case_score": 0.3,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        },
+        {
+          "big_case_rationale": "A ruling on when owners may sue over land-use restrictions would reach well beyond New York rent stabilization, even if Tedford\u2019s own recovery remained unresolved.",
+          "big_case_score": 0.62,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, a ruling clarifying Fifth Amendment takings ripeness and administrative futility in the context of New York City's Rent Stabilization Law would carry meaningful doctrinal weight for land-use and housing litigation nationwide, though the questions presented address threshold ripeness rather than the substantive constitutionality of rent control.",
+          "big_case_score": 0.38,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        }
+      ],
+      "docket_id": 9026000110,
+      "docket_number": "26-110",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-110.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Takings-ripeness doctrine with an asserted split and New York rent stabilization as backdrop; five cert-stage amicus briefs, but an unpublished-style state intermediate ruling with an alternative merits holding.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000110/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000110/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "A ruling on when owners may sue over land-use restrictions would reach well beyond New York rent stabilization, even if Tedford\u2019s own recovery remained unresolved.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000110/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000110/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, a ruling clarifying Fifth Amendment takings ripeness and administrative futility in the context of New York City's Rent Stabilization Law would carry meaningful doctrinal weight for land-use and housing litigation nationwide, though the questions presented address threshold ripeness rather than the substantive constitutionality of rent control.",
+              "big_case_score": 0.38,
+              "cell_path": "data/cases/scotus/9026000110/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000110/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.09,
+              "run_id": "20261119T141840Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Tedford's Tenancy, LLC v. City of New York, New York, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "As-applied takings challenge to New York rent stabilization with five cert-stage amicus briefs; the ripeness question matters to takings litigants, but the dispute is one six-unit building and the question is procedural.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000110/events/evt-petition-disposition/predictions/claude-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000110/events/evt-petition-disposition/predictions/claude-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "A rule about when property owners may bring federal takings claims would reach land-use disputes nationwide. A ruling about New York's hardship rent increases would have narrower consequences.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9026000110/events/evt-petition-disposition/predictions/codex-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000110/events/evt-petition-disposition/predictions/codex-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.025,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "A decision clarifying final-decision ripeness and administrative futility for regulatory takings in the New York rent-stabilization context would carry meaningful nationwide doctrinal impact for property-rights litigation, though the petition raises threshold ripeness questions rather than the substantive constitutionality of rent control.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000110/events/evt-petition-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000110/events/evt-petition-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261119T141840Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Tedford's Tenancy, LLC v. City of New York, New York, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4333,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-09-09",
+      "n": 3,
+      "other_party": "City of New York",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Tedford's Tenancy's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Tedford's Tenancy's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.62,
+      "score_min": 0.3,
+      "score_range": 0.32,
+      "short_caption": "Tedford's Tenancy v. City of New York",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Golden",
       "caption": "Sherhonda Golden v. NBCUniversal Media, LLC",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -37788,6 +38074,129 @@
       "score_range": 0.13,
       "short_caption": "Westcott v. Voice of the Experienced",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "City of Daytona Beach",
+      "caption": "City of Daytona Beach, Florida v. Dennis Scott, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000654",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Municipal panhandling ordinance under Reed/City of Austin: real stakes for cities' solicitation rules nationwide, but a recurring, single-city dispute in an interlocutory posture.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261120T030648Z"
+        },
+        {
+          "big_case_rationale": "A ruling on requests for immediate donations would guide cities that regulate panhandling and affect people who depend on asking for help in public.",
+          "big_case_score": 0.46,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261120T030648Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, a ruling clarifying whether Reed and City of Austin permit municipal restrictions on in-person requests for immediate donations\u2014and whether traffic safety is a compelling interest\u2014would reshape local panhandling ordinances nationwide, though the immediate dispute concerns a single city's code and an $80,000 judgment.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261120T030648Z"
+        }
+      ],
+      "docket_id": 9026000654,
+      "docket_number": "26-654",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-654.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Municipal panhandling ordinance under Reed/City of Austin: real stakes for cities' solicitation rules nationwide, but a recurring, single-city dispute in an interlocutory posture.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000654/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261120T030648Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000654/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261120T030648Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261120T030648Z"
+            },
+            {
+              "big_case_rationale": "A ruling on requests for immediate donations would guide cities that regulate panhandling and affect people who depend on asking for help in public.",
+              "big_case_score": 0.46,
+              "cell_path": "data/cases/scotus/9026000654/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261120T030648Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000654/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261120T030648Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.032,
+              "run_id": "20261120T030648Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, a ruling clarifying whether Reed and City of Austin permit municipal restrictions on in-person requests for immediate donations\u2014and whether traffic safety is a compelling interest\u2014would reshape local panhandling ordinances nationwide, though the immediate dispute concerns a single city's code and an $80,000 judgment.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000654/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261120T030648Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000654/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261120T030648Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261120T030648Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "City of Daytona Beach, Florida v. Dennis Scott, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3933,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-19",
+      "n": 3,
+      "other_party": "Scott",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the City of Daytona Beach's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The City of Daytona Beach's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-21",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.46,
+      "score_min": 0.3,
+      "score_range": 0.16,
+      "short_caption": "City of Daytona Beach v. Scott",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -45915,6 +46324,124 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Rachel Beth Odom",
+      "caption": "Rachel Beth Odom v. Oklahoma",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000715",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Sealed state-court child-custody/juvenile matter between a parent and Oklahoma; important to the family, little reach beyond it.",
+          "big_case_score": 0.06,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        },
+        {
+          "big_case_rationale": "A ruling on when a parent's silence may count against her in a child-welfare case during a parallel prosecution could affect families beyond Oklahoma. The immediate stay concerns one child.",
+          "big_case_score": 0.53,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        },
+        {
+          "big_case_rationale": "Recurring Fifth Amendment compulsion and selective-immunity issue in parallel child-deprivation and murder proceedings (with ICWA involvement), bounded by individual state-court stay posture and non-final vehicle.",
+          "big_case_score": 0.22,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261119T141840Z"
+        }
+      ],
+      "docket_id": 9526000715,
+      "docket_number": "26A715",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a715.html",
+      "events": [
+        {
+          "actual_disposition": "denied",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Sealed state-court child-custody/juvenile matter between a parent and Oklahoma; important to the family, little reach beyond it.",
+              "big_case_score": 0.06,
+              "cell_path": "data/cases/scotus/9526000715/events/evt-motion-disposition/predictions/claude-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000715/events/evt-motion-disposition/predictions/claude-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "A ruling on when a parent's silence may count against her in a child-welfare case during a parallel prosecution could affect families beyond Oklahoma. The immediate stay concerns one child.",
+              "big_case_score": 0.53,
+              "cell_path": "data/cases/scotus/9526000715/events/evt-motion-disposition/predictions/codex-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000715/events/evt-motion-disposition/predictions/codex-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261119T141840Z"
+            },
+            {
+              "big_case_rationale": "Recurring Fifth Amendment compulsion and selective-immunity issue in parallel child-deprivation and murder proceedings (with ICWA involvement), bounded by individual state-court stay posture and non-final vehicle.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9526000715/events/evt-motion-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000715/events/evt-motion-disposition/predictions/gemini-baseline/20261119T141840Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261119T141840Z"
+            }
+          ],
+          "resolved_at": "2026-11-19",
+          "title": "Rachel Beth Odom v. Oklahoma"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.27,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-16",
+      "n": 3,
+      "other_party": "Oklahoma",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Rachel Beth Odom gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Rachel Beth Odom does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.53,
+      "score_min": 0.06,
+      "score_range": 0.47,
+      "short_caption": "Rachel Beth Odom v. Oklahoma",
+      "status": "resolved"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Casarez",
       "caption": "Christina Casarez v. Irigoyen Farms, Inc., et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -46409,7 +46936,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a686.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-brief-response-disposition",
           "reads": [
             {
@@ -46455,11 +46982,11 @@
               "run_id": "20261117T214921Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-19",
           "title": "Thomas M. Overton v. Florida, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -46505,7 +47032,7 @@
               "run_id": "20261115T141636Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-19",
           "title": "Thomas M. Overton v. Florida, et al."
         }
       ],
@@ -46533,7 +47060,7 @@
       "score_min": 0.12,
       "score_range": 0.33,
       "short_caption": "Overton v. Florida",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -47582,6 +48109,124 @@
       "score_min": 0.15,
       "score_range": 0.19,
       "short_caption": "Jason Tywann Bell v. Gilley",
+      "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Dennes",
+      "caption": "Reinaldo Dennes v. Texas",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000716",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A life is at stake, but the legal question is a fact-bound Wiggins claim dismissed on a state procedural bar; little doctrinal reach beyond this prisoner.",
+          "big_case_score": 0.15,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261119T190436Z"
+        },
+        {
+          "big_case_rationale": "A stay would preserve Dennes\u2019s life while the Court considers his petition. The claim turns largely on his sentencing record, though review of Texas\u2019s rule for successive petitions could affect other prisoners.",
+          "big_case_score": 0.38,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261119T190436Z"
+        },
+        {
+          "big_case_rationale": "Capital execution stay testing whether Texas's Art. 11.071 sec. 5 subsequent-writ bar is interwoven with federal Wiggins/Sawyer standards; life-or-death individual stakes, limited broader doctrinal reach.",
+          "big_case_score": 0.18,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261119T190436Z"
+        }
+      ],
+      "docket_id": 9526000716,
+      "docket_number": "26A716",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a716.html",
+      "events": [
+        {
+          "actual_disposition": "denied",
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A life is at stake, but the legal question is a fact-bound Wiggins claim dismissed on a state procedural bar; little doctrinal reach beyond this prisoner.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9526000716/events/evt-motion-disposition/predictions/claude-baseline/20261119T190436Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000716/events/evt-motion-disposition/predictions/claude-baseline/20261119T190436Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.015,
+              "run_id": "20261119T190436Z"
+            },
+            {
+              "big_case_rationale": "A stay would preserve Dennes\u2019s life while the Court considers his petition. The claim turns largely on his sentencing record, though review of Texas\u2019s rule for successive petitions could affect other prisoners.",
+              "big_case_score": 0.38,
+              "cell_path": "data/cases/scotus/9526000716/events/evt-motion-disposition/predictions/codex-baseline/20261119T190436Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000716/events/evt-motion-disposition/predictions/codex-baseline/20261119T190436Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.02,
+              "run_id": "20261119T190436Z"
+            },
+            {
+              "big_case_rationale": "Capital execution stay testing whether Texas's Art. 11.071 sec. 5 subsequent-writ bar is interwoven with federal Wiggins/Sawyer standards; life-or-death individual stakes, limited broader doctrinal reach.",
+              "big_case_score": 0.18,
+              "cell_path": "data/cases/scotus/9526000716/events/evt-motion-disposition/predictions/gemini-baseline/20261119T190436Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000716/events/evt-motion-disposition/predictions/gemini-baseline/20261119T190436Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261119T190436Z"
+            }
+          ],
+          "resolved_at": "2026-11-19",
+          "title": "Reinaldo Dennes v. Texas"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2367,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-18",
+      "n": 3,
+      "other_party": "Texas",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Dennes gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Dennes does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.38,
+      "score_min": 0.15,
+      "score_range": 0.23,
+      "short_caption": "Dennes v. Texas",
       "status": "resolved"
     },
     {
@@ -53410,6 +54055,132 @@
       "score_min": 0.04,
       "score_range": 0.28,
       "short_caption": "Saeed v. Arizona",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Hou",
+      "caption": "Don Hou v. Commissioner of Internal Revenue",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000552",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se challenge to an unpublished D.C. Circuit judgment applying settled circuit precedent on Tax Court whistleblower-award jurisdiction; stakes confined to one claimant.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261120T030648Z"
+        },
+        {
+          "big_case_rationale": "A ruling on when whistleblowers can challenge IRS rejections would apply nationwide, but the dispute over Hou\u2019s evidence is specific to one award claim.",
+          "big_case_score": 0.24,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261120T030648Z"
+        },
+        {
+          "big_case_rationale": "Even if decided, the dispute concerns technical IRS whistleblower-award eligibility and Tax Court review under 26 U.S.C. 7623(b)-(c), mattering primarily to tax-whistleblower practitioners rather than the general public.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261120T030648Z"
+        }
+      ],
+      "docket_id": 9026000552,
+      "docket_number": "26-552",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-552.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se challenge to an unpublished D.C. Circuit judgment applying settled circuit precedent on Tax Court whistleblower-award jurisdiction; stakes confined to one claimant.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000552/events/evt-petition-disposition/predictions/claude-baseline/20261120T030648Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000552/events/evt-petition-disposition/predictions/claude-baseline/20261120T030648Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261120T030648Z"
+            },
+            {
+              "big_case_rationale": "A ruling on when whistleblowers can challenge IRS rejections would apply nationwide, but the dispute over Hou\u2019s evidence is specific to one award claim.",
+              "big_case_score": 0.24,
+              "cell_path": "data/cases/scotus/9026000552/events/evt-petition-disposition/predictions/codex-baseline/20261120T030648Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000552/events/evt-petition-disposition/predictions/codex-baseline/20261120T030648Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.002,
+              "run_id": "20261120T030648Z"
+            },
+            {
+              "big_case_rationale": "Even if decided, the dispute concerns technical IRS whistleblower-award eligibility and Tax Court review under 26 U.S.C. 7623(b)-(c), mattering primarily to tax-whistleblower practitioners rather than the general public.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000552/events/evt-petition-disposition/predictions/gemini-baseline/20261120T030648Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000552/events/evt-petition-disposition/predictions/gemini-baseline/20261120T030648Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.003,
+              "run_id": "20261120T030648Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Don Hou v. Commissioner of Internal Revenue"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1333,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-27",
+      "n": 3,
+      "other_party": "Commissioner of Internal Revenue",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hou's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hou's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.24,
+      "score_min": 0.04,
+      "score_range": 0.2,
+      "short_caption": "Hou v. Commissioner of Internal Revenue",
       "status": "pending"
     },
     {
@@ -61412,5 +62183,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1217
+  "scored_reads": 1235
 }

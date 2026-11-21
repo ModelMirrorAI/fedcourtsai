@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000654",
+  "run_id": "20261120T030648Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The first truncation marker in petition.txt labels PDF pages 21–53 as an appendix item. The cut begins on printed page 7 and removes most of the Reasons for Granting the Writ, including the city's discussion of competing decisions. I recovered the argument from the filed PDF linked in documents.json and completed the forecast."
+    }
+  ]
+}

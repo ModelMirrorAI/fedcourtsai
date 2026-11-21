@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.36,
+    "notes": "Overton sought to halt his imminent execution. A ruling on an alleged categorical exclusion from clemency or on access to clemency records could affect other Florida prisoners under death warrants. The Court disposed of the application and petition without announcing a rule."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.003,
+          "Gorsuch": 0.005,
+          "Jackson": 0.03,
+          "Kagan": 0.015,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.055,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:48:52.073829Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The forward log ends November 18, before the November 19 order. Its queries concern the November 17 snapshot and briefs, Woodard, Barwick and earlier dispositions. Barwick is the dated 2023 result. Some call results are unobserved, but neither the queries nor the rationale discloses Overton\u2019s disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.2-astra",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.98,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 19 disposing entry expressly denies the stay. The outcome records interim_granted = 0.",
+        "claim": "The Court will deny Overton\u2019s application for a stay of execution.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing entry is dated November 19. It supplies the day only, leaving the predicted timing relative to 6 p.m. unverified.",
+        "claim": "The order will issue on November 18 or 19.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "A November 19 entry records the referral, and the order expressly says Justice Thomas referred the application.",
+        "claim": "Justice Thomas will refer the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The docket goes from the November 17 reply to referral and denial. The outcome records response_requested as false and amicus_briefs as zero.",
+        "claim": "There will be no further request for a response and no new amicus filing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The two-sentence entry denies the stay and certiorari. It names Thomas only as the referring Justice and records no separate writing.",
+        "claim": "The denial will be short and unsigned, with no separate writing.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261118T141837Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:48:52.073829Z"
+  },
+  "reasoning_quality": 0.94,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000715",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json per candidate",
+    "Committed statpack interim applicant-class table for checking quoted base rates",
+    "Decided-docket snapshot carrying the order text"
+  ],
+  "gaps": [
+    "The linked petition's docket (No. 26-502) is not staged, so candidates' differing accounts of it cannot be checked from the record"
+  ],
+  "notes": "All three predictions were written on the day the order issued; the logs gave enough to confirm none retrieved it, but most of one candidate's web results were not captured and had to be graded on queries alone."
+}

@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "Third emergency application in the Venezuela TPS litigation: the immigration status and work authorisation of several hundred thousand people, and (per the application) roughly 1,800 detainees, turned on whether the district court's judgment stayed on hold. Stakes are high in human and operational terms. Tempered because the governing legal question was largely settled by Mullin v. Doe before this application, and because the application was withdrawn a day after filing without the Court acting, so it produced no ruling."
+  },
+  "brier_score": 0.7055999999999999,
+  "brier_skill_score": -50.828923668639035,
+  "case_id": "scotus/9526000714",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.84,
+        "score": -0.6919859800656645
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.88,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.82,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.5,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.03,
+          "Barrett": 0.02,
+          "Gorsuch": 0.03,
+          "Jackson": 0.3,
+          "Kagan": 0.04,
+          "Kavanaugh": 0.04,
+          "Roberts": 0.01,
+          "Sotomayor": 0.1,
+          "Thomas": 0.02
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.6919859800656645,
+    "total": -0.6919859800656645
+  },
+  "correct": 0,
+  "created_at": "2026-11-20T15:51:45.650294Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward; prediction created 2026-11-19 ~14:3x-14:5xZ). The outcome is a withdrawal docketed Nov 19 2026; the withdrawal letter's docket filename carries a 2026-11-19 15:55 stamp, later in the day than the prediction. No retrieved_doc_date on or after resolution, no read of data/qp-topics, and the reasoning treats the application as pending. Log is 10 calls, all captured: corpus queries for the sibling dockets (24A1059, 25A326, 26-48) and provisioned-file reads; no live-docket or web retrieval.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.2,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.json: actual_disposition withdrawn, interim_granted 0; the Court entered no order.",
+        "claim": "The Court will grant the stay, most likely by a short unsigned full-Court order in the pattern of No. 25A326.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals.response_requested is false; the docket shows only the application, the withdrawal letter and the withdrawal.",
+        "claim": "Justice Kagan will call for a response on a short fuse (0.88).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals.referred_to_court is false.",
+        "claim": "The application will be referred to the full Court and decided by it (0.82).",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Resolved 2026-11-19, one day after filing.",
+        "claim": "Disposition within about one to three weeks of filing, most likely by early December 2026.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "The docket records 'Letter withdrawing the application filed' and 'Application (26A714) withdrawn' on Nov 19 2026. The withdrawal is borne out; the staged record does not itself show what prompted it.",
+        "claim": "The main path to a non-grant is the Ninth Circuit acting first, leading the Solicitor General to withdraw the application.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T141840Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:51:45.650294Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

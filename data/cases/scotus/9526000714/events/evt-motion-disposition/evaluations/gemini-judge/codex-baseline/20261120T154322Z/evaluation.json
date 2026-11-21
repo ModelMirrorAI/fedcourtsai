@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.62,
+    "notes": "Underlying litigation governs Temporary Protected Status and work authorization for hundreds of thousands of Venezuelan beneficiaries on a fourth trip to the Supreme Court after Mullin v. Doe, 609 U.S. 324 (2026). Event-level significance is materially tempered, however, because 26A714 was a protective stay application triggered by a narrow administrative-stay gap on GVR remand and was voluntarily withdrawn within 24 hours without any Supreme Court order or precedent."
+  },
+  "brier_score": 0.9025,
+  "brier_skill_score": -65.29195523093358,
+  "case_id": "scotus/9526000714",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.95,
+        "score": -0.8888859800656645
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.71,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.04,
+          "Barrett": 0.02,
+          "Gorsuch": 0.03,
+          "Jackson": 0.38,
+          "Kagan": 0.06,
+          "Kavanaugh": 0.05,
+          "Roberts": 0.01,
+          "Sotomayor": 0.1,
+          "Thomas": 0.02
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": -0.8888859800656645,
+    "total": -0.8888859800656645
+  },
+  "correct": 0,
+  "created_at": "2026-11-20T16:00:50.308334Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed between 2026-11-19T14:33:07Z and 14:53:48Z (result_capture_coverage=0.415 across 53 calls). Live reads of supremecourt.gov/rss/cases/json/26A714.json at 14:36Z and 14:39Z returned only the November 18 submission entry; the Solicitor General's withdrawal letter was filed over six hours later at 15:55:58 ET (20:55:58Z) on 2026-11-19.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.0,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The Solicitor General withdrew 26A714 on November 19, 2026 without any response request, referral, amicus filing, or administrative bridge; outcome.json records response_requested=false, referred_to_court=false, and amicus_briefs=0.",
+        "claim": "Justice Kagan will request a prompt response from National TPS Alliance, refer the application to the full Court, 1 or 2 amicus briefs will be filed, and an administrative bridge or final order will issue within roughly a week before the November 20 cliff.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "outcome.json records actual_disposition='withdrawn' and interim_reading='withdrawn' (interim_granted=0), matching the November 19, 2026 docket entry 'Application (26A714) withdrawn.'",
+        "claim": "The Court will grant the stay of the district court's September 5, 2025 summary judgment order pending the Ninth Circuit appeal and any timely certiorari petition.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Conditional on a Supreme Court stay order; voluntary withdrawal on November 19, 2026 terminated the docket with no order entered.",
+        "claim": "The stay will issue via a terse unsigned order mirroring the May and October 2025 stays, preserving enforcement under Mullin v. Doe's bar on review of TPS terminations while the Ninth Circuit considers the extension-vacatur challenge.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "Conditional on a Court order; outcome.json records votes=[] and writing_roles=null following voluntary withdrawal.",
+        "claim": "Justice Jackson is the most likely author of a separate dissenting writing.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T141840Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T16:00:50.308334Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

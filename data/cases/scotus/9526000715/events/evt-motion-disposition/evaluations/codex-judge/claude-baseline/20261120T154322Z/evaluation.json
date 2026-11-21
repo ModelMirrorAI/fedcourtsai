@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.23,
+    "notes": "The stay could affect a parent's time with her child while state proceedings continued. The use of a parent's silence during a parallel prosecution raises a recurring federal question. This order resolved interim relief for one family and supplied no rule for other courts."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000715",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.07,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.002,
+          "Gorsuch": 0.006,
+          "Jackson": 0.005,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.005,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:56:15.257231Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward at arrival. All eight logged calls have captured results. The candidate read the arrival snapshot, queried recent denials and fetched the linked cert docket, 26-502. Its retrieval note describes that docket through the November 16 submission and attributes the waiver to the minor child's counsel on the petition. No logged document date or cited order indicates that the November 19 stay disposition surfaced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.2-astra",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.96,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 19 docket entry attributes the stay denial to Justice Gorsuch and records neither an explanation nor a separate writing.",
+        "claim": "Justice Gorsuch would deny the stay alone in a brief, unexplained order with no separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records false for both procedural steps and zero amicus briefs.",
+        "claim": "There would be no response request, referral to the full Court or amicus filing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Gorsuch ruled three days after submission and granted sealing in the same docket entry.",
+        "claim": "Disposition would most likely come within days, within about two weeks, with sealing handled alongside the stay or on the linked petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposition in application 26A715 does not resolve petition 26-502. The staged record supplies no later certiorari decision.",
+        "claim": "The linked petition would eventually be denied after conference.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T141840Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:56:15.257231Z"
+  },
+  "reasoning_quality": 0.69,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

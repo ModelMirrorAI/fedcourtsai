@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000716",
+  "run_id": "20261120T154322Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "grep_search",
+    "write_file",
+    "run_shell_command"
+  ],
+  "helpful": [
+    "Complete blinded candidate staging with captured retrieval_log.json transcripts",
+    "Committed metrics/statpack.md and metrics/statpack.json matching all candidates' frozen statpack_digest",
+    "Post-disposition docket snapshot (2026-11-20.json) alongside outcome.json for checking order wording and docket entries"
+  ],
+  "gaps": [],
+  "notes": "All three candidates froze the same statpack_digest as the committed statpack, and the staged record (application.txt, 2026-11-20.json, outcome.json) sufficed to verify every base-rate citation and forecast claim without external corpus or CourtListener queries."
+}

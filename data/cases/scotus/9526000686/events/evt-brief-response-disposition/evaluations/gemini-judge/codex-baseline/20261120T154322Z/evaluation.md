@@ -1,0 +1,42 @@
+# Evaluation of `codex-baseline` — `scotus/9526000686` (`evt-brief-response-disposition`)
+
+## Stage, Outcome, and Quantitative Summary
+
+This is an **interim** cell (`stage: interim`, `moment: response-filed`) scoring Application No. 26A686 (*Thomas M. Overton v. Florida, et al.*), an active-warrant capital stay-of-execution application submitted to Justice Thomas on November 14, 2026, answered by Florida on November 17, 2026, replied to by Overton on November 17, 2026, and resolved on November 19, 2026.
+
+- **Realized outcome (`outcome.json`):** `actual_disposition: "denied"`, `interim_reading: "denied"`, `interim_granted: 0` (`actual_granted: 0`), `interim_signals: {"amicus_briefs": 0, "referred_to_court": true, "response_requested": false}`, `noted_dissent_from_denial: null`, `writing_roles: null`.
+- **Predicted outcome (`codex-baseline`):** `predicted_disposition: "denied"`, `granted: 0`, `probability: 0.02`.
+- **Scored binary fields:** `correct = 1` (same side of the granted/ungranted line as `interim_granted = 0`) and `brier_score = (0.02 - 0)^2 = 0.0004`.
+- **Baseline and skill ownership:** Because this is an interim cell, `segment_base_rate` and `brier_skill_score` (along with `claim_scores`) belong to the harness rather than the evaluator and are left unset for `stamp-cell` to compute against the stamped segment base rate. The committed statpack's interim finer-reading pool over the ten strictly prior Terms (`2016–2025`) clears the 50-application floor with zero `finer_unread` entries, so the pack supports the harness-stamped baseline.
+
+## Reasoning Quality (`reasoning.md` — `0.91`)
+
+`codex-baseline`'s `reasoning.md` delivers a disciplined, accurate, and well-calibrated legal and statistical analysis of the record available at its `2026-11-18T14:18:37Z` run time:
+
+- **Record conditioning and filings:** Because `codex-baseline` ran on November 18, all three filings (`application.txt`, `application-response.txt`, and `application-reply.txt`) were in its provisioned baseline. `codex-baseline` read all three closely without inventing facts beyond the papers: it noted the unfilled `[date]` placeholder and lack of a developed split or case-specific showing in `application.txt`, accurately distilled both questions addressed in `application-response.txt` (executive clemency discretion under *Ohio Adult Parole Authority v. Woodard*, 523 U.S. 272 (1998), and state-law confidentiality of clemency records), and isolated Overton's strongest contention from `application-reply.txt` (that an alleged categorical executive refusal to grant clemency in murder cases renders the process illusory even where formal procedures occurred) while properly treating that contention as an unverified party allegation.
+- **Precedent verification and doctrinal nuance:** `codex-baseline` retrieved *Barwick v. Governor of Florida*, 66 F.4th 896 (11th Cir. 2023), via CourtListener MCP and used it judiciously — showing that *Barwick* treats Justice O'Connor's *Woodard* concurrence as controlling against substantive clemency standards (undercutting certworthiness and likelihood of reversal) while declining to overread *Barwick* as endorsing Florida's generalized equitable-delay argument. It also rightly rejected Florida's strained contention that execution without additional injury fails the irreparable-harm prong, resting its `0.02` forecast squarely on the *Barefoot* likelihood-of-certiorari-and-reversal requirement.
+- **Procedural and authorship reasoning:** `codex-baseline` clearly separated grant odds (`0.02`) from full-Court referral (`0.95`), explaining why Justice Thomas was very likely to refer an active capital stay application paired with a pending certiorari petition even on a denial, why a Court-ordered response (`0.01`) was virtually moot with response and reply already filed, and why separate writings were unlikely (`Sotomayor: 0.055`, `Jackson: 0.03`).
+- **Minor limitation:** `codex-baseline` did not look up the Florida Supreme Court's published November 13, 2026 decision below (*Overton v. State*, Nos. SC2026-1724 & SC2026-1725, docket numbers disclosed in the snapshot) on CourtListener or run targeted corpus queries for Florida's cited OT2026 warrant denials (*Guardado*, *Reaves*). Even so, it candidly flagged the absence of the state opinion from its provisioned files and avoided overclaiming.
+
+## Base-Rate Usage
+
+`codex-baseline` handled the base-rate context cleanly and accurately. Its frozen `context.statpack_digest` (`sha256:51adef9eb718f3df6423188358b9c32ada5eda492c113a279dca2a17bbba64c4`) matches the committed statpack. It correctly distinguished the finer interim reading (`finer_granted` / `finer_resolved` in `metrics/statpack.json`, excluding moot dismissals and counting partial grants as grants) from legacy substantive rates, verified zero `finer_unread` across `2016–2025` (noting the 16 `unparsed` applications in `2016–2017`), and moved from the unconditioned pool to the pertinent `private` × `capital` cell (`10/288 = 3.47%`, above the 30-case floor) rather than relying on misleading margins skewed by federal and state applicants, before adjusting modestly downward to `0.02` on the thin stay papers. It also correctly treated `band: null` as the normal interim shape rather than fabricating a cert salience band.
+
+## Forecast Document Quality (`predicted_reasoning.md` — `0.88`)
+
+Evaluated strictly against the staged record (`outcome.json`, `record/snapshots/2026-11-19.json`, and `record/documents/`), `codex-baseline`'s `predicted_reasoning.md` performed very well:
+
+1. **Denial, unsigned order form, and timing (`borne-out`):** Correctly forecast that the Court would deny the stay application in a short unsigned order on November 18 or November 19, 2026, ahead of the scheduled November 19, 6:00 p.m. execution (`2026-11-19.json` shows the short unsigned denial entered November 19, 2026).
+2. **Escalation trajectory (`borne-out`):** Correctly forecast that Justice Thomas would refer the application to the full Court (`referred_to_court: true`) without that referral signaling a grant, and that neither a call for a response (`response_requested: false`) nor any amicus curiae filing (`amicus_briefs: 0`) would occur.
+3. **Conditional denial rationale (`unresolved`):** Framed its merits explanation conditionally ("If the Court explains a denial..."); because the November 19 order was a two-sentence summary denial with no stated reasoning, the staged record leaves that conditional branch untested, neither earning credit nor incurring a penalty.
+4. **Separate writings (`borne-out`):** Correctly forecast that no separate writing would appear (`writing_roles: null`, `noted_dissent_from_denial: null`).
+
+Every unconditional claim in `predicted_reasoning.md` held up, including the non-trivial combination of full-Court referral and summary denial without a response request. It sits at `0.88` (above the `0.75` anchor and just shy of the top tier) only because its phrasing was mildly hedged in places ("probably be referred", "most likely form") and it omitted predicting that the linked certiorari petition (`26-6154`) would be denied in the same order.
+
+## Leakage Check (`not_applicable` / `leakage_suspected: false`)
+
+`codex-baseline` ran in `forward` mode on `2026-11-18T14:18:37Z` (`created_at: 2026-11-18T14:46:35Z`), roughly a day before the Court resolved the application on `2026-11-19`. Inspection of `retrieval_log.json` (`result_capture_coverage: 0.388`, reflecting paired outer shell wrappers and inner tool records) confirms that `codex-baseline` read only the prompt, schemas, provisioned case files, and committed statpack, ran two pre-2026 corpus queries (`523 U.S. 272` returning 0 rows; `--decided-before 2026` returning four 2025 cert denials), and fetched the 2023 Eleventh Circuit opinion in *Barwick* (`retrieved_doc_date: "2023-04-26"`). No post-cutoff or outcome-revealing material existed or was retrieved.
+
+## Independent Big-Case Read (`0.08`)
+
+Formed independently from the case posture and outcome before inspecting candidate scores: while capital execution carries the gravest personal stakes for the prisoner, on the Court's docket this was a routine, boilerplate end-stage Florida warrant application raising repetitive clemency-discretion and state-law records claims summarily rejected in multiple recent cases, with zero amici, no requested response, and an unsigned summary denial without noted dissent (`evaluator_score = 0.08`).

@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.15,
+    "notes": "End-stage capital stay application on recurring Florida clemency-discretion and clemency-records claims that the Court had turned away in other Florida warrant cases within the preceding weeks; denied with the linked certiorari petition in a one-sentence unsigned order, no writing or noted dissent, no amicus participation. The stakes for the applicant are total, but the doctrinal and public significance beyond the execution itself is low."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.003,
+          "Gorsuch": 0.005,
+          "Jackson": 0.03,
+          "Kagan": 0.015,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.055,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:48:06.465005Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell. Every logged call is timestamped 17-18 Nov 2026, before the 19 Nov resolution; the log and prose show no retrieved document dated on or after resolution, no disposing order, and no read under data/qp-topics/. Capture coverage is partial (CourtListener calls unobserved), so those calls are graded on their queries: a citation search for 66 F.4th 896 and a fetch of that 2023 Eleventh Circuit opinion (Barwick), neither about this application. The one corpus citation lookup and a generic prior-Term denial query did not target this docket. The candidate states it did not retrieve this application's docket or the linked petition's disposition.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 19 2026: application 'presented to Justice Thomas and by him referred to the Court is denied'; outcome.json actual_disposition denied, no writing recorded.",
+        "claim": "The Court will deny the stay application, most likely in a short unsigned order.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Disposing docket entry is dated Nov 19 2026; outcome.json resolved_at 2026-11-19.",
+        "claim": "The Court will dispose of the application on November 18 or 19, before the 6:00 p.m. execution on November 19.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket entry Nov 19 2026 'Application (26A686) referred to the Court'; outcome interim_signals: referred_to_court true, response_requested false, amicus_briefs 0.",
+        "claim": "Justice Thomas will refer the application to the full Court; no response will be requested and no amicus brief will arrive.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing order carries no statement, concurrence or dissent; outcome.json records no writing roles and no noted dissent.",
+        "claim": "No separate writing is expected.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order is unexplained; the staged record cannot show the Court's ground.",
+        "claim": "If the Court explains a denial, the basis will be a failure to show the required prospect of review and reversal under the narrow constitutional protections for clemency.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261118T141837Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:48:06.465005Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

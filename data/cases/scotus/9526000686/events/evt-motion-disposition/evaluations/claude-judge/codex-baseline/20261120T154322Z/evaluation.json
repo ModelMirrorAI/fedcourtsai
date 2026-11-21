@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.18,
+    "notes": "A routine end-stage Florida death-warrant stay application on clemency/warrant-process claims that the state court rejected on its recent precedents and on a state procedural bar. Irreversible stakes for one person, but no split, no amicus, no response call, and an unexplained denial with no noted dissent; nothing of doctrinal reach."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.9338916789940829,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.012714019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.004,
+          "Gorsuch": 0.008,
+          "Jackson": 0.045,
+          "Kagan": 0.015,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.003,
+          "Sotomayor": 0.08,
+          "Thomas": 0.006
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.012714019934335404,
+    "total": 0.012714019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:47:11.865746Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell run 2026-11-15, before the 2026-11-19 order. Log shows the provisioned record, the statpack, one corpus query for unrelated pre-2026 cert denials (doc date 2026-06-03), a CourtListener lookup of Woodard (1998), and two web searches whose results are unobserved; graded on their queries, both target Woodard, not this docket. Nothing reaches this case's disposition, and the reasoning treats the application as pending.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.6,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 19 2026: 'Application (26A686) for stay of execution of sentence of death presented to Justice Thomas and by him referred to the Court is denied. The petition for a writ of certiorari is denied.'",
+        "claim": "The Court will deny the application for a stay, by an unsigned order with no substantive opinion.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "No response-request entry on the docket; Florida's Nov 17 response is recorded as filed, not requested; outcome interim_signals.response_requested is false.",
+        "claim": "The Circuit Justice will likely call for a response (80%); an uninvited response would not count.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Docket entry Nov 19 2026: 'Application (26A686) referred to the Court.'",
+        "claim": "The application will be referred to the full Court (95%).",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Outcome interim_signals.amicus_briefs is 0; the order is dated Nov 19 2026.",
+        "claim": "The amicus count will most likely remain at zero, and disposition falls Nov 16-19 before the execution time.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Nov 19 order text records no dissent or separate writing; outcome noted_dissent_from_denial is null.",
+        "claim": "The modal order is unaccompanied by separate writings.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261115T141636Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:47:11.865746Z"
+  },
+  "reasoning_quality": 0.65,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

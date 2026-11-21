@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.12,
+    "notes": "Although an imminent execution carries irreversible individual stakes and the application framed constitutional challenges to Florida's clemency and death-warrant processes, the full record shows a routine, splitless end-stage warrant stay application barred by decade-late state procedural defaults (following a 2014 clemency proceeding), attracting zero amici, no formal response call, and a summary unsigned denial with no noted dissents."
+  },
+  "brier_score": 0.0009,
+  "brier_skill_score": 0.9338916789940829,
+  "case_id": "scotus/9526000686",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": 0.012714019934335404
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.004,
+          "Barrett": 0.004,
+          "Gorsuch": 0.008,
+          "Jackson": 0.045,
+          "Kagan": 0.015,
+          "Kavanaugh": 0.004,
+          "Roberts": 0.003,
+          "Sotomayor": 0.08,
+          "Thomas": 0.006
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.012714019934335404,
+    "total": 0.012714019934335404
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T15:52:53.235133Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed at 20261115T141636Z, four days before the 2026-11-19 disposition. Retrieval log (29 calls, result_capture_coverage: 0.9286; 2 unobserved web searches on 2026-11-15 seeking the pre-arrival 2026-11-12 Florida Supreme Court opinion) occurred while the application was genuinely unresolved; Woodard lookup carried retrieved_doc_date 1998-03-25.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.75,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Snapshot 2026-11-19.json and outcome.json confirm Justice Thomas referred Application 26A686 to the Court (referred_to_court: true) and the Court entered a two-sentence unsigned denial order on November 19, 2026 with no merits opinion (interim_reading: 'denied', interim_granted: 0).",
+        "claim": "The Court will deny the stay application in a short unsigned order noting that the application presented to Justice Thomas and by him referred to the Court is denied, without a majority opinion explaining the merits.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "While Justice Thomas did refer the application to the full Court (referred_to_court: true), neither Justice Thomas nor the Court requested a response (outcome.interim_signals.response_requested: false); Florida filed its November 17, 2026 opposition without a docketed call.",
+        "claim": "Before acting, Justice Thomas is likely to refer the application to the full Court, and the Court or Circuit Justice is slightly more likely than not to request a response from Florida given the imminent November 19, 2026 execution warrant.",
+        "status": "not-borne-out"
+      },
+      {
+        "basis": "Outcome.json records noted_dissent_from_denial: null, votes: [], writing_roles: null, and interim_signals.amicus_briefs: 0.",
+        "claim": "No separate writing is the modal outcome, and substantial amicus participation is unlikely in the five-day warrant window.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 19, 2026 order in snapshot 2026-11-19.json summarily denied both Application 26A686 and the petition for certiorari without addressing or resolving either constitutional question.",
+        "claim": "An unsigned denial will leave unresolved whether extreme executive precommitment against clemency can ever violate Woodard or whether compressed warrant schedules can create a due process defect, reflecting that four Justices did not vote to grant certiorari and five did not find stay criteria met.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261115T141636Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T15:52:53.235133Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

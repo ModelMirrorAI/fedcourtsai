@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.16,
+    "notes": "An execution-eve capital stay application carries irreversible life-or-death stakes for the applicant, elevating it above routine procedural motions. Its broader doctrinal and national reach is narrow, however: it presented a case-specific Wiggins trial-mitigation claim dismissed at the threshold under Texas Art. 11.071, sec. 5, drew zero amicus briefs, and was summarily denied alongside certiorari without separate writing or noted dissent."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000716",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.16,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.97,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.04,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.002,
+          "Barrett": 0.002,
+          "Gorsuch": 0.002,
+          "Jackson": 0.028,
+          "Kagan": 0.008,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.001,
+          "Sotomayor": 0.045,
+          "Thomas": 0.002
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-20T16:07:45.305078Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction placed ~2026-11-19T19:14Z while 26A716 and linked petition 26-6187 were unresolved. retrieval_log.json shows codex-baseline fetched the Nov. 18 cert petition and appendix PDFs from supremecourt.gov on linked docket 26-6187 (legitimate pre-resolution forward signal, candidly disclosed in retrieval.md); no disposition or post-resolution material existed or surfaced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.88,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "outcome.interim_signals.referred_to_court is true, and the 2026-11-20 docket snapshot records a Nov. 19 referral followed by a single Nov. 19 order denying both the referred stay application and the linked certiorari petition.",
+        "claim": "Justice Alito will refer the stay application to the full Court so the Justices can act on it alongside the linked certiorari petition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.interim_signals records response_requested: false and amicus_briefs: 0, matching the 2026-11-20 docket snapshot.",
+        "claim": "There will be no formal call for a response and no additional amicus filings before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_reading: 'denied' (interim_granted: 0) on resolved_at: '2026-11-19' with noted_dissent_from_denial: null and writing_roles: null; the 2026-11-20 snapshot shows a two-sentence unsigned denial order.",
+        "claim": "The Court will deny the stay in a short order on November 19, before the scheduled execution, without a separate writing.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The Court's November 19 summary order states no reasons for denying the stay or certiorari, so the staged record does not disclose the Justices' internal legal ground.",
+        "claim": "Dennes's trial-counsel mitigation evidence is unlikely to persuade enough Justices that they can reach the sentencing claim and reverse the state court's threshold dismissal.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261119T190436Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "11a65ff86a8c3acae86eaf09fca9662e275bd6b0",
+    "stamped_at": "2026-11-20T16:07:45.305078Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261120T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
