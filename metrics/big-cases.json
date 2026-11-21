@@ -1,5 +1,5 @@
 {
-  "cases": 425,
+  "cases": 426,
   "cases_at_court_next_conference": 32,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
@@ -10,7 +10,7 @@
       "n": 3
     },
     {
-      "cases": 36,
+      "cases": 37,
       "n": 2
     },
     {
@@ -18,8 +18,8 @@
       "n": 1
     }
   ],
-  "current_reads": 1272,
-  "declared_no_view": 28,
+  "current_reads": 1275,
+  "declared_no_view": 29,
   "frozen_process": {
     "digests": [
       "sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4",
@@ -1856,134 +1856,6 @@
       "status": "pending"
     },
     {
-      "asking_declined": null,
-      "asking_party": "Apple",
-      "caption": "Apple Inc. v. Epic Games, Inc.",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/73500212",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "App Store link-out commissions govern a multi-hundred-billion-dollar distribution market, and the contempt standard the Court announces will control injunction enforcement across every federal court.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "The dispute concerns the rules and economics of a major mobile-app platform and is likely to affect a large digital marketplace.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "High-stakes litigation between major tech companies over platform rules, carrying significant implications for antitrust and federal equity power.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73500212,
-      "docket_number": "25-1311",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1311.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "App Store link-out commissions govern a multi-hundred-billion-dollar distribution market, and the contempt standard the Court announces will control injunction enforcement across every federal court.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73500212/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.82,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The dispute concerns the rules and economics of a major mobile-app platform and is likely to affect a large digital marketplace.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73500212/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.3,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.7,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "High-stakes litigation between major tech companies over platform rules, carrying significant implications for antitrust and federal equity power.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73500212/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Apple Inc. v. Epic Games, Inc."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.9,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-06-30",
-      "n": 3,
-      "other_party": "Epic Games",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Apple wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Epic Games wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2027-01-11",
-          "kind": "argument"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.9,
-      "score_min": 0.9,
-      "score_range": 0.0,
-      "short_caption": "Apple v. Epic Games",
-      "status": "pending"
-    },
-    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Refugee and Immigrant Center for Education and Legal Services, et al.",
@@ -2726,7 +2598,7 @@
       "leakage_suspected": false,
       "mean_big_case_score": 0.8833,
       "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-10-13",
+      "moment_opened_at": "2026-08-28",
       "n": 3,
       "other_party": "Mi Familia Vota",
       "outcome_lines": [
@@ -5688,12 +5560,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-20",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.84,
       "score_min": 0.8,
@@ -8717,6 +8584,184 @@
       "score_range": 0.15,
       "short_caption": "Mendenhall v. City and County of Denver",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Apple",
+      "caption": "Apple Inc. v. Epic Games, Inc.",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73500212",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Standard for civil contempt of injunctions, with reach to every enjoined party including the federal government; high-profile Apple/Epic App Store dispute with billions in commissions at stake and 15+ merits amici including the United States and 32 States.",
+          "big_case_score": 0.72,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261121T030841Z"
+        },
+        {
+          "big_case_rationale": "The ruling will shape how federal judges enforce injunctions across civil cases and how app developers can direct iPhone users to outside purchases.",
+          "big_case_score": 0.83,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261121T030841Z"
+        },
+        {
+          "big_case_rationale": "Marquee App Store dispute between Apple and Epic with major platform-commission stakes and a nationwide rule on civil contempt of federal injunctions, tempered by the denial of Question 2's universal-injunction issue.",
+          "big_case_score": 0.78,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261121T030841Z"
+        }
+      ],
+      "docket_id": 73500212,
+      "docket_number": "25-1311",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1311.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Standard for civil contempt of injunctions, with reach to every enjoined party including the federal government; high-profile Apple/Epic App Store dispute with billions in commissions at stake and 15+ merits amici including the United States and 32 States.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73500212/events/evt-brief-judgment/predictions/claude-baseline/20261121T030841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-brief-judgment/predictions/claude-baseline/20261121T030841Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20261121T030841Z"
+            },
+            {
+              "big_case_rationale": "The ruling will shape how federal judges enforce injunctions across civil cases and how app developers can direct iPhone users to outside purchases.",
+              "big_case_score": 0.83,
+              "cell_path": "data/cases/scotus/73500212/events/evt-brief-judgment/predictions/codex-baseline/20261121T030841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-brief-judgment/predictions/codex-baseline/20261121T030841Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261121T030841Z"
+            },
+            {
+              "big_case_rationale": "Marquee App Store dispute between Apple and Epic with major platform-commission stakes and a nationwide rule on civil contempt of federal injunctions, tempered by the denial of Question 2's universal-injunction issue.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/73500212/events/evt-brief-judgment/predictions/gemini-baseline/20261121T030841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-brief-judgment/predictions/gemini-baseline/20261121T030841Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.88,
+              "run_id": "20261121T030841Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Apple Inc. v. Epic Games, Inc."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "App Store link-out commissions govern a multi-hundred-billion-dollar distribution market, and the contempt standard the Court announces will control injunction enforcement across every federal court.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73500212/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.82,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The dispute concerns the rules and economics of a major mobile-app platform and is likely to affect a large digital marketplace.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73500212/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.3,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.7,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "High-stakes litigation between major tech companies over platform rules, carrying significant implications for antitrust and federal equity power.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73500212/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500212/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Apple Inc. v. Epic Games, Inc."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7767,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-11-13",
+      "n": 3,
+      "other_party": "Epic Games",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Apple wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Epic Games wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2027-01-11",
+          "kind": "argument"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.83,
+      "score_min": 0.72,
+      "score_range": 0.11,
+      "short_caption": "Apple v. Epic Games",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -60570,6 +60615,124 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Buenaventura",
+      "caption": "Ian Buenaventura v. Leslie Buot",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000729",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Self-represented private litigant seeking a stay of a Maine state-court matter against another private party, with a sealing request; no visible public-law question.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261121T030841Z"
+        },
+        {
+          "big_case_rationale": "The public entry identifies the parties and the request for a stay but does not describe the underlying order or who it affects.",
+          "big_case_score": null,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261121T030841Z"
+        },
+        {
+          "big_case_rationale": "Pro se stay application submitted under a motion to seal arising out of private Maine state-court divorce and custody litigation (And-26-291), carrying negligible doctrinal, institutional, or public significance beyond the immediate parties.",
+          "big_case_score": 0.02,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261121T030841Z"
+        }
+      ],
+      "docket_id": 9526000729,
+      "docket_number": "26A729",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a729.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Self-represented private litigant seeking a stay of a Maine state-court matter against another private party, with a sealing request; no visible public-law question.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000729/events/evt-motion-disposition/predictions/claude-baseline/20261121T030841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000729/events/evt-motion-disposition/predictions/claude-baseline/20261121T030841Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261121T030841Z"
+            },
+            {
+              "big_case_rationale": "The public entry identifies the parties and the request for a stay but does not describe the underlying order or who it affects.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9526000729/events/evt-motion-disposition/predictions/codex-baseline/20261121T030841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000729/events/evt-motion-disposition/predictions/codex-baseline/20261121T030841Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.02,
+              "run_id": "20261121T030841Z"
+            },
+            {
+              "big_case_rationale": "Pro se stay application submitted under a motion to seal arising out of private Maine state-court divorce and custody litigation (And-26-291), carrying negligible doctrinal, institutional, or public significance beyond the immediate parties.",
+              "big_case_score": 0.02,
+              "cell_path": "data/cases/scotus/9526000729/events/evt-motion-disposition/predictions/gemini-baseline/20261121T030841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000729/events/evt-motion-disposition/predictions/gemini-baseline/20261121T030841Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261121T030841Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Ian Buenaventura v. Leslie Buot"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.025,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 2,
+      "other_party": "Buot",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Buenaventura gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Buenaventura does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.03,
+      "score_min": 0.02,
+      "score_range": 0.01,
+      "short_caption": "Buenaventura v. Buot",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Alejandro Evaristo Perez",
       "caption": "Alejandro Evaristo Perez v. Disney Corporation, et al.",
       "caption_event_id": "evt-petition-arrival-disposition",
@@ -62183,5 +62346,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1235
+  "scored_reads": 1237
 }
