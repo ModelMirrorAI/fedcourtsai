@@ -1,0 +1,44 @@
+# Forecast Rationale — `scotus/9526000729` (`evt-motion-disposition`)
+
+## Summary of Forecast Numbers
+
+- **Binary disposition (`probability` / `interim-disposition`):** `0.005` (`granted = 0`, `predicted_disposition = "denied"`)
+- **`response-requested-increment`:** `0.02` (from frozen `response_requested: false`)
+- **`referral-increment`:** `0.08` (from frozen `referred_to_court: false`)
+- **`amicus-increment`:** `0.005` (from frozen `amicus_briefs: 0`)
+- **`big_case_score`:** `0.02`
+- **`order-writers`:** `Jackson: 0.004`; `Thomas, Alito, Gorsuch, Kavanaugh: 0.001` each; `Roberts, Sotomayor, Kagan, Barrett: 0.0005` each
+
+## Provisioned Record and Missing Document Text
+
+This is a `forward`-mode interim arrival cell (`moment: arrival`, `cut_kind: arrival-position`, `cut_anchor_index: 0`, `cutoff: 2026-11-18`) read from `record/snapshots/2026-11-18.json` (`snapshot_provenance: truncated`). The snapshot shows Application `26A729`, *Ian Buenaventura v. Leslie Buot*, arising from the Supreme Judicial Court of Maine, No. `(And-26-291)`, non-capital (`bCapitalCase: false`), with `RelatedCaseNumber: []`. Applicant Ian S.R. Buenaventura (TX; contact details scrubbed by `snapshot_contact_scrub`) appears *pro se*, and no counsel is entered for Respondent Leslie Buot.
+
+The sole proceeding entry at the arrival cut is:
+> `Nov 17 2026: Application (26A729) for a stay and motion for leave to file application and appendix under seal, submitted to Justice Jackson.`
+
+No `record/documents/application.txt` was provisioned. That absence is an expected consequence of Supreme Court Rule 34.7: when an applicant moves for leave to file an application and appendix under seal, the entire submission must be filed in paper form only and is not posted to the public electronic docket at arrival. My forecast therefore rests on the provisioned docket snapshot, committed statpack base rates, corpus priors, and pre-decision lower-court and related-docket records retrieved in forward mode.
+
+## Base-Rate Anchors (`metrics/statpack.md` and `metrics/statpack.json`)
+
+Because `26A729` is an OT2026 application (`term: 2026`, strictly prior to OT2027), the scored interim base rate pools `finer_granted / finer_resolved` (partial grants counted as granted, moot dismissals excluded, unweighted) across the ten strictly-prior application-Terms (`2016 <= T <= 2025`):
+
+1. **Scored 10-Term interim pool (OT2016–OT2025, finer reading):** **156 / 1,337 = 11.67%** (`11.7%`), well above the `INTERIM_BASE_RATE_MIN_RESOLVED = 50` floor (`finer_unread = 0` in all ten Terms; `unparsed = 16` total across OT2016–OT2017). Note per `statpack.md` that predicted interim cells are selected by escalation-ladder reserve priority, whereas this arrival cell sits at rung zero (`response_requested: false`, `referred_to_court: false`, `amicus_briefs: 0`).
+2. **Descriptive applicant-class cut (`caption-v2`, OT2016–OT2025):** Under **"Substantive applications by applicant class"**, `private` + `unmarked` (non-capital) applications granted at **63 / 906 = 6.95%** (`7.0%`), compared to `68.4%` (`39/57`) for federal unmarked and `41.4%` (`24/58`) for state unmarked.
+3. **Unconditional escalation-signal frequencies (OT2016–OT2025):** Over the 1,380 substantive applications in OT2016–OT2025 (`227` in OT2025), responses were requested on `282 / 1,380` (`20.4%`; `27 / 227 = 11.9%` in OT2025), applications were referred to the full Court on `769 / 1,380` (`55.7%`; `107 / 227 = 47.1%` in OT2025), and amicus briefs appeared on `120 / 1,380` (`8.7%`; `27 / 227 = 11.9%` in OT2025).
+
+## Pre-Decision Case Context and Adjustments
+
+Forward-mode retrieval of pre-decision lower-court records and prior SCOTUS dockets between these exact parties decisively narrows the uncertainty left by the sealed application text:
+
+- **Underlying Maine divorce and custody dispute (`Buot v. Buenaventura`):** Public litigation records show that the dispute originated as an Androscoggin County, Maine divorce and child-custody action in which Buenaventura, proceeding *pro se*, sought anti-SLAPP dismissal of the divorce complaint under 14 M.R.S. § 556 and challenged Maine's irreconcilable-differences divorce standard. An earlier appeal to the Maine Supreme Judicial Court (`And-25-246`) was dismissed on June 24, 2025 as interlocutory.
+- **Federal filing injunction and removal denial (`In re Buenaventura`, No. 2:25-mc-00465-LEW, D. Me. Oct. 20, 2025):** CourtListener RECAP records show Buenaventura listed as `"ENJOINED FILER IAN R BUENAVENTURA"` in the District of Maine following earlier *pro se* federal suits (`Buenaventura v. Executive Office of the President`, No. 2:24-cv-00089-NT). When he moved on October 16, 2025 for leave to remove the Maine divorce and child-custody proceedings under seal, Judge Lance E. Walker denied leave to file for lack of federal jurisdiction under *Ankenbrandt v. Richards*, 504 U.S. 689, 703 (1992).
+- **Prior SCOTUS stay application before Justice Jackson (`25A572`):** On November 7, 2025, Buenaventura submitted a stay application (`25A572`) from `And-25-246` to Justice Jackson. Ten days later, on **November 17, 2025**, Justice Jackson **denied the application alone**, with **no response requested**, **no referral to the full Court**, and **zero amicus briefs** (Buenaventura refiled five months later to Justice Alito on April 8, 2026 under Rule 22.4, which was routinely referred to the Court and denied May 18, 2026). His related IFP certiorari petition from `And-25-246` (`26-5639`, docketed Sept. 22, 2026) drew no response and was distributed on November 5, 2026 for the December 4, 2026 Conference.
+- **Procedural analogue on Rule 34.7 sealed stay applications (`26A715`, *Odom v. Oklahoma*):** Corpus priors show `26A715` (*Rachel Beth Odom v. Oklahoma*, decided Nov. 19, 2026), carrying the identical posture and entry structure — a non-capital state civil/family appellate stay application accompanied by a motion for leave to file the application and appendix under seal — resolved by the Circuit Justice acting alone (`referred_to_court: false`, `response_requested: false`, `amicus_briefs: 0`, `disposition: denied`), granting the seal motion while denying the stay.
+
+### Specific Parameter Justifications
+
+- **`probability = 0.005` (`interim-disposition`):** Starting from the `6.95%` (`63/906`) `private unmarked` base rate (which is heavily concentrated in represented institutional/commercial emergency applications), *pro se* applications arising out of state divorce/custody litigation face insurmountable § 1257 finality/state-law barriers and near-zero certworthiness under *Hollingsworth*, reinforced by Justice Jackson's prior solo denial of `25A572` in the same family dispute and the applicant's enjoined-filer history in D. Maine. I retain a `0.5%` (`1 in 200`) floor rather than `0.000` solely because the sealed application text in `And-26-291` is unread, leaving tiny residual uncertainty over whether `And-26-291` involves an acute sanction/contempt order or procedural defect.
+- **`response-requested-increment = 0.02`:** Down sharply from the `20.4%` (`11.9%` in OT2025) unconditional rate. Respondent has no counsel on the docket, Justice Jackson requested no response in `25A572`, and `26A715` required none; a `2%` tail covers the slim chance Justice Jackson asks for a brief response on either the stay or sealing request.
+- **`referral-increment = 0.08`:** Down substantially from the `47.1%`–`55.7%` unconditional substantive referral rate (which is driven by capital cases, SG/state applications, and Rule 22.4 reapplications). Both `25A572` (initial submission to Justice Jackson) and `26A715` (Rule 34.7 seal + stay) were denied by the Circuit Justice alone (`referred_to_court: false`). I keep `0.08` to account for two plausible pathways: (1) Justice Jackson electing to refer `26A729` (or an unsupported Rule 34.7 sealing motion) to the Conference alongside Buenaventura's already-distributed IFP petition `26-5639` (set for the Dec. 4, 2026 Conference), or (2) a prompt chambers denial followed by an immediate Rule 22.4 resubmission within the 7-day outcome-settlement window (unlike `25A572`, where Buenaventura waited five months to refile).
+- **`amicus-increment = 0.005`:** The filing is non-public paper under a pending seal motion in a private marital dispute that drew zero amici in `25A572` and `26-5639`.
+- **`order-writers` and `big_case_score = 0.02`:** Separate writings on chambers denials of *pro se* state domestic-relations stay applications are virtually nonexistent; Justice Jackson (`0.004`) has slightly higher probability than her colleagues (`0.0005`–`0.001`) only because as Circuit Justice she could append a one-sentence in-chambers note on the sealing or stay ruling. Stakes if decided (`0.02`) are minimal and confined to the private litigants.

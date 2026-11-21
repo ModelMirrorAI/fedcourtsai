@@ -1,0 +1,97 @@
+{
+  "big_case_rationale": "Pro se stay application submitted under a motion to seal arising out of private Maine state-court divorce and custody litigation (And-26-291), carrying negligible doctrinal, institutional, or public significance beyond the immediate parties.",
+  "big_case_score": 0.02,
+  "case_id": "scotus/9526000729",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.001,
+        "Barrett": 0.0005,
+        "Gorsuch": 0.001,
+        "Jackson": 0.004,
+        "Kagan": 0.0005,
+        "Kavanaugh": 0.001,
+        "Roberts": 0.0005,
+        "Sotomayor": 0.0005,
+        "Thomas": 0.001
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.08
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.005
+    }
+  ],
+  "confidence": 0.95,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "band_refused": null,
+    "cert_amicus_briefs": null,
+    "cert_amicus_line": null,
+    "cert_anchor": null,
+    "cut_anchor_index": 0,
+    "cut_kind": "arrival-position",
+    "cutoff": "2026-11-18",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 3,
+      "sides": [
+        "Petitioner"
+      ]
+    },
+    "snapshot_date": "2026-11-18",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:a7d6f5cde0a4c0e9f80d0491dd08e65cd303aa7b14ce6ec1133e915c88af92a4",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-21T03:24:04.839944Z",
+  "engine": "gemini",
+  "event_id": "evt-motion-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-11-18.json",
+  "judgment": null,
+  "model": "gemini-4-carbon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.005,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b4d3cf9384ea19f0ebd20a314ded6bfb6cad288a64f969b148cf832a2a3d2f32",
+    "label": "proc-v24",
+    "pipeline_sha": "dd36dd8939d9c7cabfd46888a09686b61bef2af9",
+    "stamped_at": "2026-11-21T03:24:04.839944Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261121T030841Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

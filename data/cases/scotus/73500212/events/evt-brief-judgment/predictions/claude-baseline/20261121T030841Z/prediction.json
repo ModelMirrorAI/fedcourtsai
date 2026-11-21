@@ -1,0 +1,155 @@
+{
+  "big_case_rationale": "Standard for civil contempt of injunctions, with reach to every enjoined party including the federal government; high-profile Apple/Epic App Store dispute with billions in commissions at stake and 15+ merits amici including the United States and 32 States.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/73500212",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.09,
+        "Barrett": 0.14,
+        "Gorsuch": 0.15,
+        "Jackson": 0.06,
+        "Kagan": 0.11,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.12,
+        "Sotomayor": 0.07,
+        "Thomas": 0.12,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.18,
+        "Barrett": 0.14,
+        "Gorsuch": 0.24,
+        "Jackson": 0.45,
+        "Kagan": 0.14,
+        "Kavanaugh": 0.18,
+        "Roberts": 0.04,
+        "Sotomayor": 0.3,
+        "Thomas": 0.28
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.86
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_amicus_briefs": 1,
+    "cert_amicus_line": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 6,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:a7d6f5cde0a4c0e9f80d0491dd08e65cd303aa7b14ce6ec1133e915c88af92a4",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-21T03:15:47.563706Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-14.json",
+  "judgment": "vacated",
+  "model": "claude-fable-5-2",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.86,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4",
+    "label": "proc-v24",
+    "pipeline_sha": "dd36dd8939d9c7cabfd46888a09686b61bef2af9",
+    "stamped_at": "2026-11-21T03:15:47.563706Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261121T030841Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Taggart v. Lorenzen's 'no fair ground of doubt' standard, traced to California Artificial Stone Paving v. Molitor, governs civil contempt of an injunction, and that the Ninth Circuit's Sea Shepherd rule allowing contempt for violating an injunction's 'spirit' though not its letter is incompatible with it: contempt requires that the order's terms, read objectively and in context, clearly cover the conduct. McComb v. Jacksonville Paper is confined to conduct falling within a decree's general terms rather than extended to purpose-based evasion, and the contemnor's bad faith or intent to circumvent cannot supply coverage the text lacks."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states a categorical rule for all civil contempt of injunctions in federal court (no contempt on an order's 'spirit' or purpose where its terms do not clearly reach the conduct), not a ruling confined to Apple's anti-steering injunction; but it does not itself finally adjudicate every contempt finding against Apple, leaving application of the standard to at least some of Apple's link-out restrictions for the lower courts on remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": "dissent"
+    }
+  ]
+}

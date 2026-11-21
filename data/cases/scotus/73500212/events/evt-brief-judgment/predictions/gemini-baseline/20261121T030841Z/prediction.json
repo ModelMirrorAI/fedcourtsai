@@ -1,0 +1,155 @@
+{
+  "big_case_rationale": "Marquee App Store dispute between Apple and Epic with major platform-commission stakes and a nationwide rule on civil contempt of federal injunctions, tempered by the denial of Question 2's universal-injunction issue.",
+  "big_case_score": 0.78,
+  "case_id": "scotus/73500212",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.095,
+        "Barrett": 0.135,
+        "Gorsuch": 0.115,
+        "Jackson": 0.08,
+        "Kagan": 0.125,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.12,
+        "Sotomayor": 0.085,
+        "Thomas": 0.105,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.15,
+        "Barrett": 0.105,
+        "Gorsuch": 0.19,
+        "Jackson": 0.28,
+        "Kagan": 0.06,
+        "Kavanaugh": 0.145,
+        "Roberts": 0.035,
+        "Sotomayor": 0.22,
+        "Thomas": 0.26
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": 0.78,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "band_refused": null,
+    "cert_amicus_briefs": 1,
+    "cert_amicus_line": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 6,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-11-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:a7d6f5cde0a4c0e9f80d0491dd08e65cd303aa7b14ce6ec1133e915c88af92a4",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-11-21T03:29:34.813559Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-14.json",
+  "judgment": "vacated",
+  "model": "gemini-4-carbon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b4d3cf9384ea19f0ebd20a314ded6bfb6cad288a64f969b148cf832a2a3d2f32",
+    "label": "proc-v24",
+    "pipeline_sha": "dd36dd8939d9c7cabfd46888a09686b61bef2af9",
+    "stamped_at": "2026-11-21T03:29:34.813559Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261121T030841Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Extending Taggart v. Lorenzen, 587 U.S. 554 (2019), and Fed. R. Civ. P. 65(d), the majority holds that civil contempt requires no fair ground of doubt under the injunction's operative text, disapproving the Ninth Circuit's 'spirit of the injunction' rule, confining McComb v. Jacksonville Paper Co., 336 U.S. 187 (1949), to contextual reading of express terms and prospective modification rather than unstated obligations, and holding that subjective bad faith cannot turn an objectively reasonable reading of an order into contempt."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states a categorical, trans-substantive rule governing civil contempt of federal-court injunctions generally\u2014refusing to confine Taggart to bankruptcy or carve out antitrust and unfair-competition decrees\u2014while preserving prospective injunction modification and contextual reading of express decree terms rather than requiring magic-words hyper-literalism."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
