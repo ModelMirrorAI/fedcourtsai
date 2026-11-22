@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 944.6,
+    "actions_minutes": 899.5,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1462.34,
     "fixed_monthly_usd": 115.0,
     "model_cost_usd": 5853.495063,
     "model_monthly_usd": 1347.34,
-    "window_days": 1.0
+    "window_days": 1.5
   },
   "data_health": {
     "corpus": {
@@ -54,7 +54,7 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-11-21",
+          "detail": "as of 2026-11-22",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
@@ -62,7 +62,7 @@
         },
         {
           "checked": 642,
-          "detail": "granted before 2024-11-21 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
+          "detail": "granted before 2024-11-22 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
@@ -70,7 +70,7 @@
         },
         {
           "checked": 2154327,
-          "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-21); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+          "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-22); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
           "failures": 75,
           "name": "case_dates_ordered",
           "passed": true,
@@ -241,7 +241,7 @@
       "skipped": false
     },
     "ledger": {
-      "checked": 46959,
+      "checked": 46984,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -249,11 +249,11 @@
     "ok": true
   },
   "flags": {
-    "archived": 1032,
+    "archived": 1036,
     "blockers": 0,
-    "cells": 105,
+    "cells": 103,
     "harness": 7,
-    "infos": 80,
+    "infos": 77,
     "normalised_cells": 0,
     "recent": [
       {
@@ -644,51 +644,40 @@
         "schema_version": "1.0"
       }
     ],
-    "total": 127,
-    "warnings": 47,
+    "total": 123,
+    "warnings": 46,
     "window_days": 14
   },
-  "generated_at": "2026-11-21T08:08:30.076273+00:00",
+  "generated_at": "2026-11-22T08:08:39.905474+00:00",
   "health": [
     {
-      "failures": 0,
+      "failures": 1,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-20T15:44:05Z",
-      "median_seconds": 53,
-      "p95_seconds": 53,
-      "runs_considered": 1,
-      "success_rate": 1.0,
-      "successes": 1,
-      "workflow": "Dependabot Updates"
-    },
-    {
-      "failures": 5,
-      "last_conclusion": "success",
-      "last_run_at": "2026-11-21T07:22:52Z",
-      "median_seconds": 120,
-      "p95_seconds": 548,
-      "runs_considered": 52,
-      "success_rate": 0.9038461538461539,
-      "successes": 47,
+      "last_run_at": "2026-11-22T07:23:18Z",
+      "median_seconds": 103,
+      "p95_seconds": 493,
+      "runs_considered": 42,
+      "success_rate": 0.9761904761904762,
+      "successes": 41,
       "workflow": "ci"
     },
     {
-      "failures": 2,
+      "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T07:22:52Z",
+      "last_run_at": "2026-11-22T07:23:18Z",
       "median_seconds": 281,
-      "p95_seconds": 344,
-      "runs_considered": 63,
-      "success_rate": 0.9682539682539683,
-      "successes": 61,
+      "p95_seconds": 343,
+      "runs_considered": 46,
+      "success_rate": 1.0,
+      "successes": 46,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T07:50:31Z",
+      "last_run_at": "2026-11-22T07:50:14Z",
       "median_seconds": 31,
-      "p95_seconds": 39,
+      "p95_seconds": 37,
       "runs_considered": 48,
       "success_rate": 1.0,
       "successes": 48,
@@ -697,9 +686,9 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-20T11:53:44Z",
-      "median_seconds": 137,
-      "p95_seconds": 137,
+      "last_run_at": "2026-11-21T11:53:55Z",
+      "median_seconds": 146,
+      "p95_seconds": 146,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
@@ -709,41 +698,41 @@
       "failures": 0,
       "last_conclusion": "success",
       "last_run_at": "2026-11-20T22:40:21Z",
-      "median_seconds": 23,
-      "p95_seconds": 29,
-      "runs_considered": 6,
+      "median_seconds": 22,
+      "p95_seconds": 23,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 6,
+      "successes": 2,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T07:28:13Z",
-      "median_seconds": 48,
-      "p95_seconds": 54,
-      "runs_considered": 23,
+      "last_run_at": "2026-11-22T07:28:05Z",
+      "median_seconds": 46,
+      "p95_seconds": 51,
+      "runs_considered": 35,
       "success_rate": 1.0,
-      "successes": 23,
+      "successes": 35,
       "workflow": "promotion-prep"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T07:22:52Z",
-      "median_seconds": 21,
-      "p95_seconds": 27,
-      "runs_considered": 23,
+      "last_run_at": "2026-11-22T07:23:18Z",
+      "median_seconds": 19,
+      "p95_seconds": 24,
+      "runs_considered": 30,
       "success_rate": 1.0,
-      "successes": 23,
+      "successes": 30,
       "workflow": "promotion-record"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T04:37:26Z",
+      "last_run_at": "2026-11-22T04:37:20Z",
       "median_seconds": 137,
-      "p95_seconds": 1286,
+      "p95_seconds": 587,
       "runs_considered": 5,
       "success_rate": 1.0,
       "successes": 5,
@@ -763,9 +752,9 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-20T15:42:40Z",
-      "median_seconds": 1973,
-      "p95_seconds": 1973,
+      "last_run_at": "2026-11-21T15:43:07Z",
+      "median_seconds": 54,
+      "p95_seconds": 54,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
@@ -774,19 +763,19 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-11-21T08:07:23Z",
-      "median_seconds": null,
-      "p95_seconds": null,
-      "runs_considered": 1,
-      "success_rate": null,
-      "successes": 0,
+      "last_run_at": "2026-11-22T08:07:20Z",
+      "median_seconds": 92,
+      "p95_seconds": 92,
+      "runs_considered": 2,
+      "success_rate": 1.0,
+      "successes": 1,
       "workflow": "run-ops"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T03:07:49Z",
-      "median_seconds": 179,
+      "last_run_at": "2026-11-21T17:33:41Z",
+      "median_seconds": 160,
       "p95_seconds": 1754,
       "runs_considered": 3,
       "success_rate": 1.0,
@@ -796,45 +785,45 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T07:19:15Z",
-      "median_seconds": 792,
-      "p95_seconds": 1210,
-      "runs_considered": 15,
+      "last_run_at": "2026-11-22T07:19:20Z",
+      "median_seconds": 849,
+      "p95_seconds": 1226,
+      "runs_considered": 23,
       "success_rate": 1.0,
-      "successes": 15,
+      "successes": 23,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T02:34:39Z",
-      "median_seconds": 608,
-      "p95_seconds": 678,
-      "runs_considered": 3,
+      "last_run_at": "2026-11-22T02:34:42Z",
+      "median_seconds": 740,
+      "p95_seconds": 884,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 5,
       "workflow": "run-seed"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T03:44:11Z",
+      "last_run_at": "2026-11-22T03:44:22Z",
       "median_seconds": 942,
-      "p95_seconds": 942,
-      "runs_considered": 1,
+      "p95_seconds": 1258,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "summarize"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-21T03:18:36Z",
+      "last_run_at": "2026-11-22T03:19:35Z",
       "median_seconds": 489,
-      "p95_seconds": 489,
-      "runs_considered": 1,
+      "p95_seconds": 547,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "sync-staging"
     }
   ],
@@ -883,12 +872,12 @@
           "delivered": 48,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 20,
+          "lateness_max_min": 24,
           "lateness_p50_min": 1,
           "slots": 48
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T07:50:31Z",
+        "last_scheduled_at": "2026-11-22T07:50:14Z",
         "week": {
           "delivered": 336,
           "dropped": 0,
@@ -912,13 +901,13 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-20T11:53:44Z",
+        "last_scheduled_at": "2026-11-21T11:53:55Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
           "hours": 168,
           "lateness_max_min": 2,
-          "lateness_p50_min": 1,
+          "lateness_p50_min": 0,
           "slots": 7
         },
         "workflow": "integration-test"
@@ -955,12 +944,12 @@
           "delivered": 24,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 17,
+          "lateness_max_min": 21,
           "lateness_p50_min": 2,
           "slots": 24
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T07:28:13Z",
+        "last_scheduled_at": "2026-11-22T07:28:05Z",
         "week": {
           "delivered": 168,
           "dropped": 0,
@@ -986,15 +975,15 @@
           "9 16 * * *"
         ],
         "day": {
-          "delivered": 4,
+          "delivered": 3,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 6,
+          "lateness_max_min": 5,
           "lateness_p50_min": 2,
-          "slots": 4
+          "slots": 3
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T04:37:26Z",
+        "last_scheduled_at": "2026-11-22T04:37:20Z",
         "week": {
           "delivered": 29,
           "dropped": 0,
@@ -1010,12 +999,12 @@
           "23 6 * * 6"
         ],
         "day": {
-          "delivered": 0,
+          "delivered": 1,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": null,
-          "lateness_p50_min": null,
-          "slots": 0
+          "lateness_max_min": 10,
+          "lateness_p50_min": 10,
+          "slots": 1
         },
         "flags": [],
         "last_scheduled_at": "2026-11-21T06:33:27Z",
@@ -1023,8 +1012,8 @@
           "delivered": 1,
           "dropped": 0,
           "hours": 168,
-          "lateness_max_min": 8,
-          "lateness_p50_min": 8,
+          "lateness_max_min": 10,
+          "lateness_p50_min": 10,
           "slots": 1
         },
         "workflow": "run-backtest"
@@ -1037,12 +1026,12 @@
           "delivered": 1,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 3,
-          "lateness_p50_min": 3,
+          "lateness_max_min": 4,
+          "lateness_p50_min": 4,
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-20T15:42:40Z",
+        "last_scheduled_at": "2026-11-21T15:43:07Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1066,7 +1055,7 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T08:07:23Z",
+        "last_scheduled_at": "2026-11-22T08:07:20Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1086,12 +1075,12 @@
           "delivered": 2,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 5,
-          "lateness_p50_min": 3,
+          "lateness_max_min": 3,
+          "lateness_p50_min": 2,
           "slots": 2
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-20T17:34:12Z",
+        "last_scheduled_at": "2026-11-21T17:33:41Z",
         "week": {
           "delivered": 14,
           "dropped": 0,
@@ -1112,12 +1101,12 @@
           "delivered": 16,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 6,
-          "lateness_p50_min": 4,
+          "lateness_max_min": 9,
+          "lateness_p50_min": 3,
           "slots": 16
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T07:19:15Z",
+        "last_scheduled_at": "2026-11-22T07:19:20Z",
         "week": {
           "delivered": 112,
           "dropped": 0,
@@ -1140,11 +1129,11 @@
           "dropped": 0,
           "hours": 24,
           "lateness_max_min": 5,
-          "lateness_p50_min": 4,
+          "lateness_p50_min": 3,
           "slots": 4
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T02:34:39Z",
+        "last_scheduled_at": "2026-11-22T02:34:42Z",
         "week": {
           "delivered": 28,
           "dropped": 0,
@@ -1168,7 +1157,7 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T03:44:11Z",
+        "last_scheduled_at": "2026-11-22T03:44:22Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1187,12 +1176,12 @@
           "delivered": 1,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 5,
-          "lateness_p50_min": 5,
+          "lateness_max_min": 6,
+          "lateness_p50_min": 6,
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-21T03:18:36Z",
+        "last_scheduled_at": "2026-11-22T03:19:35Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1270,7 +1259,7 @@
     },
     "cells": {
       "evaluations_forward": 2070,
-      "evaluations_forward_delta": 351,
+      "evaluations_forward_delta": 297,
       "evaluations_retrospective": 42,
       "evaluations_retrospective_delta": 24,
       "events_predicted": 653,
@@ -1988,11 +1977,11 @@
         },
         {
           "conference": "2026-09-28",
-          "petitions": 65
+          "petitions": 59
         },
         {
           "conference": "2026-10-09",
-          "petitions": 27
+          "petitions": 26
         },
         {
           "conference": "2026-10-16",
@@ -2008,7 +1997,7 @@
         },
         {
           "conference": "2026-12-04",
-          "petitions": 224
+          "petitions": 245
         }
       ],
       "discovery": {
@@ -2016,7 +2005,7 @@
         "streams": [
           {
             "alarms": [],
-            "checked_on": "2026-11-21",
+            "checked_on": "2026-11-22",
             "cursor": 664,
             "frontier": 664,
             "holes": 0,
@@ -2033,7 +2022,7 @@
           },
           {
             "alarms": [],
-            "checked_on": "2026-11-21",
+            "checked_on": "2026-11-22",
             "cursor": 6214,
             "frontier": 6214,
             "holes": 0,
@@ -2050,7 +2039,7 @@
           },
           {
             "alarms": [],
-            "checked_on": "2026-11-21",
+            "checked_on": "2026-11-22",
             "cursor": 729,
             "frontier": 729,
             "holes": 2,
@@ -2068,13 +2057,13 @@
         ],
         "term": 26
       },
-      "documents_provisioned": 161,
-      "generated_on": "2026-11-21",
+      "documents_provisioned": 164,
+      "generated_on": "2026-11-22",
       "next_conference": "2026-12-04",
-      "next_conference_petitions": 224,
+      "next_conference_petitions": 245,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 782
+      "watchlist": 796
     },
     "predictor_scores": [
       {
@@ -4283,24 +4272,24 @@
     }
   },
   "tooling": {
-    "base_rate_uses": 519,
-    "corpus_query_uses": 333,
+    "base_rate_uses": 495,
+    "corpus_query_uses": 310,
     "gaps": [
       {
         "count": 5,
         "label": "Web attempts returned no usable content"
       },
       {
-        "count": 5,
-        "label": "Web calls returned no usable content"
-      },
-      {
         "count": 4,
-        "label": "Sparse corpus reporter-citation coverage"
+        "label": "Web calls returned no usable content"
       },
       {
         "count": 3,
         "label": "No statpack cut conditioning on a called-for response"
+      },
+      {
+        "count": 3,
+        "label": "Sparse corpus reporter-citation coverage"
       },
       {
         "count": 2,
@@ -4329,7 +4318,7 @@
     ],
     "helpful": [
       {
-        "count": 39,
+        "count": 35,
         "label": "cert_anchor in context.json"
       },
       {
@@ -4341,16 +4330,16 @@
         "label": "fedcourts statpack-at"
       },
       {
-        "count": 11,
-        "label": "metrics/statpack.md"
-      },
-      {
         "count": 8,
         "label": "Blinded candidate staging"
       },
       {
         "count": 8,
         "label": "decision-below.txt"
+      },
+      {
+        "count": 8,
+        "label": "metrics/statpack.md"
       },
       {
         "count": 6,
@@ -4565,7 +4554,7 @@
         "used_corpus_query": false
       }
     ],
-    "reports": 580,
+    "reports": 556,
     "window_days": 14
   }
 }
