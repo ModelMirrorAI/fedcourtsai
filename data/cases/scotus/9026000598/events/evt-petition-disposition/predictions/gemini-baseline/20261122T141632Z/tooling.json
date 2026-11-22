@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000598",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "courtlistener MCP (search, read_document, get_endpoint_schema)",
+    "google_web_search"
+  ],
+  "helpful": [
+    "Provisioned decision-below.txt, appendix.txt, and same-question.json gave complete lower-court and companion context immediately",
+    "context.json frozen cert_anchor and cert_amicus_line saved manual base-rate re-pooling",
+    "fedcourts query --docket-number quickly verified actual SCOTUS dispositions for prior § 7623(b)(4) petitions (22-185 Li, 23-413 Lissack, 24-715 Shands) and caught hallucinated docket numbers from web search summaries",
+    "CourtListener read_document provided full text and vote lineup of Commissioner v. Zuch, 605 U.S. 422 (2025)"
+  ],
+  "gaps": [
+    "A --case-name substring filter or --originating-docket-number filter on fedcourts query would allow looking up prior SCOTUS cert petitions from known circuit decisions (e.g. D.C. Cir. 20-1245 or 23-1160) without needing a web search to find the SCOTUS docket number first"
+  ],
+  "notes": "All provisioned files were clean and readable; OCR artifacts in petition.txt were minor and fully cross-checkable against decision-below.txt and appendix.txt."
+}

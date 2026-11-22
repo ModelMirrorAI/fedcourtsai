@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000219",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebFetch (supremecourt.gov docket)"
+  ],
+  "helpful": [
+    "cert_anchor and cert_amicus_line in context.json",
+    "provisioned petition text",
+    "live docket page for post-snapshot extensions"
+  ],
+  "gaps": [
+    "No base rate conditioned on a called-for response",
+    "No way to query priors by originating court (e.g., CAAF) to get a court-specific grant rate",
+    "decision-below text not staged for CAAF cases (only via appendix)"
+  ],
+  "notes": "The query surface's structured filters returned generic granted priors; a lower-court filter would have been the useful cut here."
+}

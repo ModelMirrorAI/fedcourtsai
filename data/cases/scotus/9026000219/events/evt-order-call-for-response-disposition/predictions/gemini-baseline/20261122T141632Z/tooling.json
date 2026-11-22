@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000219",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP (search, get_endpoint_item, read_document, search_document)"
+  ],
+  "helpful": [
+    "Complete, untruncated petition.txt and appendix.txt (CAAF and AFCCA opinions) revealed the critical trial concession and non-presentation of the Question Presented below",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json",
+    "Originating-court CAAF breakdown in metrics/statpack.json",
+    "CourtListener MCP search_document and read_document for Shadwick v. City of Tampa and Messerschmidt v. Millender"
+  ],
+  "gaps": [
+    "A statpack base-rate cut conditioned on cert-stage Call for a Response (call_for_response_at not null) over paid petitions",
+    "An --originating-court-name filter on fedcourts query to pull CAAF cert petitions directly"
+  ],
+  "notes": "All provisioned files in record/ were clean and complete; same-question.json confirmed zero related petitions."
+}
