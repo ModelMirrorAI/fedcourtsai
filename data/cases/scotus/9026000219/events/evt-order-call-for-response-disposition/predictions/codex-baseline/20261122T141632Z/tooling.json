@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000219",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md and metrics/statpack.json",
+    "Supreme Court docket JSON",
+    "CourtListener search and search_document"
+  ],
+  "helpful": [
+    "The petition appendix preserved both the trial judge's alternative ruling and the CAAF dissent.",
+    "The statpack JSON identified the military appellate court separately."
+  ],
+  "gaps": [
+    "The statpack has no grant rate conditional on a requested response."
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000598",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["context.json cert_anchor and cert_amicus_line", "decision-below.txt", "questions-presented.txt"],
+  "gaps": ["A base-rate cut for pro se paid petitions with a waived response would be the right anchor for cells like this one", "Corpus query cannot filter by lower-court case number to find a co-appellant's petition"],
+  "notes": "Corpus query priors were generic and did not inform the forecast."
+}

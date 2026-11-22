@@ -1,0 +1,173 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "533d17b7069a2618",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\"}",
+      "result_capture": "captured",
+      "result_digest": "87929b56c2535798",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:31.587Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "6a5f3850570a13d3",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/9026000572 && find . -type f | head -100 && cat record/context.json | head -c 6000",
+      "result_capture": "captured",
+      "result_digest": "d57209333d19e8e9",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:32.544Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f1e08289a371a748",
+      "query": "{\"file_path\": \"/home/runner/work/fedcourtsai/fedcourtsai/.github/prompts/predict.md\", \"allow_large\": true, \"limit\": 662, \"offset\": 907}",
+      "result_capture": "captured",
+      "result_digest": "4158887912dd453a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:34.914Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "79196d842e5f2e05",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai && cat schemas/prediction.schema.json; D=data/cases/scotus/9026000572; cat $D/events/evt-petition-disposition/event.yaml; ls -la $D/events/evt-petition-disposition/; cat $D/record/snapshots/2026-11-22.json | head -c 5000; cat $D/record/documents/documents.json; cat $D/record/same-question.json | head -c 3000; cat $D/record/documents/questions-presented.txt; cat $D/record/documents/lower-court-docket.txt",
+      "result_capture": "captured",
+      "result_digest": "69fda8757fcc68ba",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:36.803Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "39550e106fc9dca1",
+      "query": "D=data/cases/scotus/9026000572; cat $D/events/evt-petition-disposition/event.yaml; ls -la $D/events/evt-petition-disposition/; cat $D/record/snapshots/2026-11-22.json | head -c 6000; echo; cat $D/record/documents/documents.json | head -c 3000; echo; cat $D/record/same-question.json | head -c 2500; echo; cat $D/record/documents/questions-presented.txt; cat $D/record/documents/lower-court-docket.txt; wc -c $D/record/documents/*; python3 -I -c \"\nimport json\ns=json.load(open('schemas/prediction.sche",
+      "result_capture": "captured",
+      "result_digest": "f7022944cc29d275",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:41.307Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "20bbafb759e59a3c",
+      "query": "D=data/cases/scotus/9026000572; head -c 14000 $D/record/documents/petition.txt; echo ----; grep -n -i -E \"hold|pending|certiorari (was|has been) granted|No\\. 2[56]-[0-9]+\" $D/record/documents/petition.txt | head -60; cat $D/summaries/2026-11-22.md | head -50",
+      "result_capture": "captured",
+      "result_digest": "952f4befb0eab0ec",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:45.411Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "cfed322727dd36ea",
+      "query": "D=data/cases/scotus/9026000572; sed -n 425,548p $D/record/documents/petition.txt; sed -n 2160,2185p $D/record/documents/petition.txt; sed -n 2530,2600p $D/record/documents/petition.txt; uv run fedcourts query --help 2>&1 | head -60",
+      "result_capture": "captured",
+      "result_digest": "51d7be96989c6c73",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:58.629Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d52070e3efa3df0f",
+      "query": "select:WebSearch,WebFetch",
+      "result_capture": "captured",
+      "result_digest": "b39b7e39e3708321",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:32:59.067Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "628695029619064e",
+      "query": "for n in 26-104 25-1415 26-43; do uv run fedcourts query --court scotus --docket-number $n 2>&1 | cut -c1-3500; echo; done; uv run fedcourts query --court scotus --disposition gvr --limit 5 2>&1 | cut -c1-700; grep -n -i -E \"federal|salience band\" metrics/statpack.md | head -30",
+      "result_capture": "captured",
+      "result_digest": "fa3247ac017cc7b9",
+      "result_status": "ok",
+      "retrieved_doc_date": "2026-07-23",
+      "timestamp": "2026-11-22T14:33:03.776Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "93bbb97aa74bc1c6",
+      "query": "Rhoney v. Barbosa da Cunha Supreme Court 26-104 certiorari granted 1225(b)(2)(A) argument",
+      "result_capture": "captured",
+      "result_digest": "1ff6f94548c22a8f",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:33:04.518Z",
+      "tool": "WebSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "00da8fa948a7d9ce",
+      "query": "sed -n 211,224p metrics/statpack.md | cut -c1-400; D=data/cases/scotus/9026000572; sed -n 1112,1150p $D/record/documents/petition.txt; ls data/cases/scotus/9026000572/events/evt-petition-disposition/",
+      "result_capture": "captured",
+      "result_digest": "3a8f126280cab709",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:33:38.360Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "abac3f0ded7fb151",
+      "query": "O=data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z && mkdir -p $O && cd $O && cat > prediction.json <<'EOF'\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/9026000572\",\n  \"event_id\": \"evt-petition-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-fable-5-2\",\n  \"run_id\": \"20261122T141632Z\",\n  \"created_at\": \"2026-11-22T14:40:00Z\",\n  \"input_snapshot\": \"2026-11-22.json\",\n  \"granted\": 1,\n  \"proba",
+      "result_capture": "captured",
+      "result_digest": "a67182bc78cc0dfd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-11-22T14:34:19.586Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/9026000572",
+  "corpus_service": {
+    "open_events": 0,
+    "open_events_ok": 0,
+    "queries": 4,
+    "queries_ok": 4
+  },
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261122T141632Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}
