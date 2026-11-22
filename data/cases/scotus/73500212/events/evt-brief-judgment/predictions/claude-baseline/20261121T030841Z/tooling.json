@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500212",
+  "run_id": "20261121T030841Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["Staged merits briefs and the United States amicus brief", "Statpack merits disturbed-rate table"],
+  "gaps": ["No table of judgment label (vacated vs reversed vs mixed) conditional on a disturbed outcome", "Corpus query cannot filter by merits judgment or subject matter"],
+  "notes": "The staged respondent brief was the corrected copy filed after the cutoff date; documents.json dates it by the original entry."
+}

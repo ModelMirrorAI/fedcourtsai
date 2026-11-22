@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500212",
+  "run_id": "20261121T030841Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The staged United States amicus brief gave a separate proposed disposition for the fee and the button rule. The matched decision below made it possible to check which findings rested on the wording of the injunction."
+  ]
+}

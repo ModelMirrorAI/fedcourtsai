@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000729",
+  "run_id": "20261121T030841Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP",
+    "google_web_search",
+    "web_fetch"
+  ],
+  "helpful": [
+    "metrics/statpack.md's applicant-class table (private/unmarked 63/906 = 7.0% vs. 156/1337 = 11.7% overall) gave an immediate empirical calibration anchor alongside the scored 10-Term finer-reading baseline.",
+    "fedcourts query surfaced 26A715 (Rachel Beth Odom v. Oklahoma), a contemporaneous non-capital state civil stay application with an accompanying motion to file under seal resolved solo by the Circuit Justice.",
+    "CourtListener RECAP dockets in D. Maine (2:25-mc-00465-LEW) and prior SCOTUS docket 25A572 clarified the underlying Maine divorce/custody dispute and Justice Jackson's prior solo denial without needing the sealed application text."
+  ],
+  "gaps": [
+    "A --stage interim or --application-kind substantive filter on fedcourts query would let interim cells pull substantive application priors directly without mixing cert petitions into the result limit."
+  ],
+  "notes": "No application.txt was provisioned because the pro se applicant moved to file the application and appendix under seal (paper-only under Rule 34.7)."
+}
