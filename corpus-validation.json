@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 19394,
+      "checked": 19403,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -118,7 +118,7 @@
       "problems": []
     },
     {
-      "checked": 30049,
+      "checked": 30054,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 4416,
+      "checked": 4434,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 2003,
+      "checked": 2012,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -158,7 +158,7 @@
       "problems": []
     },
     {
-      "checked": 228,
+      "checked": 231,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
@@ -182,7 +182,7 @@
       "problems": []
     },
     {
-      "checked": 222,
+      "checked": 225,
       "detail": "",
       "failures": 0,
       "name": "merits_predictions_carry_judgment",
