@@ -1,0 +1,37 @@
+{
+  "available": [
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 69879510,
+      "docket_number": "1:25-md-03143",
+      "documents": 1,
+      "entry_id": 486449459,
+      "entry_number": 2569,
+      "kind": "exhibits",
+      "motion": "summary-judgment",
+      "url": "https://www.courtlistener.com/docket/69879510/2569/in-re-openai-inc-copyright-infringement-litigation/"
+    },
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 67810584,
+      "docket_number": "1:23-cv-08292",
+      "documents": 1,
+      "entry_id": 486463435,
+      "entry_number": 1555,
+      "kind": "exhibits",
+      "motion": "summary-judgment",
+      "url": "https://www.courtlistener.com/docket/67810584/1555/authors-guild-v-openai-inc/"
+    }
+  ],
+  "available_rule": "ai-availability-v1",
+  "day": "2026-11-23",
+  "entries": [],
+  "rule": "ai-activity-v2",
+  "schema_version": "1.0"
+}
