@@ -1,12 +1,12 @@
 {
-  "cases": 426,
-  "cases_at_court_next_conference": 38,
+  "cases": 428,
+  "cases_at_court_next_conference": 45,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 387,
+      "cases": 389,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1275,
+  "current_reads": 1281,
   "declared_no_view": 29,
   "frozen_process": {
     "digests": [
@@ -767,124 +767,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "United States",
-      "caption": "United States, et al. v. Nicolas Talbott, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000272",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Constitutionality of the military's exclusion of servicemembers with gender dysphoria, brought by the Solicitor General after a circuit held a signature executive-branch policy likely unconstitutional \u2014 nationally salient whatever the disposition.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260901T195548Z"
-        },
-        {
-          "big_case_rationale": "The case concerns nationwide military personnel policy, equal protection, and judicial deference to military judgments.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260901T195548Z"
-        },
-        {
-          "big_case_rationale": "High-profile constitutional challenge to a major executive policy.",
-          "big_case_score": 0.95,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260901T195548Z"
-        }
-      ],
-      "docket_id": 9026000272,
-      "docket_number": "26-272",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-272.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Constitutionality of the military's exclusion of servicemembers with gender dysphoria, brought by the Solicitor General after a circuit held a signature executive-branch policy likely unconstitutional \u2014 nationally salient whatever the disposition.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260901T195548Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260901T195548Z",
-              "confidence": 0.85,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.93,
-              "run_id": "20260901T195548Z"
-            },
-            {
-              "big_case_rationale": "The case concerns nationwide military personnel policy, equal protection, and judicial deference to military judgments.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260901T195548Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260901T195548Z",
-              "confidence": 0.86,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.94,
-              "run_id": "20260901T195548Z"
-            },
-            {
-              "big_case_rationale": "High-profile constitutional challenge to a major executive policy.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260901T195548Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260901T195548Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260901T195548Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "United States, et al. v. Nicolas Talbott, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.95,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-09-01",
-      "n": 3,
-      "other_party": "Talbott",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.95,
-      "score_min": 0.95,
-      "score_range": 0.0,
-      "short_caption": "United States v. Talbott",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Viramontes",
       "caption": "Cutberto Viramontes, et al. v. Cook County, Illinois, et al.",
       "caption_event_id": "evt-brief-judgment",
@@ -1502,134 +1384,6 @@
       "score_min": 0.9,
       "score_range": 0.05,
       "short_caption": "Duncan v. Bonta",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Department of Homeland Security",
-      "caption": "Department of Homeland Security, et al. v. D. V. D., et al.",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/9026000426",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A headline executive-power immigration case: the lawfulness of third-country removals of thousands of noncitizens with final orders, the reach of 1252(f)(1) to classwide declaratory relief and APA vacatur (reserved in Aleman Gonzalez and Biden v. Texas), and the due process owed before removal to a country like South Sudan; granted on a stay application and expedited to December, with three Justices already noting they would deny the stay.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260930T191800Z"
-        },
-        {
-          "big_case_rationale": "National stakes for third-country removals, protection against persecution and torture, and the availability of classwide judicial remedies against immigration policies.",
-          "big_case_score": 0.92,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260930T191800Z"
-        },
-        {
-          "big_case_rationale": "Major immigration case involving nationwide vacatur of DHS guidance, expedited for argument, with a 6-3 split on the stay.",
-          "big_case_score": 0.95,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260930T191800Z"
-        }
-      ],
-      "docket_id": 9026000426,
-      "docket_number": "26-426",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-426.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A headline executive-power immigration case: the lawfulness of third-country removals of thousands of noncitizens with final orders, the reach of 1252(f)(1) to classwide declaratory relief and APA vacatur (reserved in Aleman Gonzalez and Biden v. Texas), and the due process owed before removal to a country like South Sudan; granted on a stay application and expedited to December, with three Justices already noting they would deny the stay.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/claude-baseline/20260930T191800Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/claude-baseline/20260930T191800Z",
-              "confidence": 0.75,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.87,
-              "run_id": "20260930T191800Z"
-            },
-            {
-              "big_case_rationale": "National stakes for third-country removals, protection against persecution and torture, and the availability of classwide judicial remedies against immigration policies.",
-              "big_case_score": 0.92,
-              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/codex-baseline/20260930T191800Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/codex-baseline/20260930T191800Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.86,
-              "run_id": "20260930T191800Z"
-            },
-            {
-              "big_case_rationale": "Major immigration case involving nationwide vacatur of DHS guidance, expedited for argument, with a 6-3 split on the stay.",
-              "big_case_score": 0.95,
-              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/gemini-baseline/20260930T191800Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/gemini-baseline/20260930T191800Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.9,
-              "run_id": "20260930T191800Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of Homeland Security, et al. v. D. V. D., et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.9233,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-09-29",
-      "n": 3,
-      "other_party": "D. V. D.",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "The Department of Homeland Security wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "D. V. D. wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-12-09",
-          "kind": "argument"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.95,
-      "score_min": 0.9,
-      "score_range": 0.05,
-      "short_caption": "Department of Homeland Security v. D. V. D.",
       "status": "pending"
     },
     {
@@ -2915,6 +2669,360 @@
       "score_min": 0.8,
       "score_range": 0.15,
       "short_caption": "Bird v. Iowa Migrant Movement for Justice",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "United States",
+      "caption": "United States, et al. v. Nicolas Talbott, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000272",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Constitutionality of the military's policy excluding people with gender dysphoria: a nationally watched equal-protection and military-deference question, though the judgment under review covers only 28 named servicemembers.",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        },
+        {
+          "big_case_rationale": "A ruling would govern the careers of transgender servicemembers across the armed forces and clarify when equal protection limits military personnel decisions.",
+          "big_case_score": 0.94,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        },
+        {
+          "big_case_rationale": "High-profile Fifth Amendment clash over the military's categorical exclusion of service members with gender dysphoria, testing both Rostker military deference and the equal-protection status of transgender-related classifications after Skrmetti and B.P.J.",
+          "big_case_score": 0.84,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        }
+      ],
+      "docket_id": 9026000272,
+      "docket_number": "26-272",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-272.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Constitutionality of the military's exclusion of servicemembers with gender dysphoria, brought by the Solicitor General after a circuit held a signature executive-branch policy likely unconstitutional \u2014 nationally salient whatever the disposition.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260901T195548Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260901T195548Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.93,
+              "run_id": "20260901T195548Z"
+            },
+            {
+              "big_case_rationale": "The case concerns nationwide military personnel policy, equal protection, and judicial deference to military judgments.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260901T195548Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260901T195548Z",
+              "confidence": 0.86,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.94,
+              "run_id": "20260901T195548Z"
+            },
+            {
+              "big_case_rationale": "High-profile constitutional challenge to a major executive policy.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260901T195548Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260901T195548Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260901T195548Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States, et al. v. Nicolas Talbott, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Constitutionality of the military's policy excluding people with gender dysphoria: a nationally watched equal-protection and military-deference question, though the judgment under review covers only 28 named servicemembers.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-disposition/predictions/claude-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-disposition/predictions/claude-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.86,
+              "run_id": "20261123T011140Z"
+            },
+            {
+              "big_case_rationale": "A ruling would govern the careers of transgender servicemembers across the armed forces and clarify when equal protection limits military personnel decisions.",
+              "big_case_score": 0.94,
+              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-disposition/predictions/codex-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-disposition/predictions/codex-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.74,
+              "run_id": "20261123T011140Z"
+            },
+            {
+              "big_case_rationale": "High-profile Fifth Amendment clash over the military's categorical exclusion of service members with gender dysphoria, testing both Rostker military deference and the equal-protection status of transgender-related classifications after Skrmetti and B.P.J.",
+              "big_case_score": 0.84,
+              "cell_path": "data/cases/scotus/9026000272/events/evt-petition-disposition/predictions/gemini-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000272/events/evt-petition-disposition/predictions/gemini-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261123T011140Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States, et al. v. Nicolas Talbott, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8767,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-01",
+      "n": 3,
+      "other_party": "Talbott",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.94,
+      "score_min": 0.84,
+      "score_range": 0.1,
+      "short_caption": "United States v. Talbott",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Department of Homeland Security",
+      "caption": "Department of Homeland Security, et al. v. D. V. D., et al.",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/9026000426",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Nationwide class challenge to the government's third-country removal policy; third trip to the Court; tests the INA's jurisdiction and classwide-relief bars and due process before removal.",
+          "big_case_score": 0.85,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        },
+        {
+          "big_case_rationale": "The ruling could determine whether people facing removal to a newly named country can obtain judicial review in time to raise a risk of persecution or torture there.",
+          "big_case_score": 0.91,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        },
+        {
+          "big_case_rationale": "Governs nationwide third-country deportation procedures under the INA, CAT/FARRA, and Fifth Amendment Due Process, while resolving major open questions on 8 U.S.C. 1252(f)(1), classwide declaratory relief, and APA vacatur.",
+          "big_case_score": 0.86,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        }
+      ],
+      "docket_id": 9026000426,
+      "docket_number": "26-426",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-426.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Nationwide class challenge to the government's third-country removal policy; third trip to the Court; tests the INA's jurisdiction and classwide-relief bars and due process before removal.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-brief-judgment/predictions/claude-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-brief-judgment/predictions/claude-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.9,
+              "run_id": "20261123T011140Z"
+            },
+            {
+              "big_case_rationale": "The ruling could determine whether people facing removal to a newly named country can obtain judicial review in time to raise a risk of persecution or torture there.",
+              "big_case_score": 0.91,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-brief-judgment/predictions/codex-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-brief-judgment/predictions/codex-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.92,
+              "run_id": "20261123T011140Z"
+            },
+            {
+              "big_case_rationale": "Governs nationwide third-country deportation procedures under the INA, CAT/FARRA, and Fifth Amendment Due Process, while resolving major open questions on 8 U.S.C. 1252(f)(1), classwide declaratory relief, and APA vacatur.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-brief-judgment/predictions/gemini-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-brief-judgment/predictions/gemini-baseline/20261123T011140Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.91,
+              "run_id": "20261123T011140Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Homeland Security, et al. v. D. V. D., et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A headline executive-power immigration case: the lawfulness of third-country removals of thousands of noncitizens with final orders, the reach of 1252(f)(1) to classwide declaratory relief and APA vacatur (reserved in Aleman Gonzalez and Biden v. Texas), and the due process owed before removal to a country like South Sudan; granted on a stay application and expedited to December, with three Justices already noting they would deny the stay.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/claude-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/claude-baseline/20260930T191800Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.87,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "National stakes for third-country removals, protection against persecution and torture, and the availability of classwide judicial remedies against immigration policies.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/codex-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/codex-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20260930T191800Z"
+            },
+            {
+              "big_case_rationale": "Major immigration case involving nationwide vacatur of DHS guidance, expedited for argument, with a 6-3 split on the stay.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000426/events/evt-order-judgment/predictions/gemini-baseline/20260930T191800Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000426/events/evt-order-judgment/predictions/gemini-baseline/20260930T191800Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20260930T191800Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of Homeland Security, et al. v. D. V. D., et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8733,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-11-16",
+      "n": 3,
+      "other_party": "D. V. D.",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Department of Homeland Security wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "D. V. D. wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-09",
+          "kind": "argument"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.91,
+      "score_min": 0.85,
+      "score_range": 0.06,
+      "short_caption": "Department of Homeland Security v. D. V. D.",
       "status": "pending"
     },
     {
@@ -4645,124 +4753,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "United States",
-      "caption": "United States v. Devonte Devon Jackson, et al.",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000304",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A Solicitor General petition on whether the Executive may install acting U.S. Attorneys through post-vacancy first-assistant designations or blanket delegations; the answer governs leadership of fourteen U.S. Attorney's Offices today and every future presidential transition, and it sits inside the wider Appointments Clause and FVRA contest over Trump-era acting officials.",
-          "big_case_score": 0.8,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "The questions concern executive-branch staffing under the Federal Vacancies Reform Act, with consequences for federal prosecutions and leadership of Senate-confirmed offices across presidential transitions. These institutional stakes extend well beyond the individual defendants, independently of the chance of review.",
-          "big_case_score": 0.86,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "High stakes due to invalidation of an Acting U.S. Attorney, disrupting prosecutions across multiple districts.",
-          "big_case_score": 0.85,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        }
-      ],
-      "docket_id": 9026000304,
-      "docket_number": "26-304",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-304.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A Solicitor General petition on whether the Executive may install acting U.S. Attorneys through post-vacancy first-assistant designations or blanket delegations; the answer governs leadership of fourteen U.S. Attorney's Offices today and every future presidential transition, and it sits inside the wider Appointments Clause and FVRA contest over Trump-era acting officials.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.88,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "The questions concern executive-branch staffing under the Federal Vacancies Reform Act, with consequences for federal prosecutions and leadership of Senate-confirmed offices across presidential transitions. These institutional stakes extend well beyond the individual defendants, independently of the chance of review.",
-              "big_case_score": 0.86,
-              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.88,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "High stakes due to invalidation of an Acting U.S. Attorney, disrupting prosecutions across multiple districts.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20260927T182226Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "United States v. Devonte Devon Jackson, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.8367,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-09-08",
-      "n": 3,
-      "other_party": "Devonte Devon Jackson",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.86,
-      "score_min": 0.8,
-      "score_range": 0.06,
-      "short_caption": "United States v. Devonte Devon Jackson",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Republican National Committee",
       "caption": "Republican National Committee, et al. v. Bette Eakin, et al.",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -5148,7 +5138,7 @@
       "outcome_lines": null,
       "schedule": [
         {
-          "date": "2026-12-07",
+          "date": "2027-01-06",
           "kind": "response_due"
         }
       ],
@@ -6121,12 +6111,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-30",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.72,
@@ -8765,6 +8750,182 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "United States",
+      "caption": "United States v. Devonte Devon Jackson, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000304",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Governs who may run U.S. Attorney's Offices and other Senate-confirmed posts during vacancies and at every presidential transition; three circuits have rejected a long-standing executive practice.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        },
+        {
+          "big_case_rationale": "The ruling could determine who may run federal prosecutors\u2019 offices and other Senate-confirmed posts during vacancies, including at a change of administration.",
+          "big_case_score": 0.89,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling would be the Court's most consequential Federal Vacancies Reform Act decision since NLRB v. SW General (2017), governing across the entire Executive Branch whether administrations can fill vacant Senate-confirmed offices with post-vacancy first assistants or wholesale delegations of duties.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261123T011140Z"
+        }
+      ],
+      "docket_id": 9026000304,
+      "docket_number": "26-304",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-304.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A Solicitor General petition on whether the Executive may install acting U.S. Attorneys through post-vacancy first-assistant designations or blanket delegations; the answer governs leadership of fourteen U.S. Attorney's Offices today and every future presidential transition, and it sits inside the wider Appointments Clause and FVRA contest over Trump-era acting officials.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.88,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "The questions concern executive-branch staffing under the Federal Vacancies Reform Act, with consequences for federal prosecutions and leadership of Senate-confirmed offices across presidential transitions. These institutional stakes extend well beyond the individual defendants, independently of the chance of review.",
+              "big_case_score": 0.86,
+              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.88,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "High stakes due to invalidation of an Acting U.S. Attorney, disrupting prosecutions across multiple districts.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20260927T182226Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. Devonte Devon Jackson, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Governs who may run U.S. Attorney's Offices and other Senate-confirmed posts during vacancies and at every presidential transition; three circuits have rejected a long-standing executive practice.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-disposition/predictions/claude-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-disposition/predictions/claude-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.7,
+              "run_id": "20261123T011140Z"
+            },
+            {
+              "big_case_rationale": "The ruling could determine who may run federal prosecutors\u2019 offices and other Senate-confirmed posts during vacancies, including at a change of administration.",
+              "big_case_score": 0.89,
+              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-disposition/predictions/codex-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-disposition/predictions/codex-baseline/20261123T011140Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.88,
+              "run_id": "20261123T011140Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling would be the Court's most consequential Federal Vacancies Reform Act decision since NLRB v. SW General (2017), governing across the entire Executive Branch whether administrations can fill vacant Senate-confirmed offices with post-vacancy first assistants or wholesale delegations of duties.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000304/events/evt-petition-disposition/predictions/gemini-baseline/20261123T011140Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000304/events/evt-petition-disposition/predictions/gemini-baseline/20261123T011140Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.76,
+              "run_id": "20261123T011140Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. Devonte Devon Jackson, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7767,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-08",
+      "n": 3,
+      "other_party": "Devonte Devon Jackson",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.89,
+      "score_min": 0.72,
+      "score_range": 0.17,
+      "short_caption": "United States v. Devonte Devon Jackson",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "International Partners for Ethical Care",
       "caption": "International Partners for Ethical Care, Inc., et al. v. Bob Ferguson, Governor of Washington, et al.",
       "caption_event_id": "evt-brief-judgment",
@@ -10562,8 +10723,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.85,
       "score_min": 0.65,
       "score_range": 0.2,
@@ -18030,6 +18199,182 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Padula",
+      "caption": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000572",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The question (mandatory no-bond detention of noncitizens present without admission) is very high-stakes, but this docket is a follow-on hold behind the already-granted lead case, No. 26-104, so little turns on this petition itself.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        },
+        {
+          "big_case_rationale": "Bond eligibility for people arrested in the interior affects detention nationwide. Rhoney is already set to supply the governing rule.",
+          "big_case_score": 0.84,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        },
+        {
+          "big_case_rationale": "Presents a sweeping national question on mandatory immigration detention without bond for unadmitted interior-present noncitizens under 8 U.S.C. 1225(b)(2)(A), postured here as a follow-on SG hold petition behind granted lead case Rhoney v. Barbosa da Cunha (No. 26-104).",
+          "big_case_score": 0.68,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        }
+      ],
+      "docket_id": 9026000572,
+      "docket_number": "26-572",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-572.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The issue itself (whether 8 U.S.C. 1225(b)(2)(A) mandates no-bond detention for everyone present without admission) affects a very large detained population and is already granted in a lead case; this docket is a follow-on vehicle, which tempers its own stakes.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.52,
+              "run_id": "20261029T230557Z"
+            },
+            {
+              "big_case_rationale": "The statutory detention question affects bond-hearing eligibility for a large nationwide population and a central federal immigration policy, although this petition is likely to be a companion rather than the lead vehicle.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261029T230557Z"
+            },
+            {
+              "big_case_rationale": "While the underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question affects hundreds of thousands of interior removal proceedings nationwide, certiorari was already granted on that question in Rhoney v. Barbosa da Cunha (No. 26-104), making this a follow-on Solicitor General hold petition expected to be resolved by summary GVR or denial rather than plenary review.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.68,
+              "run_id": "20261029T230557Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The question (mandatory no-bond detention of noncitizens present without admission) is very high-stakes, but this docket is a follow-on hold behind the already-granted lead case, No. 26-104, so little turns on this petition itself.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.62,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "Bond eligibility for people arrested in the interior affects detention nationwide. Rhoney is already set to supply the governing rule.",
+              "big_case_score": 0.84,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.69,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "Presents a sweeping national question on mandatory immigration detention without bond for unadmitted interior-present noncitizens under 8 U.S.C. 1225(b)(2)(A), postured here as a follow-on SG hold petition behind granted lead case Rhoney v. Barbosa da Cunha (No. 26-104).",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.58,
+              "run_id": "20261122T141632Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.64,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-29",
+      "n": 3,
+      "other_party": "Jaciel Cirrus Rojas",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Padula's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Padula's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.84,
+      "score_min": 0.4,
+      "score_range": 0.44,
+      "short_caption": "Padula v. Jaciel Cirrus Rojas",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Khatibi",
       "caption": "Azadeh Khatibi, et al. v. Felix C. Yip, President of the Medical Board of California, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -21073,8 +21418,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -22278,132 +22631,6 @@
       "score_range": 0.2,
       "short_caption": "Fairfield Sentry v. Citibank NA London",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Padula",
-      "caption": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000572",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "The issue itself (whether 8 U.S.C. 1225(b)(2)(A) mandates no-bond detention for everyone present without admission) affects a very large detained population and is already granted in a lead case; this docket is a follow-on vehicle, which tempers its own stakes.",
-          "big_case_score": 0.6,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261029T230557Z"
-        },
-        {
-          "big_case_rationale": "The statutory detention question affects bond-hearing eligibility for a large nationwide population and a central federal immigration policy, although this petition is likely to be a companion rather than the lead vehicle.",
-          "big_case_score": 0.9,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261029T230557Z"
-        },
-        {
-          "big_case_rationale": "While the underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question affects hundreds of thousands of interior removal proceedings nationwide, certiorari was already granted on that question in Rhoney v. Barbosa da Cunha (No. 26-104), making this a follow-on Solicitor General hold petition expected to be resolved by summary GVR or denial rather than plenary review.",
-          "big_case_score": 0.25,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261029T230557Z"
-        }
-      ],
-      "docket_id": 9026000572,
-      "docket_number": "26-572",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-572.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The issue itself (whether 8 U.S.C. 1225(b)(2)(A) mandates no-bond detention for everyone present without admission) affects a very large detained population and is already granted in a lead case; this docket is a follow-on vehicle, which tempers its own stakes.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.52,
-              "run_id": "20261029T230557Z"
-            },
-            {
-              "big_case_rationale": "The statutory detention question affects bond-hearing eligibility for a large nationwide population and a central federal immigration policy, although this petition is likely to be a companion rather than the lead vehicle.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.8,
-              "run_id": "20261029T230557Z"
-            },
-            {
-              "big_case_rationale": "While the underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question affects hundreds of thousands of interior removal proceedings nationwide, certiorari was already granted on that question in Rhoney v. Barbosa da Cunha (No. 26-104), making this a follow-on Solicitor General hold petition expected to be resolved by summary GVR or denial rather than plenary review.",
-              "big_case_score": 0.25,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
-              "confidence": 0.78,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.68,
-              "run_id": "20261029T230557Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5833,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-10-29",
-      "n": 3,
-      "other_party": "Jaciel Cirrus Rojas",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Padula's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Padula's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-12-04",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-12-04",
-        "kind": "conference"
-      },
-      "score_max": 0.9,
-      "score_min": 0.25,
-      "score_range": 0.65,
-      "short_caption": "Padula v. Jaciel Cirrus Rojas",
-      "status": "pending"
     },
     {
       "asking_declined": "cross_petition",
@@ -39956,8 +40183,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.58,
       "score_min": 0.22,
       "score_range": 0.36,
@@ -41927,6 +42162,179 @@
       "score_range": 0.46,
       "short_caption": "Guardado v. Florida",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Johnson",
+      "caption": "Jaelen M. Johnson v. United States",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000219",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fourth Amendment good-faith exception as applied to commander-issued military search authorizations: system-wide for military justice, but confined to that system and a single servicemember's court-martial.",
+          "big_case_score": 0.22,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        },
+        {
+          "big_case_rationale": "A ruling could change who advises commanders on search requests throughout the armed forces, with less direct effect on civilian warrants.",
+          "big_case_score": 0.48,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        },
+        {
+          "big_case_rationale": "A merits decision on whether Leon good faith covers non-lawyer military commanders advised by prosecution-aligned judge advocates would reshape search-authorization and JAG walling practices across the Armed Forces, though its direct reach is confined to the military justice system rather than civilian policing.",
+          "big_case_score": 0.34,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        }
+      ],
+      "docket_id": 9026000219,
+      "docket_number": "26-219",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-219.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fourth Amendment good-faith exception as applied to commander-issued military search authorizations: system-wide for military justice, but confined to that system and a single servicemember's court-martial.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000219/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000219/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "A ruling could change who advises commanders on search requests throughout the armed forces, with less direct effect on civilian warrants.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/9026000219/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000219/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.05,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "A merits decision on whether Leon good faith covers non-lawyer military commanders advised by prosecution-aligned judge advocates would reshape search-authorization and JAG walling practices across the Armed Forces, though its direct reach is confined to the military justice system rather than civilian policing.",
+              "big_case_score": 0.34,
+              "cell_path": "data/cases/scotus/9026000219/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000219/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261122T141632Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jaelen M. Johnson v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fourth Amendment good-faith exception as applied to commander-issued search authorizations; important inside military justice, limited reach and attention outside it.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000219/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000219/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "A rule on whether one military lawyer may advise both investigators and the commander authorizing a search could change how searches are approved across the armed services.",
+              "big_case_score": 0.43,
+              "cell_path": "data/cases/scotus/9026000219/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000219/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.035,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling restricting Leon good-faith reliance on non-lawyer military commanders advised by prosecution-side judge advocates would reshape search-authorization practice across the Armed Forces under Mil. R. Evid. 311 and 315, though its direct operational effect would remain confined to military justice.",
+              "big_case_score": 0.28,
+              "cell_path": "data/cases/scotus/9026000219/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000219/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.025,
+              "run_id": "20261122T141632Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jaelen M. Johnson v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3467,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-09-14",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Johnson's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Johnson's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-07",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.48,
+      "score_min": 0.22,
+      "score_range": 0.26,
+      "short_caption": "Johnson v. United States",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -50614,8 +51022,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.45,
       "score_min": 0.05,
       "score_range": 0.4,
@@ -51269,6 +51685,132 @@
       "score_range": 0.33,
       "short_caption": "Mike Singh Sethi v. United States Court of Appeals",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Meidinger",
+      "caption": "Roy J. Meidinger, Sr. v. Commissioner of Internal Revenue",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000598",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Narrow Tax Court whistleblower-jurisdiction question under 26 U.S.C. 7623(b)(4); matters to tax whistleblowers but has little wider reach.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        },
+        {
+          "big_case_rationale": "A ruling could change access to the Tax Court for IRS whistleblowers nationwide. Its direct reach would be limited to review of award decisions.",
+          "big_case_score": 0.29,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, resolving Tax Court jurisdiction over zero-proceeds IRS whistleblower denials under 26 U.S.C. \u00a7 7623(b)(4) would reshape specialized tax-whistleblower litigation nationwide but carry limited broader doctrinal or public salience.",
+          "big_case_score": 0.18,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261122T141632Z"
+        }
+      ],
+      "docket_id": 9026000598,
+      "docket_number": "26-598",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-598.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Narrow Tax Court whistleblower-jurisdiction question under 26 U.S.C. 7623(b)(4); matters to tax whistleblowers but has little wider reach.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000598/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000598/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "A ruling could change access to the Tax Court for IRS whistleblowers nationwide. Its direct reach would be limited to review of award decisions.",
+              "big_case_score": 0.29,
+              "cell_path": "data/cases/scotus/9026000598/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000598/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.003,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, resolving Tax Court jurisdiction over zero-proceeds IRS whistleblower denials under 26 U.S.C. \u00a7 7623(b)(4) would reshape specialized tax-whistleblower litigation nationwide but carry limited broader doctrinal or public salience.",
+              "big_case_score": 0.18,
+              "cell_path": "data/cases/scotus/9026000598/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000598/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.004,
+              "run_id": "20261122T141632Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Roy J. Meidinger, Sr. v. Commissioner of Internal Revenue"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1833,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-11-06",
+      "n": 3,
+      "other_party": "Commissioner of Internal Revenue",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Meidinger's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Meidinger's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.29,
+      "score_min": 0.08,
+      "score_range": 0.21,
+      "short_caption": "Meidinger v. Commissioner of Internal Revenue",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -62384,5 +62926,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1237
+  "scored_reads": 1243
 }
