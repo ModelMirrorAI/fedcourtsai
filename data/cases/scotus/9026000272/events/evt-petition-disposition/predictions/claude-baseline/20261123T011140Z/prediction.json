@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Constitutionality of the military's policy excluding people with gender dysphoria: a nationally watched equal-protection and military-deference question, though the judgment under review covers only 28 named servicemembers.",
+  "big_case_score": 0.85,
+  "case_id": "scotus/9026000272",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.06,
+        "Barrett": 0.01,
+        "Gorsuch": 0.03,
+        "Jackson": 0.05,
+        "Kagan": 0.01,
+        "Kavanaugh": 0.02,
+        "Roberts": 0.005,
+        "Sotomayor": 0.05,
+        "Thomas": 0.05
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.86
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.82
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.6
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "band_refused": null,
+    "cert_amicus_briefs": 2,
+    "cert_amicus_line": {
+      "arm": "some",
+      "arm_resolved": 61,
+      "basis": "arm",
+      "fit_digest": "sha256:8d7cb3c5595a7fd737780a6015b3c7663ccdf6c56fd541b576fb5315e148c5c7",
+      "rate": 0.8360655737704918,
+      "rule": "amicus-line-v2"
+    },
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.7311320754716981,
+      "statpack_digest": "sha256:a7d6f5cde0a4c0e9f80d0491dd08e65cd303aa7b14ce6ec1133e915c88af92a4"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-23",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:a7d6f5cde0a4c0e9f80d0491dd08e65cd303aa7b14ce6ec1133e915c88af92a4",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-23T01:22:22.686523Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-11-23.json",
+  "judgment": null,
+  "model": "claude-fable-5-2",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.86,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a8149a0555d610255146f1d61db11b392460acce6100237793364cbd270f7d4",
+    "label": "proc-v24",
+    "pipeline_sha": "1848f3fe09a078f681e8c3c2ec6cdc83693a95cd",
+    "stamped_at": "2026-11-23T01:22:22.686523Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261123T011140Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

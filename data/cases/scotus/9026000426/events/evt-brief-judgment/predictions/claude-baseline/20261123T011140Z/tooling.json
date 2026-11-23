@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000426",
+  "run_id": "20261123T011140Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned merits briefs"],
+  "helpful": ["statpack merits section", "provisioned merits briefs", "grant order text in snapshot"],
+  "gaps": ["no cut of merits outcomes conditioned on a stay granted alongside certiorari", "structured query cannot find priors by subject for SCOTUS rows"],
+  "notes": "The generic granted-disposition query returned unrelated recent grants; it did not inform the forecast."
+}

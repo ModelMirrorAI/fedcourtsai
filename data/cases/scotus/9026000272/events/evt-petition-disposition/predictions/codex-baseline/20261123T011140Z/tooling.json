@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000272",
+  "run_id": "20261123T011140Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "CourtListener MCP", "fedcourts validate"],
+  "helpful": ["Docket-number lookups distinguished the Karnoski petition from its stay application.", "The staged reply addressed the January trial date directly."],
+  "gaps": ["CourtListener throttling prevented verification of the latest trial schedule and the related Ninth Circuit appeal."]
+}

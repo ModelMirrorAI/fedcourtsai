@@ -1,0 +1,153 @@
+{
+  "big_case_rationale": "The ruling could determine whether people facing removal to a newly named country can obtain judicial review in time to raise a risk of persecution or torture there.",
+  "big_case_score": 0.91,
+  "case_id": "scotus/9026000426",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.22,
+        "Barrett": 0.14,
+        "Gorsuch": 0.115,
+        "Jackson": 0.015,
+        "Kagan": 0.025,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.17,
+        "Sotomayor": 0.02,
+        "Thomas": 0.125,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.16,
+        "Barrett": 0.14,
+        "Gorsuch": 0.25,
+        "Jackson": 0.32,
+        "Kagan": 0.12,
+        "Kavanaugh": 0.17,
+        "Roberts": 0.04,
+        "Sotomayor": 0.72,
+        "Thomas": 0.29
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.92
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "band_refused": null,
+    "cert_amicus_briefs": 2,
+    "cert_amicus_line": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-11-17",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v8",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-11-17",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "statpack_digest": "sha256:a7d6f5cde0a4c0e9f80d0491dd08e65cd303aa7b14ce6ec1133e915c88af92a4",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-11-23T01:27:36.578592Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-11-17.json",
+  "judgment": "reversed",
+  "model": "gpt-6.2-astra",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.92,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:76886de4c60736d0541ca7743006913ed195947a5292e0db628b90833d9ed987",
+    "label": "proc-v24",
+    "pipeline_sha": "1848f3fe09a078f681e8c3c2ec6cdc83693a95cd",
+    "stamped_at": "2026-11-23T01:27:36.578592Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261123T011140Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court will hold that selecting a third-country destination is an act of executing a final removal order under 8 U.S.C. \u00a7 1252(g), so a district court lacks jurisdiction over this challenge to the procedures DHS uses in making that transfer."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The jurisdictional rule will reach challenges to third-country transfer procedures generally whenever DHS is carrying out a valid final order, regardless of the destination or whether DHS obtained diplomatic assurances."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000272",
+  "run_id": "20261123T011140Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned record documents"],
+  "helpful": ["context.json cert_anchor and cert_amicus_line", "provisioned BIO and cert reply text", "statpack per-Term band table"],
+  "gaps": ["A statpack cut for federal-petitioner petitions by posture (interlocutory vs final judgment)", "Free-text or caption search in fedcourts query to find related dockets such as the Shilling stay application"],
+  "notes": "The --era flag rejected the value 'modern'; the accepted values were not obvious from the first screen of help."
+}
