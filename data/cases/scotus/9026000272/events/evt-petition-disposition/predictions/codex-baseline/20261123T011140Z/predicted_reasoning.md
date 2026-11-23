@@ -1,0 +1,5 @@
+The docket shows one distribution, for December 4, and zero relists. I expect one further distribution, followed by a grant for briefing and argument. The Solicitor General filed the petition and reply, so I expect no invitation for the government's views.
+
+I expect the Court to take the petition's Fifth Amendment question about the Hegseth policy, with its review focused on retention. The judgment under review protects only servicemembers already serving. The question the Court can answer is whether those plaintiffs are likely to show that the policy reflects unconstitutional hostility despite the military's asserted readiness grounds.
+
+Conditional on a grant, I put the chance of disposition in the grant order at 22%. Returning the case for reconsideration under West Virginia v. B.P.J. or Mullin v. Doe is plausible. Neither case addressed the military's stated reasons for separating people who have served honorably, which favors hearing argument. If the Court denies review, I expect no justice to note a dissent or issue a statement.

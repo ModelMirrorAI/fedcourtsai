@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000272",
+  "run_id": "20261123T011140Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The panel field in lower-court-docket.txt lists CTLP, GGK and NR, the judges who heard the earlier stay motion. The June 1 decision and petition appendix identify Wilkins, Walker and Rogers as the panel whose judgment is under review. The forecast uses the signed opinions."
+    }
+  ]
+}

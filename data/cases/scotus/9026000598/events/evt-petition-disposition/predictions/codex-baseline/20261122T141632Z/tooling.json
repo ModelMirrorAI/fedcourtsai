@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000598",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener opinion search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The consolidated opinion and the IRS letter distinguish a decision to forgo an audit from an audit that yielded no collection.",
+    "The frozen band and amicus rates give reference points for a paid private petition."
+  ]
+}

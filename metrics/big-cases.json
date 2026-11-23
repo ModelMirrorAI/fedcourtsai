@@ -1,6 +1,6 @@
 {
   "cases": 426,
-  "cases_at_court_next_conference": 32,
+  "cases_at_court_next_conference": 38,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
@@ -19660,8 +19660,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.72,
       "score_min": 0.55,
       "score_range": 0.17,
@@ -21401,12 +21409,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-27",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.45,
@@ -21683,7 +21686,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-30",
+          "date": "2026-12-28",
           "kind": "response_due"
         }
       ],
@@ -21974,7 +21977,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-23",
+          "date": "2026-12-23",
           "kind": "response_due"
         }
       ],
@@ -22386,8 +22389,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.9,
       "score_min": 0.25,
       "score_range": 0.65,
@@ -32764,7 +32775,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-23",
+          "date": "2026-12-23",
           "kind": "response_due"
         }
       ],
@@ -35258,8 +35269,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.55,
       "score_min": 0.35,
       "score_range": 0.2,
@@ -35785,8 +35804,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.57,
       "score_min": 0.25,
       "score_range": 0.32,
@@ -40099,7 +40126,7 @@
       ],
       "schedule": [
         {
-          "date": "2026-11-27",
+          "date": "2026-12-28",
           "kind": "response_due"
         }
       ],
@@ -40506,12 +40533,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-25",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.25,
@@ -41549,8 +41571,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.4,
       "score_min": 0.3,
       "score_range": 0.1,
@@ -43426,8 +43456,16 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
       "score_max": 0.4,
       "score_min": 0.28,
       "score_range": 0.12,

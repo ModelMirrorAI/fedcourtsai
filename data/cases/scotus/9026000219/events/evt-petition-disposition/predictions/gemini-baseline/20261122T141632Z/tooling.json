@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000219",
+  "run_id": "20261122T141632Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener.search",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "Complete CAAF and AFCCA opinions provisioned cleanly in record/documents/appendix.txt made preservation/waiver verification straightforward.",
+    "Frozen cert_anchor and cert_amicus_line blocks in record/context.json alongside CAAF originating-court counts in metrics/statpack.json gave precise base-rate calibration.",
+    "record/same-question.json immediately ruled out pending or granted companion vehicles."
+  ],
+  "gaps": [
+    "An --originating-court filter on fedcourts query would allow direct corpus lookup of resolved SCOTUS petitions from specialized courts such as CAAF."
+  ],
+  "notes": "No provisioning or data-quality issues encountered."
+}
