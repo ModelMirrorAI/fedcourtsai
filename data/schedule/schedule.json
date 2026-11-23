@@ -4661,13 +4661,13 @@
       "case_id": "scotus/9026000599",
       "conferences": [],
       "distributed_for_conference": null,
-      "last_live_polled": "2026-11-15",
+      "last_live_polled": "2026-11-23",
       "next_conference": null,
       "relists": 0,
       "response_due": {
-        "set_for": "2026-12-07",
+        "set_for": "2027-01-06",
         "stale_reason": null,
-        "upcoming": "2026-12-07"
+        "upcoming": "2027-01-06"
       },
       "stale_reason": null
     },
