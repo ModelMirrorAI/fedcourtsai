@@ -21921,8 +21921,8 @@ freeze commit is recorded here.
   a comparison of failure rates across this promotion reads the Gemini pair
   apart.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-23` (merge
+  commit `e9079ccb3219d1d402780b5a1bfde116166d6808`, merged `2026-11-23T20:38:50Z`).
 
   The runnable effect check once it is live: `uv run pytest
   tests/test_engine_watchdog.py tests/test_workflow_cell_invariants.py` is
@@ -22035,8 +22035,8 @@ freeze commit is recorded here.
   in **either** direction across this boundary may not be read as a model
   effect.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-23` (merge
+  commit `e9079ccb3219d1d402780b5a1bfde116166d6808`, merged `2026-11-23T20:38:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_document_coverage.py -k "table_of_appendices or
@@ -22147,8 +22147,8 @@ freeze commit is recorded here.
   window: its frozen anchor is the federal one, and the table beside it is
   not its version's.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-23` (merge
+  commit `e9079ccb3219d1d402780b5a1bfde116166d6808`, merged `2026-11-23T20:38:50Z`).
 
   The runnable effect check once it is live:
   - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
@@ -22168,8 +22168,8 @@ freeze commit is recorded here.
 
 - **`ai-watchlist-v1`, the AI-watchlist slice's district-court forecasts are
   switched on; recorded 2026-11-20.**
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  Carried to `main` by the promotion tagged `promotion/2026-11-23` (merge
+  commit `e9079ccb3219d1d402780b5a1bfde116166d6808`, merged `2026-11-23T20:38:50Z`), to be tagged
   **`prereg/ai-watchlist-v1`**. The first label of a prediction slice, and
   the first registration of the trial stage
   ([trial-stage.md](trial-stage.md), the design this entry cites as it reads
@@ -22501,8 +22501,8 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-23` (merge
+  commit `e9079ccb3219d1d402780b5a1bfde116166d6808`, merged `2026-11-23T20:38:50Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py -k "scan_marks or postal_code"`
