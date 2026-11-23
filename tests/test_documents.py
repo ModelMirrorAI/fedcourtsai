@@ -5619,6 +5619,112 @@ def test_the_city_line_below_a_withheld_address_value_is_withheld() -> None:
     assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\n{CONTACT_PLACEHOLDER}\n"
 
 
+@pytest.mark.parametrize(
+    "city",
+    [
+        # A two-word city, the state spelled out, a ZIP+4 and a scan's stray mark.
+        "Cedar Hollow, Vermont 05999-0001 ?",
+        "Cedar Hollow, VT 05999 . _",
+        "CEDAR HOLLOW, NEW HAMPSHIRE 03999-0001 -",
+        # A comma between the state and the ZIP code, and the `+4` as a scan
+        # or a filer's own typing sets it off.
+        "Cedar Hollow, Vermont, 05999",
+        "Cedar Hollow, VT. 05999 - 0001",
+        "Cedar Hollow, VT., 05999",
+        "Cedar Hollow, VT 05999\u20190001",
+        "Cedar Hollow, VT 05999*0001",
+        # A mark the scan set before the city.
+        "\u25a0 Cedar Hollow, VT 05999",
+    ],
+)
+def test_the_city_line_is_withheld_with_scan_marks_after_its_zip_code(city: str) -> None:
+    text = f"Jane Doe\n1234 Maple Street\n{city}\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == (
+        f"Jane Doe\n{CONTACT_PLACEHOLDER}\n{CONTACT_PLACEHOLDER}\nQUESTION PRESENTED\n"
+    )
+    assert scrubbed.replacements == 2
+    assert scrubbed.clean
+
+
+@pytest.mark.parametrize(
+    "below",
+    [
+        # A word after the ZIP code, a lower-case city and a second comma in
+        # the city are each past the scrub's city-line shape.
+        "Cedar Hollow, Vermont 05999-0001 USA",
+        "cedar hollow, vermont 05999 - 0001",
+        "Cedar Hollow, Upper Township, VT 05999",
+        "Suite 12\nCedar Hollow Vermont 05999 Tel",
+    ],
+)
+def test_a_postal_code_line_left_below_a_withheld_line_is_a_residual(below: str) -> None:
+    text = f"Jane Doe\n1234 Maple Street\n{below}\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\n{below}\nQUESTION PRESENTED\n"
+    assert [name for name, _ in documents_module.contact_residual_matches(scrubbed.text)] == [
+        "city-line"
+    ]
+    assert scrubbed.residuals == 1
+    assert not scrubbed.clean
+
+
+def test_a_postal_code_line_below_a_street_line_ending_on_a_quadrant_is_a_residual() -> None:
+    text = "Jane Doe\n1234 Maple Street, N.E.\nCedar Hollow, VT 05999 USA\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}, N.E.\nCedar Hollow, VT 05999 USA\n"
+    assert scrubbed.residuals == 1
+
+
+@pytest.mark.parametrize(
+    "below",
+    [
+        # The city line the scrub leaves below a telephone number on purpose.
+        "Houston, TX 77002",
+        # A docket number and a five-digit figure with no state before it.
+        "No. 23-12345",
+        "Petitioner paid 12345 dollars",
+        # Two capitals that are no state's postal code.
+        "See 42 US 12345 (1990)",
+    ],
+)
+def test_a_line_below_a_withheld_line_that_is_no_postal_code_line_is_no_residual(
+    below: str,
+) -> None:
+    text = f"Jane Doe\n(713) 555-0147\n{below}\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\n{below}\nQUESTION PRESENTED\n"
+    assert scrubbed.residuals == 0
+
+
+def test_the_postal_code_residual_scans_state_dense_lines_in_linear_time() -> None:
+    line = "A.B. Texas NY " * 6
+    text = f"{CONTACT_PLACEHOLDER}\n{line}\n" * 4_000
+    start = time.perf_counter()
+    documents_module.residual_shape_matches(text)
+
+    assert time.perf_counter() - start < 5.0
+
+
+def test_a_sentence_running_on_after_five_digits_is_no_city_line() -> None:
+    # A `Ct` line is an address only above a city line, and a line that goes
+    # on in words after its five digits is not one.
+    text = "see 141 Foo Ct.\nBar, Ohio 12345 was the figure the panel used.\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == text
+    assert scrubbed.residuals == 0
+
+
 def test_the_city_line_below_a_telephone_number_is_left_alone() -> None:
     text = "Jane Doe\n(713) 555-0147\nHouston, TX 77002\n"
 
