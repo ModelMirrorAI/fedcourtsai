@@ -4760,6 +4760,21 @@
         "upcoming": "2026-12-21"
       },
       "stale_reason": null
+    },
+    {
+      "argument": null,
+      "case_id": "scotus/9026000669",
+      "conferences": [],
+      "distributed_for_conference": null,
+      "last_live_polled": "2026-11-23",
+      "next_conference": null,
+      "relists": 0,
+      "response_due": {
+        "set_for": "2026-12-23",
+        "stale_reason": null,
+        "upcoming": "2026-12-23"
+      },
+      "stale_reason": null
     }
   ],
   "schema_version": "1.3",
