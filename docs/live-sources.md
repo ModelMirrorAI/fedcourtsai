@@ -1228,7 +1228,12 @@ ZIP" line directly below any withheld street address or box, the docket's own
 address value included, is withheld with it, as a placeholder of its own — a
 court or clerk street address takes its city line with it too. Where the block
 sets its unit on a line of its own between the two (`Suite 12`), the unit line
-is withheld with the city line. A street name's apostrophe is read straight or
+is withheld with the city line. The city line's state is read as a two-letter
+code, as initials or spelled out, and the line is read with what a scan or a
+filer's typing adds to it: one or two marks before the city, a comma, a dot
+or both between the state and the ZIP code, a `+4` whose hyphen has a blank
+on either side of it or is read as an apostrophe, an asterisk or a dot, and
+up to three stray marks after the ZIP code. A street name's apostrophe is read straight or
 typographic (`O’Malley’s Way`), by the shape pass and the detector alike.
 No shape-pass match takes a line break. Two shapes are read on their own on
 the document's **opening** alone (its first 6,000 characters, which hold the
@@ -1257,6 +1262,9 @@ the end, where the signature block and a bundled proof of service sit) — a
 telephone number in any 3-3-4 grouping of blanks, dots, hyphens or a slash, a
 street address opening its line with lower-case name words, a street line
 ending on `Dr`, `Ct` or `Pl` with a "City, State ZIP" line directly below it,
+a line holding a state (a postal code, initials or a name) and a ZIP code
+directly below a withheld line (or below a unit line under one) that the
+scrub's own city-line shape does not read,
 `box` and a number in any case, and an `@` set hard against letters. It withholds nothing, since
 its shapes would cost legal text, but a document it finds anything on is
 recorded as **not** scrubbed. A clean reading is a claim about those two
@@ -1330,7 +1338,11 @@ are a box spelled out in full, a number written with a slash or with no
 separators, a street line ending on `Dr`, `Ct` or `Pl` with no "City, State
 ZIP" line directly below it or below a unit line under it, a city/state/ZIP
 line under anything but a withheld street address or box (or under one on a docket the value pass alone scrubs) —
-that shape is also how the Court's own address line is set — or an incarcerated filer's register number beside an
+that shape is also how the Court's own address line is set — a city line below
+a withheld one whose spelling the city-line shape does not read (a word after
+its ZIP code or a city in lower case, which the residual detector counts on
+the opening and closing; a state code in lower case or a `+4` set off by a
+blank alone, which it does not), or an incarcerated filer's register number beside an
 institution name, which has no shape at all.
 
 **The staged snapshot gets the same withholding, by key rather than by shape.**

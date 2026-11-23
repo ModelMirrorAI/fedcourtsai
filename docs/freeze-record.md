@@ -22379,3 +22379,141 @@ freeze commit is recorded here.
     and `jq '[.frozen_process.windows[] | select(.label |
     startswith("ai-watchlist"))] | length' metrics/leaderboard.json`
     prints 0.
+
+- **A city line is withheld with a scan's stray marks after its ZIP code, and
+  a postal-code line left below a withheld line is counted; recorded
+  2026-11-23.** A **provisioning** change with a harness boundary, recorded
+  ahead of the promotion that carries it.
+
+  **Why.** A predictor flagged, in predict run `20261122T141632Z`, that the
+  staged petition of `scotus/9026000598` (`evt-petition-disposition`) kept
+  part of a self-represented petitioner's mailing address on its cover page
+  while its manifest row read `contact_residuals: 0`. Read from the content
+  store: the scrub withheld the street line and left the line directly below
+  it, a two-word city, the state spelled out, a nine-digit ZIP code and one
+  stray mark the scan set after it. The city-line shape read the spelled-out
+  state already; it required the line to end on the ZIP code, so the mark
+  alone kept the line out. No residual shape reads a city line on its own,
+  so nothing reported the miss.
+
+  **What changes**, in `pipeline/documents.py` (`scrub_contact_details`,
+  `contact_residuals`):
+  - **The city line is read with what a scan or a filer's typing adds to
+    it**: up to three marks after its ZIP code, each neither a letter nor a
+    digit and each behind any blanks; one or two such marks before the city;
+    a comma, a dot or both between the state and the ZIP code; and a `+4`
+    whose hyphen has a blank on either side of it or is read as an
+    apostrophe, an asterisk or a dot. The last three were read off the new
+    residual shape's own hits (the population paragraph below), and are
+    taken by the scrub rather than counted. It is still
+    withheld only directly below a withheld street address or box, or below
+    a unit line under one, and it is still what makes a street line ending
+    on `Dr`, `Ct` or `Pl`, or one set in capitals past the opening, the
+    first line of a mailing block.
+  - **The residual detector counts a new shape, `city-line`**: a state (a
+    postal code, initials, or a name) and a ZIP code, on a line of bounded
+    length directly below a line ending on the placeholder (punctuation or a
+    compass quadrant may follow it), or below a unit line under one, that
+    the scrub's own city-line shape does not read. A line that shape does
+    read survives chiefly below a withheld telephone number or email, where
+    the scrub leaves it on purpose, and is not counted. The placeholder does
+    not say which detail it stands for, so the line below a withheld
+    telephone number or email is read too. Like every residual shape it
+    withholds nothing and is read on the opening and closing alone.
+  - **Neither withheld nor counted**: a city line whose state code is in
+    lower case, and one whose `+4` is set off by a blank with no mark.
+
+  No prompt byte and no field a digest reads moves: `uv run fedcourts
+  process-digest --all` prints `proc-v24` with the Court's six digests and
+  `ai-watchlist-v1` with the six trial digests, with and without the change.
+
+  **The executed check.** `scotus/9026000598`, scrubbed from the production
+  content store on 2026-11-23 (blob
+  `6b1d6487037ab4bcdfda097a7bada5c7b6b59e9469d8842a9181dabbf148831c`, newest
+  pull 2026-11-23, newest stored snapshot row 2026-07-13; the petition
+  fetched 2026-11-22): at the parent the scrub withholds 2 details on the
+  petition and its opening holds one nine-digit ZIP code; at this commit it
+  withholds 3 and the opening holds none. The docket's four other stored
+  documents keep their counts (11 on the appendix, 0 on the rest), and no
+  document of the docket carries a residual at either commit.
+
+  **The population**, over the same blob with
+  `scripts/checks/contact_scrub_residual_census.py --base` the parent:
+  of the 59,905 live-slice SCOTUS rows, 10,252 dockets are read as
+  self-represented and 24,439 of their documents are shape-scrubbed. This
+  change withholds 742 more spans across 562 of them and none fewer. On the
+  opening or closing, the new shape reads 361 documents after the change, 345
+  of them on that shape alone: those 345 move from `contact_scrubbed: true`
+  to `false`, and the summary lane withholds them. The documents flagged by
+  any shape are 728 after the change; by the shapes the detector held before
+  it they fall from 386 to 383. The census reads the parent's scrub with
+  this commit's detector, whose new shape leaves out any line the widened
+  city line reads, so it does not count the new shape before the change.
+  The widened spellings were chosen from the new shape's own hits on this
+  blob, so the 361 is in-sample: it is what remains after the commonest
+  spellings were taken, not an estimate for unseen text. It is an upper
+  bound on postal-code lines left below a withheld line, since the shape
+  also reads the line below a withheld telephone number or email. A reading
+  of the masked shapes (letters and digits replaced) of the 59 hits on the
+  6,000 newest live-slice rows found each a city, a state and a ZIP code
+  with other matter on its line (a second address, a word after the ZIP
+  code, a further withheld detail, a city of five or more words) and none a
+  sentence. On represented dockets, where no scrub runs, the shape pass and
+  the detector flag 759 of 32,683 documents on the new shape, counsel's and
+  courts' own blocks among them. The span figure is an upper bound on what
+  a post-change cell reads differently, since a docket provisions only when
+  an event on it is owed.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-city-line-scan-marks`: every predictor,
+    reach `self-represented dockets`, not gradual, since provisioning reads
+    the stored documents and the next cell provisioned on an affected docket
+    reads the change. It is registered **pending** in the change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`); until then
+    it is left out of `process_version.HARNESS_BOUNDARIES`, so no cell has a
+    side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the narrower text under the same evaluator
+    digests.
+
+  **What a post-change cell reads.** A predict or evaluate cell provisioned
+  on a self-represented docket after the carrying merge reads the wider
+  withholding, and the case-summary lane's staging reads the same text from
+  then on; cells already run stay as they are, and nothing is written to the
+  corpus. A document on which the detector reads the new shape moves from
+  `contact_scrubbed: true` to `false`, and the summary lane then withholds
+  it.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "scan_marks or postal_code"`
+    is green;
+  - `uv run fedcourts process-digest --all` prints the same label and digests
+    at the carrying merge as at its first parent;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000598 --event evt-petition-disposition` writes
+    `petition.txt` with `contact_replacements: 3` and `contact_residuals: 0`
+    on its manifest row;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-city-line-scan-marks' in {b.name for b in H})"` prints
+    `True`.
