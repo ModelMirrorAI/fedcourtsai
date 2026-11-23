@@ -690,7 +690,7 @@
     },
     {
       "conference": "2026-09-28",
-      "petitions": 59
+      "petitions": 56
     },
     {
       "conference": "2026-10-09",
@@ -710,7 +710,7 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 245
+      "petitions": 263
     }
   ],
   "discovery": {
@@ -718,7 +718,7 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-22",
+        "checked_on": "2026-11-23",
         "cursor": 664,
         "frontier": 664,
         "holes": 0,
@@ -735,7 +735,7 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-22",
+        "checked_on": "2026-11-23",
         "cursor": 6214,
         "frontier": 6214,
         "holes": 0,
@@ -752,7 +752,7 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-22",
+        "checked_on": "2026-11-23",
         "cursor": 729,
         "frontier": 729,
         "holes": 2,
@@ -770,11 +770,11 @@
     ],
     "term": 26
   },
-  "documents_provisioned": 164,
-  "generated_on": "2026-11-22",
+  "documents_provisioned": 166,
+  "generated_on": "2026-11-23",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 245,
+  "next_conference_petitions": 263,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 796
+  "watchlist": 811
 }
