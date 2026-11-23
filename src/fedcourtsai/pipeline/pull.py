@@ -422,6 +422,12 @@ class PullQueues:
     # Term's sittings back-filled and the older Terms passed over unserved — or
     # ``{"error": <type>}`` when the pass itself raised. Empty when disabled.
     argument_transcripts: dict[str, object] = field(default_factory=dict)
+    # Live-channel only: the order-named pass's ledger for the run log
+    # (`live._order_named_pass`) — order documents listed in the lookback
+    # window, those unread, docket numbers named, rows owed a poll, and the
+    # petitions and applications put at the head of this cycle's rotations —
+    # or ``{"error": <type>}`` when the pass itself raised. Empty when disabled.
+    order_named: dict[str, object] = field(default_factory=dict)
 
 
 def _in_predict_scope(
