@@ -523,14 +523,6 @@ REGISTERED_PROCESS_DIGESTS: frozenset[str] = frozenset(
     blessing.digest for blessing in _REGISTRY.blessings
 )
 
-#: Every pending registration in the registry, as ``<kind> <ident>``, in
-#: document order — empty except between the PR that registers a label or
-#: boundary and the stamp of the merge that carries it.
-PENDING_REGISTRATIONS: tuple[str, ...] = tuple(
-    f"{stamp.kind} {stamp.ident}"
-    for stamp in pending_registrations(_REGISTRY.model_dump(mode="json"))
-)
-
 
 def is_pending(process_version: ProcessVersion | None) -> bool:
     """Whether a stamp carries a registered digest no merge has stamped yet.
