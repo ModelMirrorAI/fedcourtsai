@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000630",
+  "run_id": "20261123T210705Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "record/context.json froze salience_version 'sal-v9' (with cert_anchor.rate = 0.7311320754716981 from statpack.json's sal-v9 alt_segments block), whereas metrics/statpack.md's rendered segment base-rate table heading still reads '(sal-v8)'. Resolved OT2017-OT2025 federal-band and federal caption-class floor counts are identical across sal-v8 and sal-v9 (155/212 = 73.1%), so anchoring on cert_anchor.rate is unaffected."
+    }
+  ]
+}

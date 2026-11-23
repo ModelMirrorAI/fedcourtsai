@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000630",
+  "run_id": "20261123T210705Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP (search, call_endpoint, read_document, search_document)",
+    "google_web_search (site:justice.gov, site:supremecourt.gov)",
+    "web_fetch (supremecourt.gov docket pages)"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number and --include-open surfaced both the granted lead vehicle (No. 26-104, Rhoney v. Barbosa da Cunha) and sister SG hold petitions (Nos. 25-1415, 26-568, 26-572)",
+    "fedcourts query on June 2026 cleanup-conference GVRs and denials empirically verified distribution_count behavior on held petitions",
+    "CourtListener MCP read_document provided the full 77-page First Circuit majority and dissenting opinions in Guerrero Orellana v. Moniz and the Eighth Circuit opinion in Avila v. Bondi",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json"
+  ],
+  "gaps": [
+    "Rule 34.6 paper-only immigration dockets carry no electronic cert petition PDF on supremecourt.gov; an optional counsel/caption filter flag on fedcourts query (e.g., --counsel) would speed locating companion Solicitor General hold batches",
+    "metrics/statpack.md's rendered band-rate heading still labels sal-v8 even when sal-v9 is active in statpack.json alt_segments"
+  ],
+  "notes": "Clean end-to-end forward prediction workflow; corpus ranged queries and CourtListener MCP worked reliably together."
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000630",
+  "run_id": "20261123T210705Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch", "WebFetch"],
+  "helpful": ["--docket-number lookup to confirm the lead case's grant", "frozen cert_anchor in context.json"],
+  "gaps": ["On a paper-only docket with a federal petitioner, the SG's posted petition was not staged, so the questions presented were unavailable", "same-question.json cannot link a paper-only petition to the granted lead case; a counsel/caption-based link to No. 26-104 would have helped"],
+  "notes": "Statpack band table is headed sal-v8 while context carries sal-v9; used the frozen cert_anchor."
+}

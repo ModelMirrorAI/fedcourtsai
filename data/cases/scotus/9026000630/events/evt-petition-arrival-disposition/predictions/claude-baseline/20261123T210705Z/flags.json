@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000630",
+  "run_id": "20261123T210705Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Salience version mismatch: metrics/statpack.md's 'Segment base rate by salience band' table is headed sal-v8, while record/context.json carries salience_version sal-v9. I anchored on the frozen cert_anchor.rate (0.731, federal band, which is also this caption class's floor) rather than on the table, and read the table's federal column only for shape."
+    },
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Paper-only docket (Rule 34.6) with the United States as petitioner, but no government petition was staged under record/documents/, so the questions presented were not read and same-question.json has petitions: null. The forecast rests on the docket, public case history, and the Oct 1, 2026 grant in the lead case No. 26-104 (Rhoney v. Barbosa da Cunha), which the record does not link to this docket."
+    }
+  ]
+}
