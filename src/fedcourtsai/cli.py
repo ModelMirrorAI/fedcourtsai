@@ -26700,6 +26700,12 @@ def live_poll(
             + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
             + "."
         )
+    if queues.order_named:
+        typer.echo(
+            "Order-named dockets: "
+            + ", ".join(f"{key}={value}" for key, value in queues.order_named.items())
+            + "."
+        )
     if queues.document_freshness:
         typer.echo(
             "Document freshness: "

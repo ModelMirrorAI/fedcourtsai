@@ -571,6 +571,17 @@ class LiveConfig(BaseModel):
     # leading for up to five days past their Monday order list; lowering it to
     # 3 would demote long-conference rows before their order list is read.
     order_list_lag_days: int = Field(default=7, ge=0)
+    # Rows per cycle polled ahead of both rotations because an order document
+    # of the last `order_named_lookback_days` days names them and no poll has
+    # read them since (`live._order_named_pass`): petitions inside
+    # `max_cases_per_run`, applications inside `max_applications_per_run`. The
+    # cycle fetches the Court's order listings and those days' PDFs to learn
+    # the names. 0 disables the pass and the fetches with it.
+    order_named_per_run: int = Field(default=0, ge=0)
+    # Days of order documents the pass reads, today's included. A row is owed
+    # until a poll dated after its order, which the next day's first cycle
+    # makes, so the days past the first only cover cycles that failed.
+    order_named_lookback_days: int = Field(default=3, ge=0, le=14)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Unresolved interim applications re-polled per cycle (the application

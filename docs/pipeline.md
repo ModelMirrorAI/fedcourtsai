@@ -1297,7 +1297,8 @@ any other corpus write.
 The same daily window runs one sweep outside the `seed` job: the **order-list
 vote sweep** (`fedcourts stamp-order-votes`), which stamps the Court's
 per-Justice notations onto committed cert and interim outcomes once their order
-is seven days settled. It fetches and parses the Court's order documents, so it
+is seven days settled. It writes what it parses out of the Court's order
+documents into committed outcomes, so it
 runs as run-repair's `order-votes` credential split — a read-only projection
 job, a parse job holding no credential of any kind, and a writer — in three
 jobs of its own beside the walk rather than inside the job holding the

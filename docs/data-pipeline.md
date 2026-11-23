@@ -1488,8 +1488,9 @@ or network.
   Beside the walk, in three jobs of its own, the same window runs the
   **order-list vote sweep** (`fedcourts stamp-order-votes --from-plan --sweep
   --apply` in its writer), the `order-votes` pass's credential split run on a
-  schedule: it fetches the Court's orders, so it stays out of the job holding
-  the read-write role, and it stamps settled orders onto committed outcomes
+  schedule: what it parses out of the Court's orders is written to committed
+  outcomes, so the parse stays out of the job holding the read-write role, and
+  it stamps settled orders onto committed outcomes
   under the `historical.sweep_caps.order_votes` cap and ceiling (see
   *[Maintenance passes](#maintenance-passes)*).
   On **every** window, not the daily one alone, three more jobs run the

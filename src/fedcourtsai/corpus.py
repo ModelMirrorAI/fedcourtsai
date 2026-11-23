@@ -5753,6 +5753,33 @@ def _pending_conference_sql(order_list_lag_days: int | None) -> str:
 # row compares to NULL, so neither is overdue. ISO date text orders as dates.
 _OVERDUE_SQL = "(CASE WHEN last_live_polled < ? THEN last_live_polled END)"
 
+# The live petitions (:func:`live_rotation` states the test), one parameter: the
+# Term floor. Shared by the rotation and by the order-named read, so a docket an
+# order names is polled ahead of its turn only where the rotation would poll it
+# at all.
+_LIVE_PETITION_SQL = (
+    "SELECT * FROM cases WHERE court = 'scotus' "
+    "AND date_decided IS NULL "
+    "AND (disposition IS NULL "
+    f"     OR (disposition IN ({_GRANTED_SQL}) "
+    "         AND EXISTS (SELECT 1 FROM events "
+    "                     WHERE events.case_id = cases.case_id "
+    "                     AND events.resolved = 0 AND events.stage = 'merits'))) "
+    "AND docket_number GLOB '[0-9][0-9]-*' "
+    f"AND {_TERM_YEAR_SQL} >= ? "
+    "AND EXISTS (SELECT 1 FROM events "
+    "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+)
+
+# The unresolved applications (:func:`application_rotation` states the test),
+# one parameter: the Term floor.
+_UNRESOLVED_APPLICATION_SQL = (
+    "SELECT * FROM cases WHERE court = 'scotus' "
+    "AND disposition IS NULL AND date_decided IS NULL "
+    "AND docket_number GLOB '[0-9][0-9]A*' "
+    f"AND {_TERM_YEAR_SQL} >= ? "
+)
+
 
 def live_rotation(
     conn: sqlite3.Connection,
@@ -5763,8 +5790,13 @@ def live_rotation(
     overdue_limit: int | None = None,
     order_list_lag_days: int | None = None,
     never_polled_reserve: int = 0,
+    exclude: Collection[str] = (),
 ) -> list[CorpusRow]:
     """The next ``limit`` live petitions the live poller should refresh.
+
+    ``exclude`` names rows the cycle already holds a slot for (the order-named
+    rows, :func:`order_named_rows`): no tier returns one, and the ``limit``
+    slots go to the rows behind them.
 
     The SCOTUS live channel's counterpart of :func:`rotation_for_pull`: live
     modern-cert dockets from ``term_floor_year`` forward — the floor the
@@ -5820,6 +5852,7 @@ def live_rotation(
         overdue_before=overdue_before,
         overdue_limit=overdue_limit,
         order_list_lag_days=order_list_lag_days,
+        exclude=exclude,
     )
     if never_polled_reserve <= 0:
         return picked
@@ -5840,7 +5873,7 @@ def live_rotation(
         conn,
         limit=min(never_polled_reserve, free),
         term_floor_year=term_floor_year,
-        exclude=protected,
+        exclude=protected | set(exclude),
     )
     if not reserve:
         return picked
@@ -5938,21 +5971,13 @@ def _live_rotation_tiers(
     overdue_before: date | None,
     overdue_limit: int | None,
     order_list_lag_days: int | None,
+    exclude: Collection[str] = (),
 ) -> list[CorpusRow]:
     """:func:`live_rotation`'s tiers: overdue, distributed, then Term."""
-    live_sql = (
-        "SELECT * FROM cases WHERE court = 'scotus' "
-        "AND date_decided IS NULL "
-        "AND (disposition IS NULL "
-        f"     OR (disposition IN ({_GRANTED_SQL}) "
-        "         AND EXISTS (SELECT 1 FROM events "
-        "                     WHERE events.case_id = cases.case_id "
-        "                     AND events.resolved = 0 AND events.stage = 'merits'))) "
-        "AND docket_number GLOB '[0-9][0-9]-*' "
-        f"AND {_TERM_YEAR_SQL} >= ? "
-        "AND EXISTS (SELECT 1 FROM events "
-        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
-    )
+    excluded = set(exclude)
+    # Each read over-fetches by the excluded rows, which the filter then drops.
+    spare = len(excluded)
+    live_sql = _LIVE_PETITION_SQL
     # Within one conference, staleness leads the Term: every distributed
     # petition on a conference must be re-read once its order list issues, and
     # a Term-first order lets the newest Term's still-pending dockets (relisted,
@@ -5973,27 +5998,37 @@ def _live_rotation_tiers(
             f"{live_sql}ORDER BY {_OVERDUE_SQL} IS NULL, {_OVERDUE_SQL} ASC, "
             f"{priority_order} LIMIT ?"
         )
-        cur = conn.execute(sql, (term_floor_year, cutoff, cutoff, limit * 2))
-        picked = [row for record in cur if is_modern_cert(row := _from_record(record))]
+        cur = conn.execute(sql, (term_floor_year, cutoff, cutoff, limit * 2 + spare))
+        picked = [
+            row
+            for record in cur
+            if is_modern_cert(row := _from_record(record)) and row.case_id not in excluded
+        ]
         return picked[:limit]
     overdue: list[CorpusRow] = []
     if cutoff is not None and overdue_limit > 0:
         cur = conn.execute(
             f"{live_sql}AND last_live_polled < ? "
             f"ORDER BY last_live_polled ASC, {priority_order} LIMIT ?",
-            (term_floor_year, cutoff, min(overdue_limit, limit) * 2),
+            (term_floor_year, cutoff, min(overdue_limit, limit) * 2 + spare),
         )
-        overdue = [row for record in cur if is_modern_cert(row := _from_record(record))]
+        overdue = [
+            row
+            for record in cur
+            if is_modern_cert(row := _from_record(record)) and row.case_id not in excluded
+        ]
         overdue = overdue[: min(overdue_limit, limit)]
     taken = {row.case_id for row in overdue}
     cur = conn.execute(
         f"{live_sql}ORDER BY {priority_order} LIMIT ?",
-        (term_floor_year, (limit + len(taken)) * 2),
+        (term_floor_year, (limit + len(taken)) * 2 + spare),
     )
     rest = [
         row
         for record in cur
-        if is_modern_cert(row := _from_record(record)) and row.case_id not in taken
+        if is_modern_cert(row := _from_record(record))
+        and row.case_id not in taken
+        and row.case_id not in excluded
     ]
     picked = overdue + rest
     return picked[:limit]
@@ -6072,10 +6107,7 @@ def application_rotation(
     if limit <= 0:
         return []
     sql = (
-        "SELECT * FROM cases WHERE court = 'scotus' "
-        "AND disposition IS NULL AND date_decided IS NULL "
-        "AND docket_number GLOB '[0-9][0-9]A*' "
-        f"AND {_TERM_YEAR_SQL} >= ? "
+        f"{_UNRESOLVED_APPLICATION_SQL}"
         f"ORDER BY {_TERM_YEAR_SQL} DESC, last_live_polled IS NOT NULL, "
         "last_live_polled ASC, case_id ASC LIMIT ?"
     )
@@ -6095,6 +6127,68 @@ def application_rotation(
         is not None
     ]
     return picked[:limit]
+
+
+def order_named_rows(
+    conn: sqlite3.Connection, named: Mapping[str, date], *, term_floor_year: int = 2017
+) -> tuple[list[CorpusRow], list[CorpusRow]]:
+    """The live petitions and unresolved applications an order names and no poll has read since.
+
+    ``named`` maps a docket number to the latest day an order document names it
+    (:func:`fedcourtsai.pipeline.order_named.read_order_named`). A row is owed
+    while it is one its rotation would poll at all (:func:`live_rotation`,
+    :func:`application_rotation`: the same tests, so a decided docket named in
+    a rehearing denial is never re-polled) and its ``last_live_polled`` is not
+    after that day. The stamp is a date, so a poll on the order's own day
+    cannot say whether it ran before the order was entered: the row stays owed
+    through that day, and the first poll of the next one clears it. The stamp
+    is a UTC day and the document's day is the Court's own, so an order entered
+    in the Eastern evening, after a poll already stamped the next UTC day, is
+    not owed and the row keeps its ordinary place.
+
+    Each number resolves through the identity join
+    (:func:`scotus_case_ids_by_docket_numbers`, lowest docket id), so a
+    caption-only upstream duplicate is never polled into a second full row. A
+    number no row carries is left to discovery. Petitions, then applications,
+    each never-polled first, then stalest, then ``case_id``.
+    """
+    if not named:
+        return [], []
+    days: dict[str, date] = {}
+    for raw, day in named.items():
+        norm = normalize_docket_number(raw)
+        if norm is not None and (norm not in days or day > days[norm]):
+            days[norm] = day
+    owed = {
+        case_id: days[norm]
+        for norm, case_id in scotus_case_ids_by_docket_numbers(conn, days).items()
+    }
+    petitions: list[CorpusRow] = []
+    applications: list[CorpusRow] = []
+    case_ids = sorted(owed)
+    marks = ",".join("?" for _ in case_ids)
+    for select, rows in (
+        (_LIVE_PETITION_SQL, petitions),
+        (_UNRESOLVED_APPLICATION_SQL, applications),
+    ):
+        for record in conn.execute(
+            f"{select}AND case_id IN ({marks})", (term_floor_year, *case_ids)
+        ):
+            row = _from_record(record)
+            polled = row.last_live_polled
+            if polled is None or polled <= owed[row.case_id]:
+                rows.append(row)
+    petitions = [row for row in petitions if is_modern_cert(row)]
+    applications = [
+        row
+        for row in applications
+        if parse_scotus_application_number(strip_docket_annotation(row.docket_number)) is not None
+    ]
+
+    def stalest_first(row: CorpusRow) -> tuple[bool, date, str]:
+        return (row.last_live_polled is not None, row.last_live_polled or date.min, row.case_id)
+
+    return sorted(petitions, key=stalest_first), sorted(applications, key=stalest_first)
 
 
 def conference_watchlist(conn: ReadConnection, *, term_floor_year: int = 2017) -> list[CorpusRow]:

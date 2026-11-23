@@ -237,6 +237,42 @@ The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
+**Order-named dockets lead both rotations.** An order changes a docket the
+day it issues, and of the tiers above only the distributed one knows an order
+is due: a petition denied in a miscellaneous order beside its stay
+application, a granted case named among an order list's orders in pending
+cases, or an application ruled on in an order list waits for its staleness
+turn, which can be days, and until then the corpus records it as pending.
+Each cycle therefore reads the Court's order listings and the documents they
+list for the last `live.order_named_lookback_days` days (order lists,
+miscellaneous orders, opinions relating to orders), takes the docket numbers
+they name (`pipeline/order_named.py`), and polls the named rows first, ahead
+of every tier above, the staleness bound's overdue tier included: up to
+`live.order_named_per_run` a cycle, applications first (as many as
+`live.max_applications_per_run` holds) and petitions inside
+`live.max_cases_per_run`, never-polled then stalest first. The rotation
+fills the slots left with the rows behind them. Only the numbers and each document's listed day are taken: the
+disposition is recorded from the docket the poll reads, as on any other poll.
+A named row is owed while its rotation would poll it at all (a decided docket
+named in a rehearing denial is not) and its `last_live_polled` is not after
+the document's day. The stamp is a date, so a poll on the order's own day
+cannot say whether it ran before the order was entered; the row stays owed
+through that day and the next day's first poll clears it. The stamp is a UTC
+day and a document's day is the Court's own, so an order entered in the
+Eastern evening, after a poll already stamped the next UTC day, is not owed
+and keeps its ordinary place. The days of
+lookback past the first cover cycles that failed. A cycle reads at most twelve
+documents, newest first, and a document it cannot read is counted unread and
+skipped. A row past the per-cycle
+share keeps its ordinary place and is owed again the next cycle. The pass is
+failure-isolated: an unserved listing or an unreadable document costs the
+cycle this ordering and nothing else. The cycle prints an `Order-named
+dockets:` ledger line (documents, unread, dockets, owed, petitions,
+applications; `error=<type>` where the pass itself raised, `skipped=deadline`
+where the cycle's budget was already spent); `0` disables the
+pass and its fetches. A number no row carries is discovery's to onboard, not
+this pass's.
+
 Each cycle, `live.never_polled_reserve_per_run` slots go to Term-prefixed cert numbers (no applications) the
 channel has never polled, oldest Term first: an undecided row with an open
 event, in practice a past-Term row the historical walker skipped (undecided

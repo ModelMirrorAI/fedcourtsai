@@ -97,7 +97,8 @@ pull:
 # 25-case selection sweep) — about four minutes of one sequential client at one
 # request a second — so the day's ceiling is ~2,800 docket reads, about 3% of
 # the day's seconds, plus the document downloads the transitions and the
-# freshness pass make. A quiet day reads far less: every tier is "up to".
+# freshness pass make and the order listings and documents the order-named
+# pass reads (two listing pages and at most twelve PDFs a cycle). A quiet day reads far less: every tier is "up to".
 live:
   # Live petitions re-polled per cycle (overdue dockets first, then distributed
   # petitions by conference, then recent Terms, then stalest): pending ones plus
@@ -152,6 +153,23 @@ live:
   # Monday order list; a value of 3 would demote long-conference rows before
   # their order list is read.
   order_list_lag_days: 7
+  # Rows per cycle polled ahead of both rotations because an order document of
+  # the last order_named_lookback_days days names them and no poll has read
+  # them since: a petition denied in a miscellaneous order beside its
+  # application, a granted case named among the orders in pending cases, an
+  # application ruled on in an order list. None of those is distributed for a
+  # conference, so each would otherwise wait for its staleness turn. They lead
+  # the overdue tier too. Applications take the share first, inside
+  # max_applications_per_run, and petitions count inside max_cases_per_run. A third of max_cases_per_run: a miscellaneous
+  # order names a handful of rows and a regular order list leaves a few dozen
+  # owed, while a long-conference list (most of its rows distributed, so
+  # leading anyway) drains over several cycles. 0 disables the pass and its
+  # fetches of the Court's order listings and documents.
+  order_named_per_run: 50
+  # Days of order documents the pass reads each cycle, today's included. A
+  # named row is owed until a poll dated after its order, which the next day's
+  # first cycle makes, so the days past the first cover cycles that failed.
+  order_named_lookback_days: 3
   # New petitions onboarded from the Term's numbering frontier per cycle
   # (sequential probing: paid from <term>-1, IFP from <term>-5001). Sized to
   # absorb the long-conference onboarding burst within a day (~180 over ~4
