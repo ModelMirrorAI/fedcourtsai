@@ -55,9 +55,6 @@ _V18 = datetime(2026, 11, 6, 17, 45, 46, tzinfo=UTC)
 _V19 = datetime(2026, 11, 7, 15, 59, 33, tzinfo=UTC)
 _V20 = datetime(2026, 11, 8, 18, 17, 4, tzinfo=UTC)
 _V21 = datetime(2026, 11, 12, 19, 49, 39, tzinfo=UTC)
-# proc-v22 holds proc-v21's counting instant; its own merge stamped only the
-# three evaluator blessings.
-_V22_MERGE = datetime(2026, 11, 13, 17, 0, 26, tzinfo=UTC)
 _V23 = datetime(2026, 11, 14, 15, 51, 37, tzinfo=UTC)
 _V24 = datetime(2026, 11, 18, 22, 3, 5, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
