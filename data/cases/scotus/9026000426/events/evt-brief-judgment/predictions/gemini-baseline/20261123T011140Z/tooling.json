@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000426",
+  "run_id": "20261123T011140Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "courtlistener MCP (search, read_document, search_document)",
+    "web_fetch (supremecourt.gov docket)"
+  ],
+  "helpful": [
+    "Provisioned merits briefs and First Circuit opinion in record/documents/",
+    "CourtListener MCP full-text slip opinions for OT2024-OT2025 immigration and remedies precedents (Mullin v. Doe, Mullin v. Al Otro Lado, Blanche v. Lau, Riley v. Bondi, Trump v. CASA)",
+    "Per-Term merits, per-Justice vote, and authorship tables in metrics/statpack.md and metrics/statpack.json"
+  ],
+  "gaps": [
+    "fedcourts query filters on cert-stage disposition labels rather than merits judgments (reversed/vacated/affirmed) and has sparse reporter citation coverage on SCOTUS rows"
+  ],
+  "notes": "Provisioned inputs and CourtListener MCP coverage of recent OT2025 slip opinions worked smoothly together."
+}
