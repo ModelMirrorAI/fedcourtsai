@@ -161,7 +161,9 @@ on:
           token-free one, not promotion evidence. SPENDS MODEL TOKENS: `gate`
           (three smoke cells, three boot probes), `all`, `engine-smoke`,
           `engine-actions-smoke`, `codex-application-repro` (one codex
-          evaluate cell) and `qp-labeler-smoke` (cents).
+          evaluate cell) and `qp-labeler-smoke` (cents). `engine-smoke` on a
+          pinned district docket of a prediction slice runs the slice's actor
+          on a rehearsal event.
         type: choice
         default: offline-gate
         options:
@@ -216,8 +218,21 @@ on:
       # post-cutover channels mutate (SCOTUS dockets) have; pre-cutover
       # index-only rows (circuit courts) serve the query/open-events reads but
       # never a snapshot.
+      #
+      # The engine smoke reads the court to choose its cell. `scotus` runs the
+      # engine's baseline predictor. Any other court runs the engine's trial
+      # predictor on a rehearsal event (`local-cascade --rehearse-trial`): the
+      # pinned docket is one a prediction slice lists, `event` names the trial
+      # event to forecast, and the event is planned in the run by the
+      # watchlist pass's own reader, never read from or written to the corpus.
+      # Such a dispatch pins `docket` and `event` both: the resolver screens
+      # for no slice, and a rehearsal without a named event is refused before
+      # any token is spent.
       court:
-        description: Court to resolve a case in, or the court half of a pinned case.
+        description: >-
+          Court to resolve a case in, or the court half of a pinned case. A
+          court other than `scotus` makes engine-smoke a trial rehearsal on a
+          pinned slice docket.
         type: string
         default: scotus
       docket:
@@ -225,7 +240,8 @@ on:
         # its own record in its steps, because that record is the scenario.
         description: >-
           Empty resolves a known-good case from this run's corpus; a docket id
-          pins that case instead. Ignored by repro scenarios.
+          pins that case instead (required for a district docket's
+          engine-smoke rehearsal). Ignored by repro scenarios.
         type: string
         default: ""
       engine:
@@ -247,7 +263,9 @@ on:
       event:
         description: >-
           Event id to narrow the cascade scenarios to; empty runs every event.
-          Pair it with a pinned `docket`.
+          Pair it with a pinned `docket`. Required for a district docket's
+          engine-smoke rehearsal, where it names the trial event planned in
+          the run.
         type: string
         default: ""
       deploy-environment:
@@ -634,12 +652,17 @@ jobs:
     # 45, not 30: the engine-smoke scenario spans an npm CLI install plus one
     # real agent cell, which alone can run tens of minutes on a slow model day.
     #
-    # The application-repro leg gets the cell jobs' 65 instead, for the cells'
+    # The application-repro leg gets the cell jobs' 70 instead, for the cells'
     # reason: it runs a real evaluate cell under the same engine deadline, and
     # a job that reaches its cap is cancelled and its log dropped. Per-leg
-    # rather than raised for everyone: a 65-minute cap on the boot probes would
-    # turn a hung smoke into an hour of billed silence.
-    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 65 || 45 }}
+    # rather than raised for everyone: a 70-minute cap on the boot probes would
+    # turn a hung smoke into over an hour of billed silence.
+    #
+    # A trial rehearsal (the engine smoke pinned to a district docket) gets the
+    # same 70: its record is a whole district docket's filings, several times a
+    # petition-stage record, and the cell reads it under the same engine
+    # deadline the production cell does.
+    timeout-minutes: ${{ matrix.scenario == 'codex-application-repro' && 70 || (matrix.scenario == 'engine-smoke' && needs.plan.outputs.court != 'scotus') && 70 || 45 }}
     # Branch-resolved with an explicit override; keep this expression
     # identical to `run-name:`'s, the plan job's and the labeler smoke's (YAML
     # anchors do not work in workflows), and see the deploy-environment input
@@ -674,7 +697,8 @@ jobs:
     #
     # The engine deadline, in minutes, on the cells' terms: the engine step's
     # `timeout-minutes` reads it and the arm step derives the watchdog's fire
-    # time from it, a margin earlier. The application-repro leg runs a real
+    # time from it, a margin (and, for a real cell, the completion extension)
+    # earlier. The application-repro leg runs a real
     # evaluate cell, so it carries the cell workflows' value — a
     # workflow-shape test holds the three equal. The engine-actions-smoke
     # legs run the same bracket around a one-word boot probe at 13 minutes —
@@ -684,7 +708,7 @@ jobs:
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       FEDCOURTS_CORPUS_POINTER: ${{ vars.FEDCOURTS_CORPUS_POINTER }}
-      ENGINE_DEADLINE_MINUTES: ${{ matrix.scenario == 'engine-actions-smoke' && '13' || '50' }}
+      ENGINE_DEADLINE_MINUTES: ${{ matrix.scenario == 'engine-actions-smoke' && '13' || '55' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -775,8 +799,8 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
           aws-region: ${{ vars.AWS_REGION }}
           # The repro leg's cell may still be querying the corpus up to its
-          # 50-minute engine deadline, so its credentials must outlive the
-          # 65-minute job cap rather than the sidecar's static default hour —
+          # 55-minute engine deadline, so its credentials must outlive the
+          # 70-minute job cap rather than the sidecar's static default hour —
           # 90 minutes, as in the cell workflows. The short legs keep the
           # stated default.
           role-duration-seconds: ${{ matrix.scenario == 'codex-application-repro' && '5400' || '3600' }}
@@ -1048,6 +1072,52 @@ jobs:
             sudo sysctl -w kernel.unprivileged_userns_clone=1
           fi
 
+      # Which predictor the smoke cell runs as, decided once for the three
+      # steps that name it (the MCP sidecar, the MCP client config, the
+      # cascade). The settled case's court picks the population, as the predict
+      # matrix's routing does for a listed docket: `scotus` is the Court's
+      # docket and runs the engine's baseline predictor; any other court is a
+      # pinned district docket of a prediction slice and runs the engine's
+      # trial predictor, with `--rehearse-trial` so the cascade plans the named
+      # trial event in the run. The cascade itself refuses a predictor of the
+      # wrong population, a docket no slice lists, and a rehearsal with no
+      # `event`, each before any token is spent, so a mismatch here fails the
+      # leg rather than running the wrong cell. Both values are fixed strings
+      # chosen by this script; the court reaches it through the environment.
+      #
+      # A district docket is refused unless the dispatch selected `engine-smoke`
+      # itself: a `gate` or `canary` run is evidence about the Court's cells
+      # (the promotion gate counts a green `gate` run for its candidate), and
+      # one pinned to a district docket would stand as that evidence having run
+      # only trial cells.
+      - name: Name the smoke cell's predictor
+        id: smoke_cell
+        if: ${{ matrix.scenario == 'engine-smoke' }}
+        env:
+          ENGINE: ${{ matrix.engine }}
+          COURT: ${{ needs.plan.outputs.court }}
+          SELECTION: ${{ needs.plan.outputs.selection }}
+        run: |
+          set -euo pipefail
+          if [ "$COURT" != scotus ] && [ "$SELECTION" != engine-smoke ]; then
+            echo "::error::a district docket rehearses a trial cell only on scenario=engine-smoke; this run's evidence is about the Court's cells"
+            exit 1
+          fi
+          case "$ENGINE" in
+            claude-code) family=claude ;;
+            codex) family=codex ;;
+            gemini) family=gemini ;;
+            *)
+              echo "::error::no smoke predictor is mapped for this engine"
+              exit 1
+              ;;
+          esac
+          if [ "$COURT" = scotus ]; then
+            printf 'predictor=%s-baseline\nrehearse=\n' "$family" >> "$GITHUB_OUTPUT"
+          else
+            printf 'predictor=%s-trial\nrehearse=--rehearse-trial\n' "$family" >> "$GITHUB_OUTPUT"
+          fi
+
       # The CourtListener MCP half of the cell posture, wired for the codex
       # leg only. The corpus sidecar above gives every leg its corpus
       # retrieval; this pair gives codex the same MCP surface a live cell
@@ -1074,7 +1144,7 @@ jobs:
         if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
         with:
           role: predictor
-          actor: codex-baseline
+          actor: ${{ steps.smoke_cell.outputs.predictor }}
           courtlistener-api-token: ${{ secrets.COURTLISTENER_API_TOKEN }}
 
       # The tested `mcp-config` command emits codex's client format from the
@@ -1086,11 +1156,13 @@ jobs:
       # per-client stdio spawn.
       - name: Configure the codex cell's MCP retrieval
         if: ${{ matrix.scenario == 'engine-smoke' && matrix.engine == 'codex' }}
+        env:
+          PREDICTOR: ${{ steps.smoke_cell.outputs.predictor }}
         run: |
           set -euo pipefail
           mkdir -p .codex
           uv run fedcourts mcp-config --engine codex \
-            --role predictor --actor codex-baseline \
+            --role predictor --actor "$PREDICTOR" \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
           mkdir -p .codex/rules
           uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
@@ -1128,11 +1200,14 @@ jobs:
       # the sidecar, exactly like a live cell. The runner seam scrubs the AWS
       # credentials and every other engine's key from the agent env, so the
       # agent holds only its own engine's key (the ternaries below); the
-      # predictor ids map each engine to its baseline in
-      # config/predictors.yaml (an id drift fails loudly, naming the enabled
+      # predictor id is the one the step above named, the engine's baseline
+      # in config/predictors.yaml or its trial predictor for a district
+      # docket (an id drift fails loudly, naming the enabled
       # ids). One predictor cell, so the spend is one cell's worth against
       # the settled open-event case (a resolved event would also replay
-      # evaluator cells — the input description says so). The engine keys
+      # evaluator cells — the input description says so). A trial rehearsal
+      # is one predict cell and nothing else: its event is open, so no
+      # evaluator runs. The engine keys
       # resolve from the deployment environment like every other secret, so a
       # dispatch naming an environment without the keys gets an empty key and
       # the cell fails closed regardless of step ordering. Output lands only in the
@@ -1156,6 +1231,8 @@ jobs:
           COURT: ${{ needs.plan.outputs.court }}
           DOCKET: ${{ needs.plan.outputs.docket }}
           EVENT: ${{ inputs.event }}
+          PREDICTOR: ${{ steps.smoke_cell.outputs.predictor }}
+          REHEARSE: ${{ steps.smoke_cell.outputs.rehearse }}
           AWS_ACCESS_KEY_ID: ${{ steps.corpus.outputs.aws-access-key-id }}
           AWS_SECRET_ACCESS_KEY: ${{ steps.corpus.outputs.aws-secret-access-key }}
           AWS_SESSION_TOKEN: ${{ steps.corpus.outputs.aws-session-token }}
@@ -1185,11 +1262,6 @@ jobs:
           CODEX_HOME: ${{ github.workspace }}/.codex
         run: |
           set -euo pipefail
-          case "$ENGINE" in
-            claude-code) predictor=claude-baseline ;;
-            codex) predictor=codex-baseline ;;
-            gemini) predictor=gemini-baseline ;;
-          esac
           # The agent's transcript is untrusted model output: it stays in the
           # run log (plain text) and out of the *rendered* step summary, where
           # a stray fence-closer could inject live Markdown. Only the
@@ -1208,10 +1280,46 @@ jobs:
           # through silently — an estate holding no snapshot for the case the
           # plan job settled — so an unprovisioned run fails instead of
           # certifying a posture it never ran in.
-          uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
-            --engine "$ENGINE" --predictor "$predictor" --corpus-backend ranged \
+          # $REHEARSE is empty or the one fixed flag the naming step chose, so
+          # a district docket's cell is a trial rehearsal and no other cell is.
+          #
+          # A rehearsal's transcript stays off the run log as well. The run log
+          # of a public repository is a publication, and a district cell reads
+          # party-authored filings whose text the agent's stream can quote at
+          # length; the Court's cell reads the Court's own public docket, which
+          # is why its transcript may print. So the rehearsal's output goes to
+          # runner files that die with the runner, and the log gets only what
+          # the CLI itself composed: the report block on success, the refusal
+          # line on exit 2 (a cascade or engine-availability refusal, raised
+          # before or outside the agent's output), and otherwise a fixed line.
+          # An engine failure or a failed validation can carry model text in
+          # its message, so neither is printed.
+          # One command for both arms, so the two refusals above cannot be
+          # dropped from one of them.
+          cell=(uv run fedcourts local-cascade --court "$COURT" --docket "$DOCKET" \
+            --engine "$ENGINE" --predictor "$PREDICTOR" --corpus-backend ranged \
             --require-predictions --require-record \
-            ${EVENT:+--event "$EVENT"} | tee cascade-output.log
+            ${REHEARSE:+"$REHEARSE"} ${EVENT:+--event "$EVENT"})
+          if [ -n "$REHEARSE" ]; then
+            status=0
+            "${cell[@]}" > cascade-output.log 2> cascade-stderr.log || status=$?
+            if [ "$status" -eq 2 ]; then
+              tail -n 1 cascade-stderr.log
+              echo "::error::the cascade refused the rehearsal before a cell ran"
+              exit 1
+            elif [ "$status" -ne 0 ]; then
+              echo "::error::the rehearsal cell failed (exit ${status}); its transcript is withheld from the run log because it can quote filing text. Reproduce it with the same local-cascade command where the corpus is pulled."
+              exit 1
+            fi
+            # The last `local-cascade ` line opens the report: the agent's
+            # stream precedes it and could carry a line shaped like one.
+            start=$(grep -n '^local-cascade ' cascade-output.log | tail -n 1 | cut -d: -f1)
+            tail -n "+${start}" cascade-output.log > cascade-report.log
+            mv cascade-report.log cascade-output.log
+            cat cascade-output.log
+          else
+            "${cell[@]}" | tee cascade-output.log
+          fi
           {
             echo ""
             echo "## Engine smoke: one $ENGINE cell over the service sidecar"
@@ -1478,7 +1586,8 @@ jobs:
       #
       # The bound is the cells' own engine deadline (the job's
       # `ENGINE_DEADLINE_MINUTES`), armed the cells' way: the step's
-      # `timeout-minutes` reads it and the watchdog fires a margin earlier, so
+      # `timeout-minutes` reads it and the watchdog fires a margin and the
+      # completion extension earlier, so
       # a step that will not conclude is ended rather than riding to a job-cap
       # cancellation whose logs GitHub drops.
       - name: Arm the engine watchdog
@@ -1494,6 +1603,9 @@ jobs:
           # The cells' margin, for the cells' reason: the watchdog's own
           # escalation concludes the step before the runner's step timeout.
           DEADLINE_MARGIN_S: "180"
+          # The cells' completion extension: a cell complete at the deadline
+          # is given this long for its quiescence grace to run out.
+          COMPLETION_EXTENSION_S: "320"
         run: |
           set -euo pipefail
           mkdir -p "$WATCHDOG_DIR"
@@ -1534,22 +1646,23 @@ jobs:
           fi
           # The fire time, from the one configured deadline; digits checked
           # before the arithmetic, as in the cells.
-          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S"; do
+          for value in "$ENGINE_DEADLINE_MINUTES" "$DEADLINE_MARGIN_S" "$COMPLETION_EXTENSION_S"; do
             case "$value" in
               "" | *[!0-9]* | 0?*)
-                echo "::error::the engine deadline and its margin must be plain whole numbers"
+                echo "::error::the engine deadline, its margin and the completion extension must be plain whole numbers"
                 exit 1
                 ;;
             esac
           done
-          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S))
-          echo "engine deadline armed (codex): step timeout ${ENGINE_DEADLINE_MINUTES} min, watchdog fires at ${WATCHDOG_DEADLINE_S}s" \
+          WATCHDOG_DEADLINE_S=$((ENGINE_DEADLINE_MINUTES * 60 - DEADLINE_MARGIN_S - COMPLETION_EXTENSION_S))
+          echo "engine deadline armed (codex): step timeout ${ENGINE_DEADLINE_MINUTES} min, watchdog fires at ${WATCHDOG_DEADLINE_S}s, or up to ${COMPLETION_EXTENSION_S}s later for a cell whose outputs are complete" \
             >> "$GITHUB_STEP_SUMMARY"
           # The watchdog and its evidence both live outside the workspace: that
           # tree belongs to the agent for the whole of its turn, and bash reads a
           # script file as it executes it.
           cp scripts/engine-watchdog.sh "$RUNNER_TEMP/engine-watchdog.sh"
           WATCHDOG_DEADLINE_S="$WATCHDOG_DEADLINE_S" \
+            WATCHDOG_EXTENSION_S="$COMPLETION_EXTENSION_S" \
             WATCHDOG_OUTPUT_DIR="$sentinel_root" \
             WATCHDOG_SENTINEL_PATHS="$sentinel_paths" \
             nohup bash "$RUNNER_TEMP/engine-watchdog.sh" \
@@ -1582,8 +1695,8 @@ jobs:
       - name: Evaluate the pinned application-lane record with Codex
         id: repro_codex
         if: ${{ matrix.scenario == 'codex-application-repro' }}
-        # The cells' engine deadline; the watchdog armed above fires a margin
-        # earlier and is what ends a step the runner cannot.
+        # The cells' engine deadline; the watchdog armed above fires ahead of
+        # it and is what ends a step the runner cannot.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
@@ -2079,7 +2192,7 @@ jobs:
         id: actions_smoke_claude
         if: ${{ matrix.scenario == 'engine-actions-smoke' && matrix.engine == 'claude-code' }}
         # The probe's engine deadline (13 minutes on this leg, the watchdog
-        # firing at ten) rather than the cells' fifty: one word is one turn, and a
+        # firing at ten) rather than the cells' fifty-five: one word is one turn, and a
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
@@ -2208,7 +2321,7 @@ jobs:
           # predictor at placeholder coordinates matching no case, over a
           # scratch data root under the runner temp dir — never `data/`, and
           # apart from the capture assertion's own root below. At this leg's
-          # 13-minute deadline the script's 20-minute retry floor is never met,
+          # 13-minute deadline the script's 25-minute retry floor is never met,
           # so the probe exercises the wrapper's single attempt and its
           # classification, never a retry.
           PREDICTOR_ID: ${{ steps.cell.outputs.predictor }}

@@ -21858,3 +21858,662 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('cert-reply-every-reply' in {b.name for b in H})"` prints
     `True`.
+
+- **A cell complete at the engine deadline is given its quiescence grace;
+  recorded 2026-11-20.** A harness change under unchanged digests, recorded
+  ahead of the promotion that carries it. No harness boundary is registered,
+  since no scoring rule and no cell's information set moves.
+
+  **What changes.** The engine watchdog reaps a cell whose owed files are all
+  present, non-empty and parsing once its output directory has gone unwritten
+  for five minutes, and at its fire time ends any step still running. A cell
+  whose files were complete at the fire time, but whose five minutes had not
+  yet run out, was ended as a deadline stop and routed to a partial draft.
+  From the carrying promotion the watchdog defers the deadline once for such
+  a cell, by up to 320 seconds (the grace plus two of its polls), and reaps it
+  only on the reading every reaped cell gives: complete, and unwritten for
+  the full five minutes since its last write. A cell still writing through
+  the extension, or one whose owed files stop being complete during it, is
+  ended as a deadline stop at that point; a cell with an owed file missing or
+  unparsing at the fire time is never extended. A watchdog that lost wall
+  clock still signals nothing. The reap's marker carries
+  `deadline_extended_s`, and the tail still validates the cell before collect
+  readies it.
+
+  The clocks around it move so the extension fits. The engine step's timeout
+  goes from 50 to 55 minutes for all three engines, on predict, on evaluate
+  and on the integration suite's application-repro leg, and the cell job's cap
+  from 65 to 70. The watchdog's fire time goes from 2,820 to 2,800 seconds, so
+  a cell with nothing complete is ended 20 seconds sooner than before and a
+  complete one may run to 3,120. The Gemini in-place retry's floor goes from
+  20 to 25 minutes of the step's timeout, which leaves the latest moment a
+  retry may start where it was, 30 minutes in.
+
+  **Why.** Predict run `20261116T161636Z` left a `gemini-baseline` cell on
+  `scotus/9026000292` `evt-order-cvsg-disposition` at the deadline with every
+  file written. Read from the cell's artifact (its watchdog log and its
+  harness-written `retrieval_log.json`) on 2026-11-20: the step's first
+  attempt spent 16 minutes on failed model calls and wrote nothing; the retry
+  started 16:47:55Z, the sentinel saw the owed files complete at 17:11:38Z,
+  the cell's last write was at 17:13:25Z, its own validate passed at
+  17:13:40Z, and from 17:14:41Z the engine's model calls failed until the
+  watchdog fired at 17:18:20Z. The five minutes since the last write would
+  have run out at 17:18:25Z. The tail validated the cell, collect routed it to
+  a partial draft that was closed unmerged, and the event was forecast again
+  in run `20261116T230623Z`. One of the 48 `gemini-baseline` cells between
+  2026-11-12T19:49Z and 2026-11-19T20:23Z ended this way, and no
+  `claude-baseline` or `codex-baseline` cell of the same runs.
+
+  **What it means for a reader.** A landed cell can now be one the watchdog
+  reaped after its fire time. The rule reads the presence of the owed files,
+  whether the JSON ones parse and the time since the last write, never what a
+  forecast or a grade says. It carries the reap's known residual and no new
+  one: a cell cut off between a file's first complete write and a revision
+  the agent meant to make more than five minutes later lands its earlier
+  draft. Before this change such a cell was owed again on a later round under
+  the attempt cap, so the landed set holds the same cells or more, and for a
+  forward predict cell the difference is timing: the forecast lands in the
+  round that opened it, on that round's snapshot, instead of a later one, and
+  is no longer lost if its event resolves first. The rule is every engine's,
+  but only the Gemini step retries in place, and a retried attempt is what
+  has put a finished cell near the deadline, so it should move the Gemini
+  pair's cell-failure rate against the other two pairs' if it moves any, and
+  a comparison of failure rates across this promotion reads the Gemini pair
+  apart.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_engine_watchdog.py tests/test_workflow_cell_invariants.py` is
+  green; and each predict or evaluate cell on `main` whose artifact holds a
+  `REAPED` marker carrying `deadline_extended_s`, and whose `status.json`
+  reads `validated: true`, sits in its round's merged PR with no `partial`
+  `attempt.json` for that run. A round with no such marker shows nothing
+  either way.
+
+- **A bound appendix is not read as starting in the front matter; recorded
+  2026-11-20.** A **provisioning** change with a harness boundary, recorded
+  ahead of the promotion that carries it.
+
+  **Why.** Two predictors flagged, in predict run `20261120T030648Z`, that the
+  first cut in the staged petition of 26-654 (`scotus/9026000654`) removed
+  most of the petition's argument as an appendix item. Read from the content
+  store on 2026-11-20 (the petition fetched 2026-11-19, 216 PDF pages): the
+  stored text's first cut note omits 42,173 characters from PDF page 21 to
+  PDF page 53, and no conclusion heading survives. Read off the filed PDF,
+  the appendix start was taken on PDF page 8, the second page of the
+  filing's table of appendices. That page carries one entry, so it fails the
+  contents-page test, which asks for two lines ending in a leader and a
+  folio, and its entry is set as an item heading. The whole brief after it
+  was then budgeted as appendix items.
+
+  **What moved.** `pipeline.documents._appendix_start` also passes over a page
+  that prints a front-matter page number and no lettered appendix folio
+  (`_is_front_matter_page`): a lower-case roman numeral up to ninety-nine on
+  a line of its own, among the page's first two non-blank lines or as its
+  last. A filing numbers its tables in roman numerals and its appendix in
+  lettered folios, so such a page is the brief's own front matter or an index
+  page inside the appendix. The start is read by the cut of the `petition`
+  and `application` kinds and by the cut of a combined row
+  (`cut_combined_text`: the opposition, the cert-stage replies, the
+  supplemental briefs and the party letters), which splits each of its
+  filings at the same start. Nothing else in either cut moves: the
+  contents-page test, the item readings, the budget passes and the notes are
+  as they were. A filing whose start is read nowhere else is cut as one body,
+  as before.
+
+  No prompt byte and no registry field other than the boundary row moves, so
+  no digest moves: `uv run fedcourts process-digest --all` prints `proc-v24`
+  and the six digests the `proc-v24` entry lists, with and without the
+  change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut: the pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect.
+  - **The registry row** is `appendix-start-past-front-matter`. It applies to
+    every predictor and its reach is `all`, because no registered reach names
+    the dockets whose petition sets its table of appendices this way. It is
+    **gradual**: fetching is idempotent per kind and URL, so a stored row
+    keeps its cut until its link changes or a re-cut reaches it. The re-cut
+    pass's walked class leaves out a row that already carries a cut note, so
+    this change also lets a dispatch **name its cases** (`run-repair`'s
+    `recut` pass with case ids in `repair_target`; *Contract for the re-cut
+    pass* in [live-sources.md](live-sources.md)): the class is then the named
+    cases' truncated `petition`, `application` and `appendix` rows with or
+    without a note. The pass holds no combined kind, so a stored combined
+    row is reached only when its links change. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`), under
+    the 2026-10-14 merge-stamping declaration, and its `merge` and `at` stay
+    null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell on a docket whose
+    stored row has not been re-cut stages the old cut, so the after-side `n`
+    is an upper bound on exposure.
+
+  **The population.** Read on 2026-11-20 over blob
+  `09f88411f498424fcfa5a2c123b6f1ea570667e90ea2f0b87e5aaec9a964d8a4` (newest
+  pull 2026-11-20, newest stored snapshot row 2026-07-13) with documents from
+  the per-case content store, counts and identifiers only. The read was made
+  from an interactive session with scratch scripts and each suspect's PDF
+  fetched from the Court's site; no committed command reproduces it. Of the 59,874 live-slice dockets, 3,805 are
+  predict-relevant. The live slice stores 1,382 petitions and 10 applications
+  that are truncated and carry a cut note; 1,272 petitions and 3 applications
+  among them carry an appendix-item note, 566 and 2 of them
+  predict-relevant. A row was taken as a suspect where no line reading
+  `CONCLUSION` precedes its first appendix-item note: 62 petitions, 11
+  predict-relevant, and no application. Each suspect's PDF was fetched again
+  from its stored Court link and its start read under both rules. On 21 the
+  start moves, 5 of them predict-relevant: `scotus/9026000654`,
+  `scotus/72483908`, `scotus/73274796`, `scotus/73275203` and
+  `scotus/73278994`. On each of the 21 the old start is a front-matter page,
+  between PDF pages 5 and 12. On 20 the new start falls later in the filing,
+  between PDF pages 21 and 70, and on one, `scotus/72471748`, no start is
+  read and the filing is cut as one body. Four of the five predict-relevant starts sat on a table's
+  one-entry last page and one on a table set without leaders. On
+  the other 41 suspects the start does not move. Beyond the suspects, 70 of
+  the 555 predict-relevant petitions that carry an appendix-item note and are
+  not suspects were drawn at random, and none moves. The suspect test is not
+  a census of the rows the rule moves. The 655 such petitions outside the
+  predict-relevant rows and the 3 applications were not read, so a row there
+  whose conclusion precedes its first note may move uncounted. No combined
+  row was read: how many stored opposition, reply, supplemental or letter
+  rows the rule moves is not known.
+
+  **What the change does not reach.** A table of appendices on a page that
+  prints no roman page number, or prints it elsewhere than the page's first
+  two lines or its last, is read as before. The separately linked `appendix`
+  kind is read whole as appendix and takes no start. The item readings inside
+  the appendix are untouched, so an index page there is still read by the
+  contents test alone.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_document_coverage.py -k "table_of_appendices or
+    roman_numeral"` is green;
+  - once a named re-cut of `scotus/9026000654` has been applied, where the
+    corpus is pulled:
+    `uv run python -c "import re; from fedcourtsai import corpus; from
+    fedcourtsai.config import get_settings; s = get_settings(); conn =
+    corpus.connect_readonly(corpus.corpus_db_path(s.corpus_root),
+    backend=s.corpus_backend).__enter__(); t = next(d.text for d in
+    corpus.documents_for_case(conn, 'scotus/9026000654') if d.kind ==
+    'petition'); n = re.search(r'\[pipeline note: [^\]]*appendix item[^\]]*?
+    PDF page (\d+)', t); c = re.search(r'(?m)^\s*CONCLUSION\s*$', t);
+    print(c is not None and c.start() < n.start(), int(n.group(1)) > 53)"`
+    prints `True True`;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('appendix-start-past-front-matter' in {b.name for b in H})"` prints
+    `True`.
+
+- **`sal-v9` activated; recorded 2026-11-20.** A distinct entry from the
+  `caption-v6` and `sal-v9` registration entry above, on the `sal-v8`
+  activation's pattern. No freeze commit belongs to this entry: the salience
+  version sits outside the process digest, carries its own data-visible
+  boundary (`context.salience_version`), and a flip re-blesses nothing.
+  `uv run fedcourts process-digest --all` prints the same digests before and
+  after this change, and no harness boundary is registered.
+
+  **The flip is one constant.** `SALIENCE_VERSION` goes `sal-v8` → `sal-v9`.
+  `sal-v9` pins `dist-v2`, which `cert_signals.DEFAULT_DISTRIBUTION_PARSE`
+  already names, and reads no corpus column `sal-v8` does not, so no
+  re-derivation or back-fill precedes it. Its score, relist rule, writ scope,
+  parse, cutpoints, band vocabulary and arrival draw are `sal-v8`'s
+  callables; the band, the carve-in and the reachable ladder read the class
+  through `caption-v6`, which is `caption-v5` with a petition whose
+  petitioner side has no counsel of record but the Solicitor General's
+  office read `federal`.
+
+  **The readings.** On blob
+  `519804de688663aa592d361e84cbe699c19c54ab6c2db356907b2417b505325e` (newest
+  pull 2026-11-20, newest stored snapshot row 2026-07-13; `origin/main`
+  `f5a88bb0b`), read on 2026-11-20:
+
+  - `uv run python scripts/checks/caption_v6_band_census.py`: of the 14,016
+    live-slice scored-segment rows `sal-v8` admits (13,588 resolved, 428
+    pending), one band move, pending 26-630 from `baseline` to `federal`, and
+    no resolved one. That row was last live-polled 2026-11-13, its docketing
+    day, so the counsel block read is a week old; its caption and its one petitioner-side counsel entry, the office as
+    counsel of record under a party label the caption does not carry, are as
+    the registration read them. The entry counts are the registration's: 26
+    rows carry an office entry of record at filing on the petitioner side that
+    `caption-v4`'s match does not read, and the office is the only counsel of
+    record on 23, of which 22 already read `federal` by their caption.
+  - `uv run python scripts/checks/salience_activation_dry_run.py` with each
+    version active, as of 2026-11-20: 20,884 eligible and scored under both;
+    `sal-v9` plans 1 new latch, 26-630, outside any conference (an
+    arrival, which its `federal` class carves in), where `sal-v8` plans 0;
+    both refuse 258 rows with the same latch and stamp breakdown, and the
+    latches standing in each pending conference read the same.
+  - `uv run fedcourts federal-label-check` under `sal-v9` reads 19 of the 421
+    pending paid petitions in predict scope `federal` and flags none, against
+    18 and the one alarm on 26-630 the daily check reads under `sal-v8`.
+  - `uv run fedcourts statpack` rendered from that blob with `sal-v9` active:
+    every Term carries one `sal-v8` block in `alt_segments`, equal to the
+    `sal-v9` segments apart from `ingested`, which differs in OT2026 alone
+    (`federal` 23 against 22, `baseline` 585 against 586). `uv run fedcourts
+    segment-anchors --term 2026 --salience-version <v> --statpack <that pack>`
+    pools `sal-v8` and `sal-v9` to the same anchors for an OT2026 docket
+    (lookback 10, risk-set rate, denial-reweighted resolved n): federal
+    73.11% (212), high 34.88% (777), state 23.52% (421), elevated 24.81%
+    (2,011), baseline 5.18% (12,668).
+
+  **The committed pack.** The metrics refresh merged to `main` as
+  `50244479f` (2026-11-20 18:59Z), the first after the promotion tagged
+  `promotion/2026-11-16` carried the registration, renders one `sal-v9` block
+  in every Term's `alt_segments`. `jq '[.terms[] | [.alt_segments[] |
+  select(.salience_version == "sal-v9") | .segments | map(del(.ingested))] ==
+  [.segments | map(del(.ingested))]] | all' metrics/statpack.json` prints
+  `true` on it; `ingested` differs in OT2026 alone, as on the local render,
+  and `segment-anchors` pools `sal-v8` and `sal-v9` to the anchors above on
+  it. The pack it replaced (`2c5e1ef4f`, refreshed 2026-11-16 05:56Z) was
+  rendered before that promotion and held no `sal-v9` block; the
+  registration entry's equality check read `true` there only because it
+  compared nothing, which is why the check is restated here as a comparison
+  of one-element lists that prints `false` on a pack without the block. A
+  cell banded under a version the committed pack does not publish freezes an
+  anchor with a null rate, so the refresh preceded this activation.
+
+  **No outcome-clean reading.** The one moved row is pending and no resolved
+  row moves, and a `sal-v9` replay cell reads `caption-v4`'s fact. The
+  activation proceeds on the bar `sal-v7`'s and `sal-v8`'s cleared, the
+  rule's outcome-free precision, here over one row whose caption and counsel
+  entry were read. The declared residual is the registration's.
+
+  **What it moves.** No frozen band changes: a prediction keeps the version
+  that banded it, and 26-630 has no cell. The live pass scores, latches and
+  stamps under `sal-v9`. Its first pass latches 26-630 as a carve-in arrival
+  and mints its `evt-petition-arrival-disposition` event, so the petition is
+  forecast where `sal-v8` left it unselected, and the `federal_label` alarm on
+  it clears. A cell minted after the flip on a petition whose petitioner side
+  has no counsel of record but the office freezes `federal` and pools the
+  federal anchor where `sal-v8` froze its caption class's. Every other row
+  bands as under `sal-v8`. The scored window opens at the first
+  post-promotion metrics refresh, as for every earlier flip; a cell minted
+  before it pools a `sal-v9` anchor from the committed `alt_segments` block
+  while `statpack.md`'s table is still `sal-v8`'s, the version mismatch every
+  earlier flip carried. 26-630's arrival cell is likely minted in that
+  window: its frozen anchor is the federal one, and the table beside it is
+  not its version's.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION; print(SALIENCE_VERSION)"` prints `sal-v9`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.terms[].salience_version' metrics/statpack.json | sort -u` prints
+    `sal-v9`, and every Term's `alt_segments` holds a `sal-v8` block;
+  - after the first pull window's salience pass, the daily forecast-coverage
+    verdict raises no `federal_label` alarm on 26-630, and
+    `data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/event.yaml`
+    exists on `main`;
+  - on the first predict run's collect PR after the carrying merge, `jq -r
+    '.context.salience_version'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json |
+    sort -u` prints `sal-v9` (and `null` on an unbanded cell), and 26-630's
+    arrival cell freezes `band` `federal`.
+
+- **`ai-watchlist-v1`, the AI-watchlist slice's district-court forecasts are
+  switched on; recorded 2026-11-20.**
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`), to be tagged
+  **`prereg/ai-watchlist-v1`**. The first label of a prediction slice, and
+  the first registration of the trial stage
+  ([trial-stage.md](trial-stage.md), the design this entry cites as it reads
+  at the carrying merge). Registered under the merge-stamped rule, so its
+  counting instant, its six bless moments and the opening of its three
+  windows are the carrying merge's committer time. **No Supreme Court
+  registration moves:** `proc-v24` stays the Court's label, its six digests
+  and its windows are unchanged, `FROZEN_SINCE` is unchanged, and no
+  committed prediction or grading is re-stamped or re-scored. No harness
+  boundary is registered here: no slice cell exists on the other side of
+  one.
+
+  **What is switched on.**
+  - *The slice.* `predict.slices` in `config/tracking.yaml` names
+    `ai-watchlist`, so the predict and evaluate queues admit the district
+    dockets `config/ai-watchlist.yaml` lists, on their trial events and on
+    nothing else.
+  - *The five moments.* `trial-dismissal`, `trial-class`,
+    `trial-summary-judgment`, `trial-preliminary-injunction` and
+    `trial-judgment` are forecastable from **2026-12-01**
+    (`pipeline.moments.TRIAL_SWITCH_ON`). A motion event opens on the later
+    of the day its briefing closed and that day; the final-disposition event
+    opens on the day the pass first writes it. The pass writes with `main`'s
+    code, so the first events are written by the first refresh on or after
+    that day that runs the carrying merge: a motion event is then dated
+    2026-12-01 or later and a final-disposition event the day of that
+    refresh, and a forecast counts by its stamp, never by its event's date.
+    A motion the court ruled on before the pass first read it is never
+    written.
+  - *Six actors, all of the `ai-watchlist` population.* Predictors
+    `claude-trial`, `codex-trial` and `gemini-trial` read
+    `.github/prompts/predict-trial.md`; judges `claude-trial-judge`,
+    `codex-trial-judge` and `gemini-trial-judge` read
+    `.github/prompts/evaluate-trial.md`. Each runs its engine's default
+    model at this commit (`claude-fable-5-2`, `gpt-6.2-astra`,
+    `gemini-4-carbon`) with the CourtListener MCP server, as the Court's six
+    do. Each judge grades the slice's three predictors and no other.
+  - *The rules in force.* The opener is `trial-opener-v2` and the resolver
+    `trial-resolver-v3`. The claim sets are `trial-motion-v1`,
+    `trial-dismissal-v1` and `trial-judgment-v1`. Nothing is voided: a
+    withdrawn or mooted motion resolves its headline claim at 0, and so
+    does a case that ends with no merits decision (a settlement, a
+    voluntary dismissal) on the judgment event.
+  - *What sits outside the digests.* The switch-on day, the opener and
+    resolver rules, the districts' local rules
+    (`config/trial-local-rules.yaml`), the list's membership
+    (`config/ai-watchlist.yaml`) and the adjudication list
+    (`config/trial-adjudications.yaml`) decide which events exist and how
+    they resolve, and no process digest reads them. A change to a rule, to
+    the switch-on day, or one that releases a held event is recorded as a
+    dated entry here before it takes effect. A case taken off the list
+    keeps its committed cells, and a figure over the slice says how many
+    such cases it leaves out.
+
+  **Digests.**
+
+  | Actor | Digest |
+  | --- | --- |
+  | `claude-trial` | `sha256:2f02233129d28e4a4ef84ee669a3f282dd65745fbfb84724e20143654c356595` |
+  | `codex-trial` | `sha256:db9f38bd8c1844f068fb2f4fdb16eec0646c33816390e4e7eb86cfd784872cd3` |
+  | `gemini-trial` | `sha256:18ea23c9c65685cb5a21d3203997aa1ac1f9448956b9f2afbd684841d7e4a2f6` |
+  | `claude-trial-judge` | `sha256:a13a262f8efeece0faf5e8f1909f2f38dcd2da55eb2fa3d5b911a57ed01bb0ba` |
+  | `codex-trial-judge` | `sha256:e2a74c7a57a3a95476fa3f19f6786119c39c496da72f556f097834817ca428d1` |
+  | `gemini-trial-judge` | `sha256:656e90b9930605ab0c0841cdf0ee7ad4907f0512f57d2daaef57a0678ccd8cb7` |
+
+  **Why.** The maintainer chose on 2026-11-19 to register the trial stage
+  ahead of the appeal stage, and on 2026-11-20 to run all three engines on
+  the slice. The slice is the list the public AI-cases feed already
+  follows; no case was picked for forecasting.
+
+  **Pre-registered.**
+  - *No base rate and no skill figure.* The stage registers no base rate.
+    Two published Federal Judicial Center figures are given to a cell as
+    context, as [trial-stage.md](trial-stage.md) *Base rates* states them:
+    for `trial-dismissal`, granted 46%, granted in part 29%, denied 25%
+    (1,221 orders on Rule 12(b)(6) motions in 23 districts in 2010); for
+    `trial-summary-judgment`, granted 48%, granted in part 15%, denied 36%
+    (18,831 motions in civil cases terminated in fiscal year 2006). The
+    other three moments have none. Both describe general civil litigation,
+    a different population from a hand-curated list of AI cases, so **no
+    skill-over-base-rate figure is reported for the slice** and every
+    base-rate field of a trial grading is null. No claim has a baseline, so
+    none is scored under the claim rule.
+  - *What is scored.* `correct` and the Brier score on each event's
+    headline binary (a motion granted in whole or in part; judgment for the
+    plaintiff or mixed), the Brier score recomputed by the stamp from the
+    committed forecast and outcome. The distribution claims are collected
+    and resolved, not scored.
+  - *How a figure over the slice is read.* Accuracy or a mean Brier score
+    is quoted per moment and never pooled across the five. It states its
+    n as events and as cases, since the dockets of one litigation share a
+    judge, and beside it the accuracy of the constant calls and the Brier
+    score of the best constant probability on the same events, labelled
+    in-sample and not skill: a final-disposition event resolves at 0
+    whenever the case ends without a merits decision, so a constant low
+    probability is the floor to beat there. A comparison of engines is
+    over the events all three forecast. A figure also states how many
+    events opened, were held, were forecast by each predictor and resolved
+    with no forecast, how many outcomes a maintainer adjudicated against
+    how many the resolver read (an outcome's `source` says which), and it
+    separates the events that open on the switch-on day from later ones:
+    those are motions and cases already pending that day, not a sample of
+    the list's motions.
+  - *Adjudication.* A ruling the resolver cannot read is settled by a
+    maintainer under the registered outcome rules, with the forecasts
+    already public, and cites the docket entry it rests on.
+  - *No direction is predicted* for any predictor, and no comparison of
+    the slice with the Court's docket is registered: the two populations
+    never pool, and a predictor id of the slice has no window on the Court.
+  - *Small and selected.* The list is 18 cases, chosen by hand for their
+    subject. A figure over the slice describes those cases and is not an
+    estimate for district courts or for AI litigation at large.
+  - *The judge may read the court's own order.* A ruling's docket text is
+    often one line, so a slice judge may read the order that decided its
+    event, in the snapshot or else through CourtListener, to grade what a
+    forecast said of the ground, and nothing else: no brief, report or
+    commentary. A claim the order cannot settle stays unresolved.
+  - *The Court's label thresholds do not reach a slice label.* Every
+    `*_FROM` threshold keyed on a `proc-vN` ordinal reads false for
+    `ai-watchlist-v1`. None of them governs a trial cell today. The one
+    grade a slice judge owes by label, `predicted_reasoning_quality`, is
+    asked from the slice's own floor, `ai-watchlist-v1`
+    (`validate.SLICE_PREDICTED_REASONING_GRADE_FROM`). A slice that later
+    gains a moment of the Court's stages needs its thresholds stated for
+    its own labels first.
+
+  **The masking surface.** A slice judge grades blind as the Court's do.
+  The identity scrub reads every registered actor id, so the six new ids
+  join the terms masked in every evaluate cell, the Court's included; no
+  committed Court artifact was found to hold one. The candidate set a slice
+  judge sees is the slice's three predictors.
+
+  **The registration.** `uv run fedcourts register-process --label
+  ai-watchlist-v1 --population ai-watchlist` on 2026-11-20, over `staging`
+  at `a0914c5c2` with the six actors enabled and both prompts as this
+  commit holds them. It added the label row, six
+  blessings, three windows and three judge label rows, and changed no
+  existing row.
+
+  **Step 0.** At `origin/main` `a8b3d7bfd`, the count of committed files
+  under `data/cases` naming `sha256:<digest>` is **0** for each of the six
+  newly blessed digests, **4625** files there carry a `process_version`
+  stamp, and `data/cases` holds no directory but `scotus`.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-trial` (`2f022331…`) | `ai-watchlist-v1` | this label's instant | open (new) |
+  | `codex-trial` (`db9f38bd…`) | `ai-watchlist-v1` | this label's instant | open (new) |
+  | `gemini-trial` (`18ea23c9…`) | `ai-watchlist-v1` | this label's instant | open (new) |
+
+  No window closes, so no successor disclosure is owed. The registry holds
+  48 windows where it held 45.
+
+  **The motions already open that day, provisional.** The pass run in a
+  scratch copy with the read day set to 2026-12-01, over the corpus blob
+  `44a01acdb1f2` (newest pull stamp 2026-11-20) and an empty ledger: 26
+  dockets read, **17 events opened** on 15 dockets (2 `trial-dismissal`, 1
+  `trial-summary-judgment`, 14 `trial-judgment`), **8 held** because a
+  stored entry may already decide them (4 `trial-dismissal`, 2
+  `trial-preliminary-injunction`, 2 `trial-judgment`), none resolved, none
+  to triage, no docket failed. Every one of the 17 would open dated the
+  switch-on day. The dockets are read again daily until then, so the count
+  on the day may differ; the pass's own report on its first run from
+  2026-12-01 is the count of record, and a dated follow-up entry quotes it.
+
+  **Not exercised before this registration.** No engine has run a slice
+  cell: the paid smoke and the local cascade run the Court's actors only,
+  and no staging rehearsal path reaches a slice docket. The first counted
+  round is therefore the first execution of both prompts. The windows open
+  at the carrying merge, so its cells count, and under the earliest-window
+  rule a defect found in them is corrected by an `ai-watchlist-v2` with the
+  `v1` cells standing on the events they forecast. The largest snapshot
+  below is far larger than any Court cell's and than one engine's context
+  window, so an engine may fail on the largest dockets where another does
+  not, which the all-three-forecast rule above is there to keep out of a
+  comparison.
+  What was executed is the pass above; the predict plan over its output,
+  which mints 51 slice cells (17 events by three predictors) beside the
+  Court's and routes none of either population to the other's actors; and
+  provisioning of three of those cells, whose snapshots are 2.3, 5.5 and
+  18.6 MB. The first real round is priced over the unattended-release cap
+  per round, so it waits for the maintainer's release.
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run fedcourts process-digest --all` prints `proc-v24`
+    with the Court's six digests unchanged and `ai-watchlist-v1` with the
+    six above;
+  - `jq '.labels[] | select(.label == "ai-watchlist-v1")'
+    src/fedcourtsai/process_registry.json` is a row with `population`
+    `ai-watchlist` and a stamped `since`, and `uv run fedcourts promotion-record --check-main
+    origin/main` reports no pending row a merge has carried;
+  - on the first pull window's watchlist refresh from 2026-12-01, the
+    run's log line `trial events (trial-opener-v2, trial-resolver-v3)`
+    reports events opened, and `git ls-tree -d --name-only origin/main
+    data/cases/` lists district courts beside `scotus`;
+  - on the first predict round after that, the collect PR holds
+    `prediction.json` files under `data/cases/<district>/` from the three
+    `-trial` predictors only, each stamped `ai-watchlist-v1`, and
+    `uv run fedcourts validate data` passes;
+  - after the first evaluate round on a resolved trial event, its
+    `evaluation.json` files carry a `brier_score` and null
+    `segment_base_rate`, `brier_skill_score` and `base_rate_basis`;
+  - after the next metrics refresh, `grep -c trial
+    metrics/leaderboard.json metrics/claim-scores.json` prints 0 for both
+    and `jq '[.frozen_process.windows[] | select(.label |
+    startswith("ai-watchlist"))] | length' metrics/leaderboard.json`
+    prints 0.
+
+- **A city line is withheld with a scan's stray marks after its ZIP code, and
+  a postal-code line left below a withheld line is counted; recorded
+  2026-11-23.** A **provisioning** change with a harness boundary, recorded
+  ahead of the promotion that carries it.
+
+  **Why.** A predictor flagged, in predict run `20261122T141632Z`, that the
+  staged petition of `scotus/9026000598` (`evt-petition-disposition`) kept
+  part of a self-represented petitioner's mailing address on its cover page
+  while its manifest row read `contact_residuals: 0`. Read from the content
+  store: the scrub withheld the street line and left the line directly below
+  it, a two-word city, the state spelled out, a nine-digit ZIP code and one
+  stray mark the scan set after it. The city-line shape read the spelled-out
+  state already; it required the line to end on the ZIP code, so the mark
+  alone kept the line out. No residual shape reads a city line on its own,
+  so nothing reported the miss.
+
+  **What changes**, in `pipeline/documents.py` (`scrub_contact_details`,
+  `contact_residuals`):
+  - **The city line is read with what a scan or a filer's typing adds to
+    it**: up to three marks after its ZIP code, each neither a letter nor a
+    digit and each behind any blanks; one or two such marks before the city;
+    a comma, a dot or both between the state and the ZIP code; and a `+4`
+    whose hyphen has a blank on either side of it or is read as an
+    apostrophe, an asterisk or a dot. The last three were read off the new
+    residual shape's own hits (the population paragraph below), and are
+    taken by the scrub rather than counted. It is still
+    withheld only directly below a withheld street address or box, or below
+    a unit line under one, and it is still what makes a street line ending
+    on `Dr`, `Ct` or `Pl`, or one set in capitals past the opening, the
+    first line of a mailing block.
+  - **The residual detector counts a new shape, `city-line`**: a state (a
+    postal code, initials, or a name) and a ZIP code, on a line of bounded
+    length directly below a line ending on the placeholder (punctuation or a
+    compass quadrant may follow it), or below a unit line under one, that
+    the scrub's own city-line shape does not read. A line that shape does
+    read survives chiefly below a withheld telephone number or email, where
+    the scrub leaves it on purpose, and is not counted. The placeholder does
+    not say which detail it stands for, so the line below a withheld
+    telephone number or email is read too. Like every residual shape it
+    withholds nothing and is read on the opening and closing alone.
+  - **Neither withheld nor counted**: a city line whose state code is in
+    lower case, and one whose `+4` is set off by a blank with no mark.
+
+  No prompt byte and no field a digest reads moves: `uv run fedcourts
+  process-digest --all` prints `proc-v24` with the Court's six digests and
+  `ai-watchlist-v1` with the six trial digests, with and without the change.
+
+  **The executed check.** `scotus/9026000598`, scrubbed from the production
+  content store on 2026-11-23 (blob
+  `6b1d6487037ab4bcdfda097a7bada5c7b6b59e9469d8842a9181dabbf148831c`, newest
+  pull 2026-11-23, newest stored snapshot row 2026-07-13; the petition
+  fetched 2026-11-22): at the parent the scrub withholds 2 details on the
+  petition and its opening holds one nine-digit ZIP code; at this commit it
+  withholds 3 and the opening holds none. The docket's four other stored
+  documents keep their counts (11 on the appendix, 0 on the rest), and no
+  document of the docket carries a residual at either commit.
+
+  **The population**, over the same blob with
+  `scripts/checks/contact_scrub_residual_census.py --base` the parent:
+  of the 59,905 live-slice SCOTUS rows, 10,252 dockets are read as
+  self-represented and 24,439 of their documents are shape-scrubbed. This
+  change withholds 742 more spans across 562 of them and none fewer. On the
+  opening or closing, the new shape reads 361 documents after the change, 345
+  of them on that shape alone: those 345 move from `contact_scrubbed: true`
+  to `false`, and the summary lane withholds them. The documents flagged by
+  any shape are 728 after the change; by the shapes the detector held before
+  it they fall from 386 to 383. The census reads the parent's scrub with
+  this commit's detector, whose new shape leaves out any line the widened
+  city line reads, so it does not count the new shape before the change.
+  The widened spellings were chosen from the new shape's own hits on this
+  blob, so the 361 is in-sample: it is what remains after the commonest
+  spellings were taken, not an estimate for unseen text. It is an upper
+  bound on postal-code lines left below a withheld line, since the shape
+  also reads the line below a withheld telephone number or email. A reading
+  of the masked shapes (letters and digits replaced) of the 59 hits on the
+  6,000 newest live-slice rows found each a city, a state and a ZIP code
+  with other matter on its line (a second address, a word after the ZIP
+  code, a further withheld detail, a city of five or more words) and none a
+  sentence. On represented dockets, where no scrub runs, the shape pass and
+  the detector flag 759 of 32,683 documents on the new shape, counsel's and
+  courts' own blocks among them. The span figure is an upper bound on what
+  a post-change cell reads differently, since a docket provisions only when
+  an event on it is owed.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-city-line-scan-marks`: every predictor,
+    reach `self-represented dockets`, not gradual, since provisioning reads
+    the stored documents and the next cell provisioned on an affected docket
+    reads the change. It is registered **pending** in the change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`); until then
+    it is left out of `process_version.HARNESS_BOUNDARIES`, so no cell has a
+    side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the narrower text under the same evaluator
+    digests.
+
+  **What a post-change cell reads.** A predict or evaluate cell provisioned
+  on a self-represented docket after the carrying merge reads the wider
+  withholding, and the case-summary lane's staging reads the same text from
+  then on; cells already run stay as they are, and nothing is written to the
+  corpus. A document on which the detector reads the new shape moves from
+  `contact_scrubbed: true` to `false`, and the summary lane then withholds
+  it.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "scan_marks or postal_code"`
+    is green;
+  - `uv run fedcourts process-digest --all` prints the same label and digests
+    at the carrying merge as at its first parent;
+  - where the corpus is pulled, `uv run fedcourts provision-snapshot --court
+    scotus --docket 9026000598 --event evt-petition-disposition` writes
+    `petition.txt` with `contact_replacements: 3` and `contact_residuals: 0`
+    on its manifest row;
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('scrub-city-line-scan-marks' in {b.name for b in H})"` prints
+    `True`.

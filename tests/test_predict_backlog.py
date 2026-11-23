@@ -30,7 +30,8 @@ from fedcourtsai.pipeline.pull import (
     PredictBacklog,
     derive_predict_backlog,
 )
-from fedcourtsai.registry import enabled_predictors
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import predictors_for
 from fedcourtsai.schemas import (
     CellFailure,
     CountingWindow,
@@ -221,7 +222,7 @@ def test_the_whole_feature_a_dropped_run_re_derives_then_stops(tmp_path: Path) -
 
     # Now every engine's prediction lands. The deriver goes quiet — the level has
     # been reached, with no stamp anywhere in the story.
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(data, "scotus", 1, EVENT, predictor_id=predictor.id)
     assert _derive(db, data, today=date(2026, 7, 22)) == ()
 
@@ -234,7 +235,13 @@ def test_only_the_missing_engines_keep_a_case_owed(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1)
-    seed_prediction(data, "scotus", 1, EVENT, predictor_id=enabled_predictors(PREDICTORS)[0].id)
+    seed_prediction(
+        data,
+        "scotus",
+        1,
+        EVENT,
+        predictor_id=predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)[0].id,
+    )
 
     assert _entries(db, data) == [{"court": "scotus", "docket": 1, "events": [EVENT]}]
 
@@ -292,7 +299,7 @@ def test_a_backlog_held_on_provisioning_is_counted_not_silently_empty(tmp_path: 
     # A genuinely drained backlog is the other reading, and says so.
     _provision(db, "scotus/2")
     for docket in (1, 2):
-        for predictor in enabled_predictors(PREDICTORS):
+        for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
             seed_prediction(data, "scotus", docket, EVENT, predictor_id=predictor.id)
     drained = _backlog(db, data)
     assert drained.entries == ()
@@ -464,7 +471,7 @@ def test_a_held_case_that_is_not_owed_is_not_counted_as_held(tmp_path: Path) -> 
     _open_case(db, "scotus", 1, provisioned=False)  # unprovisioned AND fully predicted
     _open_case(db, "scotus", 2, provisioned=False, polled_on=date(2026, 1, 1))  # stale too
     for docket in (1, 2):
-        for predictor in enabled_predictors(PREDICTORS):
+        for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
             seed_prediction(data, "scotus", docket, EVENT, predictor_id=predictor.id)
 
     quiet = _backlog(db, data)
@@ -688,7 +695,7 @@ def test_a_backlog_larger_than_the_cap_fully_drains_over_cycles(tmp_path: Path) 
         cycle = _derive(db, data, cap=2, today=day)
         drained |= set(cycle)
         for case_id in cycle:
-            for predictor in enabled_predictors(PREDICTORS):
+            for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
                 seed_prediction(
                     data, "scotus", int(case_id.split("/")[1]), EVENT, predictor_id=predictor.id
                 )
@@ -746,7 +753,7 @@ def test_a_cell_at_the_cap_is_not_re_derived(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1)
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         _fail_cell(data, "scotus", 1, predictor.id, EVENT, times=3)
 
     assert _derive(db, data, max_attempts=3) == (), "all cells exhausted the cap"
@@ -767,7 +774,7 @@ def test_a_fully_covered_sibling_event_is_dropped_and_the_owed_one_kept(tmp_path
     data = tmp_path / "data"
     _open_case(db, "scotus", 1)
     _open_case(db, "scotus", 1, event_id=CVSG_EVENT, stage=Stage.cert, kind=EventKind.order)
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(data, "scotus", 1, EVENT, predictor_id=predictor.id)
 
     assert _entries(db, data) == [{"court": "scotus", "docket": 1, "events": [CVSG_EVENT]}]
@@ -786,7 +793,7 @@ def test_an_attempt_capped_sibling_event_is_dropped_stricter_than_the_sweep(
     data = tmp_path / "data"
     _open_case(db, "scotus", 1)
     _open_case(db, "scotus", 1, event_id=CVSG_EVENT, stage=Stage.cert, kind=EventKind.order)
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         _fail_cell(data, "scotus", 1, predictor.id, EVENT, times=3)
 
     assert _entries(db, data, max_attempts=3) == [
@@ -805,7 +812,9 @@ def test_the_cap_is_per_cell_a_sibling_predictor_is_still_owed(tmp_path: Path) -
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1)
-    _fail_cell(data, "scotus", 1, enabled_predictors(PREDICTORS)[0].id, EVENT, times=3)
+    _fail_cell(
+        data, "scotus", 1, predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)[0].id, EVENT, times=3
+    )
 
     assert _derive(db, data, max_attempts=3) == ("scotus/1",)
 
@@ -884,7 +893,7 @@ def test_a_stamp_free_derivation_repeats_until_the_prediction_lands(tmp_path: Pa
     assert _derive(db, data) == ("scotus/1",)
     assert _derive(db, data) == ("scotus/1",)
 
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(data, "scotus", 1, EVENT, predictor_id=predictor.id)
     assert _derive(db, data) == ()
 
@@ -1066,7 +1075,7 @@ def test_predict_matrix_with_no_body_file_derives_its_cases_from_the_backlog(
     assert minted == {
         (docket, predictor.id)
         for docket in (24001, 24002)
-        for predictor in enabled_predictors(PREDICTORS)
+        for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
     }
 
 
@@ -1378,7 +1387,7 @@ def _decounted_cohort(
     stamp: ProcessVersion | None = None,
 ) -> None:
     """Commit one prediction per enabled predictor, all but ``frozen_predictors`` de-counted."""
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(
             data,
             "scotus",
@@ -1432,7 +1441,9 @@ def test_a_predictor_holding_a_blessed_cell_is_not_re_owed_one(tmp_path: Path) -
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
     _decounted_cohort(
-        data, 1, frozen_predictors=tuple(p.id for p in enabled_predictors(PREDICTORS))
+        data,
+        1,
+        frozen_predictors=tuple(p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)),
     )
 
     assert _backlog(db, data).case_ids == ()
@@ -1445,7 +1456,7 @@ def test_a_partly_blessed_cohort_re_mints_only_its_decounted_half(tmp_path: Path
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
-    blessed = enabled_predictors(PREDICTORS)[0].id
+    blessed = predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)[0].id
     _decounted_cohort(data, 1, frozen_predictors=(blessed,))
 
     backlog = _backlog(db, data)
@@ -1456,7 +1467,7 @@ def test_a_partly_blessed_cohort_re_mints_only_its_decounted_half(tmp_path: Path
     case = CaseRequest("scotus", 1, (BASELINE_EVENT,), reopen_events=(BASELINE_EVENT,))
     minted = predict_matrix(PREDICTORS, [case], "RID", data)["include"]
     assert {cell["predictor_id"] for cell in minted} == {
-        p.id for p in enabled_predictors(PREDICTORS)
+        p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
     } - {blessed}
 
 
@@ -1742,7 +1753,7 @@ def test_a_declined_case_whose_re_owed_event_also_misses_an_engine_still_orders_
     promoted."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
-    missing, *decounted = [p.id for p in enabled_predictors(PREDICTORS)]
+    missing, *decounted = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     _open_case(
         db,
         "scotus",
@@ -1817,7 +1828,7 @@ def test_the_plan_reports_re_owed_cells_in_their_own_bucket(tmp_path: Path) -> N
 
     assert result.exit_code == 0, result.output
     plan = json.loads(result.stdout)
-    engines = len(enabled_predictors(PREDICTORS))
+    engines = len(predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY))
     assert plan["counts"]["cell_ledger"]["reowed_pre_freeze_cells"] == engines
     assert plan["counts"]["cell_ledger"]["dropped_already_predicted_cells"] == 0
     assert plan["counts"]["cell_ledger"]["would_mint_cells"] == engines
@@ -1869,7 +1880,7 @@ def test_a_supersession_re_owes_no_cell_and_a_revocation_re_owes_the_cohort(
 
     assert result.exit_code == 0, result.output
     plan = json.loads(result.stdout)
-    engines = len(enabled_predictors(PREDICTORS))
+    engines = len(predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY))
     reowed = plan["counts"]["cell_ledger"]["reowed_pre_freeze_cells"]
     assert reowed == (engines if revoked else 0)
 
@@ -1897,7 +1908,7 @@ def test_the_plan_keeps_a_salience_declined_case_the_rule_re_owes(tmp_path: Path
 
     assert result.exit_code == 0, result.output
     plan = json.loads(result.stdout)
-    engines = len(enabled_predictors(PREDICTORS))
+    engines = len(predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY))
     assert plan["counts"]["provenance"]["dropped_out_of_scope_cases"] == 0, (
         "the backstop must not drop a case the derivation admitted under the rule"
     )
@@ -1917,7 +1928,7 @@ def test_an_event_with_one_missing_engine_and_two_decounted_ones_re_owes_both_ar
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _open_case(db, "scotus", 1, event_id=BASELINE_EVENT, conference=FUTURE_CONFERENCE)
-    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    predictors = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     missing, *decounted = predictors
     for predictor_id in decounted:
         seed_prediction(data, "scotus", 1, BASELINE_EVENT, predictor_id=predictor_id)
@@ -1985,7 +1996,7 @@ def test_cap_reached_is_set_when_the_budget_fills_with_re_owed_work(tmp_path: Pa
 
 
 def _fully_predicted(data_root: Path, docket: int) -> None:
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(data_root, "scotus", docket, EVENT, predictor_id=predictor.id)
 
 

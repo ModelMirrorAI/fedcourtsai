@@ -105,7 +105,7 @@ on:
         default: ""
         type: string
       repair_target:
-        description: "The pass's subject: a distribution parse label, the cells to re-grade or whose refused attempts to remove, or the Term to back-fill."
+        description: "The pass's subject: a distribution parse label, the cells to re-grade or whose refused attempts to remove, the Term to back-fill, or the cases to re-cut."
         required: false
         default: ""
         type: string
@@ -1893,6 +1893,7 @@ jobs:
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
           REPAIR_OPTIONS: ${{ inputs.repair_options }}
+          REPAIR_TARGET: ${{ inputs.repair_target }}
           HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
         run: |
           set -euo pipefail
@@ -1930,17 +1931,62 @@ jobs:
             echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
             exit 1
           fi
-          # The scope rides in the worklist from here on: the reader and the
-          # writer read it off the projection's own file, and the witness off
-          # the writer's ledger, so no later job re-reads the option.
+          # `repair_target` may name the cases to re-cut instead of a walked
+          # scope. It is maintainer-typed free text entering a shell, so it is
+          # handled as data throughout: expanded from the environment (never
+          # interpolated into this script), split on whitespace, and every
+          # line matched against the case grammar before the command sees it.
+          # Empty names no case, which is the walked class.
+          case_grammar='^scotus/[0-9]{1,12}$'
+          case_args=()
+          case_malformed=0
+          named_cases=" "
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            if ! [[ "$line" =~ $case_grammar ]]; then
+              echo "::error::malformed case (want scotus/<docket id>, e.g. scotus/9026000654): ${line}"
+              case_malformed=1
+            elif [[ "$named_cases" == *" ${line} "* ]]; then
+              echo "::error::case named twice: ${line}"
+              case_malformed=1
+            else
+              named_cases+="${line} "
+              case_args+=(--case "$line")
+            fi
+          done < <(printf '%s\n' "${REPAIR_TARGET}" | tr -s ' \t\r' '\n')
+          if [ "$case_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole case list — correct the lines above and re-dispatch."
+            exit 1
+          fi
+          # Two arguments a case.
+          if [ "${#case_args[@]}" -gt 100 ]; then
+            echo "::error::repair=${REPAIR} takes at most 50 cases in repair_target — split the list across dispatches."
+            exit 1
+          fi
+          if [ "${#case_args[@]}" -gt 0 ] && [ "${#scope_args[@]}" -gt 0 ]; then
+            echo "::error::repair=${REPAIR} with cases in repair_target takes no all-live option — the named cases' rows are the class. Clear one of the two and re-dispatch."
+            exit 1
+          fi
+          # The scope and the named cases ride in the worklist from here on:
+          # the reader and the writer read them off the projection's own file,
+          # and the witness off the writer's ledger, so no later job re-reads
+          # the option or the target.
           slice_args=()
           if [ -n "${REPAIR_BOUND}" ]; then
             slice_args+=(--max-cases "${REPAIR_BOUND}")
           fi
           # The summary is capped: GitHub errors the file command past 1 MiB.
           # The head reaches the summary; the full ledger is in the step log.
-          uv run fedcourts recut-documents --emit-worklist "${HANDOFF_PROJECTION}" \
-            "${scope_args[@]}" "${slice_args[@]}" > /tmp/recut-projection.txt
+          # Two invocations, not one argv built from both arrays: the named
+          # cases and the walked scope are separate classes, and the command
+          # refuses the two together.
+          if [ "${#case_args[@]}" -gt 0 ]; then
+            uv run fedcourts recut-documents --emit-worklist "${HANDOFF_PROJECTION}" \
+              "${case_args[@]}" "${slice_args[@]}" > /tmp/recut-projection.txt
+          else
+            uv run fedcourts recut-documents --emit-worklist "${HANDOFF_PROJECTION}" \
+              "${scope_args[@]}" "${slice_args[@]}" > /tmp/recut-projection.txt
+          fi
           cat /tmp/recut-projection.txt
           head -n 60 /tmp/recut-projection.txt >> "$GITHUB_STEP_SUMMARY"
 
@@ -3738,11 +3784,32 @@ jobs:
           if [ "$(ledger_field /tmp/recut-apply.txt scope)" = "all-live" ]; then
             scope_args+=(--all-live)
           fi
+          # A named run's cases are the ledger's own list, one a line; the
+          # command re-checks each against its grammar.
+          # Read into a variable first, so a ledger this cannot parse fails
+          # the step here rather than leaving the list empty; and a named
+          # ledger with no case would send the witness over another class.
+          ledger_cases="$(grep -h '^{"applied"' /tmp/recut-apply.txt | tail -n 1 \
+            | uv run python -c 'import json,sys; print("\n".join(json.load(sys.stdin)["cases"]))')"
+          case_args=()
+          while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            case_args+=(--case "$line")
+          done <<< "${ledger_cases}"
+          if [ "$(ledger_field /tmp/recut-apply.txt scope)" = "named" ] \
+            && [ "${#case_args[@]}" -eq 0 ]; then
+            echo "::error::apply did not converge — its ledger reads a named scope and names no case, so there is no class for the witness to re-read"
+            exit 1
+          fi
           # `--max-cases 0` takes an empty slice, so it fetches nothing, and
           # what it reports is the class as the corpus now holds it: a
           # content-store write that failed would leave a re-cut row in the
           # class, which nothing in the pointer commit would notice.
-          uv run fedcourts recut-documents "${scope_args[@]}" --max-cases 0 > /tmp/recut-verify.txt
+          if [ "${#case_args[@]}" -gt 0 ]; then
+            uv run fedcourts recut-documents "${case_args[@]}" --max-cases 0 > /tmp/recut-verify.txt
+          else
+            uv run fedcourts recut-documents "${scope_args[@]}" --max-cases 0 > /tmp/recut-verify.txt
+          fi
           summarize /tmp/recut-verify.txt
           expected="$(ledger_field /tmp/recut-apply.txt remaining)"
           found="$(ledger_field /tmp/recut-verify.txt candidates)"

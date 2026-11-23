@@ -349,6 +349,7 @@ from .pipeline import (
     sg_briefs,
     trial_events,
     trial_opener,
+    trial_record,
     vide_links,
     vided,
     vote_sources,
@@ -413,9 +414,13 @@ from .pipeline.document_recut import (
     SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
 )
 from .pipeline.document_recut import (
+    SCOPE_NAMED as RECUT_SCOPE_NAMED,
+)
+from .pipeline.document_recut import (
     SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
 )
 from .pipeline.document_recut import DocumentRecutResult, recut_documents
+from .pipeline.document_recut import check_scope as check_recut_scope
 from .pipeline.document_recut_split import (
     RecutPlan,
     RecutWorklist,
@@ -540,11 +545,17 @@ from .pipeline.salience import (
 from .pipeline.salience_cert_backfill import COLUMNS as SALIENCE_CERT_COLUMNS
 from .pipeline.salience_cert_backfill import backfill_salience_cert_columns
 from .pipeline.scope_reconcile import reconcile_predict_scope
+from .pipeline.slice_backlog import derive_slice_evaluate_backlog, derive_slice_predict_backlog
 from .pipeline.unforecast import Recall, unforecast_outcomes
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
-from .prediction_slices import Population, load_slices
+from .prediction_slices import (
+    SCOTUS_POPULATION_KEY,
+    Population,
+    load_slices,
+    routing_population,
+)
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .promotion_train import (
@@ -575,6 +586,7 @@ from .registry import (
     load_evaluators,
     load_mcp_servers,
     load_predictors,
+    predictors_for,
     resolve_mcp_servers,
 )
 from .release_sensitivity import (
@@ -676,6 +688,7 @@ from .schemas import (
     StatPack,
     Stratum,
     SummaryPlan,
+    TrialRecord,
     UsageRole,
     VoidedEventsRecord,
     observed_mcp_conditions,
@@ -4166,6 +4179,16 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             "(queued for prediction or selected by the salience gate).",
         ),
     ] = False,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Name the cases instead of walking a scope; repeatable. The class is "
+            "then each named case's truncated petition, application and appendix rows, "
+            "with or without a cut note: the rows a change to the cut itself left stale. "
+            "Not with --all-live.",
+        ),
+    ] = None,
     emit_worklist: Annotated[
         Path | None,
         typer.Option(
@@ -4228,6 +4251,13 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     `backfill-questions-presented`. Contract: *Contract for the re-cut pass*
     (`docs/live-sources.md`).
 
+    `--case` names the cases instead: the class is then each named case's
+    truncated, not OCR-derived rows of the three kinds at one Court URL, whether
+    or not they carry a cut note. It is how a row cut under an earlier reading
+    of where the appendix starts is re-cut under the current one. Such a row
+    stays in the named class after its re-cut, and a second run reads it
+    `unchanged`.
+
     Both modes fetch: the dry run re-cuts and writes nothing, the apply writes
     each re-cut as it is made. `--max-cases` is required on an apply and
     honored on a dry run; `--deadline-seconds` declines the rest of the slice
@@ -4251,6 +4281,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             apply
             or max_cases is not None
             or all_live
+            or case
             or emit_worklist
             or from_plan
             or bind_worklist
@@ -4266,6 +4297,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             apply=apply,
             max_cases=_slice_bound(max_cases, command=command),
             all_live=all_live,
+            cases=case or [],
             deadline_seconds=deadline_seconds,
             emit_worklist=emit_worklist,
             from_plan=from_plan,
@@ -4295,7 +4327,7 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
         ref = db_path.parent / (db_path.name + ".ref")
         if ref.is_file():
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
-    scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    scope = _recut_scope(all_live, case or [])
     with (
         corpus.connect_maintenance(db_path, apply=apply) as conn,
         SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
@@ -4308,9 +4340,32 @@ def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             today=date.today(),
             max_cases=max_cases,
             scope=scope,
+            cases=case or [],
             deadline=deadline,
         )
     _echo_recut(result, db_path, apply=apply)
+
+
+def _recut_class_noun(result: DocumentRecutResult) -> str:
+    """What the class holds: head-cut filings, or under the named scope the named rows."""
+    return "named filing(s)" if result.scope == RECUT_SCOPE_NAMED else "head-cut filing(s)"
+
+
+def _echo_recut_named(result: DocumentRecutResult) -> None:
+    """What a named run should not leave unsaid: an empty case, a bound short of the class."""
+    if result.scope != RECUT_SCOPE_NAMED:
+        return
+    for case_id in result.named_without_documents:
+        typer.echo(
+            f"::warning::recut-documents: named case {case_id} holds no stored petition, "
+            "application or appendix row — check the docket id"
+        )
+    if result.bound is not None and 0 < result.bound < result.candidates:
+        typer.echo(
+            f"::warning::recut-documents: the bound of {result.bound} is short of the "
+            f"{result.candidates} named filing(s); a named class does not drain, so the "
+            "rows past the bound are reached only by a bound that covers the class"
+        )
 
 
 def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> None:
@@ -4326,13 +4381,14 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
     verb = "re-cut" if apply else "would re-cut"
     typer.echo(
         f"recut-documents ({'applied' if apply else 'dry-run'}, {scope}): "
-        f"{result.candidates} head-cut filing(s) in the class of "
+        f"{result.candidates} {_recut_class_noun(result)} in the class of "
         f"{result.documents_seen} stored document(s) over {result.cases_seen} row(s) — "
         f"{verb} {result.recut}, {result.remaining} left in the class"
     )
     _echo_by_kind("class", result.candidates_by_kind)
     if result.excluded:
         _echo_by_kind("truncated but left out", result.excluded)
+    _echo_recut_named(result)
     typer.echo(
         f"  attempted {result.attempted} "
         f"(bound {'none' if result.bound is None else result.bound}); "
@@ -4352,7 +4408,8 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
     for key, reason in result.skipped.items():
         typer.echo(f"  {key}: SKIPPED ({reason})")
     _echo_unreached(result.unreached)
-    if result.bound and result.attempted == result.bound and result.recut == 0:
+    walked = result.scope != RECUT_SCOPE_NAMED
+    if walked and result.bound and result.attempted == result.bound and result.recut == 0:
         # A full slice that re-cut nothing is a head of residue (links that
         # 404, other filings) the class order keeps returning to.
         typer.echo(
@@ -4367,6 +4424,19 @@ def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> N
 def _recut_refuse(message: str) -> NoReturn:
     typer.echo(f"recut-documents: {message}", err=True)
     raise typer.Exit(code=2)
+
+
+def _recut_scope(all_live: bool, cases: Sequence[str]) -> str:
+    """The scope the flags name, refusing (exit 2) cases the named scope cannot take."""
+    if not cases:
+        return RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    if all_live:
+        _recut_refuse("--case names the class; it takes no --all-live.")
+    try:
+        check_recut_scope(RECUT_SCOPE_NAMED, cases)
+    except ValueError as exc:
+        _recut_refuse(f"{exc}.")
+    return RECUT_SCOPE_NAMED
 
 
 def _recut_parse(
@@ -4410,6 +4480,7 @@ def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per spli
     apply: bool,
     max_cases: int | None,
     all_live: bool,
+    cases: Sequence[str],
     deadline_seconds: float | None,
     emit_worklist: Path | None,
     from_plan: Path | None,
@@ -4447,12 +4518,12 @@ def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per spli
         )
         raise typer.Exit(code=1)
     if emit_worklist is not None:
-        scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+        scope = _recut_scope(all_live, cases)
         if apply:
             _recut_refuse("the projection writes nothing; the apply is the reader's (--from-plan).")
         try:
             with corpus.connect_maintenance(db_path, apply=False) as conn:
-                handed, reading = recut_worklist(conn, scope=scope, bound=max_cases)
+                handed, reading = recut_worklist(conn, scope=scope, bound=max_cases, cases=cases)
         except HandoffRefused as exc:
             typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
             raise typer.Exit(code=1) from exc
@@ -4463,9 +4534,10 @@ def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per spli
         write_handoff(emit_worklist, handed)
         return
     assert from_plan is not None and bind_worklist is not None  # narrowed above
-    if all_live:
+    if all_live or cases:
         _recut_refuse(
-            "the reader walks the scope the worklist was cut for; it takes no --all-live."
+            "the reader walks the scope the worklist was cut for; it takes no --all-live "
+            "and no --case."
         )
     if apply and max_cases is None:
         _recut_refuse(
@@ -4512,13 +4584,14 @@ def _echo_recut_class(result: DocumentRecutResult, db_path: Path) -> None:
         )
         raise typer.Exit(code=1)
     typer.echo(
-        f"recut-documents (projection, {result.scope}): {result.candidates} head-cut "
-        f"filing(s) in the class of {result.documents_seen} stored document(s) over "
-        f"{result.cases_seen} row(s)"
+        f"recut-documents (projection, {result.scope}): {result.candidates} "
+        f"{_recut_class_noun(result)} in the class of {result.documents_seen} stored "
+        f"document(s) over {result.cases_seen} row(s)"
     )
     _echo_by_kind("class", result.candidates_by_kind)
     if result.excluded:
         _echo_by_kind("truncated but left out", result.excluded)
+    _echo_recut_named(result)
 
 
 @app.command("enrich-opinions")
@@ -6379,7 +6452,10 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     destination = out if out is not None else settings.metrics_root / "merits-backtest.json"
     _refuse_existing_record(record)
     skipped = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
-    known = {str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    known = {
+        str(p.engine)
+        for p in predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
+    }
     if skipped - known:
         raise typer.BadParameter(
             f"unknown engine(s): {', '.join(sorted(skipped - known))}; enabled engines "
@@ -6930,7 +7006,8 @@ def reasoning_pilot_merits_sample_cmd(
         )
     backend, db_path = _merits_corpus(corpus_backend)
     configured = {
-        p.id: str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+        p.id: str(p.engine)
+        for p in predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
     }
     try:
         run = merits_calibration.read_kept_run(kept, allow_stub=allow_stub, predictors=configured)
@@ -13133,7 +13210,10 @@ def cert_backtest_cmd(  # noqa: PLR0913, PLR0915, PLR0917 - a CLI entrypoint; op
         if engine:
             work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
             known_engines = {
-                str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+                str(p.engine)
+                for p in predictors_for(
+                    settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY
+                )
             }
             unknown_engines = skipped_engines - known_engines
             if unknown_engines:
@@ -13168,7 +13248,7 @@ def cert_backtest_cmd(  # noqa: PLR0913, PLR0915, PLR0917 - a CLI entrypoint; op
             clocks = outcome.clocks
             dropped = _report_replay_drops(
                 outcome,
-                enabled_predictors(settings.config_root / "predictors.yaml"),
+                predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY),
                 skipped_engines,
             )
             replayed = outcome.backtesters
@@ -13340,7 +13420,10 @@ def _comparison_arms(
     training cutoffs would describe a configuration that did not run.
     """
     settings = get_settings()
-    roster = {p.id: p for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    roster = {
+        p.id: p
+        for p in predictors_for(settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY)
+    }
     if predictor_id not in roster:
         raise typer.BadParameter(
             f"{predictor_id!r} is not an enabled predictor; choose one of "
@@ -13993,7 +14076,12 @@ def backtest_handoff_check_cmd(
     """
     if kind not in {"cert", "merits"}:
         raise typer.BadParameter("choose cert or merits", param_hint="--kind")
-    roster = {p.id for p in enabled_predictors(get_settings().config_root / "predictors.yaml")}
+    roster = {
+        p.id
+        for p in predictors_for(
+            get_settings().config_root / "predictors.yaml", SCOTUS_POPULATION_KEY
+        )
+    }
     problems = backtest_comparison.handoff_problems(
         kind=kind,
         comparison_predictor=comparison_predictor or None,
@@ -14764,13 +14852,18 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # digest *is* the process attribution being withheld, so resolving it would
     # fail a re-grade of a record whose actor the live registry no longer
     # carries — over a version this run does not write.
-    digest = ""
+    digest, stamp_label = "", ""
     update: dict[str, object] = {}
     case_paths = CasePaths(settings.data_root, court, docket)
     event_paths = case_paths.event(event)
     if not regrade:
-        digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
-        update |= _stamp_fields(_resolve_stamp(digest, pipeline_sha, stamped_at))
+        # The actor's own population's label: a prediction slice's cells are
+        # stamped with the slice's, never the SCOTUS docket's.
+        digest, stamp_label = (
+            process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor),
+            process_version.label_for_actor(settings.config_root, role, actor),
+        )
+        update |= _stamp_fields(_resolve_stamp(digest, pipeline_sha, stamped_at, stamp_label))
         # Before the tripwire below, so it appends to a file that parses, and
         # before `validate`, so an advisory note can never take the cell's output
         # with it. A re-grade is a correction over committed cells and leaves
@@ -14865,7 +14958,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             label = (
                 (record.process_version.label if record.process_version is not None else None)
                 if regrade
-                else process_version.CURRENT_PROCESS_LABEL
+                else stamp_label
             )
             skill_fields, basis_records[path] = _skill_record_for(
                 event_paths,
@@ -15956,8 +16049,10 @@ def _stamp_fields(stamp: ProcessVersion) -> dict[str, object]:
     return {"process_version": stamp, "created_at": stamp.stamped_at}
 
 
-def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVersion:
+def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str, label: str) -> ProcessVersion:
     """The ``ProcessVersion`` an ordinary stamp writes, over its resolved digest.
+
+    ``label`` is the current label of the actor's population.
 
     Exits non-zero rather than writing an unparseable or offset-less
     ``--stamped-at``, for the reason below.
@@ -15978,7 +16073,7 @@ def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVe
     else:
         stamp_moment = datetime.now(UTC)
     return ProcessVersion(
-        label=process_version.CURRENT_PROCESS_LABEL,
+        label=label,
         digest=digest,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         stamped_at=stamp_moment,
@@ -16225,8 +16320,11 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: terminal fallback too (:func:`_harness_owns_terminal_record`) — see
 #: :func:`stamp_cell`. It governs the
 #: *skill record* only: ``correct`` needs no pooled rate and so no band, and is
-#: stamped on every stage including cert.
-_HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
+#: stamped on every stage including cert. The trial stage is here with no rate
+#: at all: its Brier is the same arithmetic over the committed forecast and
+#: outcome, and no base rate is registered for it, so the stamp writes the
+#: Brier and clears the rate and the skill (:func:`_harness_base_rate_for`).
+_HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim, Stage.trial)
 
 
 def _skill_record_for(
@@ -16972,7 +17070,7 @@ def _harness_base_rate_for(
 ) -> float | None:
     """The harness's own segment base rate for one evaluation, or ``None``.
 
-    Computed on the two stages of :data:`_HARNESS_SKILL_STAGES`, from the
+    Computed on the Court's two stages of :data:`_HARNESS_SKILL_STAGES`, from the
     committed statpack under the same ``salience.base_rate_lookback_terms``
     window every other pooled baseline answers to. **Merits**: the disturbed
     rate over grant Terms strictly before the cell's, keyed on the Term
@@ -16983,7 +17081,9 @@ def _harness_base_rate_for(
     ``context.term`` (the application Term the cell was conditioned on) rather
     than re-derived at stamp time. A **cert** cell returns ``None``: there the
     rate is a band product, stamped where the harness owns it by
-    :func:`_cert_skill_record_for` and otherwise the evaluator's.
+    :func:`_cert_skill_record_for` and otherwise the evaluator's. A **trial**
+    cell returns ``None`` too, before any statpack is read: no base rate is
+    registered for the stage, so its record carries a Brier and no skill.
 
     ``None`` too wherever an input is missing: no readable statpack, no Term to
     key on, no prediction to read a frozen one off, or a pool below its own
@@ -16991,7 +17091,7 @@ def _harness_base_rate_for(
     number the harness cannot stand behind.
     """
     stage = _event_stage_and_opened(event_paths)[0]
-    if stage not in _HARNESS_SKILL_STAGES:
+    if stage not in _HARNESS_SKILL_STAGES or stage == Stage.trial:
         return None
     statpack = _statpack_for(settings)
     if statpack is None:
@@ -17148,7 +17248,12 @@ def process_digest_cmd(
         digest = process_version.digest_for_actor(
             Path.cwd(), settings.config_root, actor_role, actor_id
         )
-        typer.echo(f"{process_version.CURRENT_PROCESS_LABEL}  {actor_role}  {actor_id}  {digest}")
+        try:
+            label = process_version.label_for_actor(settings.config_root, actor_role, actor_id)
+        except KeyError:
+            # A slice's actor before the slice's first label is registered.
+            label = "unregistered"
+        typer.echo(f"{label}  {actor_role}  {actor_id}  {digest}")
 
 
 #: The source file whose ``CURRENT_PROCESS_LABEL`` names the label cells stamp.
@@ -17157,19 +17262,35 @@ _PROCESS_VERSION_SOURCE = "src/fedcourtsai/process_version.py"
 
 @app.command("register-process")
 def register_process_cmd(
-    label: Annotated[str, typer.Option(help="The label to register (`proc-vN`), named by hand.")],
+    label: Annotated[
+        str,
+        typer.Option(
+            help="The label to register, named by hand: `proc-vN`, or `<slice>-vN` with "
+            "--population."
+        ),
+    ],
+    population: Annotated[
+        str,
+        typer.Option(
+            help="The prediction population whose process moved: `scotus`, or a prediction "
+            "slice's id."
+        ),
+    ] = SCOTUS_POPULATION_KEY,
 ) -> None:
     """Register a moved process as a pending label, in the PR that moves it.
 
-    Reads every enabled actor's digest off this tree, as ``process-digest
-    --all`` prints it, and writes ``process_registry.json``: the label with a
-    pending counting instant, a pending blessing for each digest that moved
-    (a digest that did not is carried forward with its bless moment), a
-    pending window for each newly blessed predictor digest, a pending close on
-    each window no live predictor computes, and the label in each live
-    evaluator digest's blessing labels. Sets ``CURRENT_PROCESS_LABEL`` to the
-    label. The merge that carries the PR to ``main`` stamps every pending
-    instant with its SHA and committer time (``promotion-record``).
+    Reads the digest of every enabled actor of the population off this tree,
+    as ``process-digest --all`` prints it, and writes
+    ``process_registry.json``: the label with a pending counting instant, a
+    pending blessing for each digest that moved (a digest that did not is
+    carried forward with its bless moment), a pending window for each newly
+    blessed predictor digest, a pending close on each of the population's
+    windows no live predictor computes, and the label in each live evaluator
+    digest's blessing labels. Every other population's rows are left as they
+    are. For the SCOTUS docket it sets ``CURRENT_PROCESS_LABEL`` to the label;
+    a slice's label is the registry's word alone. The merge that carries the
+    PR to ``main`` stamps every pending instant with its SHA and committer
+    time (``promotion-record``).
     """
     settings = get_settings()
     repo = Path.cwd()
@@ -17178,32 +17299,37 @@ def register_process_cmd(
             role,
             actor_id,
             process_version.digest_for_actor(repo, settings.config_root, role, actor_id),
+            actor_population,
         )
-        for role, actor_id in [
-            ("predictor", p.id)
+        for role, actor_id, actor_population in [
+            ("predictor", p.id, p.population)
             for p in enabled_predictors(settings.config_root / "predictors.yaml")
         ]
         + [
-            ("evaluator", e.id)
+            ("evaluator", e.id, e.population)
             for e in enabled_evaluators(settings.config_root / "evaluators.yaml")
         ]
     ]
     registry_path = repo / promotion_record.REGISTRY_PATH
     source_path = repo / _PROCESS_VERSION_SOURCE
+    scotus = population == SCOTUS_POPULATION_KEY
     try:
         document = process_registration.register_process(
-            json.loads(registry_path.read_text(encoding="utf-8")), label, actors
+            json.loads(registry_path.read_text(encoding="utf-8")), label, actors, population
         )
         text = promotion_record.dump_registry(document)
-        process_version.load_process_registry(text, current_label=label)
-        source = process_registration.set_current_label(
-            source_path.read_text(encoding="utf-8"), label
-        )
+        source = source_path.read_text(encoding="utf-8")
+        if scotus:
+            process_version.load_process_registry(text, current_label=label)
+            source = process_registration.set_current_label(source, label)
+        else:
+            process_version.load_process_registry(text)
     except ValueError as exc:
         typer.echo(f"register-process: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     registry_path.write_text(text, encoding="utf-8")
-    source_path.write_text(source, encoding="utf-8")
+    if scotus:
+        source_path.write_text(source, encoding="utf-8")
     moved = [b for b in document["blessings"] if b["label"] == label]
     typer.echo(f"registered {label}, pending: {len(moved)} digest(s) moved")
     for blessing in moved:
@@ -17260,9 +17386,10 @@ def register_boundary_cmd(
 
 
 def _check_stamped_registry(text: str) -> object:
-    """Load a rendered registry under its own last label, refusing what the loader refuses."""
-    labels = json.loads(text).get("labels") or [{}]
-    current = labels[-1].get("label") or process_version.CURRENT_PROCESS_LABEL
+    """Load a rendered registry under its own last SCOTUS label, as the loader refuses it."""
+    current = (
+        process_version.scotus_label_of(json.loads(text)) or process_version.CURRENT_PROCESS_LABEL
+    )
     return process_version.load_process_registry(text, current_label=current)
 
 
@@ -19491,9 +19618,11 @@ def watchlist_refresh_cmd(
     dockets (``docs/trial-stage.md``): it writes the event of a newly briefed
     motion whose moment is switched on and the outcome of an event it wrote
     that the court has since ruled on, and prints each event it sends to
-    triage. While no trial moment is switched on it writes nothing and reports
-    what it would open. The report's ``trial`` block carries identifiers and
-    reasons only. A docket the pass fails on is skipped and named there and on
+    triage. All five trial moments are switched on from ``TRIAL_SWITCH_ON``
+    (``pipeline/moments.py``): the pass writes from that day on, and on an
+    earlier day it writes nothing and reports what it would open. The
+    report's ``trial`` block carries identifiers and reasons only. A docket
+    the pass fails on is skipped and named there and on
     stderr by the error's type; it does not change the exit code, which is the
     refresh's. The district rules and the adjudication list are read before
     the plan, so a file that cannot be read stops the command before any
@@ -20511,8 +20640,9 @@ def trial_events_command(
     only, no docket text) and a three-line reading on stderr.
 
     Read-only: no upstream request, no write to the corpus, the ledger or
-    `data/`. Nothing here is registered or forecast; the trial stage is a
-    design (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
+    `data/`. The survey itself writes and forecasts nothing: the events are
+    written by `watchlist-refresh`'s pass and forecast by the `ai-watchlist`
+    slice's actors (`docs/trial-stage.md`). Exits 1 when the corpus is missing, 2 when
     the watchlist, the local rules or `--today` cannot be read.
     """
     settings = get_settings()
@@ -23692,8 +23822,49 @@ def _read_authorship_tally(
     return tally
 
 
+def _read_trial_record(
+    case: str,
+    event: str,
+    payload: Mapping[str, Any],
+    *,
+    cutoff: date | None,
+    mode: str,
+) -> TrialRecord | None:
+    """A forward trial-stage cell's ``record/trial.json``, or ``None`` for any other cell.
+
+    :func:`fedcourtsai.pipeline.trial_record.build_for_cell`, the builder the
+    local cascade shares, read off the snapshot the cell is placed on and two
+    committed files, so it costs no corpus read. The docket is read
+    as of the cell's cutoff where it has one, and as of today otherwise, which
+    is how the pass that opened the event read it: a deadline counts as passed
+    over the days since the snapshot, which the forward staleness bound limits.
+    A file that is there and cannot be read
+    refuses the cell (exit 1) before anything is written.
+    """
+    try:
+        return trial_record.build_for_cell(
+            get_settings().config_root,
+            case,
+            event,
+            payload,
+            read_on=cutoff or datetime.now(UTC).date(),
+            mode=mode,
+        )
+    except (OSError, ValueError, yaml.YAMLError) as exc:
+        typer.echo(f"::error::{case} trial record: {type(exc).__name__} reading config", err=True)
+        raise typer.Exit(code=1) from exc
+
+
 def _echo_staged_lists(case: str, written: provision.RecordWrite, paths: CasePaths) -> None:
-    """Echo the authorship tally and same-question list a record was given, as counts."""
+    """Echo the lists and the trial record a cell's record was given, as counts."""
+    if written.trial is not None:
+        # Counts only: the judge and the dockets are public, and the file holds them.
+        briefing = written.trial.briefing
+        typer.echo(
+            f"{case} trial record: "
+            f"{'no motion briefing' if briefing is None else 'motion briefing read'}, "
+            f"{len(written.trial.related_dockets)} related docket(s) -> {paths.trial_record}"
+        )
     if written.authorship_tally is not None:
         # Counts only: the cases are public, and the file holds them.
         tallied = written.authorship_tally
@@ -24189,6 +24360,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
+            trial=(
+                _read_trial_record(case, event, placement.payload, cutoff=cutoff, mode=mode)
+                if event and out is None
+                else None
+            ),
             anchor_pool=_cert_anchor_pool(paths, event, committed_pack),
             statpack_digest=None if committed_pack is None else committed_pack.digest,
         )
@@ -25664,7 +25840,10 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     docket: Annotated[int, typer.Option(help="CourtListener docket id.")],
     event: Annotated[
         str,
-        typer.Option(help="Event id to run; default: every event the case defines."),
+        typer.Option(
+            help="Event id to run; default: every event the case defines. Required on a "
+            "docket an enabled prediction slice admits, which runs one trial event."
+        ),
     ] = "",
     engine: Annotated[
         str,
@@ -25681,7 +25860,8 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     predictor: Annotated[
         str,
         typer.Option(
-            help="Run only this enabled predictor id (one cell); default: every enabled predictor."
+            help="Run only this enabled predictor id (one cell), which must be one of the "
+            "docket's population; default: every enabled predictor of that population."
         ),
     ] = "",
     corpus_backend: CorpusBackendOption = "",
@@ -25704,6 +25884,17 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             "context.json and no documents; the integration smoke certifies the "
             "production cell posture, so an unprovisioned run must fail rather "
             "than pass having certified nothing.",
+        ),
+    ] = False,
+    rehearse_trial: Annotated[
+        bool,
+        typer.Option(
+            "--rehearse-trial",
+            help="On a docket an enabled prediction slice admits, plan the docket's "
+            "trial events in the run, as the watchlist pass would on the later of "
+            "today and the stage's switch-on day, and forecast the one --event names. "
+            "The corpus is only read: the event is written to the run's data root "
+            "alone. Refused on any other docket.",
         ),
     ] = False,
 ) -> None:
@@ -25729,6 +25920,18 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     one-cell shape a token-spending smoke run wants. ``--require-record`` refuses
     a case the corpus holds no snapshot for before any token is spent, so a smoke
     certifying the production cell posture cannot pass over an unprovisioned cell.
+
+    A docket is routed to its population's actors, as the predict matrix routes
+    it: the Court's fleet, or a prediction slice's own for a docket the slice
+    lists, and ``--predictor`` naming an actor of the other population is
+    refused. A slice docket runs one trial event, named by ``--event``, as a
+    forward cell with the ``record/trial.json`` ``provision-snapshot`` stages,
+    and is refused where the docket already shows the ruling. Where the corpus
+    stores no open trial event for the docket, which is every docket before the
+    watchlist pass's first writing day, ``--rehearse-trial`` plans the docket's
+    events in the run with the pass's own reader and forecasts the named one:
+    an event the pass would hold, or would not open, is refused with its
+    reason. A rehearsal has no evaluate half, since its event is open.
 
     ``--engine stub`` (the default) is deterministic, offline, and token-free.
     ``--engine replay`` is also offline but emits a captured real prediction from
@@ -25757,6 +25960,7 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             predictor=predictor or None,
             backend=_corpus_backend(corpus_backend),
             require_record=require_record,
+            rehearse_trial=rehearse_trial,
         )
     except KeyError as exc:
         # Unknown engine backend (get_runner names the available ones).
@@ -25780,6 +25984,8 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
     typer.echo(f"  snapshot:    {report.snapshot or 'none in corpus'}")
     typer.echo(f"  context:     {report.context or 'not provisioned'}")
     typer.echo(f"  documents:   {len(report.documents)} file(s)")
+    if report.trial is not None:
+        typer.echo(f"  trial:       {report.trial}")
     for placed in report.placements:
         cut = f"cut {placed.cutoff.isoformat()}" if placed.cutoff is not None else "no cut"
         typer.echo(
@@ -25789,6 +25995,11 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             + (
                 ", not a cell run-predict mints"
                 if placed.role == "predict" and placed.event_id in report.unforecastable
+                else ""
+            )
+            + (
+                ", a rehearsal: the event is planned in this run and not stored in the corpus"
+                if placed.role == "predict" and placed.event_id in report.rehearsed
                 else ""
             )
         )
@@ -26487,6 +26698,12 @@ def live_poll(
         typer.echo(
             "Ledger-outcome convergence: "
             + ", ".join(f"{key}={value}" for key, value in queues.convergence.items())
+            + "."
+        )
+    if queues.order_named:
+        typer.echo(
+            "Order-named dockets: "
+            + ", ".join(f"{key}={value}" for key, value in queues.order_named.items())
             + "."
         )
     if queues.document_freshness:
@@ -27272,6 +27489,14 @@ def _evaluate_backlog_cases(
             max_attempts=evaluate_cfg.max_attempts_per_cell,
             today=day,
         )
+        slice_cases = derive_slice_evaluate_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "evaluators.yaml",
+            load_slices(settings.config_root, load_predict_config(settings.config_root).slices),
+            max_attempts=evaluate_cfg.max_attempts_per_cell,
+        )
+        _report_slice_backlog(slice_cases, "grading")
         today = date.today()
         prefix = _warn_prefix(findings)
         # A monitor must never cost the round it watches: a scan that raises is
@@ -27294,7 +27519,9 @@ def _evaluate_backlog_cases(
             _report_predictionless(missed, prefix=prefix)
             if findings is not None:
                 findings.missed.append(missed)
-    return [CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries]
+    return [
+        CaseRequest(entry.court, entry.docket, entry.events) for entry in backlog.entries
+    ] + slice_cases
 
 
 def _report_predictionless(report: PredictionlessReport, *, prefix: str) -> None:
@@ -27440,6 +27667,11 @@ def _predict_backlog_cases(
 
     ``day`` is the deriver's clock. ``None`` — what ``predict-matrix`` passes —
     reads the wall clock; ``predict-plan --as-of`` passes its replay date.
+
+    The enabled prediction slices' own dockets follow the Court's in the
+    returned list (:mod:`fedcourtsai.pipeline.slice_backlog`), outside the cap
+    above. ``findings`` and the case reconciliation cover the Court's docket
+    alone.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -27475,6 +27707,15 @@ def _predict_backlog_cases(
             max_attempts=predict_cfg.max_attempts_per_cell,
             today=day,
         )
+        slice_cases = derive_slice_predict_backlog(
+            conn,
+            settings.data_root,
+            settings.config_root / "predictors.yaml",
+            load_slices(settings.config_root, predict_cfg.slices),
+            max_attempts=predict_cfg.max_attempts_per_cell,
+            today=day,
+        )
+    _report_slice_backlog(slice_cases, "forecast")
     _report_predict_backlog(
         backlog, cap=salience_cfg.sweep_cases_per_cycle, prefix=_warn_prefix(findings)
     )
@@ -27483,7 +27724,22 @@ def _predict_backlog_cases(
     return [
         CaseRequest(entry.court, entry.docket, entry.events, reopen_events=entry.reopened)
         for entry in backlog.entries
-    ]
+    ] + slice_cases
+
+
+def _report_slice_backlog(cases: list[CaseRequest], owed: str) -> None:
+    """Name on stderr what the enabled slices' dockets are owed, when anything is.
+
+    The slices' backlog rides beside the Court's and outside its cap
+    (:mod:`fedcourtsai.pipeline.slice_backlog`), so it gets a line of its own
+    rather than a share of the Court's summary.
+    """
+    if cases:
+        events = sum(len(case.events) for case in cases)
+        typer.echo(
+            f"Slice backlog: {len(cases)} docket(s) with {events} event(s) owed a {owed}.",
+            err=True,
+        )
 
 
 def _report_predict_backlog(backlog: PredictBacklog, *, cap: int, prefix: str) -> None:
@@ -28457,7 +28713,11 @@ def _predict_fanout(
     # re-minted, so a re-queue where two of three engines landed mints only the
     # missing engine. See `predict_matrix` (the mirror of evaluate's gate).
     matrix = predict_matrix(
-        settings.config_root / "predictors.yaml", cases, run_id, data_root=settings.data_root
+        settings.config_root / "predictors.yaml",
+        cases,
+        run_id,
+        data_root=settings.data_root,
+        slices=slices,
     )
     # The stranded-run guard, before the volume cap so the cap's budget goes to
     # genuinely new cells: a cell whose output sits in a run that has not reached
@@ -28695,7 +28955,7 @@ def _evaluate_fanout(
             settings.corpus_backend,
             for_grading=True,
             dropped_out=scope_dropped,
-            slices=load_slices(settings.config_root, predict_config.slices),
+            slices=(slices := load_slices(settings.config_root, predict_config.slices)),
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend
@@ -28717,8 +28977,10 @@ def _evaluate_fanout(
         data_root=settings.data_root,
         skip_evaluated=not force,
         opinion_present=presence,
+        slices=slices,
     )
-    evaluators = [e for e in load_evaluators(evaluators_path) if e.enabled]
+    fleet = enabled_evaluators(evaluators_path)
+    candidates = 0
     today = run_day(run_id)
     # Report the gates separately: a cost gate (nothing to score), a deferral
     # (held for the opinion) and an idempotency gate (already scored). Collapsed,
@@ -28732,6 +28994,10 @@ def _evaluate_fanout(
     held: list[_DropRecord] = []
     for case in cases:
         case_id = ids.case_id(case.court, case.docket)
+        # The judges of the case's own population, as `evaluate_matrix` routes.
+        population = routing_population(case_id, slices)
+        evaluators = [e for e in fleet if e.population == population]
+        candidates += len(evaluators) * len(case.events)
         for event_id in case.events:
             if not event_has_predictions(settings.data_root, case.court, case.docket, event_id):
                 # Attribute an event that is both to the cost gate only; one
@@ -28806,7 +29072,7 @@ def _evaluate_fanout(
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
         held_awaiting_opinion=tuple(held),
-        candidates=len(evaluators) * sum(len(case.events) for case in cases),
+        candidates=candidates,
         matrix=matrix,
     )
 
@@ -29173,7 +29439,10 @@ class _LedgerGate:
 
 
 def _predict_ledger_gate(
-    resolved: list[CaseRequest], predictors_path: Path, data_root: Path
+    resolved: list[CaseRequest],
+    predictors_path: Path,
+    data_root: Path,
+    slices: Mapping[str, Population] | None = None,
 ) -> _LedgerGate:
     """Re-walk :func:`predict_matrix`'s product and report what removed cells from it.
 
@@ -29202,8 +29471,10 @@ def _predict_ledger_gate(
     reowed: list[_DropRecord] = []
     for predictor in enabled_predictors(predictors_path):
         for case in resolved:
-            candidates += len(case.events)
             case_id = ids.case_id(case.court, case.docket)
+            if predictor.population != routing_population(case_id, slices):
+                continue
+            candidates += len(case.events)
             if case.predictors and predictor.id not in case.predictors:
                 narrowed.extend(
                     _DropRecord(
@@ -29783,7 +30054,10 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
             day=replay_day,
         )
         gate = _predict_ledger_gate(
-            fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
+            fanout.resolved,
+            settings.config_root / "predictors.yaml",
+            settings.data_root,
+            load_slices(settings.config_root, load_predict_config(settings.config_root).slices),
         )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
@@ -32358,7 +32632,12 @@ def metrics_refresh_plan(
     # The roster feeds only a rendered PR's leaderboard line, so the no-change
     # path (empty diff -> null plan) never touches the config file at all.
     roster = (
-        [predictor.id for predictor in enabled_predictors(settings.config_root / "predictors.yaml")]
+        [
+            predictor.id
+            for predictor in predictors_for(
+                settings.config_root / "predictors.yaml", SCOTUS_POPULATION_KEY
+            )
+        ]
         if changed
         else None
     )

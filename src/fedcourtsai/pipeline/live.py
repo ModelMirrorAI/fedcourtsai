@@ -24,6 +24,12 @@ Deterministic, no agent. Each cycle:
   :func:`~fedcourtsai.pipeline.outcome.resolve_case` seam pull uses — and a
   cert grant mints the open merits event that keeps its docket in this
   rotation until the judgment.
+  Ahead of the rotation it polls the live dockets an order document of the
+  last days names and no poll has read since
+  (:mod:`fedcourtsai.pipeline.order_named`): an order changes a docket the day
+  it issues, and a docket not distributed for a conference would otherwise
+  wait days for its staleness turn. The application rotation leads with the
+  applications so named.
 - **The application rotation** re-polls unresolved interim applications
   (:func:`fedcourtsai.corpus.application_rotation`) under its own small
   per-cycle cap, resolving them through the interim vocabulary and persisting
@@ -65,8 +71,9 @@ import httpx
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions, last_predicted_dates, predicted_case_ids
+from ..prediction_slices import SCOTUS_POPULATION_KEY
 from ..provision import WITHHELD_KINDS
-from ..registry import enabled_predictors
+from ..registry import predictors_for
 from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
     IFP_SERIAL_BASE,
@@ -104,6 +111,8 @@ from .ingest import (
     upsert_to_corpus,
 )
 from .interim_signals import ApplicationKind
+from .order_lineups import OrderFetcher
+from .order_named import read_order_named
 from .outcome import (
     OutcomeConvergence,
     UnrecordedOutcome,
@@ -1658,7 +1667,9 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
     # Resolve the enabled predictor ids once for the per-cell owed check. None
     # (no registry handle) selects the case-level fallback gate below.
     predictor_ids = (
-        [p.id for p in enabled_predictors(predictors_path)] if predictors_path is not None else None
+        [p.id for p in predictors_for(predictors_path, SCOTUS_POPULATION_KEY)]
+        if predictors_path is not None
+        else None
     )
     # One ledger glob per cycle, mirroring the `merits_open` read below: the
     # candidate filter consults it per row, and a per-row probe would walk the
@@ -1857,6 +1868,9 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
     re-polled (:func:`poll_applications`): a changed, unresolved substantive
     application in predict scope queues forward under the change-trigger
     debounce; everything else on the rotation is ground-truth collection.
+    Both rotations lead with the rows recent order documents name
+    (:func:`_order_named_pass`), up to ``config.order_named_per_run`` a cycle,
+    inside the two caps rather than on top of them.
     After the polls, :func:`~.outcome.converge_ledger_outcomes` records every
     selected moment the corpus closed without a ledger outcome, which no poll
     revisits because detection reads open events only.
@@ -1968,20 +1982,40 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
         if config.max_poll_staleness_days > 0
         else None
     )
+    # The dockets the last days' order documents name lead both rotations: an
+    # order changed each of them the day it issued, and neither rotation's own
+    # order knows that.
+    named_petitions, named_applications = _order_named_pass(
+        client,
+        corpus_db_path,
+        config,
+        queues,
+        exclude=fresh,
+        today=today,
+        deadline=deadline,
+        time_fn=time_fn,
+    )
+    named_petitions = named_petitions[:max_cases]
+    named_ids = {row.case_id for row in named_petitions}
+    rotation_room = max_cases - len(named_petitions)
     with corpus.connect(corpus_db_path) as conn:
-        due = [
-            row
-            for row in corpus.live_rotation(
-                conn,
-                limit=max_cases + len(fresh),
-                term_floor_year=config.term_floor_year,
-                overdue_before=overdue_before,
-                overdue_limit=config.max_overdue_per_run,
-                order_list_lag_days=config.order_list_lag_days,
-                never_polled_reserve=config.never_polled_reserve_per_run,
-            )
-            if row.case_id not in fresh
-        ][:max_cases]
+        due = (
+            named_petitions
+            + [
+                row
+                for row in corpus.live_rotation(
+                    conn,
+                    limit=rotation_room + len(fresh),
+                    term_floor_year=config.term_floor_year,
+                    overdue_before=overdue_before,
+                    overdue_limit=config.max_overdue_per_run,
+                    order_list_lag_days=config.order_list_lag_days,
+                    never_polled_reserve=config.never_polled_reserve_per_run,
+                    exclude=named_ids,
+                )
+                if row.case_id not in fresh
+            ][:rotation_room]
+        )
     freshness: list[FreshnessCandidate] | None = (
         [] if config.document_freshness_per_run > 0 else None
     )
@@ -2013,16 +2047,21 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
     # application stream just onboarded is excluded exactly as the cert
     # refresh excludes fresh petitions — its poll is seconds old.
     max_applications = config.max_applications_per_run
+    named_applications = named_applications[:max_applications]
+    named_ids = {row.case_id for row in named_applications}
     with corpus.connect(corpus_db_path) as conn:
-        applications_due = [
-            row
-            for row in corpus.application_rotation(
-                conn,
-                limit=max_applications + len(fresh),
-                term_floor_year=config.term_floor_year,
-            )
-            if row.case_id not in fresh
-        ][:max_applications]
+        applications_due = (
+            named_applications
+            + [
+                row
+                for row in corpus.application_rotation(
+                    conn,
+                    limit=max_applications + len(fresh),
+                    term_floor_year=config.term_floor_year,
+                )
+                if row.case_id not in fresh and row.case_id not in named_ids
+            ]
+        )[:max_applications]
     application_results = poll_applications(
         client,
         corpus_db_path,
@@ -2131,6 +2170,68 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
         client, corpus_db_path, config, today=today, deadline=deadline, time_fn=time_fn
     )
     return queues, discovery
+
+
+def _order_named_pass(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    config: LiveConfig,
+    queues: PullQueues,
+    *,
+    exclude: set[str],
+    today: date,
+    deadline: float | None,
+    time_fn: Callable[[], float] = time.monotonic,
+) -> tuple[list[corpus.CorpusRow], list[corpus.CorpusRow]]:
+    """The petitions and applications recent orders name, to lead this cycle's rotations.
+
+    Reads the order documents of the last ``config.order_named_lookback_days``
+    days (:func:`~.order_named.read_order_named`) and returns the rows they
+    name that no poll has read since (:func:`corpus.order_named_rows`), less
+    the ones discovery just onboarded, at most ``config.order_named_per_run``
+    of them, applications (as many as their rotation's cap holds) before
+    petitions. The ledger goes on
+    ``queues.order_named`` for the run log.
+
+    Failure-isolated as a whole: an unserved listing or a PDF the extractor
+    chokes on costs the cycle this ordering and nothing else, and the rotations
+    run as they would with the pass off. Empty when it is off (``0``).
+    """
+    if config.order_named_per_run <= 0:
+        return [], []
+    if deadline is not None and time_fn() >= deadline:
+        queues.order_named = {"skipped": "deadline"}
+        return [], []
+    try:
+        named = read_order_named(
+            OrderFetcher(client),
+            today=today,
+            lookback_days=config.order_named_lookback_days,
+            deadline=deadline,
+            time_fn=time_fn,
+        )
+        with corpus.connect(corpus_db_path) as conn:
+            petitions, applications = corpus.order_named_rows(
+                conn, named.days, term_floor_year=config.term_floor_year
+            )
+    except Exception as exc:  # the ordering is an optimization; the window's polls come first
+        queues.order_named = {"error": type(exc).__name__}
+        return [], []
+    petitions = [row for row in petitions if row.case_id not in exclude]
+    applications = [row for row in applications if row.case_id not in exclude]
+    owed = len(petitions) + len(applications)
+    # Applications first: they are few, and their rotation's own cap is small.
+    applications = applications[: min(config.order_named_per_run, config.max_applications_per_run)]
+    petitions = petitions[: config.order_named_per_run - len(applications)]
+    queues.order_named = {
+        "documents": named.documents,
+        "unread": named.unread,
+        "dockets": len(named.days),
+        "owed": owed,
+        "petitions": len(petitions),
+        "applications": len(applications),
+    }
+    return petitions, applications
 
 
 def _argument_transcript_pass(

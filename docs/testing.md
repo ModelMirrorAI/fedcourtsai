@@ -366,6 +366,24 @@ case carrying a resolved event as well as an open one the evaluate half
 re-provisions last, and its uncut record says nothing about how the
 forecasters were placed.
 
+The leg's cell follows the settled case's court. `scotus` runs the engine's
+baseline predictor. Any other court makes the leg a **trial rehearsal**: the
+dispatch pins a district docket a prediction slice lists and names one trial
+event, the leg runs the engine's trial predictor (`<engine>-trial`) under
+`local-cascade --rehearse-trial`, and the cascade plans that event in the run
+with the watchlist pass's own reader, provisions the forward trial record
+(`record/trial.json` included) and runs one predict cell on the trial prompt.
+The corpus is only read, so the event exists in the runner's checkout alone.
+A rehearsal is the one way a real engine runs a slice cell before the pass has
+written an event. It differs from a `run-predict` trial cell in what the
+paragraph below lists and in three further ways: the event is the pass's plan
+for the later of today and the switch-on day rather than a stored row, and
+`record/trial.json` is read as of that same day, so a briefing deadline
+between today and it counts as passed; the
+codex leg alone has the CourtListener MCP surface; and the cell runs without
+the forward gate's ten-day bound on how long ago the docket was read or its
+check for a committed outcome.
+
 What the leg still does not reach, each covered somewhere else: the **invocation
 block** (`engine-actions-smoke`'s whole subject, below), the **post-agent harness
 steps** — `stamp-cell` and collect, which the local cascade path does not run
@@ -521,9 +539,9 @@ Three properties are the family's, not this member's. The record is **pinned in
 the scenario's own steps**, not taken from the `court`/`docket` inputs: the
 record is what the scenario is, and a dispatcher who could re-point it could
 make a red leg mean something else. The bounds are the **cells' own**: the
-engine step reads the same 50-minute engine deadline the cell workflows set,
-the watchdog fires three minutes earlier, and the leg's job cap is the cells'
-65 — a workflow-shape test holds the deadline equal across the three, so the
+engine step reads the same 55-minute engine deadline the cell workflows set,
+the watchdog fires the cells' margin and completion extension earlier, and the
+leg's job cap is the cells' 70 — a workflow-shape test holds the deadline equal across the three, so the
 leg can never certify a bound production does not run. What must stay well
 inside the job cap is the watchdog, since a job that runs to its cap is
 *cancelled* and GitHub drops a cancelled job's logs. The leg arms the
@@ -803,7 +821,8 @@ whose tolerated engine steps are judged by one last step that fails the job for
 every ending but a success or a reap,
 whose deadline is one job-env value every engine step's `timeout-minutes`
 reads and the arm step derives the fire time from (held equal across both cell
-workflows and the repro leg, with the escalation inside the margin and the
+workflows and the repro leg, with the escalation inside the margin, the
+completion extension taken out of the fire time and handed to the watchdog, and the
 setup and tail inside the job cap), whose deadline stop is recorded in
 `status.json` without ever deciding readiness, and whose arm and disarm steps
 hold no GitHub credential —
@@ -859,7 +878,11 @@ written has its wedged step reaped without waiting for the deadline, while a set
 that is one file short, one that does not parse, one still being rewritten, and
 one whose output directory does not exist yet each leave the reaper off and the
 deadline as the only bound — the four ways a reap could destroy work in
-progress, and the conservative direction is what each of them pins. Its safety half is the part worth reading: each discovery
+progress, and the conservative direction is what each of them pins. The
+**completion extension** is driven over the same fixtures: a cell complete at
+the deadline with its grace still running is reaped once the grace runs out,
+while one still writing through the extension, one that takes a file away
+inside it and one with nothing complete at the deadline each meet the deadline. Its safety half is the part worth reading: each discovery
 route is pointed, in its own test, straight at a fixture wearing
 runner-infrastructure arguments, which must survive — signalling the runner's
 own worker force-kills the job the watchdog exists to save — and two more pin

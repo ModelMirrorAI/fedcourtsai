@@ -1351,7 +1351,8 @@ changes weight rather than shape: the agent-env scrub (every `AWS_*` name and
 every credential-shaped name stripped from the agent subprocess) was a read-
 confidentiality control while staging's OIDC bought read alone; a
 staging-bound job that holds `id-token: write` *and* runs an agent over
-untrusted docket text — the engine-smoke legs — could otherwise mint the
+untrusted docket text (the engine-smoke legs, whose text is the Court's docket
+or, on a trial rehearsal, a district docket's party-authored filings) could otherwise mint the
 write role's credentials, so the scrub is now load-bearing for the staging
 pair's write integrity too.
 
@@ -1839,7 +1840,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus and decision-record jobs on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names. The live job fetches and parses upstream PDFs under this role from two hosts: supremecourt.gov, and the Office of the Solicitor General's section of www.justice.gov (`enrich-sg-briefs`, no token, the client held to that section, redirects included) |
+| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus and decision-record jobs on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names. The live job fetches and parses upstream PDFs under this role from two hosts: supremecourt.gov (filings, argument transcripts, and the order documents whose docket numbers order the cycle's polls and write nothing), and the Office of the Solicitor General's section of www.justice.gov (`enrich-sg-briefs`, no token, the client held to that section, redirects included) |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill, opinion-record, OCR recovery, re-cut and document back-fill passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys; for the OCR recovery and the re-cut the class walk through the content store and a worklist of case ids, kinds, Court URLs and page counts, the OCR recovery's also carrying each stored row's character count; for the document back-fill the dedupe applied to the runner's copy alone, then the class walk and a worklist of case ids, missing kinds, upstream addresses, Terms and the Court URLs of each case's stored documents) as a one-day artifact; it fetches nothing from the Court |

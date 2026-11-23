@@ -25,14 +25,15 @@ the design rather than options:
   salience-deferred.
 
 A slice docket is forecast on its slice's own events alone: the trial
-stage's, once their moment is switched on
+stage's, from the day their moment is switched on
 (:func:`fedcourtsai.store.forecastable_event_ids`). The stage-less baseline
 event every lower-court docket carries earns no cell by being listed.
 
 Admitting a slice's cases is only the scope half. A slice is switched on
 together with its own moments, prompts and decision model, and under its own
 process version (``docs/process-version.md``), so that no SCOTUS digest moves
-when a slice opens; until those exist the registry's slices stay off.
+when a slice opens. ``ai-watchlist`` is switched on that way, under the label
+``ai-watchlist-v1`` and with the trial stage's moments.
 """
 
 from __future__ import annotations
@@ -159,6 +160,20 @@ def load_slices(config_root: Path, slice_ids: Iterable[str]) -> dict[str, Popula
             owner[case_id] = slice_id
         populations[slice_id] = Population(key=slice_id, case_ids=frozenset(case_ids))
     return populations
+
+
+def routing_population(case_id: str, slices: Mapping[str, Population] | None) -> str:
+    """The population whose actors a cell on ``case_id`` goes to.
+
+    An enabled slice's id for a docket the slice admits, and the Court's
+    population for every other docket: a docket no slice admits has no actors
+    of its own, and a request that names one is the Court's fleet's, as it is
+    with no slice enabled.
+    """
+    for slice_id, population in (slices or {}).items():
+        if population.admits_case(case_id):
+            return slice_id
+    return SCOTUS_POPULATION_KEY
 
 
 def population_of(case_id: str, slices: Mapping[str, Population]) -> str | None:

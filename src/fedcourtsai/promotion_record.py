@@ -374,7 +374,15 @@ def _prereg_message(registry: Mapping[str, Any], label: str, merge: str, at: str
     else:
         counts = f"holds the counting instant {since['at']}; merged as {merge} at {at}."
     lines = [f"prereg/{label}: {label} {counts}", "", "Blessed digests:"]
+    # The label's own population's blessings: a slice's tag lists no SCOTUS
+    # digest, and a SCOTUS tag no slice's.
+    population = entry.get("population", "scotus")
+    own = {
+        row["label"] for row in registry["labels"] if row.get("population", "scotus") == population
+    }
     for blessing in registry["blessings"]:
+        if blessing["label"] not in own:
+            continue
         carried = blessing["label"] != label
         how = f"carried from {blessing['label']}" if carried else "new"
         lines.append(f"- {blessing['role']} {blessing['actor_id']} {blessing['digest']} ({how})")

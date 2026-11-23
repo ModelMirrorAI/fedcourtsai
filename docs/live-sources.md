@@ -237,6 +237,42 @@ The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
+**Order-named dockets lead both rotations.** An order changes a docket the
+day it issues, and of the tiers above only the distributed one knows an order
+is due: a petition denied in a miscellaneous order beside its stay
+application, a granted case named among an order list's orders in pending
+cases, or an application ruled on in an order list waits for its staleness
+turn, which can be days, and until then the corpus records it as pending.
+Each cycle therefore reads the Court's order listings and the documents they
+list for the last `live.order_named_lookback_days` days (order lists,
+miscellaneous orders, opinions relating to orders), takes the docket numbers
+they name (`pipeline/order_named.py`), and polls the named rows first, ahead
+of every tier above, the staleness bound's overdue tier included: up to
+`live.order_named_per_run` a cycle, applications first (as many as
+`live.max_applications_per_run` holds) and petitions inside
+`live.max_cases_per_run`, never-polled then stalest first. The rotation
+fills the slots left with the rows behind them. Only the numbers and each document's listed day are taken: the
+disposition is recorded from the docket the poll reads, as on any other poll.
+A named row is owed while its rotation would poll it at all (a decided docket
+named in a rehearing denial is not) and its `last_live_polled` is not after
+the document's day. The stamp is a date, so a poll on the order's own day
+cannot say whether it ran before the order was entered; the row stays owed
+through that day and the next day's first poll clears it. The stamp is a UTC
+day and a document's day is the Court's own, so an order entered in the
+Eastern evening, after a poll already stamped the next UTC day, is not owed
+and keeps its ordinary place. The days of
+lookback past the first cover cycles that failed. A cycle reads at most twelve
+documents, newest first, and a document it cannot read is counted unread and
+skipped. A row past the per-cycle
+share keeps its ordinary place and is owed again the next cycle. The pass is
+failure-isolated: an unserved listing or an unreadable document costs the
+cycle this ordering and nothing else. The cycle prints an `Order-named
+dockets:` ledger line (documents, unread, dockets, owed, petitions,
+applications; `error=<type>` where the pass itself raised, `skipped=deadline`
+where the cycle's budget was already spent); `0` disables the
+pass and its fetches. A number no row carries is discovery's to onboard, not
+this pass's.
+
 Each cycle, `live.never_polled_reserve_per_run` slots go to Term-prefixed cert numbers (no applications) the
 channel has never polled, oldest Term first: an undecided row with an open
 event, in practice a past-Term row the historical walker skipped (undecided
@@ -1063,7 +1099,11 @@ that:
 - **the filing's own body is never cut for its appendix** — the body (every page
   before the appendix starts: an `APPENDIX` divider, the appendix's own contents
   page or its first folio, read from the fourth page on and never on a contents
-  page of the filing itself) is kept whole, and only the appendix pays for the
+  page or on a page that prints a front-matter page number and no lettered
+  appendix folio: a lower-case roman numeral up to ninety-nine on a line of its
+  own, among the page's first two lines or as its last, which is how the
+  filing's own table of appendices is numbered) is kept whole,
+  and only the appendix pays for the
   overflow; a body that alone fills the cap is head-cut with the appendix;
 - **every appendix item keeps its opening** — the appendix is split into its
   items (by its own index, matched to the folio each page prints; else by its
@@ -1224,7 +1264,12 @@ ZIP" line directly below any withheld street address or box, the docket's own
 address value included, is withheld with it, as a placeholder of its own — a
 court or clerk street address takes its city line with it too. Where the block
 sets its unit on a line of its own between the two (`Suite 12`), the unit line
-is withheld with the city line. A street name's apostrophe is read straight or
+is withheld with the city line. The city line's state is read as a two-letter
+code, as initials or spelled out, and the line is read with what a scan or a
+filer's typing adds to it: one or two marks before the city, a comma, a dot
+or both between the state and the ZIP code, a `+4` whose hyphen has a blank
+on either side of it or is read as an apostrophe, an asterisk or a dot, and
+up to three stray marks after the ZIP code. A street name's apostrophe is read straight or
 typographic (`O’Malley’s Way`), by the shape pass and the detector alike.
 No shape-pass match takes a line break. Two shapes are read on their own on
 the document's **opening** alone (its first 6,000 characters, which hold the
@@ -1253,6 +1298,9 @@ the end, where the signature block and a bundled proof of service sit) — a
 telephone number in any 3-3-4 grouping of blanks, dots, hyphens or a slash, a
 street address opening its line with lower-case name words, a street line
 ending on `Dr`, `Ct` or `Pl` with a "City, State ZIP" line directly below it,
+a line holding a state (a postal code, initials or a name) and a ZIP code
+directly below a withheld line (or below a unit line under one) that the
+scrub's own city-line shape does not read,
 `box` and a number in any case, and an `@` set hard against letters. It withholds nothing, since
 its shapes would cost legal text, but a document it finds anything on is
 recorded as **not** scrubbed. A clean reading is a claim about those two
@@ -1326,7 +1374,11 @@ are a box spelled out in full, a number written with a slash or with no
 separators, a street line ending on `Dr`, `Ct` or `Pl` with no "City, State
 ZIP" line directly below it or below a unit line under it, a city/state/ZIP
 line under anything but a withheld street address or box (or under one on a docket the value pass alone scrubs) —
-that shape is also how the Court's own address line is set — or an incarcerated filer's register number beside an
+that shape is also how the Court's own address line is set — a city line below
+a withheld one whose spelling the city-line shape does not read (a word after
+its ZIP code or a city in lower case, which the residual detector counts on
+the opening and closing; a state code in lower case or a `+4` set off by a
+blank alone, which it does not), or an incarcerated filer's register number beside an
 institution name, which has no shape at all.
 
 **The staged snapshot gets the same withholding, by key rather than by shape.**
@@ -1985,7 +2037,10 @@ the same link.
   (the document back-fill's scope) or, with the `all-live` option, the whole
   live slice. An untruncated row was never cut, so the two cuts agree on it; an
   OCR-recovered row is head-cut by design and has no text layer to re-read; a
-  row with a note was cut the appendix-aware way already; a set key or a link
+  row with a note was cut the appendix-aware way already, under the reading of
+  the appendix start in force when it was fetched, and a later change to that
+  reading does not bring it back into the class (the named cases below are how
+  such a row is reached); a set key or a link
   off the Court's host is not one the pass will GET. The ledger tallies the
   truncated rows left out under `ocr-derived`, `has-cut-note` and
   `unfetchable-url`, so a truncated row a reader expects to see and does not is
@@ -2029,6 +2084,26 @@ the same link.
   only that residue. The writer re-walks the class
   on an **empty slice** afterwards and requires exactly what the apply's ledger
   said it would leave behind.
+- **Named cases.** A dispatch that puts case ids in `repair_target` (at most
+  fifty, each `scotus/<docket id>`, each once, and not with `all-live`) re-cuts
+  those cases instead of walking a scope. The class is then each named case's
+  rows of the three kinds that are `truncated`, not `ocr_derived` and at one
+  Court link, **whether or not they carry a cut note**. It is the route for a
+  row cut the appendix-aware way under an earlier reading of the cut, for
+  example of where the appendix starts: nothing in the stored text says the
+  current reading would cut it differently, so no walked class can hold such
+  rows without holding every noted row forever, and a maintainer names them
+  from a census instead. Everything else is the pass as above: the same fetch,
+  guards, outcomes and questions-presented rule, with the stored text read up
+  to its own first cut note where the re-cut is compared with it; a stored
+  note so early that under 200 letters and digits are left to compare makes
+  the row `head-changed`, since nothing then shows the link still serves the
+  same filing. The ledger warns of a named case holding no row of the three
+  kinds and of a bound short of the named class. A named row
+  stays in its class after a re-cut unless the re-cut fits under the cap, so
+  the class does not drain: a second dispatch reads each row `unchanged`, and
+  the bound to give is the size of the named class. The cases ride in the
+  worklist, so the reader, the writer and the witness walk the same class.
 - **Terms.** Unchanged, as for the two passes above.
 
 ## The historical Term set: per-Term history through the same channel

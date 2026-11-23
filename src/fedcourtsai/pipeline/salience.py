@@ -94,7 +94,7 @@ logger = logging.getLogger(__name__)
 # and stamps with. A refit is a NEW version registered alongside, never an
 # in-place edit, so any past ranking replays against the function that produced
 # it — see :data:`SCORERS`.
-SALIENCE_VERSION = "sal-v8"
+SALIENCE_VERSION = "sal-v9"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
 # is a real SCOTUS cert grant rate from ``metrics/statpack.md``,
@@ -801,11 +801,11 @@ _SAL_V7 = SalienceScorer(
     admits=_sal_v5_admits,  # sal-v6's segment: Rule 20 writs out
 )
 
-# sal-v8: the ACTIVE version (`SALIENCE_VERSION`), registered inactive first and
-# flipped as a separate step (docs/salience.md). sal-v7's score, writ scope and
-# parse pin as the same callables, with the band, carve-in and reachable ladder
-# read through caption-v5, which reads every stored row as caption-v4 does. It
-# pins `dist-v2`, the default parse, so its activation moved one constant.
+# sal-v8: registered inactive first, flipped active as a separate step, and
+# superseded by sal-v9 (docs/salience.md). sal-v7's score, writ scope and parse
+# pin as the same callables, with the band, carve-in and reachable ladder read
+# through caption-v5, which reads every stored row as caption-v4 does. It pins
+# `dist-v2`, the default parse, so its activation moved one constant.
 _SAL_V8 = SalienceScorer(
     version="sal-v8",
     score=_sal_v5_score,  # sal-v7's score, unchanged; the caption never weights it
@@ -818,10 +818,11 @@ _SAL_V8 = SalienceScorer(
     admits=_sal_v5_admits,  # sal-v7's segment: Rule 20 writs out
 )
 
-# sal-v9: registered, not active (docs/salience.md). sal-v8's score, writ scope
-# and parse pin as the same callables, with the band, carve-in and reachable
-# ladder read through caption-v6. It pins `dist-v2`, the default parse, so its
-# activation moves one constant.
+# sal-v9: the ACTIVE version (`SALIENCE_VERSION`), registered inactive first and
+# flipped as a separate step (docs/salience.md). sal-v8's score, writ scope and
+# parse pin as the same callables, with the band, carve-in and reachable ladder
+# read through caption-v6. It pins `dist-v2`, the default parse, so its
+# activation moved one constant.
 _SAL_V9 = SalienceScorer(
     version="sal-v9",
     score=_sal_v5_score,  # sal-v8's score, unchanged; the caption never weights it

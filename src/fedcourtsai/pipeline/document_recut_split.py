@@ -42,9 +42,17 @@ import sqlite3
 import time
 from collections.abc import Callable, Sequence
 from datetime import date
-from typing import Annotated, Final, Literal, cast
+from typing import Annotated, Final, Literal, Self, cast
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, Strict, StringConstraints
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    Strict,
+    StringConstraints,
+    model_validator,
+)
 
 from .. import corpus
 from ..handoff import MAX_HANDOFF_BYTES, HandoffRefused
@@ -52,12 +60,13 @@ from ..supremecourt import SupremeCourtClient
 from .document_recut import (
     FETCH_FAILED,
     LEFT_THE_CLASS,
+    MAX_NAMED_CASES,
     RECUT_KINDS,
-    SCOPE_ALL_LIVE,
-    SCOPE_PREDICT_RELEVANT,
+    SCOPE_NAMED,
     DocumentRecutResult,
     RecutLedger,
     _CandidateOutcome,
+    check_scope,
     estimated_seconds_for_pages,
     outcome_of,
     recut_candidates,
@@ -130,7 +139,7 @@ _Key = Annotated[
 ]
 _Skip = Annotated[str, StringConstraints(pattern=_SKIP_PATTERN)]
 _Pages = Annotated[int, Strict(), Field(ge=1, le=100_000)]
-_Scope = Literal["predict-relevant", "all-live"]
+_Scope = Literal["predict-relevant", "all-live", "named"]
 
 
 class RecutWorkItem(BaseModel):
@@ -157,7 +166,9 @@ class RecutWorklist(BaseModel):
     """The slice of the re-cut class the parse reads, in class order.
 
     ``bound`` is the dispatch's slice size, or null on an unbounded dry run,
-    whose worklist is then the whole class in scope.
+    whose worklist is then the whole class in scope. ``cases`` is the named
+    scope's cases, which the reader and the writer walk the class over again;
+    the other scopes carry none.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -165,8 +176,18 @@ class RecutWorklist(BaseModel):
     format: Literal["fedcourts/recut-worklist"] = "fedcourts/recut-worklist"
     version: Literal[1] = 1
     scope: _Scope
+    cases: list[_CaseId] = Field(default_factory=list, max_length=MAX_NAMED_CASES)
     bound: int | None = Field(default=None, ge=1, le=MAX_RECUT_ITEMS)
     items: list[RecutWorkItem] = Field(max_length=MAX_RECUT_ITEMS)
+
+    @model_validator(mode="after")
+    def _cases_fit_the_scope(self) -> Self:
+        check_scope(self.scope, self.cases)
+        if self.scope == SCOPE_NAMED:
+            outside = sorted({item.case_id for item in self.items} - set(self.cases))
+            if outside:
+                raise ValueError(f"items outside the named cases: {outside[:5]}")
+        return self
 
 
 class RecutPlanRow(BaseModel):
@@ -213,7 +234,7 @@ class RecutPlan(BaseModel):
 
 
 def recut_worklist(
-    conn: corpus.ReadConnection, *, scope: str, bound: int | None
+    conn: corpus.ReadConnection, *, scope: str, bound: int | None, cases: Sequence[str] = ()
 ) -> tuple[RecutWorklist, DocumentRecutResult]:
     """The worklist for one dispatch, and the class ledger the projection prints.
 
@@ -222,9 +243,8 @@ def recut_worklist(
     class. The ledger is the walk-only reading: nothing reached, the whole class
     remaining.
     """
-    if scope not in (SCOPE_PREDICT_RELEVANT, SCOPE_ALL_LIVE):
-        raise ValueError(f"unknown re-cut scope {scope!r}")
-    scan = recut_candidates(conn, scope=scope)
+    check_scope(scope, cases)
+    scan = recut_candidates(conn, scope=scope, cases=cases)
     picked = scan.candidates if bound is None else scan.candidates[:bound]
     if len(picked) > MAX_RECUT_ITEMS:
         raise HandoffRefused(
@@ -232,7 +252,8 @@ def recut_worklist(
             f"{MAX_RECUT_ITEMS} one worklist may carry; bound the dry run"
         )
     worklist = RecutWorklist(
-        scope=cast(_Scope, scope),  # checked against the two scopes above
+        scope=cast(_Scope, scope),  # checked against the scopes above
+        cases=sorted(cases),
         bound=bound,
         items=[
             RecutWorkItem(
@@ -244,7 +265,10 @@ def recut_worklist(
             for c in picked
         ],
     )
-    return worklist, RecutLedger(None, apply=False).result(scan, scope=scope, bound=bound, sliced=0)
+    reading = RecutLedger(None, apply=False).result(
+        scan, scope=scope, cases=cases, bound=bound, sliced=0
+    )
+    return worklist, reading
 
 
 def _check_unique(keys: Sequence[str], what: str) -> None:
@@ -388,11 +412,11 @@ def apply_recut_plan(
     writes nothing, which is the dry run's reading.
     """
     check_recut_plan(plan, worklist, char_cap=char_cap)
-    scan = recut_candidates(conn, scope=worklist.scope)
+    scan = recut_candidates(conn, scope=worklist.scope, cases=worklist.cases)
     in_class = {candidate.key: candidate for candidate in scan.candidates}
     rows = {row.key: row for row in plan.rows}
     unreached = set(plan.unreached)
-    ledger = RecutLedger(conn, apply=apply)
+    ledger = RecutLedger(conn, apply=apply, named=worklist.scope == SCOPE_NAMED)
     for item in worklist.items:
         key = item.key
         if key in unreached:
@@ -419,5 +443,9 @@ def apply_recut_plan(
         extracted = ExtractedText(text=row.text, pages=row.pages, truncated=row.truncated)
         ledger.reach(key, item.kind, stored_judgement(candidate, extracted, today=today))
     return ledger.result(
-        scan, scope=worklist.scope, bound=worklist.bound, sliced=len(worklist.items)
+        scan,
+        scope=worklist.scope,
+        cases=worklist.cases,
+        bound=worklist.bound,
+        sliced=len(worklist.items),
     )

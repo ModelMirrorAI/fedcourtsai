@@ -65,7 +65,9 @@ fields that mean the same thing at every stage:
   merits cell's `authorship-tally.json` is held back on the same rule
   (`provision.AUTHORSHIP_TALLY_WITHHELD`). A forward cert cell's
   `same-question.json` lists the petitions whose questions presented read like
-  its own. `argument-features.json` is the
+  its own. A trial-stage cell's `trial.json` states its judge, its motion's
+  briefing by docket entry, and the listed case's other dockets
+  ([trial-stage.md](trial-stage.md)). `argument-features.json` is the
   deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
@@ -264,7 +266,7 @@ absent optional field as null.
     "distribution_count": 1,
     "cvsg_date": null,
     "band": "baseline",
-    "salience_version": "sal-v8",
+    "salience_version": "sal-v9",
     "band_refused": null,
     "response_requested": null,
     "referred_to_court": null,
@@ -1109,7 +1111,8 @@ in prose.
   beside a null grade, the record's ground for it). It is registered with
   `proc-v16`: every evaluation stamped under it carries the grade, or a null
   with its ground, for each candidate that has a forecast document, on every
-  stage. Evaluations stamped earlier carry none. The
+  stage. Evaluations stamped earlier carry none. A prediction slice's
+  evaluations carry it from the slice's own floor label (`ai-watchlist-v1`). The
   `forecast-document-grades` board rolls it up per judge (*Grading the
   forecast document, design* in `docs/outcome-decomposition.md`).
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
@@ -1232,7 +1235,7 @@ as on the predictions above:
   },
   "segment_base_rate": 0.067,
   "base_rate_basis": "risk_set",
-  "base_rate_salience_version": "sal-v8",
+  "base_rate_salience_version": "sal-v9",
   "brier_skill_score": 0.443,
   "claim_scores": {
     "declared_set_version": "cert-v2",

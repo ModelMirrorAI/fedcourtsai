@@ -1,7 +1,7 @@
 """The trial stage's declaration: its moments table, its ids, its outcome fields.
 
-Declared and switched off: nothing here mints a cell. These tests hold the
-shape the later wiring writes to.
+These tests hold the shape the stage's wiring writes to, and that its five
+moments are switched on from one day.
 """
 
 from __future__ import annotations
@@ -54,9 +54,12 @@ def test_the_table_declares_the_stage_s_five_moments_and_no_other() -> None:
     assert all(spec.stage is Stage.trial for spec in moments.DECLARED_TRIAL_MOMENTS)
 
 
-def test_every_trial_moment_is_switched_off() -> None:
-    """Declared is not forecast: no trial moment mints a cell."""
-    assert not any(spec.forecastable for spec in moments.DECLARED_TRIAL_MOMENTS)
+def test_every_trial_moment_is_switched_on_from_one_day() -> None:
+    """The five moments were switched on together, so one day opens them all."""
+    assert all(
+        spec.forecastable and spec.opens_from == moments.TRIAL_SWITCH_ON
+        for spec in moments.DECLARED_TRIAL_MOMENTS
+    )
 
 
 def test_the_motion_moments_are_the_resolver_s_motion_moments() -> None:

@@ -571,6 +571,17 @@ class LiveConfig(BaseModel):
     # leading for up to five days past their Monday order list; lowering it to
     # 3 would demote long-conference rows before their order list is read.
     order_list_lag_days: int = Field(default=7, ge=0)
+    # Rows per cycle polled ahead of both rotations because an order document
+    # of the last `order_named_lookback_days` days names them and no poll has
+    # read them since (`live._order_named_pass`): petitions inside
+    # `max_cases_per_run`, applications inside `max_applications_per_run`. The
+    # cycle fetches the Court's order listings and those days' PDFs to learn
+    # the names. 0 disables the pass and the fetches with it.
+    order_named_per_run: int = Field(default=0, ge=0)
+    # Days of order documents the pass reads, today's included. A row is owed
+    # until a poll dated after its order, which the next day's first cycle
+    # makes, so the days past the first only cover cycles that failed.
+    order_named_lookback_days: int = Field(default=3, ge=0, le=14)
     # New petitions onboarded from the Term's numbering frontier per cycle.
     max_new_cases_per_run: int = Field(default=25, ge=0)
     # Unresolved interim applications re-polled per cycle (the application
@@ -962,8 +973,9 @@ class SalienceConfig(BaseModel):
     # so a short window is noisy, while a long one assumes the Court's grant
     # behaviour is stationary across the whole walked range. Per-Term high-band
     # rates measured on sal-v3 segments run 24.2%-42.4% on those counts — too thin
-    # to tell drift from sampling either way, and sal-v4, sal-v6, sal-v7 and the active
-    # sal-v8 re-read that band under a narrower distribution parse, so both the range and the counts
+    # to tell drift from sampling either way, and sal-v4, sal-v6, sal-v7, sal-v8 and the
+    # active sal-v9 re-read that band under a narrower distribution parse, so both the
+    # range and the counts
     # above re-base at the next statpack rebuild — which is why the window is stated rather than
     # defaulted (see docs/salience.md, *Base rates &
     # baselines for the predicted segment*). Moving this re-bases every forward

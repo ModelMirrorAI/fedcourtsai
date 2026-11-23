@@ -465,7 +465,7 @@ def test_a_non_active_version_pools_from_its_alt_segments_block() -> None:
     assert prediction_base_rate(retired, pack) == pytest.approx(0.60)
     # A version in neither place still gets the contracted no-baseline answer.
     assert (
-        prediction_base_rate(_context("high", term=2024, salience_version="sal-v9"), pack) is None
+        prediction_base_rate(_context("high", term=2024, salience_version="sal-v99"), pack) is None
     )
 
 
@@ -1244,7 +1244,8 @@ def test_realized_band_rate_reads_a_retired_versions_alt_segments_block() -> Non
     ) == pytest.approx(39 / 79)
     # A version in neither place still gets the contracted no-baseline answer.
     assert (
-        realized_band_rate("high", "sal-v9", 2025, pack, risk_set=False, own_grant_family=1) is None
+        realized_band_rate("high", "sal-v99", 2025, pack, risk_set=False, own_grant_family=1)
+        is None
     )
 
 

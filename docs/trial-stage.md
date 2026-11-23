@@ -1,26 +1,32 @@
 # The trial stage
 
-What a district-court forecast is, before any is committed: the moments a
+What a district-court forecast is: the moments a
 trial-court case passes, what each predicts, when each opens, and how each
 resolves. The stage is court-agnostic, so every later district slice reuses it
 rather than minting its own. The first slice to use it is the AI-case watchlist
 (`config/ai-watchlist.yaml`), whose district dockets the corpus already keeps
 current ([data-pipeline.md](data-pipeline.md)).
 
-**Status: designed, not registered.** Nothing here is forecast yet. The stage
-registers under the watchlist slice's own process label, in the sequence
-*How the stage registers* sets out below. Its vocabulary exists: `trial` is a
-`Stage` and the five moments below are `Moment` values (`schemas.py`). The
-moments are declared and switched off in the stage's own table
-(`pipeline/moments.py`), the outcome record has the stage's three fields, and
+**Status: registered and switched on.** The stage is registered under the
+watchlist slice's own process label, `ai-watchlist-v1`, in the sequence
+*How the stage registers* sets out below, and the slice is enabled
+(`predict.slices` in `config/tracking.yaml`). `trial` is a `Stage` and the
+five moments below are `Moment` values (`schemas.py`). All five are switched
+on in the stage's own table (`pipeline/moments.py`) from the day
+`TRIAL_SWITCH_ON` names, the outcome record has the stage's three fields, and
 `validate` holds a trial record to both. Each moment names its claim set
-(`pipeline/claims.py`). No record carries any of it. What a forecast's own
-record says of a trial cell is written with the slice's prompt, at the
-switch-on, and the entry is dated in [freeze-record.md](freeze-record.md).
-Until that entry is dated, this page is the design that entry cites, and a change to it
-needs no re-bless. The opener and the resolver below run in the watchlist
-refresh's pass (`pipeline/trial_events.py`), which writes an event only of a
-moment that is switched on: until one is, it reports what it would open and
+(`pipeline/claims.py`). Six actors of the slice read its two prompts: the
+predictors `claude-trial`, `codex-trial` and `gemini-trial` read
+`.github/prompts/predict-trial.md`, and the judges `claude-trial-judge`,
+`codex-trial-judge` and `gemini-trial-judge` read
+`.github/prompts/evaluate-trial.md`. The registration's entry is dated in
+[freeze-record.md](freeze-record.md). This page is the design that entry
+cites, so a change to a rule here is a change to a registered process and
+needs a re-bless under [process-version.md](process-version.md). The opener
+and the resolver below run in the watchlist refresh's pass
+(`pipeline/trial_events.py`), which writes an event only of a moment that is
+switched on by the day it runs: from `TRIAL_SWITCH_ON` on it writes every
+moment's events, and on an earlier day it reports what it would open and
 writes nothing. Provisioning's forward gates read a trial event by the stage's
 own rules (`provision-snapshot`).
 
@@ -341,8 +347,10 @@ figure waits until the slice's own resolved events can supply a rate.
 ## How the stage registers
 
 The registration is a sequence, and only its last step moves a process digest
-([process-version.md](process-version.md)). Until that step every moment is
-declared and switched off, the pattern the Court's later moments followed.
+([process-version.md](process-version.md)). A moment is
+declared and switched off until that step, the pattern the Court's later
+moments followed. The five trial moments are switched on from
+`TRIAL_SWITCH_ON`, under the slice's label and actors.
 
 **The first registration is the trial stage alone.** The appeal stage
 ([appeal-stage.md](appeal-stage.md)) registers after it, under the same slice.
@@ -413,13 +421,21 @@ the pass that stores the dockets (`pipeline/trial_events.py`): after the
 dockets are refreshed, the opener and the resolver read every listed district
 docket as stored, a newly briefed motion's event is written, and a ruling the
 resolver reads closes its event with the outcome. Each declared moment
-carries the day it was switched on. The pass writes no event of a moment that
+carries the day it is switched on from. The pass writes no event of a moment that
 has none and reports what it would open; a motion event it writes opens on
-the day its briefing closed, or on the day the moment was switched on where
+the day its briefing closed, or on the day the moment is switched on from where
 that is later, and the final-disposition event opens on the day the pass
 first writes it. A motion the court ruled on before the pass first read it is never
 written, and a member docket opens no motion while its lead docket is not
-stored. A reading the resolver sends to triage writes no outcome: the event
+stored. Nor is an event written while an entry may already decide it, by the
+net a forward cell on it would be refused on (*The docket a cell reads*,
+below): the resolver passes over a ruling it cannot read exactly, such as one
+stated in a hearing's minute entry, and an event opened past such an entry
+would carry a decided motion as open. That holds for a motion and for the
+final disposition alike, and only for an event not yet written: one the pass
+already wrote stays open until the resolver or an adjudication closes it. The
+pass lists each event it held that way, with the entry weighed, in the
+refresh's report. A reading the resolver sends to triage writes no outcome: the event
 stays open, and the pass lists it, with the reason and the entries weighed,
 in the refresh's report and its log. So does a result dated before its event
 opened or read from an undated entry, and a stored motion event the opener no
@@ -438,8 +454,23 @@ baseline event is not forecast. The fan-out's half is built
 (`store.forecastable_event_ids`): a docket an enabled slice names is forecast
 on the events of a trial moment switched on by that day and on nothing else,
 whether the request names the event or leaves it to the corpus, and no docket
-outside a slice is asked for a trial event. The backlog derivations that queue
-a case with no request walk the Court's docket alone.
+outside a slice is asked for a trial event. The queues' half is built too
+(`pipeline/slice_backlog.py`): beside the Court's backlog, and outside its
+per-cycle case cap, a scheduled predict round is owed every enabled slice's
+open, switched-on trial event that some predictor of the slice has not
+forecast, and a scheduled evaluate round every resolved trial event of the
+slice that holds a forecast and lacks some judge of the slice. A forecast is
+owed only where provisioning would mint it: a docket last read longer ago
+than the backlog's staleness bound is held until the refresh reads it again,
+and an event the stored docket may already decide is not owed, because that
+refusal records nothing and the cell would be minted again every round. A
+cell that has failed the per-cell attempt cap is not owed again, and a docket
+out of the predict scope is owed nothing. The slices' cells share the run's
+cell cap with the Court's, which admits whole cases in case-id order, so a
+round over that cap keeps a district docket ahead of the Court's. A slice
+event that resolves with no forecast is reported by no monitor: the
+missed-forecast read is the Court's. With no slice enabled, no moment switched
+on, or no actor of the slice, nothing is owed.
 
 **The docket a cell reads.** The refresh stamps the day it last read each
 docket even where nothing changed, and a district docket is fresh for a cell
@@ -450,37 +481,154 @@ A cell's record carries the docket, the motion's briefing, the judge, and the
 listed case's related dockets; none of the Court's fields (the term, the
 salience band, the cert anchor) is written for it.
 
+The last three are one file, `record/trial.json`
+(`pipeline/trial_record.py`), written for a forward cell and read off the
+cell's own snapshot and the watchlist. A replay cell gets none, since the
+watchlist is undated and a docket it lists can postdate the cell's cutoff. The
+judge is the one the snapshot's header names as assigned, with the magistrate
+judge it names as referred to. The briefing is the opener's reading of the
+event's motion on that snapshot: the entry that filed it, the first
+opposition and the first reply after it, each by entry number and filing
+date, and the day and basis the opener reads the event as opening on, read
+as of the day the cell is provisioned, as the pass that opened the event read
+it: a deadline counts as passed over the days since the snapshot. It is
+a pointer into the docket: a filing's own text is in the snapshot, on its
+entry's document, where the RECAP archive holds it, and no separate copy is
+staged. A cell that wants a brief the snapshot lacks retrieves it under its
+mode's rule. The
+judgment event names no motion and has no briefing, and neither has a motion
+the opener does not read on the snapshot. The related dockets are the listed
+case's other dockets (its appeal, the docket it was transferred from, the
+panel's docket, its member and companion dockets), each by court, docket
+number and relation, with the listed case's own docket among them for a cell
+placed on a member or companion docket. None of their snapshots is staged.
+
 The gates are built (`provision-snapshot`). A forward cell on a trial event is
 refused when the docket was last read longer ago than the bound, when the
 record already holds the event's outcome or the corpus records the docket
 decided, or when the trial resolver reads the snapshot as ruling on the
 event's motion, as finally disposing of the action for the judgment event, or
 as moving on either in a form it would send to triage. The resolver is built
-to miss a ruling rather than misread one, so a motion's cell is held to a
-wider net as well (`trial_resolver.motion_disposal_signal`): it is refused
-when the snapshot lacks the motion's own entry, when any entry closes the
-action or reads as its final judgment, and when a court entry after the
-motion rules on a motion of its kind in so many words, or cites its number
-beside a ruling word and names nothing procedural (an extension, a hearing, a
-page limit, a stay). That net
-refuses some motions still pending, and such a motion is not forecast until
-the docket moves. A ruling entered since the docket was last read is the
-residual: nothing polls a district docket between the refresh's reads, so the
-bound is the whole of that control. The Court's poll
+to miss a ruling rather than misread one, so a cell is held to a wider net as
+well, whose bias is the opposite: a pending motion it refuses costs one
+forecast, and a ruling it misses hands a forecast its answer
+(`trial_resolver.motion_disposal_signal`, `action_over_signal`). A motion's
+cell is refused when the snapshot lacks the motion's own entry; when an entry
+after the motion may show the action over (a closure, a judgment, or the
+court's or the clerk's notation that the case is closed, terminated,
+dismissed, remanded or transferred out, unless stated as a condition); when a
+party withdraws the motion or voluntarily dismisses; for a motion to dismiss,
+when an amended complaint follows it; for a motion for a preliminary
+injunction, when one is entered; when a magistrate judge's report is adopted,
+on whatever motion; and when a later entry that is not a party's filing may
+rule on it. Such an entry rules on the motion's number directly, alone, in a
+list ("[45] and [49] are DENIED") or joined to a ruling on a neighbouring
+entry ("granting 58 and 45"); or carries a ruling word standing by the
+motion's number, by its kind or the relief it asks for, or, on an entry that
+cites no other entry, by "the motion" where it is not named as another kind,
+with nothing procedural (an extension, a hearing, sealing, discovery,
+counsel) and no condition between the two, so an order that denies the motion
+and sets a conference is a sign; or is the court's bare order on the motion;
+or is an opinion, a decision or findings of fact on an entry that cites no
+other entry. A ruling is not read as the motion's where a condition leads
+into it (an order to show cause, a notice that failure to respond may result
+in the motion being granted), where the motion's name hangs from something
+procedural ("argument on the motion to dismiss is denied"), where its
+sentence ended before the motion was named, or where it is the recommendation
+an order of referral asks for. A number counts as another entry only where it
+is cited as one, not as a date, a courtroom or a case number. A ruling the
+entry places on another numbered entry is set aside first, and the court's
+standing or scheduling order is never a sign. The judgment event's cell is
+refused when any entry may show the action over, unless the notation is
+negated, conditional, or made of one party alone; an entry from before a
+transfer in or a reopening counts, so an action that was closed once and
+reopened holds its judgment event, as does one closed administratively. That
+net refuses some motions still pending: an order on another party's motion of
+the same kind, a ruling on the restraining order a motion for a preliminary
+injunction also asked for, and, for a motion to dismiss, the dismissal of a
+party on other grounds each read as a sign. Such a motion is not forecast:
+the entry that tripped the net stays on the docket, so the hold lasts until
+the rule is changed. What it cannot see is the residual: an order whose
+docket text says nothing of its ruling ("ORDER (see image)", a sealed order,
+"Marginal Order: Denied" on an entry that names no motion), a ruling stated
+only by its reasoning ("Counts I and II survive", "Defendant's motion
+fails"), a ruling carried only in an attached document's description, what an
+answer or a reset deadline implies about a motion, and a ruling entered since
+the docket was last read, since nothing polls a district docket
+between the refresh's reads and the bound is the whole of that control. The Court's poll
 is not run, and the context of any lower-court docket states where the cell
 was placed and none of the Court's conditioning fields (the term, the band,
 the signals, the cert anchor); the contact-scrub note and the statpack build
 are written as for any cell. The briefing, the judge and the related dockets
-are added to the record with the slice's prompt.
+are written as `record/trial.json` for every trial event's forward cell, and
+the slice's predict prompt names the file to a cell.
+
+**What the prompts carry.** The predict prompt
+(`.github/prompts/predict-trial.md`) is a district cell's whole contract: the
+five questions and their outcomes, that nothing is voided so a forecast
+prices withdrawal and mootness in, the record above, the two published
+references as context and no base rate, and the claim blocks of *Claims*
+above with a worked example. It tells a cell that a filing's text is in the
+snapshot where the archive holds it and how to read a snapshot that large,
+that it may retrieve the rest and related rulings on a forward cell, that a
+replay cell is not provisioned for the stage, and
+that an entry or a retrieved order deciding the event already is a
+mis-provisioned cell to disclose and not to fold in. The evaluate prompt
+(`.github/prompts/evaluate-trial.md`) grades blind as the Court's does: the
+judge writes `correct` and the Brier score on the headline binary, which the
+stamp recomputes, leaves every base-rate field null, grades the rationale
+and the forecast document, and assesses leakage, where a forward prediction
+made on or after the day its event resolved is read as mis-provisioned. The
+docket text of a ruling is often one line, so the judge may read the court's
+own order on the event, in its snapshot or else through CourtListener, to
+grade what a forecast said of the ground, and nothing else: no brief, report
+or commentary. A claim the
+order cannot settle, or an order the archive does not hold, leaves the claim
+unresolved. Neither prompt names the other, or the Court's.
+
+**The skill record.** A trial evaluation's Brier score is the harness's, like
+the Court's merits and interim ones: the stamp recomputes it from the
+committed forecast and outcome and clears the base rate, its basis and the
+skill, since the stage registers none.
 
 **Its own process.** The slice's cells are made by predictors and graded by
 evaluators registered for the slice, each reading a prompt of the slice's own
 that carries the stage's rules, under a label of the slice's own. The fan-out
-routes a case to the actors of its population. So no Supreme Court digest
+routes a case to the actors of its population, and that half is built: a
+predictor's or an evaluator's registry entry names the population whose
+dockets it forecasts or grades (`population`, the Court's unless it names a
+slice), the predict and evaluate matrices send a slice's docket to the
+slice's actors and every other docket to the Court's, and the Court's
+rosters (its backlogs, its coverage and missed-forecast reads, its
+back-tests) read the Court's actors alone. An entry that names a population
+no code declares is refused when the registry is loaded. Six actors name
+the `ai-watchlist` slice, three predictors and three judges, and no other
+actor does. So no Supreme Court digest
 moves when the slice is switched on, and no Court window holds a slice cell.
+The label half is built too: the registry's label rows name their population,
+a slice's label is `<slice>-vN` with a counting instant of its own, and
+`register-process --population` registers it over the slice's actors alone
+(*A prediction slice is its own process* in
+[process-version.md](process-version.md)). The slice's label is
+`ai-watchlist-v1`.
 The freeze-record entry that registers the label states the moments switched
 on, the references above, the motions already open that day, and the opener
 and resolver rule labels in force.
+
+**Rehearsing the stage.** No trial event is stored before the pass's first
+writing day, so until then no cell of the slice can run from the corpus. A
+rehearsal runs one anyway, without writing an event: `fedcourts local-cascade
+--rehearse-trial --event <id>` on a listed district docket plans the docket
+with the pass's own reader, as read on the later of today and
+`TRIAL_SWITCH_ON`, and forecasts the named event from the record
+`provision-snapshot` gives a forward trial cell: the snapshot, `context.json`
+and `record/trial.json`. The event's definition is written to the run's data
+root exactly as the pass would write it, and the corpus is only read. An event
+the pass would hold, or would not open, is refused with the reason. The
+`integration-test` engine smoke runs a rehearsal on each real engine when it
+is dispatched on a pinned district docket ([pipeline.md](pipeline.md),
+*Rehearsing a slice cell*). A rehearsal's prediction is not a forecast of
+record: it stays in the run's own tree and nothing commits it.
 
 **What reads the slice.** No published figure, board, update or export reads
 the slice's population until one is built for it. The public site reads every

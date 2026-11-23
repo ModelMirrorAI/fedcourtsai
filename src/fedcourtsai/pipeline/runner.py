@@ -1018,7 +1018,7 @@ def _codex_login(api_key: str, env: Mapping[str, str]) -> int:
     try:
         # stdio is inherited (like the agent spawn) so a login failure explains
         # itself in the run log; the success message is one line of noise, and
-        # the CLI masks the key in its own output — verified at the pinned
+        # the CLI masks the key in its own output — verified by running
         # 0.169.1, so a version bump re-checks that log-safety claim.
         return subprocess.run(
             ["codex", "login", "--with-api-key"],
@@ -1136,8 +1136,28 @@ _TRANSIENT_FAILURE = re.compile(
     # a bare "empty response" is also how a safety block or a MAX_TOKENS
     # truncation reads — both deterministic, both re-spent on every retry.
     | invalid[\s_-]*stream             # Gemini INVALID_STREAM
+    # A response the server stopped sending part-way: Node's fetch (undici)
+    # rejects the body with "TypeError: terminated", caused by a SocketError
+    # "other side closed" (code UND_ERR_SOCKET), and the gemini CLI exits 1
+    # reporting only `{"type": "Error", "message": "terminated"}`. The report
+    # is read alone, so the bare message has to be recognized; it is anchored
+    # as the whole of an error's message, ending its line, since "terminated"
+    # inside a longer message is how an ended process or session reads, which
+    # no retry clears. The cause's own wording covers a CLI that reports the
+    # cause instead.
+    | \b(?:Type)?Error:[ ]terminated[ \t\r]*$
+    | UND_ERR_SOCKET
+    | other[\s_-]*side[\s_-]*closed
+    # Node's own spellings of the faults the alternatives above name in prose
+    # (a reset, refused or aborted connection) and of the name that did not
+    # resolve, which `fetch failed` stands for there, as they appear in an
+    # error's `code` or its "read ECONNRESET" message. EPIPE is left out: it is
+    # also how a local pipe whose reader crashed reads, which the next attempt
+    # meets again.
+    | \b(?:ECONNRESET|ECONNREFUSED|ECONNABORTED|EAI_AGAIN)\b
+    | socket[\s_-]*hang[\s_-]*up
     """,
-    re.IGNORECASE | re.VERBOSE,
+    re.IGNORECASE | re.MULTILINE | re.VERBOSE,
 )
 
 # The provider wording that marks a quota as *spent* rather than throttled, which

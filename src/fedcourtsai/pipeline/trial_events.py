@@ -7,10 +7,12 @@ resolver (:mod:`fedcourtsai.pipeline.trial_resolver`) and does three things:
 
 - **Opens** the event of a motion that is fully briefed and that the court has
   not ruled on, and the final-disposition event of a listed case that is still
-  open. Only a moment that is switched on is written
+  open. Only a moment that is switched on by the day read is written
   (:class:`~fedcourtsai.pipeline.moments.TrialMomentSpec`); for a moment that
-  is not, the pass reports what it would open and writes nothing. An event
-  opens no earlier than the day its moment was switched on.
+  is not, the pass reports what it would open and writes nothing. Every
+  declared moment is switched on from
+  :data:`~fedcourtsai.pipeline.moments.TRIAL_SWITCH_ON`, and an event opens no
+  earlier than that day.
 - **Resolves** an event it wrote, when the resolver reads the ruling or a
   maintainer has recorded it (:mod:`fedcourtsai.trial_adjudications`): the
   outcome is written beside the event and the event is closed.
@@ -76,6 +78,10 @@ class DocketPlan:
     would_open: list[corpus.CorpusEvent] = field(default_factory=list)
     outcomes: dict[str, Outcome] = field(default_factory=dict)
     triage: list[Triage] = field(default_factory=list)
+    #: Events not written, whatever the switch says, because an entry may
+    #: already decide them. The event id is the one that would have been
+    #: written; no such event exists.
+    held_ruled: list[Triage] = field(default_factory=list)
 
 
 def _source(entry_number: int | None, *, adjudicated: bool = False) -> str:
@@ -278,6 +284,7 @@ def plan_docket(  # noqa: PLR0913 - one docket and everything read beside it
     """
     settled = adjudicated or {}
     plan = DocketPlan(case_id)
+    dated = [e for e in entries if (resolver.cite(e).date_filed or date.min) <= today]
     openings, _declined = trial_opener.read_docket(entries, today=today, local_rule=local_rule)
     read: dict[str, Opening] = {
         moments.trial_event_id(Moment(o.event.moment.value), o.event.entry_number): o
@@ -292,6 +299,21 @@ def plan_docket(  # noqa: PLR0913 - one docket and everything read beside it
         if not opening.is_event or opening.resolution is not None:
             continue
         assert opening.opens_on is not None  # `is_event`
+        # The net a forward cell on this motion would be refused on. An event
+        # opened past it could never be forecast; and where the sign is a
+        # ruling in a form the resolver passes over, the event would carry a
+        # decided motion as open.
+        sign = resolver.motion_disposal_signal(opening.event, dated)
+        if sign is not None:
+            weighed = (
+                () if isinstance(sign, str) or sign.entry_number is None else (sign.entry_number,)
+            )
+            plan.held_ruled.append(
+                Triage(
+                    case_id, event_id, "a later entry may already dispose of the motion", weighed
+                )
+            )
+            continue
         _place(
             plan,
             _event(
@@ -308,10 +330,24 @@ def plan_docket(  # noqa: PLR0913 - one docket and everything read beside it
     judgment_id = moments.trial_event_id(Moment.trial_judgment)
     final: JudgmentResolution | Unresolved | None = None
     if judgment or judgment_id in stored:
-        final = resolver.resolve_judgment(
-            [e for e in entries if (resolver.cite(e).date_filed or date.min) <= today]
+        final = resolver.resolve_judgment(dated)
+    over = (
+        resolver.action_over_signal(dated)
+        if judgment and judgment_id not in stored and final is None
+        else None
+    )
+    if over is not None:
+        # The same net, for the final disposition: an action that may be over
+        # in a form the resolver passes over opens no event.
+        plan.held_ruled.append(
+            Triage(
+                case_id,
+                judgment_id,
+                "an entry may show the action over",
+                () if over.entry_number is None else (over.entry_number,),
+            )
         )
-    if judgment and judgment_id not in stored and final is None:
+    elif judgment and judgment_id not in stored and final is None:
         _place(
             plan,
             _event(case_id, title, Moment.trial_judgment, entry_number=None, opened_at=today),
@@ -354,6 +390,8 @@ class TrialPassReport:
     would_open: list[tuple[str, str]] = field(default_factory=list)
     resolved: list[tuple[str, str]] = field(default_factory=list)
     triage: list[Triage] = field(default_factory=list)
+    #: Events not written because an entry may already decide them.
+    held_ruled: list[Triage] = field(default_factory=list)
     #: Member dockets whose lead docket is not stored: no motion opens on them.
     held_for_lead: list[str] = field(default_factory=list)
     #: case id -> the type of the error that stopped the pass on that docket.
@@ -362,6 +400,17 @@ class TrialPassReport:
     def as_json(self) -> dict[str, Any]:
         def pairs(found: list[tuple[str, str]]) -> list[dict[str, str]]:
             return [{"case_id": case_id, "event_id": event_id} for case_id, event_id in found]
+
+        def listed(items: list[Triage]) -> list[dict[str, Any]]:
+            return [
+                {
+                    "case_id": item.case_id,
+                    "event_id": item.event_id,
+                    "reason": item.reason,
+                    "entries": list(item.entries),
+                }
+                for item in items
+            ]
 
         return {
             "opener_rule": trial_opener.OPENER_RULE,
@@ -374,15 +423,8 @@ class TrialPassReport:
             "would_open": pairs(self.would_open),
             "resolved": pairs(self.resolved),
             "failed": dict(sorted(self.failed.items())),
-            "triage": [
-                {
-                    "case_id": item.case_id,
-                    "event_id": item.event_id,
-                    "reason": item.reason,
-                    "entries": list(item.entries),
-                }
-                for item in self.triage
-            ],
+            "triage": listed(self.triage),
+            "held_ruled": listed(self.held_ruled),
         }
 
     def summary_line(self) -> str:
@@ -390,7 +432,8 @@ class TrialPassReport:
             f"trial events ({trial_opener.OPENER_RULE}, {resolver.RESOLVER_RULE}): "
             f"{len(self.dockets_read)} docket(s) read, {len(self.opened)} opened, "
             f"{len(self.resolved)} resolved, {len(self.triage)} to triage, "
-            f"{len(self.would_open)} not opened (moment switched off)"
+            f"{len(self.would_open)} not opened (moment switched off), "
+            f"{len(self.held_ruled)} held (an entry may already decide the event)"
             + (f", {len(self.failed)} docket(s) failed" if self.failed else "")
         )
 
@@ -412,6 +455,125 @@ def _own_dockets(watchlist: AiWatchlist) -> frozenset[str]:
     )
 
 
+@dataclass(frozen=True)
+class _DocketRead:
+    """One docket as the pass reads it, before it is planned."""
+
+    case_id: str
+    title: str
+    entries: list[dict[str, Any]]
+    #: The docket's stored events, by id.
+    held: dict[str, corpus.CorpusEvent]
+    #: The motion entries the lead docket also holds.
+    lead_owned: frozenset[int]
+    #: Whether the docket is a member whose lead docket is not stored.
+    lead_unread: bool
+
+    def plan(
+        self,
+        *,
+        today: date,
+        local_rule: DistrictRule | None,
+        adjudicated: Mapping[tuple[str, str], Adjudication] | None,
+        judgment: bool,
+    ) -> DocketPlan:
+        return plan_docket(
+            self.case_id,
+            self.title,
+            self.entries,
+            self.held,
+            today=today,
+            local_rule=local_rule,
+            lead_owned=self.lead_owned,
+            adjudicated=adjudicated,
+            judgment=judgment,
+            lead_unread=self.lead_unread,
+        )
+
+
+def _read_docket(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    lead: str | None,
+    cache: dict[str, list[dict[str, Any]] | None],
+) -> _DocketRead | None:
+    """One docket's stored inputs to the plan; ``None`` where the corpus stores no entries.
+
+    The read half of the pass, shared with :func:`rehearse_docket`: the
+    docket's stored entries, the entries its lead docket also holds, its row's
+    caption and its stored events. Writes nothing.
+    """
+    if case_id not in cache:
+        cache[case_id] = _entries(conn, case_id)
+    entries = cache[case_id]
+    if not entries:
+        return None
+    owned: frozenset[int] = frozenset()
+    lead_unread = False
+    if lead is not None:
+        if lead not in cache:
+            cache[lead] = _entries(conn, lead)
+        lead_unread = not cache[lead]
+        owned = trial_opener.owned_by_lead(cache[lead] or (), entries)
+    row = corpus.get_row(conn, case_id)
+    return _DocketRead(
+        case_id=case_id,
+        title="" if row is None else (row.case_name or row.docket_number or ""),
+        entries=entries,
+        held={e.event_id: e for e in corpus.events_for_case(conn, case_id)},
+        lead_owned=owned,
+        lead_unread=lead_unread,
+    )
+
+
+class NotRehearsable(ValueError):
+    """The trial stage plans nothing on the docket: it is not one it reads, or is not stored."""
+
+
+def rehearse_docket(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    watchlist: AiWatchlist,
+    *,
+    today: date,
+    local_rules: Mapping[str, DistrictRule] | None = None,
+    adjudicated: Mapping[tuple[str, str], Adjudication] | None = None,
+) -> DocketPlan:
+    """What the pass would do on one listed docket read on ``today``, writing nothing.
+
+    The plan :func:`run_pass` acts on for the same docket and day, read the
+    same way (:func:`_read_docket`) over a read-only connection: ``opens``
+    holds the events the pass would write, each as it would write it. The
+    caller that forecasts one of them before the pass has written it, the
+    local cascade's rehearsal, takes the event from here so its definition
+    cannot differ from the pass's. Raises :class:`NotRehearsable` for a docket
+    the stage does not read or the corpus holds no entries for.
+    """
+    surveyed = [
+        lead for docket, lead in trial_opener.survey_dockets(watchlist) if docket == case_id
+    ]
+    if not surveyed:
+        raise NotRehearsable(
+            f"{case_id} is not a district docket the trial stage reads off the watchlist"
+        )
+    # The first listing, as the pass reads a docket listed twice.
+    lead = surveyed[0]
+    read = _read_docket(conn, case_id, lead, {})
+    if read is None:
+        raise NotRehearsable(f"the corpus holds no stored docket entries for {case_id}")
+    if read.lead_unread:
+        raise NotRehearsable(
+            f"{case_id} is a member docket whose lead docket {lead} is not stored, so no "
+            "motion opens on it"
+        )
+    return read.plan(
+        today=today,
+        local_rule=(local_rules or {}).get(case_id.partition("/")[0]),
+        adjudicated=adjudicated,
+        judgment=case_id in _own_dockets(watchlist),
+    )
+
+
 def _pass_docket(  # noqa: PLR0913 - one docket of the pass and what it reads
     report: TrialPassReport,
     corpus_db_path: Path,
@@ -427,36 +589,16 @@ def _pass_docket(  # noqa: PLR0913 - one docket of the pass and what it reads
 ) -> None:
     court, _, docket = case_id.partition("/")
     with corpus.connect(corpus_db_path) as conn:
-        if case_id not in cache:
-            cache[case_id] = _entries(conn, case_id)
-        entries = cache[case_id]
-        if not entries:
+        read = _read_docket(conn, case_id, lead, cache)
+        if read is None:
             report.dockets_missing.append(case_id)
             return
         report.dockets_read.append(case_id)
-        owned: frozenset[int] = frozenset()
-        lead_unread = False
-        if lead is not None:
-            if lead not in cache:
-                cache[lead] = _entries(conn, lead)
-            lead_unread = not cache[lead]
-            owned = trial_opener.owned_by_lead(cache[lead] or (), entries)
-        if lead_unread:
+        if read.lead_unread:
             report.held_for_lead.append(case_id)
-        row = corpus.get_row(conn, case_id)
-        held = {e.event_id: e for e in corpus.events_for_case(conn, case_id)}
-        title = "" if row is None else (row.case_name or row.docket_number or "")
-        plan = plan_docket(
-            case_id,
-            title,
-            entries,
-            held,
-            today=today,
-            local_rule=local_rule,
-            lead_owned=owned,
-            adjudicated=adjudicated,
-            judgment=judgment,
-            lead_unread=lead_unread,
+        held = read.held
+        plan = read.plan(
+            today=today, local_rule=local_rule, adjudicated=adjudicated, judgment=judgment
         )
         # A stored open event with no committed definition is a write that
         # stopped between the corpus and the ledger: written again, from the
@@ -474,6 +616,7 @@ def _pass_docket(  # noqa: PLR0913 - one docket of the pass and what it reads
     report.opened.extend((case_id, e.event_id) for e in plan.opens)
     report.would_open.extend((case_id, e.event_id) for e in plan.would_open)
     report.triage.extend(plan.triage)
+    report.held_ruled.extend(plan.held_ruled)
     if plan.outcomes:
         record_outcomes(
             corpus_db_path, data_root, court, int(docket), Resolution(outcomes=plan.outcomes)

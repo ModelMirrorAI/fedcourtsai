@@ -33,7 +33,8 @@ from fedcourtsai.pipeline.documents import (
     KIND_PETITION,
     KIND_SUPPLEMENTAL_BRIEF,
 )
-from fedcourtsai.registry import enabled_evaluators, enabled_predictors
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import evaluators_for, predictors_for
 from fedcourtsai.schemas import (
     Disposition,
     Evaluation,
@@ -51,10 +52,11 @@ from tests.fixture_metrics import fixture_metrics_root
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
 
-# Cascade fan-out is driven by the enabled registry, so derive the expected
-# artifact counts from it — the assertions then hold as engines are added/removed.
-_N_PRED = len(enabled_predictors(CONFIG_ROOT / "predictors.yaml"))
-_N_EVAL = len(enabled_evaluators(CONFIG_ROOT / "evaluators.yaml"))
+# Cascade fan-out is driven by the Court's population of the enabled registry
+# (a slice's actors run no cascade cell), so derive the expected artifact counts
+# from it — the assertions then hold as engines are added/removed.
+_N_PRED = len(predictors_for(CONFIG_ROOT / "predictors.yaml", SCOTUS_POPULATION_KEY))
+_N_EVAL = len(evaluators_for(CONFIG_ROOT / "evaluators.yaml", SCOTUS_POPULATION_KEY))
 
 # A predict cell writes three documents: prediction.json, the predictor's
 # reasoning.md, and its predicted_reasoning.md forecast of the court's reasoning.

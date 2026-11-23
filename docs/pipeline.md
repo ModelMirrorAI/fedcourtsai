@@ -989,7 +989,8 @@ artifacts (corpus-free and environment-free; every write surface stubbed or
 diverted on the runner), the `qp-topic-measure` composite over canned labels
 built from the committed reference set (token-free and credential-free), or
 (the token-spending scenarios) a single real-engine cell over the service
-sidecar, a boot probe of each engine's own invocation block, the qp-topic
+sidecar (on a pinned district docket of a prediction slice, the slice's actor
+on a trial event rehearsed in the run; *Rehearsing a slice cell* below), a boot probe of each engine's own invocation block, the qp-topic
 labeler's own invocation block over a five-row synthetic extract, one
 **repro-family** cell — a real cell run against a record pinned to the shape a
 diagnosed engine defect keys on — dispatched around changes to corpus access, the sidecars, engine
@@ -1048,6 +1049,50 @@ system: what it guarantees is that the breakage is already in the run history
 when someone next looks, rather than being discovered by a paid round. Check it
 alongside the ops digest, and read a red one the way the run summary states it —
 the leg names which engine's invocation was refused.
+
+**Rehearsing a slice cell.** `engine-smoke` reads the settled case's court to
+choose its cell. `scotus` runs the engine's baseline predictor. Any other
+court runs the engine's trial predictor (`claude-trial`, `codex-trial`,
+`gemini-trial`) with `local-cascade --rehearse-trial`, which plans the pinned
+docket's trial events in the run and forecasts the one `event` names
+([trial-stage.md](trial-stage.md), *Rehearsing the stage*). Such a dispatch
+pins all three of `court`, `docket` and `event`: the case resolver screens for
+no slice, and the cascade refuses a rehearsal that names no event, an event
+the pass would hold, and a docket no slice lists, each before any token is
+spent. It is one predict cell's spend per dispatch and adds no dispatch
+input. A `gate` or `all` dispatch at the default court never rehearses, and
+the leg refuses a district docket under any selection but `engine-smoke`: a
+`gate` run is the promotion gate's evidence about the Court's cells, and one
+pinned to a district docket would have run none. The offline stub cascade
+does not rehearse either; a pinned district docket is for the engine smoke
+alone.
+
+A rehearsal's transcript is withheld from the run log, because a district
+cell reads party-authored filings and the agent's stream can quote them. The
+log and the run summary carry the report block on success, the cascade's own
+refusal line when it refuses before a cell runs, and a fixed line on any other
+failure, which is then reproduced with the same `local-cascade` command where
+the corpus is pulled. The leg runs under a 70-minute cap, the cell jobs' own,
+since a district record is several times a petition-stage one. The
+concurrency group of a single-scenario dispatch names its engine, so the three
+engines' rehearsals at one ref run side by side, and a second dispatch of the
+same engine there cancels the first.
+
+```bash
+gh workflow run integration-test.yml --ref staging -f scenario=engine-smoke \
+  -f engine=<engine> -f court=<district court> -f docket=<docket id> \
+  -f event=<trial event id>
+```
+
+The docket has to be in the corpus the dispatch's environment reads. The
+staging pair is a slice seeded docket by docket (`staging-corpus-refresh`
+below), so a rehearsal at `staging` follows a refresh that names the district
+docket, and its lead docket where it is a member, alongside the dockets the
+pair already holds: a refresh rebuilds the index from the list it is given. A
+rehearsal of a docket the corpus lacks is refused before any token is spent.
+`fedcourts trial-events`
+surveys each listed docket's motions and the day each would open.
+
 See *Infra-bound integration* in [testing.md](testing.md).
 
 ## `corpus-check` — the check a PR asks for
@@ -1179,8 +1224,8 @@ that runs (later windows and same-day dispatches skip it). It is
 the window what `pull-all` wrote, and the window's summary carries the step's
 outcome and the dockets refreshed, failed and deferred. The same command then
 runs the trial stage's pass over the stored district dockets
-([trial-stage.md](trial-stage.md)), whose event and outcome records, once a
-trial moment is switched on, ride the window's commit like any other the pull
+([trial-stage.md](trial-stage.md)), whose event and outcome records, from
+the trial moments' switch-on day, ride the window's commit like any other the pull
 writes. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
@@ -1252,7 +1297,8 @@ any other corpus write.
 The same daily window runs one sweep outside the `seed` job: the **order-list
 vote sweep** (`fedcourts stamp-order-votes`), which stamps the Court's
 per-Justice notations onto committed cert and interim outcomes once their order
-is seven days settled. It fetches and parses the Court's order documents, so it
+is seven days settled. It writes what it parses out of the Court's order
+documents into committed outcomes, so it
 runs as run-repair's `order-votes` credential split — a read-only projection
 job, a parse job holding no credential of any kind, and a writer — in three
 jobs of its own beside the walk rather than inside the job holding the
@@ -2257,7 +2303,7 @@ pattern rather than rediscovering it:
   runner: the diagnostics bundle, the disarm step that publishes it, the step
   summary, and the job log GitHub drops. The engine watchdog needs no channel
   off the runner because it acts *before* that cancellation — its fire time
-  sits a margin under the engine step's own `timeout-minutes`, which sits under
+  sits a margin and the completion extension under the engine step's own `timeout-minutes`, which sits under
   the job cap — and acting concludes the step, so the tail that turns its
   marker into a warning, a summary line and a `status.json` field runs. Any
   guard against a cancellation wants the same ordering: guard < step bound <
@@ -2456,7 +2502,8 @@ The mechanics:
   head's registry must exist and load; a batch carrying anything pending
   needs `main` to declare merge-stamped instants; no digest the batch holds
   pending may already stamp a committed cell on `main`; every enabled actor's
-  digest at the head must be registered; each predictor keeps at most one
+  digest at the head must be registered, under a label of the actor's own
+  population; each predictor keeps at most one
   open window, a pending close counting as a close; the batch carries at most
   one label new to `main`, with no `prereg/` tag yet; no boundary name may
   repeat; nothing may already sit pending on `main`; and no row `main` has
@@ -2987,7 +3034,8 @@ review settings are checked, above).
 the matrix command itself: given no case list, `predict-matrix` derives the
 predict backlog (`pipeline.pull.derive_predict_backlog`, described in
 [cli.md](cli.md)) and `evaluate-matrix` the evaluate backlog, each from committed
-state. That derivation is version-blind in one direction only: a case is owed
+state, with the enabled prediction slices' own dockets beside it
+(`pipeline.slice_backlog`). That derivation is version-blind in one direction only: a case is owed
 cells for an event **some** enabled predictor has not covered, and — under the
 **pre-freeze re-predict rule** — for an event whose committed cohort is
 de-counted (outside every counting window, or in a revoked one). A supersession
@@ -3154,7 +3202,7 @@ workflow passes one, because a case list a round did not derive is a case list
 nothing authenticated. When prediction scope is gated
 (`predict.scope=scotus_docket`) the builder reads each case's corpus row (only a
 SCOTUS docket is in scope, minus the shared exclusion reasons, plus the dockets
-of any prediction slice `predict.slices` switches on; none is on, see the
+of any prediction slice `predict.slices` switches on, which is `ai-watchlist`; see the
 *Scope* section of [data-pipeline.md](data-pipeline.md)), so `plan` first
 pulls the corpus; with the gate on
 and no corpus on disk the build fails loud rather than emit an empty matrix.
@@ -4355,9 +4403,9 @@ artifacts. Finish a draft by merging it, not by editing and then re-running.
 
 Agent steps (predict, evaluate) are bounded by one **engine deadline**, the
 same for all three engines: a cell job sets it once as job env
-(`ENGINE_DEADLINE_MINUTES`, 50) and every engine step — claude's action step,
+(`ENGINE_DEADLINE_MINUTES`, 55) and every engine step — claude's action step,
 codex's action step, gemini's CLI step — reads it as its `timeout-minutes`. It
-sits below the job cap (65), so a run that overruns trips the *step* — not the
+sits below the job cap (70), so a run that overruns trips the *step* — not the
 job. A step timeout (or a max-turns stop) fails only that step and leaves the
 runner alive, so the salvage step still runs (`if: !cancelled()`) and the
 agent's partial work survives instead of being discarded with the cancelled job.
@@ -4371,8 +4419,10 @@ The value is measured, not guessed. Across every completed engine step of
 `run-predict` and `run-evaluate` on `main` from 2026-08-01 to 2026-10-06 — 1,548
 steps — the longest took 13.9 minutes (a predict claude cell), and per engine
 the p99 is 11.6 (claude), 9.4 (codex) and 7.6 (gemini) minutes; no step passed
-14. Fifty minutes is over 3.5x the longest cell ever observed, so a cell that
-reaches it is an anomaly worth ending rather than slow work. The jobs that did
+14. The watchdog ends a cell that has completed nothing just under 47 minutes
+in, over 3x the longest cell in that window, so a cell that
+reaches it with nothing complete is an anomaly worth ending rather than slow work; the rest of the 55
+is the completion extension and the escalation margin (below). The jobs that did
 run past fifty minutes were the codex runner wedge on an application record,
 not work: production predict cells on that docket cancelled at the job cap,
 and the integration suite's application-repro leg ran 52–64 minutes on every
@@ -4381,15 +4431,17 @@ the engine step recorded a conclusion — while its dispatches under the cells'
 `unprivileged-user` codex concluded their engine step in 0.6 and 2.9 minutes. The job cap holds
 the deadline plus the setup ahead of the engine step (at most 5.4 minutes
 observed) and the capture tail behind it (at most 1.3), with room. A wider
-claim — that a cell of some shape legitimately runs past fifty — would move
+claim — that a cell of some shape legitimately runs past that fire time — would move
 this one number, in the three places a workflow-shape test holds equal (both
 cell jobs and the integration suite's application-repro leg).
 
 **Gemini's in-step retry** spends part of that deadline on purpose. gemini-cli
 ends a turn whose model stream went bad — after its own mid-stream retries —
 with a zero exit and an `INVALID_STREAM` error inside its JSON result, seconds
-into a cell while sibling cells on the same model complete. Left alone, such a
-cell lands no output and waits for a later scheduled run, by which time a
+into a cell while sibling cells on the same model complete. A connection the
+API closes while a response is streaming is a serving fault of the same kind,
+ending the turn on a failing exit whose report says only `terminated`. Left
+alone, either cell lands no output and waits for a later scheduled run, by which time a
 fast-moving event may have resolved and the cell turned retrospective. So both
 cell workflows' gemini step runs `scripts/gemini-cell.sh`, which takes up to
 three turns, each a fresh CLI process, under four rules the script states and
@@ -4402,10 +4454,11 @@ the error the engine itself reported, in its result or as the same object on
 stderr, and not on the rest of stderr, so a model call the CLI retried and
 recovered from does not buy a retry for the client error the turn ended on;
 only where the engine reported nothing is the whole of stderr read. A retry
-starts only while 20
+starts only while 25
 minutes of the deadline would remain after its backoff (the backoff is 15
 seconds per attempt so far, plus up to 15 of jitter): past the watchdog's
-three-minute margin by more than the longest cell observed, so a retry is a
+three-minute margin and the completion extension by more than the longest cell
+observed, so a retry is a
 whole fresh chance and not a cell the deadline then kills. It runs inside the
 same step, under the same `timeout-minutes` and the same watchdog bracket, so
 no retry can carry the step past the deadline. Before the first attempt the
@@ -4482,7 +4535,8 @@ are bracketed by an **arm/disarm pair** around a runner-level watchdog
 cell's refusal gate where it has one, which on predict is the whole of its
 condition, and ungated on evaluate, which has none — and disarmed the moment the
 last ends however it ended. The arm step derives the watchdog's fire time from
-the same engine deadline, three minutes under it: the watchdog's own escalation
+the same engine deadline, a three-minute margin and the completion extension
+(below) under it: the watchdog's own escalation
 (three graces of 30 seconds, each plus up to one 10-second poll) takes two
 minutes at worst, so a step it ends has concluded before the runner's own step
 timeout would act, and the deadline is one number rather than one per engine.
@@ -4536,6 +4590,24 @@ as long as the artifact is retained. Nothing committed records a reap, so a
 count of reaps over time is a read of run annotations. The parse is deliberately all the sentinel asks: schema truth is the
 tail's `validate`, which routes a malformed cell to the draft PR, and that is
 strictly better than the job cap destroying it.
+
+**The completion extension** is what a cell gets when the fire time arrives
+with its outputs complete but its five quiet minutes not yet run out. That is
+not the wedge that completes nothing; it is the reaper's own case met late,
+seen where a Gemini cell lost the front of its budget to a retried attempt,
+wrote and validated every file, and its engine then sat retrying its closing
+model call — with the fire time falling five seconds before the grace would
+have reaped it. So the watchdog defers the deadline once, by the extension the
+arm step hands it (`COMPLETION_EXTENSION_S`, 320 seconds: the grace plus two
+polls, so a last write made at the fire time can still be seen quiet), and goes
+on asking the reaper's question. The standard does not move: the cell is reaped
+only when complete and quiet for the full five minutes since its last write,
+and its `REAPED` marker carries `deadline_extended_s`. A cell still writing
+through the extension, or one that takes a required file away during it, meets
+the deadline; a cell with nothing complete at the fire time is never extended.
+The arm step takes the extension out of the fire time as it does the margin, so
+the latest moment the escalation can start still leaves it the whole margin
+inside the step's timeout.
 
 **The deadline** is the second line, for a wedge that completes nothing. At the
 fire time above it captures the runner user's process tree, the socket table

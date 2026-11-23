@@ -32,6 +32,7 @@ from fedcourtsai.ai_cases_update import (
     ai_cases_subject,
     build_ai_cases_update,
     render_ai_cases_update,
+    tally,
 )
 from fedcourtsai.ai_rulings import owed_rulings
 from fedcourtsai.ai_watchlist import AI_WATCHLIST_FILENAME, AiWatchlist, load_ai_watchlist
@@ -839,3 +840,64 @@ def test_a_placeholder_arriving_after_its_twin_records_the_twin_once() -> None:
     # So was a twin an earlier placeholder already paired with.
     again = {**PLACEHOLDER, "id": 484417999}
     assert _concord([again], [PLACEHOLDER, MINUTE_ENTRY, again]) == []
+
+
+def test_the_update_lists_a_state_cases_hand_recorded_entries_dated_in_the_span(
+    tmp_path: Path,
+) -> None:
+    watchlist = AiWatchlist.model_validate(
+        {
+            "categories": {"government": "Suits over AI."},
+            "cases": [
+                {
+                    "name": "Doe v. Model Co.",
+                    "court": "cand",
+                    "docket_id": 101,
+                    "docket_number": "3:26-cv-00001",
+                    "category": "government",
+                    "why": "A federal case.",
+                    "developers": ["Model Co."],
+                    "added": "2026-10-30",
+                }
+            ],
+            "state_courts": {
+                "ca-super-sf": {
+                    "name": "Superior Court of California, County of San Francisco",
+                    "short": "S.F. Super. Ct.",
+                    "case_information": "https://court.example/case-information",
+                }
+            },
+            "state_cases": [
+                {
+                    "name": "Fund v. Model Co.",
+                    "court": "ca-super-sf",
+                    "case_number": "CGC-26-000001",
+                    "category": "government",
+                    "why": "An order sought against model development.",
+                    "developers": ["Model Co."],
+                    "added": "2026-11-01",
+                    "entries": [
+                        {"date": "2026-10-28", "kind": "complaint"},
+                        {"date": "2026-11-04", "kind": "motion", "motion": "dismiss"},
+                    ],
+                }
+            ],
+        }
+    )
+
+    update = build_ai_cases_update(tmp_path, date(2026, 11, 2), date(2026, 11, 8), watchlist)
+    text = render_ai_cases_update(update)
+
+    assert not update.empty and update.items == 1
+    assert tally(update) == "1 new filing"
+    assert "## State courts" in text
+    assert (
+        "- Nov 4: Motion to dismiss filed (S.F. Super. Ct. CGC-26-000001). "
+        + "[Court's case information page](https://court.example/case-information)"
+    ) in text
+    assert "Oct 28" not in text
+    assert "state court cases it follows by hand" in text
+    assert "Each item links to the record on CourtListener" not in text
+
+    quiet = build_ai_cases_update(tmp_path, date(2026, 11, 9), date(2026, 11, 15), watchlist)
+    assert quiet.empty and "## State courts" not in render_ai_cases_update(quiet)

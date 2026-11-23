@@ -116,7 +116,8 @@ unchanged digests. **Who** computes a scored number sits outside the digest for
 the same reason — and the rule covers the numerator as well as the baseline it
 is scored against: on the merits and interim stages the rate, the Brier, and
 the skill over them are all stamped from harness code rather than computed by
-the evaluator, and on **every** stage so is `correct` — the accuracy column's
+the evaluator (on the trial stage the Brier is stamped the same way and the
+rate and the skill are cleared, since the stage registers no rate), and on **every** stage so is `correct` — the accuracy column's
 per-cell bit, which needs no pooled baseline and so takes no cert exemption.
 The cert stage's own record changes author at a label rather than a digest:
 `HARNESS_CERT_ANCHOR_FROM` in `process_version.py` names `proc-v9`, so the
@@ -270,9 +271,10 @@ ledger walks) reads one population, the SCOTUS docket unless a caller names a
 prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
 enter a SCOTUS figure; the ops report's ledger census (`store.ledger_cell_counts`)
 keeps to the SCOTUS population too, so its funnel counts one population. The
-ops report's leakage digest is a diagnostic and reads every population. While
-no slice is switched on and every committed cell
-sits under `data/cases/scotus/`, the guard moves no figure.
+ops report's leakage digest and the tool-usage report (`fedcourts tool-usage`)
+are diagnostics and read every population. The
+`ai-watchlist` slice is switched on, and the guard is what keeps its cells,
+committed under their own courts' directories, out of every SCOTUS figure.
 
 **A prediction slice is its own process.** A slice runs its own moments and
 its own prompt text (the circuit's panel rules, the trial court's motion-level
@@ -280,9 +282,38 @@ outcomes), so its cells carry digests no SCOTUS cell carries, under a label of
 the slice's own that opens counting windows of its own. That is what keeps a
 slice from moving a SCOTUS figure: switching one on re-blesses no SCOTUS
 digest, and a SCOTUS window never holds a slice cell. Two slices never share a
-label, so they never pool either. No slice process is registered yet. The
-first is registered in the change that switches its slice on, with a dated
+label, so they never pool either. One slice process is registered, the
+`ai-watchlist` slice's under `ai-watchlist-v1`. A slice's first label is
+registered in the change that switches the slice on, with a dated
 freeze-record entry like any other label.
+
+The registry holds that separation row by row. A label row names its
+**population** (`population`, written only for a slice; a row without it is
+the SCOTUS docket's), and a label is named for it: `proc-vN` for the SCOTUS
+docket, `<slice>-vN` for a slice (`ai-watchlist-v1`). Each population's labels
+run in their own sequence and carry their own counting instant, so
+`FROZEN_SINCE` is the SCOTUS docket's last carried label's and a slice's label
+never moves it. A blessing and a window belong to the population of the label
+they name; a window closes only at a counting instant of its own population.
+A window sits under a label of the same population as the label blessing its
+digest, one predictor's windows are all one population's, and an evaluator
+digest's blessing labels are all one population's; the loader refuses a
+registry that breaks any of the three, since counting reads windows and a
+per-rubric reading is named by those labels. The loader also refuses a slice
+row that is not named for its slice, a row naming a
+population no code declares, and a SCOTUS row named like a slice's, since a
+slice row read as a SCOTUS one would move the SCOTUS counting instant.
+
+A cell is stamped with the current label of its actor's population
+(`process_version.label_for_actor`): `CURRENT_PROCESS_LABEL` for a SCOTUS
+actor, and for a slice's actor the last label row the registry holds for the
+slice, so a slice has no label constant that could drift from its
+registration, and a slice's cell cannot be stamped before a label is
+registered for it. The `*_FROM` thresholds in `process_version.py` each date a
+rule of the SCOTUS docket's process and read a slice's label as outside the
+sequence, so a slice's cells take none of them. The provenance block a board
+embeds (`frozen_process_record`) holds one population's rows and every
+pending harness boundary, the SCOTUS docket's by default, so registering a slice's label changes no SCOTUS board.
 
 ## The stamp is the harness's word, not the agent's
 
@@ -457,9 +488,9 @@ field or a walk through `data/`'s history.
 ## Three states: shakedown → not-yet-frozen → frozen
 
 `fedcourtsai.process_version` holds three constants. `FROZEN_PROCESS_DIGESTS`
-is the blessed map — the current label's digests, each carrying the instant it
-was blessed, the retroactivity record. `FROZEN_SINCE` is the current label's
-counting instant. `COUNTING_WINDOWS` is the counting rule itself: one
+is the blessed map — each population's current label's digests, each carrying
+the instant it was blessed, the retroactivity record. `FROZEN_SINCE` is the
+SCOTUS docket's current label's counting instant. `COUNTING_WINDOWS` is the counting rule itself: one
 **window** per blessing of a predictor digest, running from the counting
 instant of the label that blessed it until the counting instant of the
 successor that stops blessing it (`closes`, null while open), each instant as
@@ -597,7 +628,8 @@ are read from a run at the refresh commit the release pins. `semantic-summary` p
 A registration can be written before any merge has carried it. A **pending**
 instant has `at` and `merge` both null (`source: "merge"`), and a pending
 harness boundary has `merge` and `at` null. Only the label a PR is registering
-may carry pending rows: `CURRENT_PROCESS_LABEL`, as the last label row, with
+may carry pending rows: the last label row (`CURRENT_PROCESS_LABEL` where it
+is a SCOTUS row, a prediction slice's own label where it is a slice's), with
 its own new blessings, the windows it opens and the windows it closes. A
 still-pending label holds no stamped blessing of its own. A harness boundary
 may be pending with or without a label. `load_process_registry` refuses a
@@ -632,7 +664,20 @@ block's `pending`, so the board names the registrations it read as not yet in
 force.
 
 `fedcourts register-process --label <proc-vN>` writes a label's pending rows
-from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`. Where a
+from the live fleet's digests and sets `CURRENT_PROCESS_LABEL`. With
+`--population <slice> --label <slice>-vN` it registers a prediction slice's
+label instead: it reads that slice's enabled actors alone, writes rows under
+the slice's label, leaves every SCOTUS row and `CURRENT_PROCESS_LABEL` as they
+are, and refuses a digest another population's label already blesses. A
+SCOTUS registration likewise leaves a slice's rows untouched. A label
+registration of either kind waits behind any other still pending, so a
+promotion carries one label. A change that moves the digests of two
+populations at once (an engine's default model, a shared MCP pin) therefore
+has no single registration while a slice has enabled actors: Step 0 wants
+every enabled actor registered and one new label. The `ai-watchlist` slice
+has six enabled actors, so such a change cannot be registered as the rule stands: it
+waits for the rule to admit one new label for each population in a
+promotion. Where a
 predictor digest moved, the label's counting instant, its new windows and its
 closes are pending. Where only evaluator digests moved, the label holds its
 predecessor's counting instant (the evaluator-half supersession below), opens
@@ -652,6 +697,8 @@ refuses a batch whose registrations its merge could not stamp honestly:
   merge would stamp;
 - a pending digest that already stamps a committed cell on `main`;
 - an enabled actor whose digest at the head is not registered;
+- an enabled actor whose digest is registered under a label of another
+  population than the one it forecasts or grades;
 - a predictor with more than one open window (unrevoked, no close; a pending
   close counts as a close);
 - more than one label new to `main` (one label per promotion), or such a
@@ -836,8 +883,8 @@ direction or a false alarm in the other:
   fails the suite on either side.
   A digest carried forward byte-identical from an earlier label keeps that
   label's bless moment: those bytes have been immutable since then.
-- The **counting instant**, `FROZEN_SINCE`, is when the current label's
-  cells start counting — it opens every window the label newly blesses. The
+- The **counting instant**, `FROZEN_SINCE` for the SCOTUS docket, is when the
+  current label's cells start counting — it opens every window the label newly blesses. The
   carrying merge's writer stamps it at that merge's committer time, the same
   instant as the bless moments it stamps, so the span between the newly
   blessed digests' bless moment and the instant is empty. (The merge's clock

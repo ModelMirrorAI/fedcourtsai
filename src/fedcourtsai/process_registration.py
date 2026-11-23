@@ -8,6 +8,11 @@ them with its own SHA and committer time
 (:mod:`fedcourtsai.promotion_record`). A harness boundary is registered the
 same way, in the PR that makes the change.
 
+A label belongs to one prediction population, the SCOTUS docket or one slice,
+and a registration reads and writes that population's rows alone: its actors'
+digests, its blessings, its windows, its counting instant. Registering a
+slice's label therefore leaves every SCOTUS row as it was, and the reverse.
+
 These functions edit the registry document and nothing else; the commands in
 :mod:`fedcourtsai.cli` read the live digests and write the files.
 """
@@ -24,7 +29,8 @@ from .promotion_record import pending_registrations
 
 #: The line in ``process_version.py`` that names the label cells stamp.
 LABEL_LINE = re.compile(r'^CURRENT_PROCESS_LABEL = "([^"]+)"$', re.MULTILINE)
-_LABEL = re.compile(r"proc-v(\d+)")
+#: The SCOTUS docket's population key (``prediction_slices.SCOTUS_POPULATION_KEY``).
+SCOTUS = "scotus"
 _BOUNDARY_REACH = ("self-represented dockets", "granted dockets", "all", "replay cells")
 
 
@@ -39,46 +45,73 @@ class LiveActor:
     role: str
     actor_id: str
     digest: str
+    population: str = SCOTUS
 
 
 def _pending_instant() -> dict[str, Any]:
     return {"at": None, "merge": None, "source": "merge"}
 
 
-def _ordinal(label: str) -> int:
-    match = _LABEL.fullmatch(label)
+def _ordinal(label: str, population: str) -> int:
+    prefix = "proc" if population == SCOTUS else population
+    match = re.fullmatch(re.escape(prefix) + r"-v(\d+)", label)
     if match is None:
-        raise RegistrationError(f"a process label is proc-vN, not {label!r}")
+        raise RegistrationError(
+            f"a process label of population {population!r} is {prefix}-vN, not {label!r}"
+        )
     return int(match.group(1))
 
 
-def register_process(
-    registry: Mapping[str, Any], label: str, actors: Sequence[LiveActor]
-) -> dict[str, Any]:
-    """``registry`` with ``label`` registered, pending, over the live fleet's digests.
+def _population_of(row: Mapping[str, Any]) -> str:
+    return str(row.get("population", SCOTUS))
 
-    - ``blessings`` becomes the live fleet: a digest already blessed is carried
-      forward with its bless moment and first label; a new one is pending
-      under ``label``;
+
+def register_process(
+    registry: Mapping[str, Any],
+    label: str,
+    actors: Sequence[LiveActor],
+    population: str = SCOTUS,
+) -> dict[str, Any]:
+    """``registry`` with ``label`` registered, pending, over ``population``'s live fleet.
+
+    ``actors`` is every enabled actor; the registration reads those of
+    ``population`` and, of the registry, the rows under that population's
+    labels. Every other population's rows pass through untouched.
+
+    - the population's ``blessings`` become its live fleet: a digest already
+      blessed is carried forward with its bless moment and first label; a new
+      one is pending under ``label``;
     - where the **predictor** digests moved (one changed, appeared or left),
       the label gets a pending counting instant as the last label row; each
       predictor digest newly blessed opens a pending window, and each open
       window whose digest no live predictor computes closes pending;
     - where only **evaluator** digests moved, the label holds its
-      predecessor's counting instant (its ``since`` is a copy of the last
-      label's) and opens and closes no window, since an evaluator digest
-      records and never partitions;
-    - each live evaluator digest gains ``label`` in ``evaluate_blessing_labels``.
+      predecessor's counting instant (its ``since`` is a copy of the
+      population's last label's) and opens and closes no window, since an
+      evaluator digest records and never partitions;
+    - each of the population's live evaluator digests gains ``label`` in
+      ``evaluate_blessing_labels``.
 
     Refuses a registry whose freeze record has not declared merge-stamped
-    instants (``merge_stamping_declared``), a label that does not follow the
-    last one, a label registration already waiting for its merge, and a fleet
-    whose digests have not moved.
+    instants (``merge_stamping_declared``), a label that is not named for the
+    population or does not follow its last one, a label registration already
+    waiting for its merge, a fleet whose digests have not moved, a digest
+    another population's label already blesses, and a population's first label
+    with no enabled predictor, since nothing would open its counting window.
     """
     document: dict[str, Any] = copy.deepcopy(dict(registry))
     _refuse_undeclared(document, "label")
-    _refuse_label(document, label)
-    carried = {blessing["digest"]: blessing for blessing in document["blessings"]}
+    own_labels = [row for row in document["labels"] if _population_of(row) == population]
+    _refuse_label(document, label, population, own_labels)
+    named = {row["label"] for row in own_labels}
+    actors = [actor for actor in actors if actor.population == population]
+    others = [blessing for blessing in document["blessings"] if blessing["label"] not in named]
+    _refuse_shared_digest(actors, others)
+    carried = {
+        blessing["digest"]: blessing
+        for blessing in document["blessings"]
+        if blessing["label"] in named
+    }
     blessings: list[dict[str, Any]] = []
     for actor in actors:
         if actor.digest in carried:
@@ -101,18 +134,39 @@ def register_process(
         blessing["digest"] for blessing in carried.values() if blessing["role"] == "predictor"
     }
     if live_predictors != blessed_predictors:
-        _move_windows(document, label, moved, live_predictors)
+        _move_windows(document, label, moved, live_predictors, named)
         since = _pending_instant()
+    elif own_labels:
+        since = dict(own_labels[-1]["since"])
     else:
-        since = dict(document["labels"][-1]["since"])
+        raise RegistrationError(
+            f"population {population!r} has no enabled predictor: its first label opens "
+            "a counting window"
+        )
     for actor in actors:
         if actor.role == "evaluator":
-            named = document["evaluate_blessing_labels"].setdefault(actor.digest, [])
-            if label not in named:
-                named.append(label)
-    document["labels"].append({"label": label, "since": since})
-    document["blessings"] = blessings
+            blessed_by = document["evaluate_blessing_labels"].setdefault(actor.digest, [])
+            if label not in blessed_by:
+                blessed_by.append(label)
+    row: dict[str, Any] = {"label": label, "since": since}
+    if population != SCOTUS:
+        row["population"] = population
+    document["labels"].append(row)
+    scotus_first = population == SCOTUS
+    document["blessings"] = blessings + others if scotus_first else others + blessings
     return document
+
+
+def _refuse_shared_digest(actors: Sequence[LiveActor], others: Sequence[Mapping[str, Any]]) -> None:
+    """Refuse a live digest that another population's label already blesses."""
+    foreign = {blessing["digest"]: blessing["label"] for blessing in others}
+    for actor in actors:
+        if actor.digest in foreign:
+            raise RegistrationError(
+                f"{actor.role} {actor.actor_id} computes {actor.digest}, which "
+                f"{foreign[actor.digest]} blesses for another population: two populations "
+                "never share a process"
+            )
 
 
 def _refuse_undeclared(document: Mapping[str, Any], what: str) -> None:
@@ -125,18 +179,23 @@ def _refuse_undeclared(document: Mapping[str, Any], what: str) -> None:
         )
 
 
-def _refuse_label(document: Mapping[str, Any], label: str) -> None:
-    """Refuse a label already registered, not after the last, or behind a pending one.
+def _refuse_label(
+    document: Mapping[str, Any],
+    label: str,
+    population: str,
+    own_labels: Sequence[Mapping[str, Any]],
+) -> None:
+    """Refuse a label already registered, not after its population's last, or behind a pending one.
 
-    Only a pending label, blessing or window blocks a new label; a pending
-    harness boundary is independent of labels and rides along.
+    Only a pending label, blessing or window blocks a new label, whichever
+    population's it is: one label per promotion. A pending harness boundary is
+    independent of labels and rides along.
     """
-    labels = document["labels"]
-    ordinal = _ordinal(label)
-    if any(entry["label"] == label for entry in labels):
+    ordinal = _ordinal(label, population)
+    if any(entry["label"] == label for entry in document["labels"]):
         raise RegistrationError(f"{label} is already registered")
-    if labels and ordinal <= _ordinal(labels[-1]["label"]):
-        raise RegistrationError(f"{label} does not follow {labels[-1]['label']}")
+    if own_labels and ordinal <= _ordinal(own_labels[-1]["label"], population):
+        raise RegistrationError(f"{label} does not follow {own_labels[-1]['label']}")
     if any(stamp.kind != "boundary" for stamp in pending_registrations(document)):
         raise RegistrationError("a label registration is already waiting for its merge")
 
@@ -146,11 +205,17 @@ def _move_windows(
     label: str,
     moved: Sequence[Mapping[str, Any]],
     live_predictors: set[str],
+    own_labels: set[str],
 ) -> None:
-    """Close, pending, each open window no live predictor computes; open one per new digest."""
+    """Close, pending, each of the population's open windows no live predictor computes.
+
+    Then open one per newly blessed digest. ``own_labels`` names the
+    population's labels, so another population's window is never closed.
+    """
     for window in document["windows"]:
         if (
-            window["closes"] is None
+            window["label"] in own_labels
+            and window["closes"] is None
             and window["revoked_at"] is None
             and window["digest"] not in live_predictors
         ):

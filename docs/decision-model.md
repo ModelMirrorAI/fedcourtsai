@@ -655,7 +655,8 @@ no band judgment, while `judgment_correct` remains the evaluator's field to
 write — no published figure ranks on it. Beside `correct` the harness also
 stamps `claim_scores`, the base-rate basis record, and, on a merits or interim
 cell, the whole skill record of `brier_score` / `segment_base_rate` /
-`brier_skill_score`.
+`brier_skill_score`; a trial cell's record is stamped too, as a Brier with
+the rate and the skill null.
 This keeps the third constraint trivially satisfied: the design's one scored
 rule is the Brier score on one submitted probability, proper over its whole
 domain, with no consistency term between submitted numbers anywhere (the

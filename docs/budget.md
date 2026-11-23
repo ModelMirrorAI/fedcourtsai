@@ -253,10 +253,13 @@ Which cases reach those moments is the salience gate's choice
 ([salience.md](salience.md)): up to 12 petitions of a regular conference's
 cohort and 24 of the long conference's, less the interim reserve's slots in
 use, a 1-in-20 sample of paid petitions at
-arrival, and a reserve of five interim applications at a time. Not forecast: the AI-case watchlist's
-district-court and appeal moments and a listed case's Supreme Court events
-outside the gate, which are designed and not registered
-([trial-stage.md](trial-stage.md), [appeal-stage.md](appeal-stage.md)), and the late-Term authorship re-forecast
+arrival, and a reserve of five interim applications at a time. The AI-case
+watchlist's five district-court moments are forecast beside them, by the
+slice's own three predictors and three judges, from the moments' switch-on
+day ([trial-stage.md](trial-stage.md)); this scenario's figures do not cost
+them. Not forecast: the watchlist's appeal moments and a listed case's
+Supreme Court events outside the gate, which are designed and not registered
+([appeal-stage.md](appeal-stage.md)), and the late-Term authorship re-forecast
 ([milestones.md](milestones.md)).
 
 **How many events.** The ledger on `main` (at `d7840ec19`, 2026-11-11) holds

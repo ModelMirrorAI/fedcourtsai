@@ -820,8 +820,9 @@ def test_every_leg_reads_the_one_settled_case() -> None:
     assert "inputs.court" not in scenario
     assert "inputs.docket" not in scenario
     # Four consuming legs, five steps: ranged-reads, corpus-service, the
-    # cascade's provisioning guard and its cell, and engine-smoke.
-    assert scenario.count("${{ needs.plan.outputs.court }}") == 5
+    # cascade's provisioning guard and its cell, and engine-smoke. The engine
+    # smoke reads the court once more, in the step that names its predictor.
+    assert scenario.count("${{ needs.plan.outputs.court }}") == 6
     assert scenario.count("${{ needs.plan.outputs.docket }}") == 5
     # Every read passes through the environment, never into a shell.
     for step in workflow["jobs"]["scenario"]["steps"]:

@@ -2593,6 +2593,16 @@ _INDEX_TAIL_RE = re.compile(r"[.\u2026]\s*[a-z.\s-]{0,12}\d{1,4}\s*[a-z]{0,2}\s*
 # A line that is only a page number — an appendix folio, or an arabic or roman
 # one — and so says nothing about which item the page belongs to.
 _FOLIO_LINE_RE = re.compile(rf"{_FOLIO_TOKEN}|\d{{1,4}}|[ivxlc]{{1,7}}", re.IGNORECASE)
+# A front-matter page number as printed: a lower-case roman numeral up to
+# ninety-nine, on a line of its own. A filing numbers its tables in roman
+# numerals and its appendix in lettered folios ("1a"), so a page that prints
+# one and no lettered folio is the brief's own front matter, or an index page
+# inside the appendix, and never the appendix's first page of text. Only the
+# appendix start reads it; the item readings inside the appendix do not.
+_FRONT_MATTER_FOLIO_RE = re.compile(r"(?=[ivxl])(?:x[cl]|l?x{0,3})(?:i[xv]|v?i{0,3})")
+# How many of a page's first non-blank lines are read for that number; its last
+# one is read too, for a printer that sets the number at the foot.
+_FOLIO_TOP_LINES = 2
 # A court decision, read off an item's title: an opinion, an order, a judgment
 # and their kin, or a court's own caption — and not a party's paper that names
 # one ("Motion to vacate the order", "First Amended Complaint, United States
@@ -2680,20 +2690,40 @@ def _is_contents_page(page: str) -> bool:
     return False
 
 
+def _is_front_matter_page(page: str) -> bool:
+    """Whether a page prints a front-matter page number (:data:`_FRONT_MATTER_FOLIO_RE`).
+
+    Read off the page's first :data:`_FOLIO_TOP_LINES` non-blank lines and its
+    last one, where a printer sets the number. A page that also prints a
+    lettered appendix folio (:func:`_page_folios`) is an appendix page whatever
+    else it carries, so a stray "i" or "v" at its foot does not make it front
+    matter.
+    """
+    lines = [line for raw in page.splitlines() if (line := " ".join(raw.split()))]
+    lines = [line for line in lines if _UNREAD_NOTE_RE.fullmatch(line) is None]
+    printed = [*lines[:_FOLIO_TOP_LINES], *lines[-1:]]
+    if not any(_FRONT_MATTER_FOLIO_RE.fullmatch(line) for line in printed):
+        return False
+    return not _page_folios(page)
+
+
 def _appendix_start(pages: Sequence[str]) -> int | None:
     """The index of the page a bound appendix starts on, or ``None`` where none is read.
 
     The first page from the fourth on whose top lines carry an appendix opening
     (:data:`_APPENDIX_START_LINE_RE`) or an item heading
-    (:data:`_APPENDIX_ITEM_LINE_RE`), set as a heading — and which is not itself
-    a contents page: the filing's own table of contents lists the appendix items
-    under the same headings, and a start read there would hand the whole brief
-    to the appendix's budget. A filing where none is read is cut as one body,
-    which is the plain head cut with its note.
+    (:data:`_APPENDIX_ITEM_LINE_RE`), set as a heading — and which is neither a
+    contents page nor a front-matter page (:func:`_is_front_matter_page`): the
+    filing's own table of contents and its table of appendices list the
+    appendix items under the same headings, and a start read there would hand
+    the whole brief to the appendix's budget. The contents test alone misses a
+    table's last page that carries a single entry, and a table set without
+    leaders; both print the front matter's roman page number. A filing where
+    none is read is cut as one body, which is the plain head cut with its note.
     """
     for index in range(_APPENDIX_MIN_BODY_PAGES, len(pages)):
         page = pages[index]
-        if _is_contents_page(page):
+        if _is_contents_page(page) or _is_front_matter_page(page):
             continue
         for line in _top_lines(page):
             if _is_heading(line) and (
@@ -3460,7 +3490,14 @@ _OHIO_REPORTER = (
 
 # A "City, State ZIP" line, the whole of its line: up to four city words, an
 # optional comma, the state as a two-letter code, as initials (`D.C.`) or
-# spelled out by name, and a five-digit ZIP with an optional `+4`.
+# spelled out by name, and a five-digit ZIP with an optional `+4`. The line is
+# read as a scan and a filer's own typing leave it: one or two marks before
+# the city (a bullet, a speck), a comma, a dot or both between the state and
+# the ZIP code, a `+4` whose hyphen has a blank on either side of it or is
+# read as an apostrophe, an asterisk or a dot, and up to three marks that are
+# neither letters nor digits after the ZIP code, each behind any blanks (a
+# speck read as `?` or `.`). A word or a number after it is another line's
+# shape.
 # On its own the line is left alone, since the Court's own address line is set
 # the same way; it is withheld only as the line directly below a line ending on
 # a withheld street address or box (`_city_line_spans`), and it is what makes a
@@ -3475,13 +3512,16 @@ _STATE_NAMES = (
     "Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|"
     "Washington|West Virginia|Wisconsin|Wyoming"
 )
+_ZIP_CODE = r"\d{5}(?:[ \t]?[-'\u2019*.][ \t]?\d{4})?"
+_CITY_LINE_TAIL = r"(?:[ \t]*+(?:[^\w\s]|_)){0,3}+[ \t]*+\r?$"
 # Every blank run is possessive, so a line of blanks that is not a city line
 # fails in one pass rather than retrying each way of splitting the run.
 _CITY_LINE = (
-    r"[ \t]*+[A-Z][A-Za-z'\u2019.-]{0,30}+(?:[ \t]++[A-Za-z][A-Za-z'\u2019.-]{0,30}+){0,3}"
+    r"[ \t]*+(?:(?:[^\w\s]|_)[ \t]*+){0,2}+"
+    r"[A-Z][A-Za-z'\u2019.-]{0,30}+(?:[ \t]++[A-Za-z][A-Za-z'\u2019.-]{0,30}+){0,3}"
     r"[ \t]*+,?[ \t]*+"
-    rf"(?:[A-Z]{{2}}|[A-Z]\.[ \t]?[A-Z]\.|(?i:{_STATE_NAMES.replace(' ', r'[ \t]+')}))\.?"
-    r"[ \t]++\d{5}(?:-\d{4})?[ \t]*+\r?$"
+    rf"(?:[A-Z]{{2}}|[A-Z]\.[ \t]?[A-Z]\.|(?i:{_STATE_NAMES.replace(' ', r'[ \t]+')}))[.,]{{0,2}}+"
+    rf"[ \t]++{_ZIP_CODE}{_CITY_LINE_TAIL}"
 )
 _CITY_LINE_RE = re.compile(rf"^{_CITY_LINE}", re.MULTILINE)
 
@@ -3796,7 +3836,8 @@ class ScrubbedText:
 # opening of the document — the cover page, where a self-represented filer's
 # caption sets their address and telephone number — or on its closing, where
 # the signature block and a bundled proof of service sit, that is telephone-,
-# street-, box- or email-shaped under a wider reading. Nothing it finds is
+# street-, box- or email-shaped under a wider reading, or a postal-code line
+# the scrub's city-line shape left below a withheld line. Nothing it finds is
 # withheld (the looser shapes would cost legal text the scrub keeps); a document
 # with a residual is recorded as **not** contact-scrubbed. A clean reading is a
 # claim about those two stretches alone, and only where the shape pass ran: the
@@ -3813,8 +3854,11 @@ class ScrubbedText:
 # citation such as "… v. Lane" or "Fla. St." takes the same shape, and without
 # the abbreviation `Cir`, which is a circuit), and one ending on `Dr`, `Ct` or
 # `Pl` with a "City, State ZIP" line directly below it, which is the only
-# reading of a city line it counts, since the Court's own address line is set
-# that way on its own;
+# reading of a city line on its own that it counts, since the Court's own
+# address line is set that way; a state and a ZIP code on a line directly
+# below a withheld line that the scrub's city-line shape does not read (a word
+# after the ZIP code, a city in lower case), which below a withheld street or
+# box is a mailing block's second line the scrub took the first of;
 # `box` and a number in any case; and an `@` with two letters or digits on
 # one side of it and two letters on the other, a blank allowed on one side
 # only (OCR noise sets a lone `@` between single characters), or opening a
@@ -3851,6 +3895,33 @@ _RESIDUAL_SHORT_SUFFIX_STREET_RE = re.compile(
     rf"{_CITY_LINE}",
     re.MULTILINE,
 )
+# A postal-code line the scrub left directly below a line ending on a withheld
+# detail (punctuation or a compass quadrant may follow it), or below a unit
+# line under one: a state, then a ZIP code as the city line reads it, anywhere
+# on a line of bounded length, whatever else the scan set before or after it.
+# The state is one of the postal codes, initials, or a name; any two capitals
+# would count a reporter (`42 US 12345`). A line the scrub's own city-line
+# shape reads is not counted: one of those survives chiefly below a withheld
+# telephone number or email, where the scrub leaves it on purpose. The
+# placeholder does not say which detail it stands for, so the line below a
+# withheld telephone number or email is read too.
+_STATE_CODES = (
+    "AL|AK|AZ|AR|CA|CO|CT|DE|DC|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|"
+    "NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|PR|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY"
+)
+_RESIDUAL_STATE = (
+    rf"(?:(?<![A-Za-z])(?:{_STATE_CODES})|[A-Z]\.[ \t]?[A-Z]\."
+    rf"|(?<![A-Za-z])(?i:{_STATE_NAMES.replace(' ', r'[ \t]+')}))"
+)
+_RESIDUAL_CITY_LINE_RE = re.compile(
+    rf"{re.escape(CONTACT_PLACEHOLDER)}"
+    r"[ \t.,]*+(?:(?:[NS]\.?[ \t]?[EW]\.?|[NSEW]\.?)(?![\w])[ \t.,]*+)?\r?\n"
+    rf"(?:{_UNIT_LINE}\r?\n)?"
+    rf"(?!{_CITY_LINE})"
+    rf"[^\n]{{0,80}}?{_RESIDUAL_STATE}[.,]{{0,2}}+[ \t]++"
+    rf"{_ZIP_CODE}(?![\w-])[^\n]{{0,40}}+$",
+    re.MULTILINE,
+)
 _RESIDUAL_BOX_RE = re.compile(r"\bbox[ \t]*#?[ \t]*\d+", re.IGNORECASE)
 _RESIDUAL_EMAIL_RE = re.compile(
     r"[A-Za-z0-9]{2}[ \t]?@[A-Za-z]{2}|[A-Za-z0-9]{2}@[ \t]?[A-Za-z]{2}"
@@ -3861,6 +3932,7 @@ RESIDUAL_SHAPES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("phone", _RESIDUAL_PHONE_RE),
     ("street", _RESIDUAL_STREET_RE),
     ("street", _RESIDUAL_SHORT_SUFFIX_STREET_RE),
+    ("city-line", _RESIDUAL_CITY_LINE_RE),
     ("box", _RESIDUAL_BOX_RE),
     ("email", _RESIDUAL_EMAIL_RE),
 )
@@ -3910,7 +3982,7 @@ def contact_residual_matches(text: str) -> list[tuple[str, re.Match[str]]]:
 
 
 def contact_residuals(text: str) -> int:
-    """How many residual-shaped matches the opening of ``text`` holds."""
+    """How many residual-shaped matches the opening and closing of ``text`` hold."""
     return len(contact_residual_matches(text))
 
 
@@ -4036,6 +4108,10 @@ def scrub_contact_details(
     than a street type; a city/state/ZIP line under anything but a withheld
     street address or box, which is left alone because the two-letter state
     and five-digit ZIP shape is also how the Court's own address line is set;
+    a city line below a withheld one with a word after its ZIP code or its
+    city in lower case, which the residual detector counts, and one whose
+    state code is in lower case or whose `+4` is set off by a blank alone,
+    which it does not;
     and an incarcerated filer's register number beside an institution name,
     which has no shape at all. The value-keyed pass
     closes the first two for the values the docket serves, and only those: a

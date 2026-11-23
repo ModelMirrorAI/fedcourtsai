@@ -21,6 +21,7 @@ from fedcourtsai.pipeline import document_recut
 from fedcourtsai.pipeline.document_recut import (
     LEFT_THE_CLASS,
     SCOPE_ALL_LIVE,
+    SCOPE_NAMED,
     SCOPE_PREDICT_RELEVANT,
     UNCHANGED,
     DocumentRecutResult,
@@ -44,6 +45,7 @@ from tests.test_document_recut import (
     _patch_client,
     _seed,
     _small_cap,
+    _stale_cut,
 )
 from tests.test_documents import _pdf_pages
 from tests.test_ocr_recovery import _client, _documents
@@ -445,3 +447,94 @@ def test_a_plan_file_round_trips(tmp_path: Path) -> None:
     write_handoff(path, plan)
     assert read_handoff(path, RecutPlan) == plan
     assert read_handoff(tmp_path / "plan.json", RecutPlan).rows[0].key == "scotus/1 petition"
+
+
+def test_the_split_recuts_named_cases_as_the_pass_in_one_job(tmp_path: Path) -> None:
+    pdf = _pdf_pages(_pages())
+    results = []
+    for name in ("one", "split"):
+        stale = _stale_cut("scotus/1", pdf)
+        db = _seed(tmp_path / name, [stale, _stale_cut("scotus/2", pdf)])
+        served = {stale.url: pdf}
+        if name == "one":
+            with corpus.connect(db) as conn, _client(served) as client:
+                result = recut_documents(
+                    conn,
+                    client=client,
+                    apply=True,
+                    char_cap=_CAP,
+                    today=_TODAY,
+                    max_cases=3,
+                    scope=SCOPE_NAMED,
+                    cases=["scotus/1"],
+                )
+        else:
+            with corpus.connect(db) as conn:
+                worklist, reading = recut_worklist(
+                    conn, scope=SCOPE_NAMED, bound=3, cases=["scotus/1"]
+                )
+            assert worklist.cases == ["scotus/1"] and reading.cases == ["scotus/1"]
+            assert [item.key for item in worklist.items] == ["scotus/1 petition"]
+            with _client(served) as client:
+                plan = plan_recut_worklist(client, worklist, char_cap=_CAP)
+            with corpus.connect(db) as conn:
+                result = apply_recut_plan(
+                    conn, plan, worklist, char_cap=_CAP, today=_TODAY, apply=True
+                )
+        assert result.recut == 1 and result.remaining == 1
+        assert _documents(db, "scotus/2")[KIND_PETITION].text.endswith("text cap]")
+        results.append(result.model_dump())
+    assert results[0] == results[1]
+
+
+def test_a_worklist_holds_cases_only_under_the_named_scope() -> None:
+    item = {
+        "case_id": "scotus/1",
+        "kind": KIND_PETITION,
+        "url": "https://www.supremecourt.gov/1-petition.pdf",
+        "pages": 7,
+    }
+    RecutWorklist.model_validate({"scope": "named", "cases": ["scotus/1"], "items": [item]})
+    for bad in (
+        {"scope": "named", "items": [item]},
+        {"scope": "all-live", "cases": ["scotus/1"], "items": [item]},
+        {"scope": "named", "cases": ["scotus/2"], "items": [item]},
+    ):
+        with pytest.raises(ValueError, match="case"):
+            RecutWorklist.model_validate(bad)
+
+
+def test_the_cli_reader_takes_its_named_cases_from_the_worklist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pdf = _pdf_pages(_pages())
+    stale = _stale_cut("scotus/1", pdf)
+    db = _seed(tmp_path / "corpus", [stale, _stale_cut("scotus/2", pdf)])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _small_cap(monkeypatch)
+    _small_split_cap(monkeypatch)
+    worklist = tmp_path / "handoff" / "projection.json"
+    plan = tmp_path / "handoff" / "plan.json"
+    _patch_client(monkeypatch, {stale.url: pdf})
+    emit = ["recut-documents", "--emit-worklist", str(worklist)]
+    emitted = runner.invoke(
+        app,
+        [*emit, "--case", "scotus/1", "--max-cases", "2"],
+    )
+    assert emitted.exit_code == 0, emitted.output
+    assert "recut-documents (projection, named): 1 named filing(s)" in emitted.output
+    parsed = runner.invoke(
+        app, ["recut-documents", "--worklist", str(worklist), "--plan-out", str(plan)]
+    )
+    assert parsed.exit_code == 0, parsed.output
+    reader = ["recut-documents", "--from-plan", str(plan), "--bind-worklist", str(worklist)]
+    named = runner.invoke(app, [*reader, "--max-cases", "2", "--case", "scotus/1"])
+    assert named.exit_code == 2 and "no --case" in named.output
+    applied = runner.invoke(app, [*reader, "--max-cases", "2", "--apply"])
+    assert applied.exit_code == 0, applied.output
+    ledger = _last_json(applied.output)
+    assert ledger["recut"] == 1 and ledger["cases"] == ["scotus/1"]
+    # The witness the workflow runs: the named class re-walked, nothing fetched.
+    witness = runner.invoke(app, ["recut-documents", "--case", "scotus/1", "--max-cases", "0"])
+    assert _last_json(witness.output)["candidates"] == ledger["remaining"]
+    assert _documents(db, "scotus/1")[KIND_PETITION].text != stale.text

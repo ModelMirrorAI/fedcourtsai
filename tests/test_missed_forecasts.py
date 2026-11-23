@@ -26,7 +26,8 @@ from fedcourtsai.pipeline.missed import (
     had_a_scheduled_round,
     scan_predictionless_resolutions,
 )
-from fedcourtsai.registry import enabled_predictors
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import predictors_for
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import write_json
 from tests.conftest import seed_prediction
@@ -129,7 +130,7 @@ _ENABLING_DOCKET = 999_999
 
 
 def _enable_all(data_root: Path, *, run_id: str = "20260101T000000Z") -> None:
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(
             data_root,
             "scotus",
@@ -166,7 +167,9 @@ def test_a_selected_in_scope_event_resolved_unforecast_is_missed(tmp_path: Path)
     (event,) = report.missed
     assert event.detail == "no committed prediction"
     assert not event.partial
-    assert event.missing_predictors == tuple(p.id for p in enabled_predictors(PREDICTORS))
+    assert event.missing_predictors == tuple(
+        p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
+    )
 
 
 def test_an_unselected_event_is_declined_as_not_funded(tmp_path: Path) -> None:
@@ -225,7 +228,7 @@ def test_a_partial_gap_names_the_missing_predictor(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _resolved_case(db, data, 1)
-    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    predictors = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     for pid in predictors[1:]:
         seed_prediction(data, "scotus", 1, CERT_EVENT, predictor_id=pid, frozen=True)
 
@@ -245,7 +248,7 @@ def test_a_partial_gap_is_not_excused_by_the_round_rule(tmp_path: Path) -> None:
     data = tmp_path / "data"
     _resolved_case(db, data, 1, opened_at=RESOLVED - timedelta(days=1))
     _resolved_case(db, data, 2, opened_at=RESOLVED - timedelta(days=1))
-    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    predictors = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     for pid in predictors[1:]:
         seed_prediction(data, "scotus", 1, CERT_EVENT, predictor_id=pid, frozen=True)
 
@@ -259,7 +262,7 @@ def test_a_fully_covered_or_out_of_window_event_is_not_listed(tmp_path: Path) ->
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
     _resolved_case(db, data, 1)
-    for predictor in enabled_predictors(PREDICTORS):
+    for predictor in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY):
         seed_prediction(data, "scotus", 1, CERT_EVENT, predictor_id=predictor.id)
     _resolved_case(db, data, 2, opened_at=date(2026, 6, 1), resolved_at=date(2026, 6, 20))
 
@@ -766,7 +769,7 @@ def test_a_predictor_enabled_after_the_resolution_is_not_owed_it(tmp_path: Path)
     a predictor is owed an event only if it had forecast something by then."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
-    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    predictors = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     # Two events: one every engine covered except a newcomer, one nobody covered.
     _resolved_case(db, data, 1)
     _resolved_case(db, data, 2)
@@ -992,7 +995,7 @@ def test_an_engine_that_never_produced_a_prediction_is_owed_not_excused(
     owed: its gaps are misses, named with a reason of their own."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
-    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    predictors = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     failing = predictors[0]
     _resolved_case(db, data, 1)
     _drop_enabling_prediction(data, failing)
@@ -1014,7 +1017,7 @@ def test_a_recorded_failure_on_the_event_makes_a_late_predictor_owed(tmp_path: P
     running while the event was open."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     data = tmp_path / "data"
-    predictors = [p.id for p in enabled_predictors(PREDICTORS)]
+    predictors = [p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)]
     late = predictors[0]
     _resolved_case(db, data, 1)
     _drop_enabling_prediction(data, late)

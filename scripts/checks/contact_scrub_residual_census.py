@@ -103,6 +103,7 @@ class _Tally:
         self.cases: dict[str, set[str]] = {}
         self.shapes: dict[str, Counter[str]] = {}
         self.kinds: dict[str, Counter[str]] = {}
+        self.sole: dict[str, Counter[str]] = {}
 
     def add(self, case_id: str, kind: str, regions: dict[str, set[str]]) -> None:
         for region, shapes in regions.items():
@@ -112,6 +113,8 @@ class _Tally:
             self.cases.setdefault(region, set()).add(case_id)
             self.shapes.setdefault(region, Counter()).update(shapes)
             self.kinds.setdefault(region, Counter())[kind] += 1
+            if len(shapes) == 1:
+                self.sole.setdefault(region, Counter()).update(shapes)
 
     def lines(self, label: str, of: int) -> list[str]:
         out = []
@@ -119,7 +122,8 @@ class _Tally:
             out.append(
                 f"- {label}, {region}: {self.docs[region]} of {of} documents on "
                 f"{len(self.cases.get(region, ()))} cases; by shape "
-                f"{dict(sorted(self.shapes.get(region, Counter()).items()))}; by kind "
+                f"{dict(sorted(self.shapes.get(region, Counter()).items()))}; on one shape "
+                f"alone {dict(sorted(self.sole.get(region, Counter()).items()))}; by kind "
                 f"{dict(sorted(self.kinds.get(region, Counter()).items()))}"
             )
         return out

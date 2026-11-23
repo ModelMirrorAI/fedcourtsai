@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import cli, corpus, planning_rates
@@ -19,7 +20,8 @@ from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
-from fedcourtsai.registry import enabled_evaluators
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import evaluators_for
 from fedcourtsai.review_hold import MeasuredSpend, ReviewHoldConfig
 from fedcourtsai.review_hold import decide as decide_hold
 from fedcourtsai.schemas import Disposition, Engine, EventKind, ModelUsage, Stage, UsageRole
@@ -121,7 +123,9 @@ def _env(
 
     ``slices`` writes ``predict.slices`` (left out, the key is absent, as in a
     config that predates it) beside :data:`_SLICE_WATCHLIST`, the hermetic
-    watchlist the ``ai-watchlist`` slice reads.
+    watchlist the ``ai-watchlist`` slice reads, and gives each named slice a
+    roster of one actor, ``<slice>-actor``, in place of the committed slice
+    actors; the Court's roster is the committed one either way.
     """
     config_root = tmp_path / "config"
     config_root.mkdir(exist_ok=True)
@@ -133,6 +137,22 @@ def _env(
     if slices is not None:
         tracking += f"  slices: [{', '.join(slices)}]\n"
         (config_root / "ai-watchlist.yaml").write_text(_SLICE_WATCHLIST)
+        # A slice's dockets go to the slice's own actors, so each enabled slice
+        # gets exactly one: the Court's actors are kept, the committed slice
+        # actors are left out, and the registry's first entry stands in again
+        # under the slice's name.
+        for name, section in (("predictors.yaml", "predictors"), ("evaluators.yaml", "evaluators")):
+            registry = yaml.safe_load((config_root / name).read_text())
+            registry[section] = [
+                actor
+                for actor in registry[section]
+                if actor.get("population", SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+            ]
+            registry[section] += [
+                dict(registry[section][0], id=f"{slice_id}-actor", population=slice_id)
+                for slice_id in slices
+            ]
+            (config_root / name).write_text(yaml.safe_dump(registry))
     if spend_ceiling_usd is not None:
         tracking += f"spend:\n  ceiling_usd: {spend_ceiling_usd}\n"
     (config_root / "tracking.yaml").write_text(tracking)
@@ -3115,7 +3135,10 @@ def test_evaluate_matrix_with_no_body_file_derives_its_cases_from_the_backlog(
     # from the cells would let an evaluator silently vanishing from every cell
     # shrink both sides together and still pass.
     judges = {
-        e.id for e in enabled_evaluators(Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML)
+        e.id
+        for e in evaluators_for(
+            Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML, SCOTUS_POPULATION_KEY
+        )
     }
     assert minted == {(d, j) for d in (24001, 24002) for j in judges}
 
@@ -3280,7 +3303,9 @@ def test_force_is_refused_with_the_backlog(tmp_path: Path) -> None:
     nothing — so it is refused instead."""
     env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
     _resolve(env, "scotus/24001")
-    for evaluator in enabled_evaluators(Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML):
+    for evaluator in evaluators_for(
+        Path(env["FEDCOURTS_CONFIG_ROOT"]) / EVALUATORS_YAML, SCOTUS_POPULATION_KEY
+    ):
         seed_evaluation(tmp_path / "data", "scotus", 24001, EVENT, evaluator_id=evaluator.id)
 
     result = runner.invoke(app, ["evaluate-matrix", "--run-id", "RID", "--force"], env=env)
@@ -3760,6 +3785,39 @@ def test_evaluate_matrix_grades_an_enabled_slices_dockets_only(tmp_path: Path) -
         ("cand", 101),
         ("ca9", 202),
     }
+
+
+def test_a_scheduled_round_queues_a_slice_dockets_open_motion_with_no_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _store_trial_event(tmp_path)
+    _switch_trial_moments_on(monkeypatch)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        # Read today: a docket the refresh has not read inside the bound is held.
+        conn.execute(
+            "UPDATE cases SET last_pulled = ? WHERE case_id = 'cand/101'",
+            (date.today().isoformat(),),
+        )
+        conn.commit()
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+    assert result.exit_code == 0, result.output
+    assert "Slice backlog: 1 docket(s) with 1 event(s) owed a forecast." in result.stderr
+    slice_cells = [c for c in _cells(result.stdout) if c["court"] != "scotus"]
+    assert {(c["court"], c["docket"], c["event_id"], c["predictor_id"]) for c in slice_cells} == {
+        ("cand", 101, _TRIAL_EVENT, "ai-watchlist-actor")
+    }
+
+
+def test_a_scheduled_round_queues_no_slice_docket_while_the_moments_are_off(
+    tmp_path: Path,
+) -> None:
+    env = _slice_env(tmp_path, slices=("ai-watchlist",))
+    _store_trial_event(tmp_path)
+    result = runner.invoke(app, ["predict-matrix", "--run-id", "RID"], env=env)
+    assert result.exit_code == 0, result.output
+    assert "Slice backlog" not in result.stderr
+    assert {c["court"] for c in _cells(result.stdout)} <= {"scotus"}
 
 
 def test_predict_matrix_refuses_an_enabled_slice_whose_list_is_missing(tmp_path: Path) -> None:

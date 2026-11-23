@@ -634,9 +634,10 @@ def trial_leakage(payload: Mapping[str, Any], event_id: str) -> str | None:
     final disposition for the judgment event. A reading the resolver would
     send to triage refuses too, since the record has moved on the event even
     where the rule cannot say how. The resolver passes over what it cannot
-    read exactly, so a motion it reads as open is put to the stage's wider net
-    as well (:func:`.trial_resolver.motion_disposal_signal`). The reason names
-    docket entry numbers and never their text.
+    read exactly, so an event it reads as open is put to the stage's wider net
+    as well: a motion to :func:`.trial_resolver.motion_disposal_signal`, the
+    judgment event to :func:`.trial_resolver.action_over_signal`. The reason
+    names docket entry numbers and never their text.
     """
     spec = moments.trial_spec_for(event_id)
     if spec is None:
@@ -651,8 +652,19 @@ def trial_leakage(payload: Mapping[str, Any], event_id: str) -> str | None:
             entries,
         )
     )
+    if found is None and number is None:
+        over = trial_resolver.action_over_signal(entries)
+        if over is None:
+            return None
+        named = (
+            "an unnumbered docket entry"
+            if over.entry_number is None
+            else f"docket entry {over.entry_number}"
+        )
+        return f"snapshot {named} may show the action over, for {event_id}"
     if found is None:
-        return None if number is None else _motion_signal(spec, number, entries, event_id)
+        assert number is not None
+        return _motion_signal(spec, number, entries, event_id)
     if isinstance(found, trial_resolver.Unresolved):
         weighed = ", ".join(
             str(c.entry_number) for c in found.candidates if c.entry_number is not None

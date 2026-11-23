@@ -26,7 +26,8 @@ from fedcourtsai.matrix import (
     run_day,
 )
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.registry import enabled_evaluators, enabled_predictors
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import evaluators_for, predictors_for
 from fedcourtsai.schemas import CellFailure, Disposition, Judgment, Prediction
 from fedcourtsai.serialize import write_json
 from fedcourtsai.supremecourt import LIVE_DOCKET_ID_BASE
@@ -367,7 +368,7 @@ def test_predict_matrix_mints_only_the_engines_that_have_not_predicted(tmp_path:
 
     gated = predict_matrix(PREDICTORS, cases, "RID", data_root=data_root)
     minted = {c["predictor_id"] for c in gated["include"]}
-    unpredicted = {p.id for p in enabled_predictors(PREDICTORS)} - {
+    unpredicted = {p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)} - {
         "claude-baseline",
         "codex-baseline",
     }
@@ -376,13 +377,13 @@ def test_predict_matrix_mints_only_the_engines_that_have_not_predicted(tmp_path:
     # callers, back-compat with a caller that assembles its own ledger).
     ungated = predict_matrix(PREDICTORS, cases, "RID")
     assert {c["predictor_id"] for c in ungated["include"]} == {
-        p.id for p in enabled_predictors(PREDICTORS)
+        p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
     }
     # skip_predicted=False is the deliberate re-predict path (a prompt change),
     # so it never requires deleting committed artifacts to get a cell minted.
     forced = predict_matrix(PREDICTORS, cases, "RID", data_root=data_root, skip_predicted=False)
     assert {c["predictor_id"] for c in forced["include"]} == {
-        p.id for p in enabled_predictors(PREDICTORS)
+        p.id for p in predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
     }
 
 
@@ -390,7 +391,7 @@ def test_a_fully_predicted_event_mints_nothing(tmp_path: Path) -> None:
     # Every enabled engine has predicted: a re-queue mints nothing (the whole-case
     # volume cap can then treat the empty case as cleanly deferred).
     data_root = tmp_path / "data"
-    predictors = enabled_predictors(PREDICTORS)
+    predictors = predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
     for predictor in predictors:
         seed_prediction(data_root, "scotus", 1, "evt-x", predictor_id=predictor.id)
     cases = [CaseRequest(court="scotus", docket=1, events=("evt-x",))]
@@ -459,7 +460,7 @@ def test_evaluate_matrix_mints_only_the_judges_that_have_not_graded(tmp_path: Pa
 
     gated = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root)
     minted = {c["evaluator_id"] for c in gated["include"]}
-    ungraded = {e.id for e in enabled_evaluators(EVALUATORS)} - {"claude-judge"}
+    ungraded = {e.id for e in evaluators_for(EVALUATORS, SCOTUS_POPULATION_KEY)} - {"claude-judge"}
     assert minted == ungraded, "exactly the judges that have not graded, and no others"
 
 
@@ -468,7 +469,7 @@ def test_a_fully_graded_event_mints_nothing_so_a_requeue_is_a_no_op(tmp_path: Pa
     gradings the ledger already holds — the boards collapse the re-runs, so the
     duplicate spend buys nothing the standings would show."""
     data_root = tmp_path / "data"
-    evaluators = enabled_evaluators(EVALUATORS)
+    evaluators = evaluators_for(EVALUATORS, SCOTUS_POPULATION_KEY)
     seed_prediction(data_root, "scotus", 1, "evt-x")
     for evaluator in evaluators:
         seed_evaluation(data_root, "scotus", 1, "evt-x", evaluator_id=evaluator.id)
@@ -663,7 +664,7 @@ def test_fanout_order_does_not_track_the_blinding_shuffle() -> None:
     # same (run, case, event) joined with each predictor id: without the prefix,
     # the predict fan-out order under a run would equal the alias order those
     # predictors get under the same run, case and event in every trial.
-    predictors = enabled_predictors(PREDICTORS)
+    predictors = predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY)
     ids = [p.id for p in predictors]
     trials = 300
     agree = 0
@@ -677,7 +678,7 @@ def test_fanout_order_does_not_track_the_blinding_shuffle() -> None:
 
 def _registry_major(include: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The same cells laid out predictor-major, a layout the cap must not care about."""
-    rank = {p.id: i for i, p in enumerate(enabled_predictors(PREDICTORS))}
+    rank = {p.id: i for i, p in enumerate(predictors_for(PREDICTORS, SCOTUS_POPULATION_KEY))}
     first_seen: dict[int, int] = {}
     for i, cell in enumerate(include):
         first_seen.setdefault(cell["docket"], i)
@@ -746,7 +747,7 @@ def test_a_held_event_is_graded_once_the_window_closes_with_or_without_a_body(
             data_root=data_root,
             opinion_present={"scotus/7": False},
         )
-        assert len(graded["include"]) == len(enabled_evaluators(EVALUATORS))
+        assert len(graded["include"]) == len(evaluators_for(EVALUATORS, SCOTUS_POPULATION_KEY))
 
 
 def test_a_held_event_is_graded_immediately_once_the_body_exists(tmp_path: Path) -> None:
@@ -759,7 +760,7 @@ def test_a_held_event_is_graded_immediately_once_the_body_exists(tmp_path: Path)
         data_root=data_root,
         opinion_present={"scotus/7": True},
     )
-    assert len(graded["include"]) == len(enabled_evaluators(EVALUATORS))
+    assert len(graded["include"]) == len(evaluators_for(EVALUATORS, SCOTUS_POPULATION_KEY))
 
 
 def test_the_hold_never_defers_what_it_cannot_establish(tmp_path: Path) -> None:
@@ -769,7 +770,7 @@ def test_the_hold_never_defers_what_it_cannot_establish(tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     cases = _decided_merits_case(data_root)
     run = _run_id(_DECIDED + timedelta(days=1))
-    everyone = len(enabled_evaluators(EVALUATORS))
+    everyone = len(evaluators_for(EVALUATORS, SCOTUS_POPULATION_KEY))
     unknown = evaluate_matrix(EVALUATORS, cases, run, data_root=data_root, opinion_present={})
     assert len(unknown["include"]) == everyone
     unwired = evaluate_matrix(EVALUATORS, cases, run, data_root=data_root)
@@ -856,7 +857,7 @@ def test_a_judgment_that_publishes_no_opinion_is_never_held(
         data_root=data_root,
         opinion_present={"scotus/7": False},
     )
-    assert len(graded["include"]) == len(enabled_evaluators(EVALUATORS))
+    assert len(graded["include"]) == len(evaluators_for(EVALUATORS, SCOTUS_POPULATION_KEY))
     assert cases_awaiting_opinion(data_root, today=_DECIDED) == frozenset()
 
 

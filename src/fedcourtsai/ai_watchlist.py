@@ -16,6 +16,13 @@ same set is the ``ai-watchlist`` prediction slice
 prediction scope only when ``predict.slices`` names it, as a population of its
 own. None of this changes SCOTUS selection, which is why a ``scotus`` docket is
 refused.
+
+A state trial court's case is listed apart, under ``state_cases``, because
+nothing above can reach it: CourtListener holds no docket for it, so it has no
+corpus row, no tag and no refresh. Only a court ``state_courts`` names is
+admitted, and its register of actions is read by hand: each entry of a state
+case is a date and a kind the maintainer recorded from the court's own page,
+which the AI-cases update reports beside a link to that page.
 """
 
 from __future__ import annotations
@@ -30,6 +37,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fedcourtsai import ids
+from fedcourtsai.schemas import AiActivityKind, AiActivityMotion
 
 #: The tag every watchlist docket carries on case-level surfaces.
 AI_TAG = "ai"
@@ -39,6 +47,11 @@ AI_WATCHLIST_FILENAME = "ai-watchlist.yaml"
 _CATEGORY = re.compile(r"^[a-z][a-z0-9-]*$")
 #: A CourtListener court id, as the corpus stores it (``cand``, ``ca9``, ``jpml``).
 _COURT = r"^[a-z][a-z0-9]*$"
+#: A state trial court's id: the state's postal code, then hyphenated parts
+#: (``ca-super-sf``). The hyphen keeps it apart from every CourtListener id.
+#: The kinds whose entry can name a principal motion.
+_MOTION_KINDS = frozenset({"motion", "ruling", "opinion"})
+_STATE_COURT = re.compile(r"^[a-z]{2}(-[a-z0-9]+)+$")
 
 
 class Relation(StrEnum):
@@ -94,6 +107,65 @@ class WatchlistCase(BaseModel):
         return [(self.court, self.docket_id)] + [(r.court, r.docket_id) for r in self.related]
 
 
+class StateCourt(BaseModel):
+    """One state trial court the rule admits, and where its public record is read."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    #: The court in the short form a reader knows (``S.F. Super. Ct.``).
+    short: str = Field(min_length=1)
+    #: The court's own page for looking a case up, which every item links to.
+    case_information: str = Field(pattern=r"^https://[^\s()<>]+$")
+
+
+class StateRegisterEntry(BaseModel):
+    """One register-of-actions entry of a state case, recorded by hand: a date and a kind."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    date: date
+    kind: AiActivityKind
+    motion: AiActivityMotion | None = None
+
+    @model_validator(mode="after")
+    def _motion_on_a_kind_that_names_one(self) -> StateRegisterEntry:
+        if self.motion is not None and self.kind not in _MOTION_KINDS:
+            raise ValueError(
+                f"a {self.kind} entry names no motion; only {sorted(_MOTION_KINDS)} may"
+            )
+        return self
+
+
+class StateCase(BaseModel):
+    """One listed state trial court case, known by the court's own case number."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    name: str = Field(min_length=1)
+    court: str
+    case_number: str = Field(min_length=1)
+    category: str
+    why: str = Field(min_length=1)
+    developers: list[str] = Field(min_length=1)
+    added: date
+    entries: list[StateRegisterEntry] = Field(default_factory=list)
+
+    @field_validator("developers")
+    @classmethod
+    def _named_developers(cls, value: list[str]) -> list[str]:
+        if any(not name.strip() for name in value) or len(set(value)) != len(value):
+            raise ValueError(f"developers must be distinct, non-empty names: {value}")
+        return value
+
+    @field_validator("entries")
+    @classmethod
+    def _entries_in_order(cls, value: list[StateRegisterEntry]) -> list[StateRegisterEntry]:
+        if [entry.date for entry in value] != sorted(entry.date for entry in value):
+            raise ValueError("entries must be in date order, oldest first")
+        return value
+
+
 class AiWatchlist(BaseModel):
     """``config/ai-watchlist.yaml``: the category vocabulary and the listed cases."""
 
@@ -101,6 +173,18 @@ class AiWatchlist(BaseModel):
 
     categories: dict[str, str] = Field(min_length=1)
     cases: list[WatchlistCase] = Field(min_length=1)
+    state_courts: dict[str, StateCourt] = Field(default_factory=dict)
+    state_cases: list[StateCase] = Field(default_factory=list)
+
+    @field_validator("state_courts")
+    @classmethod
+    def _state_court_ids(cls, value: dict[str, StateCourt]) -> dict[str, StateCourt]:
+        for court in value:
+            if not _STATE_COURT.match(court):
+                raise ValueError(
+                    f"state court id {court!r} must be a postal code and hyphenated parts"
+                )
+        return value
 
     @field_validator("categories")
     @classmethod
@@ -114,9 +198,28 @@ class AiWatchlist(BaseModel):
 
     @model_validator(mode="after")
     def _consistent(self) -> AiWatchlist:
-        names = [case.name for case in self.cases]
+        names = [case.name for case in self.cases] + [case.name for case in self.state_cases]
         if len(set(names)) != len(names):
             raise ValueError(f"case names must be distinct: {names}")
+        state_numbers: dict[tuple[str, str], str] = {}
+        for listed in self.state_cases:
+            if listed.court not in self.state_courts:
+                raise ValueError(
+                    f"{listed.name}: court {listed.court!r} is not one of the admitted "
+                    f"state courts {sorted(self.state_courts)}"
+                )
+            if listed.category not in self.categories:
+                raise ValueError(
+                    f"{listed.name}: category {listed.category!r} is not one of "
+                    f"{sorted(self.categories)}"
+                )
+            key = (listed.court, listed.case_number)
+            if key in state_numbers:
+                raise ValueError(
+                    f"{listed.court} case number {listed.case_number} is named twice "
+                    f"({state_numbers[key]}; {listed.name})"
+                )
+            state_numbers[key] = listed.name
         seen: dict[tuple[str, int], str] = {}
         numbers: dict[tuple[str, str], str] = {}
         for case in self.cases:

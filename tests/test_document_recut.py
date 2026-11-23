@@ -29,10 +29,12 @@ from fedcourtsai.pipeline.document_recut import (
     PAGES_CHANGED,
     RECUT_KINDS,
     SCOPE_ALL_LIVE,
+    SCOPE_NAMED,
     UNCHANGED,
     UNFETCHABLE_URL,
     UNREADABLE,
     RecutCandidate,
+    check_scope,
     estimated_candidate_seconds,
     exclusion_reason,
     recut_candidates,
@@ -434,6 +436,91 @@ def test_an_apply_without_its_bound_is_refused(tmp_path: Path) -> None:
 # --- the questions-presented row --------------------------------------------
 
 
+# --- named cases -----------------------------------------------------------
+
+_STALE_NOTE = (
+    "[pipeline note: 9 characters of this appendix item omitted here, from part-way"
+    " through PDF page 2 to its end, to fit the 1,000-character text cap]"
+)
+
+
+def _stale_cut(case_id: str, pdf: bytes, *, kind: str = KIND_PETITION) -> corpus.CaseDocument:
+    """A row cut the appendix-aware way under an earlier reading: it carries a note."""
+    current = extract_filing_text(pdf, kind=kind, char_cap=_CAP)
+    return _head_cut(case_id, pdf, kind=kind).model_copy(
+        update={"text": f"{current.text[:300]}\n{_STALE_NOTE}"}
+    )
+
+
+def test_a_named_case_is_recut_whether_or_not_it_carries_a_note(tmp_path: Path) -> None:
+    pdf = _pdf_pages(_pages())
+    stale = _stale_cut("scotus/1", pdf)
+    other = _stale_cut("scotus/2", pdf)
+    db = _seed(tmp_path / "corpus", [stale, other])
+    # The walked scopes leave both out: each carries a cut note.
+    with corpus.connect(db) as conn:
+        assert recut_candidates(conn).candidates == ()
+        assert recut_candidates(conn).excluded == {HAS_CUT_NOTE: 2}
+    assert exclusion_reason(stale, named=True) is None
+    served = {stale.url: pdf, other.url: pdf}
+    result = _run(db, served, apply=True, max_cases=5, scope=SCOPE_NAMED, cases=["scotus/1"])
+    assert (result.scope, result.cases) == (SCOPE_NAMED, ["scotus/1"])
+    assert result.cases_seen == 1 and result.candidates == 1 and result.excluded == {}
+    assert result.recut == 1
+    written = _documents(db, "scotus/1")[KIND_PETITION]
+    assert written.text == extract_filing_text(pdf, kind=KIND_PETITION, char_cap=_CAP).text
+    assert _documents(db, "scotus/2")[KIND_PETITION] == other
+    # A named row stays in its class, so the witness finds what the apply left,
+    # and a second run reads it unchanged.
+    assert result.remaining == 1
+    with corpus.connect(db) as conn:
+        again = recut_candidates(conn, scope=SCOPE_NAMED, cases=["scotus/1"])
+    assert len(again.candidates) == result.remaining
+    second = _run(db, served, apply=True, max_cases=5, scope=SCOPE_NAMED, cases=["scotus/1"])
+    assert second.unchanged == 1 and second.recut == 0
+
+
+def test_a_named_case_still_leaves_out_what_no_recut_could_read(tmp_path: Path) -> None:
+    pdf = _pdf_pages(_pages())
+    ocr = _stale_cut("scotus/1", pdf).model_copy(update={"ocr_derived": True})
+    whole = _stale_cut("scotus/2", pdf).model_copy(update={"truncated": False})
+    db = _seed(tmp_path / "corpus", [ocr, whole])
+    with corpus.connect(db) as conn:
+        scan = recut_candidates(conn, scope=SCOPE_NAMED, cases=["scotus/2", "scotus/1"])
+    assert scan.candidates == () and scan.excluded == {OCR_DERIVED: 1}
+    assert scan.documents_seen == 2
+
+
+@pytest.mark.parametrize(
+    ("scope", "cases", "message"),
+    [
+        (SCOPE_NAMED, [], "at least one case"),
+        (SCOPE_NAMED, ["scotus/1", "scotus/1"], "repeat"),
+        (SCOPE_NAMED, ["ca9/1"], "not a case id"),
+        (SCOPE_NAMED, ["scotus/1/../2"], "not a case id"),
+        (SCOPE_NAMED, [f"scotus/{n}" for n in range(51)], "at most 50"),
+        (SCOPE_ALL_LIVE, ["scotus/1"], "names no cases"),
+        ("everything", [], "unknown re-cut scope"),
+    ],
+)
+def test_the_named_scope_takes_a_short_list_of_well_formed_cases(
+    scope: str, cases: list[str], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        check_scope(scope, cases)
+
+
+def test_a_stored_text_is_compared_up_to_its_own_first_note() -> None:
+    """A stored cut note inside the compared opening is not the filing's text."""
+    filing = "Petition for a writ of certiorari. " * 100
+    stored = f"{filing[:300]}\n{_STALE_NOTE}\nAppendix text that follows the cut."
+    assert document_recut._same_head(filing, stored)
+    assert not document_recut._same_head("Another filing entirely. " * 100, stored)
+    # A note so early that almost nothing is left shows no filing to be the same.
+    assert not document_recut._same_head(filing, f"{_STALE_NOTE}\n{filing}")
+    assert not document_recut._same_head(filing, f"{filing[:40]}\n{_STALE_NOTE}")
+
+
 def _questions(case_id: str, text: str) -> corpus.CaseDocument:
     return corpus.CaseDocument(
         case_id=case_id,
@@ -646,3 +733,55 @@ def test_a_recut_that_opens_on_an_unread_run_is_still_the_stored_filing() -> Non
     assert recut.startswith("[pipeline note:")
     assert document_recut._same_head(recut, stored)
     assert not document_recut._same_head(recut.replace("COVER", "OTHER"), stored)
+
+
+def test_the_cli_recuts_named_cases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pdf = _pdf_pages(_pages())
+    stale = _stale_cut("scotus/1", pdf)
+    _seed(tmp_path / "corpus", [stale, _stale_cut("scotus/2", pdf)])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _patch_client(monkeypatch, {stale.url: pdf})
+    _small_cap(monkeypatch)
+    result = runner.invoke(app, ["recut-documents", "--case", "scotus/1"])
+    assert result.exit_code == 0, result.output
+    assert "recut-documents (dry-run, named): 1 named filing(s)" in result.output
+    assert "scotus/1 petition: WOULD RE-CUT" in result.output
+    assert '"cases":["scotus/1"]' in result.output.splitlines()[-1]
+    assert "::warning::" not in result.output
+
+
+def test_the_cli_says_when_a_named_case_is_empty_or_the_bound_is_short(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pdf = _pdf_pages(_pages())
+    rows = [_stale_cut("scotus/1", pdf), _stale_cut("scotus/2", pdf)]
+    _seed(tmp_path / "corpus", rows)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    _patch_client(monkeypatch, {row.url: pdf for row in rows})
+    _small_cap(monkeypatch)
+    argv = ["recut-documents", "--case", "scotus/1", "--case", "scotus/2", "--case", "scotus/9"]
+    result = runner.invoke(app, [*argv, "--max-cases", "1"])
+    assert result.exit_code == 0, result.output
+    assert "named case scotus/9 holds no stored petition" in result.output
+    assert "the bound of 1 is short of the 2 named filing(s)" in result.output
+    assert '"named_without_documents":["scotus/9"]' in result.output.splitlines()[-1]
+    # A second look at rows already re-cut is not residue, so it is not warned as such.
+    assert "residue" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--case", "scotus/1", "--all-live"], "takes no --all-live"),
+        (["--case", "ca9/1"], "not a case id"),
+        (["--case", "scotus/1", "--case", "scotus/1"], "repeat"),
+    ],
+)
+def test_the_cli_refuses_cases_the_named_scope_cannot_take(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, argv: list[str], message: str
+) -> None:
+    _seed(tmp_path / "corpus", [_head_cut("scotus/1", _pdf_pages(_pages()))])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["recut-documents", *argv])
+    assert result.exit_code == 2, result.output
+    assert message in result.output
