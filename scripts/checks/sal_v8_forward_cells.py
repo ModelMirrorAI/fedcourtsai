@@ -36,6 +36,7 @@ import sys
 from collections import Counter
 from datetime import date
 from pathlib import Path
+from unittest import mock
 
 from fedcourtsai import provision
 from fedcourtsai.pipeline import cell_context, salience
@@ -59,10 +60,12 @@ def ledger_cells(root: Path) -> dict[Cell, dict[str, object]]:
 
 
 def band_under(version: str, case_id: str, payload: dict[str, object], cutoff: date) -> str | None:
-    salience.SALIENCE_VERSION = version
-    return cell_context.build(
-        case_id, cutoff, payload, "forward", provenance="truncated", cutoff=cutoff
-    ).band
+    # Scoped to the one build: every other reader of the module keeps the
+    # committed version.
+    with mock.patch.object(salience, "SALIENCE_VERSION", version):
+        return cell_context.build(
+            case_id, cutoff, payload, "forward", provenance="truncated", cutoff=cutoff
+        ).band
 
 
 def main() -> int:
