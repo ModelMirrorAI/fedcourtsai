@@ -1559,9 +1559,10 @@ def test_the_board_records_the_freeze_constants(tmp_path: Path) -> None:
         )
         assert board.frozen_process is not None
         # The Supreme Court docket's record: a prediction slice's blessed
-        # digests are no part of it.
+        # digests are no part of it. `test_counting_windows` pins what that
+        # record holds against the registry's own rows; here the board
+        # carries it whole.
         assert board.frozen_process == process_version.frozen_process_record()
-        assert set(board.frozen_process.digests) <= set(process_version.FROZEN_PROCESS_DIGESTS)
         # Deterministically sorted — not merely coincident with the map's
         # insertion order — so the byte-identity round-trip holds.
         assert board.frozen_process.digests == sorted(board.frozen_process.digests)

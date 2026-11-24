@@ -608,11 +608,12 @@ def test_the_board_publishes_its_scope_and_the_freeze_record_it_keyed_on(tmp_pat
         assert board.process_scope == scope
         assert board.frozen_process is not None
         # The Supreme Court docket's record, the population the board reads:
-        # a prediction slice's digests are blessed and are no part of it.
+        # a prediction slice's digests are blessed and are no part of it. What
+        # that record holds is pinned against the registry's own rows in
+        # `test_counting_windows`; here the board carries it whole.
         assert board.frozen_process == frozen_process_record()
         assert board.frozen_process.since == FROZEN_SINCE
-        assert _BLESSED in board.frozen_process.digests
-        assert set(board.frozen_process.digests) <= set(FROZEN_PROCESS_DIGESTS)
+        assert (_BLESSED in board.frozen_process.digests) == (_BLESSED in FROZEN_PROCESS_DIGESTS)
 
 
 def test_cli_big_cases_rejects_an_unknown_process_scope(tmp_path: Path) -> None:

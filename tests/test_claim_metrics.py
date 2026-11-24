@@ -129,9 +129,9 @@ def test_empty_stream_is_the_fully_suppressed_board() -> None:
     # the leaderboard does, so `frozen` is answerable from the artifact alone.
     assert board.frozen_process is not None
     # The Supreme Court docket's record: a prediction slice's blessed digests
-    # are no part of it.
+    # are no part of it. `test_counting_windows` pins what that record holds
+    # against the registry's own rows; here the board carries it whole.
     assert board.frozen_process == process_version.frozen_process_record()
-    assert set(board.frozen_process.digests) <= set(process_version.FROZEN_PROCESS_DIGESTS)
     assert board.frozen_process.since == process_version.FROZEN_SINCE
     # A stratum with no cells at all carries no agreement record, not a zero.
     assert board.forward_agreement is None
