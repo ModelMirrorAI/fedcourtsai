@@ -21,10 +21,10 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.moments import DECLARED_MOMENTS
 from fedcourtsai.pipeline.qp_topics import labels_path as qp_topic_labels_path
 from fedcourtsai.process_version import (
-    COUNTING_WINDOWS,
     CURRENT_PROCESS_LABEL,
     FROZEN_PROCESS_DIGESTS,
     FROZEN_SINCE,
+    frozen_process_record,
 )
 from fedcourtsai.schedule import schedule_path
 from fedcourtsai.schemas import (
@@ -62,8 +62,13 @@ _EVENT = "evt-petition-disposition"
 #: every fixture out of scope; an evaluator digest is blessed but has no window,
 #: and a closed window would not contain the fixtures' clock. While a re-bless is
 #: pending, its predecessors' windows read open with their digests already
-#: unblessed, so an open window's digest serves when no blessed one has one.
-_OPEN = sorted(w.digest for w in COUNTING_WINDOWS if w.closes is None and w.revoked_at is None)
+#: unblessed, so an open window's digest serves when no blessed one has one. The
+#: windows are the Supreme Court docket's own, the population the board reads: a
+#: prediction slice's window opens at its own label's instant, which the
+#: fixtures' clock need not have reached.
+_OPEN = sorted(
+    w.digest for w in frozen_process_record().windows if w.closes is None and w.revoked_at is None
+)
 _BLESSED = next((d for d in _OPEN if d in FROZEN_PROCESS_DIGESTS), _OPEN[0])
 #: A digest no freeze commit blessed: a stamped run that is still out of scope.
 _RETIRED = "sha256:" + "0" * 64
@@ -602,8 +607,12 @@ def test_the_board_publishes_its_scope_and_the_freeze_record_it_keyed_on(tmp_pat
         board = _board(tmp_path, process_scope=scope)
         assert board.process_scope == scope
         assert board.frozen_process is not None
+        # The Supreme Court docket's record, the population the board reads:
+        # a prediction slice's digests are blessed and are no part of it.
+        assert board.frozen_process == frozen_process_record()
         assert board.frozen_process.since == FROZEN_SINCE
-        assert board.frozen_process.digests == sorted(FROZEN_PROCESS_DIGESTS)
+        assert _BLESSED in board.frozen_process.digests
+        assert set(board.frozen_process.digests) <= set(FROZEN_PROCESS_DIGESTS)
 
 
 def test_cli_big_cases_rejects_an_unknown_process_scope(tmp_path: Path) -> None:

@@ -1558,7 +1558,10 @@ def test_the_board_records_the_freeze_constants(tmp_path: Path) -> None:
             process_scope=scope,
         )
         assert board.frozen_process is not None
-        assert set(board.frozen_process.digests) == set(process_version.FROZEN_PROCESS_DIGESTS)
+        # The Supreme Court docket's record: a prediction slice's blessed
+        # digests are no part of it.
+        assert board.frozen_process == process_version.frozen_process_record()
+        assert set(board.frozen_process.digests) <= set(process_version.FROZEN_PROCESS_DIGESTS)
         # Deterministically sorted — not merely coincident with the map's
         # insertion order — so the byte-identity round-trip holds.
         assert board.frozen_process.digests == sorted(board.frozen_process.digests)
