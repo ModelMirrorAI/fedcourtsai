@@ -32,6 +32,7 @@ from fedcourtsai.pipeline.decision_below import (
     MAX_SAMPLE,
     MAX_SEARCH_REQUESTS,
     CaseInput,
+    ClusterMatch,
     LowerCourtFacts,
     appellate_core,
     docket_document,
@@ -302,6 +303,68 @@ def test_an_either_kind_label_leaves_the_dissent_unknown() -> None:
         (12, {"entry_number": 9, "date_filed": "2025-06-02", "description": "Dissenting opinion."}),
     ]
     assert read_rehearing(other, judgment_date=_JUDGMENT).dissent_noted is False
+
+
+def _writing(ident: int, filed: str, *, after: bool = True) -> ClusterMatch:
+    return ClusterMatch(
+        cluster_id=ident,
+        docket_id=11,
+        date_filed=date.fromisoformat(filed),
+        on_judgment_date=not after,
+        after_judgment=after,
+    )
+
+
+def test_a_cluster_published_with_the_order_leaves_the_dissent_unknown() -> None:
+    # A court that publishes its order with the writings attached and dockets
+    # it as an order: no entry names a dissent, and the cluster may hold one.
+    entries = [
+        _dated(59, "2025-04-23", "Petition for rehearing en banc filed."),
+        _dated(62, "2025-06-02", "ORDER FILED. The petition for rehearing en banc is denied."),
+    ]
+    assert read_rehearing(entries, judgment_date=_JUDGMENT).dissent_noted is False
+    reading = read_rehearing(
+        entries, judgment_date=_JUDGMENT, clusters=[_writing(502, "2025-06-02")]
+    )
+    assert reading.disposition == "denied"
+    assert reading.dissent_noted is None
+    assert reading.disposition_day_clusters == [502]
+    # The denial date the SCOTUS docket states counts beside the entry's own day.
+    stated = read_rehearing(
+        entries,
+        judgment_date=_JUDGMENT,
+        rehearing_denied=date(2025, 6, 4),
+        clusters=[_writing(503, "2025-06-04"), _writing(502, "2025-06-02")],
+    )
+    assert stated.dissent_noted is None
+    assert stated.disposition_day_clusters == [502, 503]
+    # A cluster of another day, or the panel's own on the judgment date, says
+    # nothing about the order.
+    apart = read_rehearing(
+        entries,
+        judgment_date=_JUDGMENT,
+        clusters=[_writing(504, "2025-05-20"), _writing(500, "2025-06-02", after=False)],
+    )
+    assert apart.dissent_noted is False
+    assert apart.disposition_day_clusters == []
+    # A dissent an entry names stays a dissent.
+    named = [
+        *entries,
+        _dated(63, "2025-06-02", "OPINION, Dissenting, by judge SJM, FILED."),
+    ]
+    noted = read_rehearing(named, judgment_date=_JUDGMENT, clusters=[_writing(502, "2025-06-02")])
+    assert noted.dissent_noted is True
+    assert noted.disposition_day_clusters == [502]
+    # Without a disposition there is no order for a cluster to be filed with.
+    pending = read_rehearing(
+        entries[:1],
+        judgment_date=_JUDGMENT,
+        rehearing_denied=date(2025, 6, 2),
+        clusters=[_writing(502, "2025-06-02")],
+    )
+    assert pending.disposition is None
+    assert pending.dissent_noted is None
+    assert pending.disposition_day_clusters == []
 
 
 def test_entries_that_stop_before_the_stated_denial_report_no_absence() -> None:
@@ -1355,6 +1418,48 @@ def test_an_amended_opinion_filed_before_the_docketing_is_read_first() -> None:
     assert "Opinion cluster 500 (2025-04-09): Published" in record.text
     assert "opinion id(s): 900" in record.text
     assert "Later opinion cluster 502 (2025-06-02, after the judgment date)" in record.text
+
+
+def test_the_docket_row_names_a_writing_published_with_the_order() -> None:
+    quiet = [
+        {
+            "entry_number": 41,
+            "date_filed": "2025-04-23",
+            "description": "PETITION for rehearing en banc filed.",
+        },
+        {
+            "entry_number": 45,
+            "date_filed": "2025-06-02",
+            "description": "ORDER FILED. The petition for rehearing en banc is denied.",
+        },
+    ]
+    with _client(_amended_upstream(entries={11: quiet})) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    assert found.rehearing is not None
+    assert found.rehearing.dissent_noted is None
+    assert found.rehearing.disposition_day_clusters == [502]
+    record = docket_document(found, today=_TODAY)
+    assert record is not None
+    assert "  disposition: denied" in record.text
+    assert "  dissent noted: not named in the entries read" in record.text
+    assert "dissent noted: none in the entries read" not in record.text
+    assert (
+        "  Opinion cluster 502 (2025-06-02) was filed the day rehearing was disposed of: "
+        + "a writing the court published with its order"
+    ) in record.text
+    assert "no absence of a dissent is reported" in record.text
+    # With no cluster that day the absence is worded as one, and where an
+    # entry names the dissent the record says yes and adds no note.
+    with _client(_matched_upstream(entries={11: quiet})) as client:
+        plain = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
+    assert plain is not None
+    assert "  dissent noted: none in the entries read" in plain.text
+    assert "was filed the day rehearing was disposed of" not in plain.text
+    with _client(_amended_upstream()) as client:
+        named = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
+    assert named is not None
+    assert "  dissent noted: yes" in named.text
+    assert "was filed the day rehearing was disposed of" not in named.text
 
 
 def test_a_later_cluster_alone_is_stored_and_says_what_it_is() -> None:

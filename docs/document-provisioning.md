@@ -190,7 +190,12 @@ Each of these is stated, with its reason, where the code makes the choice:
   documents', whichever upstream fills; where an entry carries neither, or the
   entries reach the stated denial and none records an order denying
   rehearing, the record says the answer could not be read and reports no
-  absence. A stored case is walked again once its stamp is 30 days
+  absence. Where the court published an opinion cluster on the day rehearing
+  was disposed of and no entry names a dissent, the record names the cluster
+  and reports no absence of one either: a court can docket an order with its
+  writings attached as an order and nothing more, and CourtListener's record
+  of the cluster does not say whether it holds a dissent, a concurrence or a
+  statement. A stored case is walked again once its stamp is 30 days
   old and the rotation reaches it, until cert is denied or the merits are
   decided; `run-pull`'s live job runs it on six petitions each full
   window, four windows a day, and the predict backlog holds a cert arrival
