@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000669",
+  "run_id": "20261124T010551Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener MCP (search, search_document, read_document)",
+    "web_fetch"
+  ],
+  "helpful": [
+    "Provisioned petition.txt disclosing SG hold request pending DHS v. D.V.D. (No. 26-426)",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json",
+    "fedcourts query --docket-number for lead case 26-426 and linked applications 26A406 and 26A302",
+    "CourtListener MCP read_document for CA1 opinion in D.V.D. v. DHS"
+  ],
+  "gaps": [
+    "lower-court-docket.txt missed the 12-judge CA9 dissent/statement from denial of rehearing en banc on entry 62",
+    "decision-below.txt truncated before the June 25, 2026 rehearing order cluster"
+  ],
+  "notes": "Provisioned filings, fedcourts query --docket-number, and CourtListener MCP read_document worked cleanly together to verify the hold relationship with No. 26-426."
+}

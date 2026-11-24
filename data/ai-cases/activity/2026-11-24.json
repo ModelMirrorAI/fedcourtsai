@@ -1,0 +1,79 @@
+{
+  "available": [
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 69879510,
+      "docket_number": "1:25-md-03143",
+      "documents": 1,
+      "entry_id": 486449457,
+      "entry_number": 2567,
+      "kind": "unsealed",
+      "motion": null,
+      "url": "https://www.courtlistener.com/docket/69879510/2567/in-re-openai-inc-copyright-infringement-litigation/"
+    },
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 67810584,
+      "docket_number": "1:23-cv-08292",
+      "documents": 1,
+      "entry_id": 486462959,
+      "entry_number": 1558,
+      "kind": "unsealed",
+      "motion": null,
+      "url": "https://www.courtlistener.com/docket/67810584/1558/authors-guild-v-openai-inc/"
+    },
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 69879510,
+      "docket_number": "1:25-md-03143",
+      "documents": 1,
+      "entry_id": 486462960,
+      "entry_number": 2580,
+      "kind": "unsealed",
+      "motion": null,
+      "url": "https://www.courtlistener.com/docket/69879510/2580/in-re-openai-inc-copyright-infringement-litigation/"
+    },
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 67810584,
+      "docket_number": "1:23-cv-08292",
+      "documents": 1,
+      "entry_id": 486463632,
+      "entry_number": 1554,
+      "kind": "unsealed",
+      "motion": null,
+      "url": "https://www.courtlistener.com/docket/67810584/1554/authors-guild-v-openai-inc/"
+    },
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-20",
+      "docket_id": 69879510,
+      "docket_number": "1:25-md-03143",
+      "documents": 1,
+      "entry_id": 486482125,
+      "entry_number": 2595,
+      "kind": "unsealed",
+      "motion": "summary-judgment",
+      "url": "https://www.courtlistener.com/docket/69879510/2595/in-re-openai-inc-copyright-infringement-litigation/"
+    }
+  ],
+  "available_rule": "ai-availability-v1",
+  "day": "2026-11-24",
+  "entries": [],
+  "rule": "ai-activity-v2",
+  "schema_version": "1.0"
+}

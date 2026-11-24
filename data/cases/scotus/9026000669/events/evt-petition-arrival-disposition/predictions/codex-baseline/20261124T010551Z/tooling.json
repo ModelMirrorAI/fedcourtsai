@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000669",
+  "run_id": "20261124T010551Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener search and search_document",
+    "committed statpack"
+  ],
+  "helpful": [
+    "The petition named the lead docket and gave the precise hold request.",
+    "A docket-number lookup confirmed the grant, and searching the First Circuit opinion identified the passages relying on the Ninth Circuit."
+  ]
+}

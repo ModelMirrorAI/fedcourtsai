@@ -1,0 +1,11 @@
+# Forecast: United States v. Ibarra-Perez, No. 26-669
+
+The docket shows zero distributions. The petition is the Solicitor General's hold petition: it asks the Court to hold the case for *Department of Homeland Security v. D.V.D.*, No. 26-426 (cert. granted Sept. 29, 2026), which presents the same 8 U.S.C. 1252(g) question as its threshold issue.
+
+- **Distribution and hold.** The petition will be distributed for a conference once the response is in or waived (response due December 23, 2026; an extension is likely), and then it will sit without an order while D.V.D. is briefed, argued and decided. It will be distributed again for a clean-up conference after D.V.D. comes down, most likely in June 2027. So at least one distribution from the present zero is all but certain, and two in total is the expected count.
+- **No CVSG.** The United States is the petitioner.
+- **Disposition.** The most likely order is a GVR: certiorari granted, judgment vacated, case remanded to the Ninth Circuit for further consideration in light of D.V.D. That follows if the Court accepts the government's reading of Section 1252(g) in whole or in substantial part, and probably also if D.V.D. is decided for the government on another ground with language bearing on the Ninth Circuit's reasoning. If the Court squarely rejects the government's Section 1252(g) reading in D.V.D., this petition is denied. If D.V.D. is resolved without reaching Section 1252(g), a plenary grant here becomes live, since the petition preserves that request and the split (CA1 and CA9 against CA3, CA7, CA8 and CA11) would remain.
+- **Question presented.** If the Court took the case for plenary review, it would take the single question as written.
+- **Summary route.** Conditional on a grant, a disposition in the cert order itself (a GVR) is much likelier than briefing and argument.
+- **Separate writings.** If denied, no separate writing is expected; a short dissent or statement is a small possibility, most plausibly from a Justice who dissented in D.V.D. If a GVR issues, a noted dissent from the Justices in the D.V.D. minority is possible but unlikely to carry an opinion.
+- **Timing.** Final disposition on an order list in June or early July 2027, shortly after D.V.D. is decided.
