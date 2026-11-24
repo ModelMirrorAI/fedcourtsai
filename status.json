@@ -225,52 +225,52 @@
       "artifact": "metrics/salience-replay.json",
       "key": "salience-replay",
       "name": "Salience-gate replay",
-      "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure.",
+      "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure. It was produced under sal-v8 while sal-v9 is the scorer in force, so it describes that version and is not a current reading of the gate.",
       "summary": "The gate that picks which petitions are predicted, replayed over OT2017, OT2018, OT2019, OT2020, OT2021, OT2022, OT2023, OT2024 under 3 cutoff policies.",
       "table": null,
       "vintage": "2026-11-17"
     }
   ],
   "coverage": {
-    "corpus_dockets": 2154327,
-    "documents_provisioned": 166,
+    "corpus_dockets": 2154344,
+    "documents_provisioned": 167,
     "evaluations_forward": 2070,
-    "events_predicted": 660,
-    "frontier_as_of": "2026-11-23",
+    "events_predicted": 663,
+    "frontier_as_of": "2026-11-24",
     "next_conference": "2026-12-04",
-    "next_conference_petitions": 280,
+    "next_conference_petitions": 292,
     "predicted_resolved": 290,
-    "predictions": 2422,
-    "public_cases": 14433,
-    "watchlist": 826
+    "predictions": 2431,
+    "public_cases": 14436,
+    "watchlist": 838
   },
   "data_ok": true,
-  "generated_at": "2026-11-23T08:10:36.955987Z",
+  "generated_at": "2026-11-24T08:09:28.596777Z",
   "lanes": [
     {
       "delivered_24h": 16,
-      "expected_since": "2026-11-23T04:47:00Z",
+      "expected_since": "2026-11-24T04:47:00Z",
       "label": "Docket refresh",
       "lane": "run-pull",
-      "last_concluded_at": "2026-11-23T07:22:32Z",
+      "last_concluded_at": "2026-11-24T07:20:58Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-23T07:22:32Z",
-      "lateness_p50_min": 3,
-      "runs_7d": 85,
+      "last_started_at": "2026-11-24T07:20:58Z",
+      "lateness_p50_min": 4,
+      "runs_7d": 88,
       "schedule": "16 times a day",
       "slots_24h": 16,
       "state": "up",
-      "successes_7d": 85,
+      "successes_7d": 88,
       "what": "Polls the Supreme Court's docket pages for new filings and orders, and enriches tracked dockets from CourtListener."
     },
     {
       "delivered_24h": 4,
-      "expected_since": "2026-11-23T02:31:00Z",
+      "expected_since": "2026-11-24T02:31:00Z",
       "label": "Historical walker",
       "lane": "run-seed",
-      "last_concluded_at": "2026-11-23T02:36:53Z",
+      "last_concluded_at": "2026-11-24T02:35:35Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-23T02:36:53Z",
+      "last_started_at": "2026-11-24T02:35:35Z",
       "lateness_p50_min": 4,
       "runs_7d": 21,
       "schedule": "daily at 02:31, 08:31, 14:31 and 20:31 UTC",
@@ -281,28 +281,28 @@
     },
     {
       "delivered_24h": 2,
-      "expected_since": "2026-11-22T17:32:00Z",
+      "expected_since": "2026-11-23T17:32:00Z",
       "label": "Predict",
       "lane": "run-predict",
-      "last_concluded_at": "2026-11-23T01:10:56Z",
+      "last_concluded_at": "2026-11-24T01:04:55Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-23T01:10:56Z",
-      "lateness_p50_min": 2,
-      "runs_7d": 16,
+      "last_started_at": "2026-11-24T01:04:55Z",
+      "lateness_p50_min": 3,
+      "runs_7d": 17,
       "schedule": "daily at 14:12 and 17:32 UTC",
       "slots_24h": 2,
       "state": "up",
-      "successes_7d": 16,
+      "successes_7d": 17,
       "what": "Runs each model on the events that are owed a forecast."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-22T15:39:00Z",
+      "expected_since": "2026-11-23T15:39:00Z",
       "label": "Evaluate",
       "lane": "run-evaluate",
-      "last_concluded_at": "2026-11-22T15:43:08Z",
+      "last_concluded_at": "2026-11-23T15:43:18Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-22T15:43:08Z",
+      "last_started_at": "2026-11-23T15:43:18Z",
       "lateness_p50_min": 4,
       "runs_7d": 5,
       "schedule": "daily at 15:39 UTC",
@@ -313,12 +313,12 @@
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-23T03:43:00Z",
+      "expected_since": "2026-11-24T03:43:00Z",
       "label": "Case summaries",
       "lane": "summarize",
-      "last_concluded_at": "2026-11-23T03:44:28Z",
+      "last_concluded_at": "2026-11-24T03:44:43Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-23T03:44:28Z",
+      "last_started_at": "2026-11-24T03:44:43Z",
       "lateness_p50_min": 1,
       "runs_7d": 6,
       "schedule": "daily at 03:43 UTC",
@@ -329,29 +329,29 @@
     },
     {
       "delivered_24h": 4,
-      "expected_since": "2026-11-23T05:41:00Z",
+      "expected_since": "2026-11-24T04:36:00Z",
       "label": "Boards",
       "lane": "run-analytics",
-      "last_concluded_at": "2026-11-23T05:45:21Z",
+      "last_concluded_at": "2026-11-24T04:37:20Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-23T05:45:21Z",
+      "last_started_at": "2026-11-24T04:37:20Z",
       "lateness_p50_min": 3,
-      "runs_7d": 22,
+      "runs_7d": 21,
       "schedule": "daily at 04:36, 15:33 and 16:09 UTC, plus Mondays at 05:41 and 12:59 UTC, plus Tuesdays at 09:08 and 21:21 UTC, plus Wednesdays at 09:04 and 09:22 UTC, plus Thursdays at 09:14 UTC, plus Fridays at 21:11 UTC",
       "slots_24h": 4,
       "state": "up",
-      "successes_7d": 22,
+      "successes_7d": 21,
       "what": "Rebuilds the big-case board daily and the metrics roll-ups weekly."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-22T08:00:00Z",
+      "expected_since": "2026-11-23T08:00:00Z",
       "label": "Status report",
       "lane": "run-ops",
-      "last_concluded_at": "2026-11-22T08:07:20Z",
+      "last_concluded_at": "2026-11-23T08:09:20Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-23T08:09:20Z",
-      "lateness_p50_min": 7,
+      "last_started_at": "2026-11-24T08:08:10Z",
+      "lateness_p50_min": 9,
       "runs_7d": 5,
       "schedule": "daily at 08:00 UTC",
       "slots_24h": 1,
@@ -374,7 +374,7 @@
           "stage": "interim"
         },
         {
-          "cells": 84,
+          "cells": 63,
           "role": "predictor",
           "stage": "cert"
         },
@@ -389,11 +389,11 @@
           "stage": "merits"
         }
       ],
-      "cells": 224,
+      "cells": 203,
       "days": 7,
-      "end": "2026-11-23",
-      "events": 70,
-      "start": "2026-11-16",
+      "end": "2026-11-24",
+      "events": 63,
+      "start": "2026-11-17",
       "term": null,
       "window": "7d"
     },
@@ -405,7 +405,7 @@
           "stage": "cert"
         },
         {
-          "cells": 76,
+          "cells": 73,
           "role": "evaluator",
           "stage": "interim"
         },
@@ -425,11 +425,11 @@
           "stage": "merits"
         }
       ],
-      "cells": 1053,
+      "cells": 1050,
       "days": 30,
-      "end": "2026-11-23",
+      "end": "2026-11-24",
       "events": 289,
-      "start": "2026-10-24",
+      "start": "2026-10-25",
       "term": null,
       "window": "30d"
     },
@@ -446,7 +446,7 @@
           "stage": "interim"
         },
         {
-          "cells": 1010,
+          "cells": 1019,
           "role": "predictor",
           "stage": "cert"
         },
@@ -461,15 +461,15 @@
           "stage": "merits"
         }
       ],
-      "cells": 2073,
-      "days": 53,
-      "end": "2026-11-23",
-      "events": 559,
+      "cells": 2082,
+      "days": 54,
+      "end": "2026-11-24",
+      "events": 562,
       "start": "2026-10-01",
       "term": 2026,
       "window": "term"
     }
   ],
   "schema_version": "1.0",
-  "source_sha": "cebf07fb54cfaca662b70cded5e7d5c3b4d8d980"
+  "source_sha": "194a61f41d29e19e1359d912f8b7067e751a1a7d"
 }

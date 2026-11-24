@@ -1,0 +1,28 @@
+{
+  "conclusion": "success",
+  "environment": "staging",
+  "estimated_cost_usd": 0.041794,
+  "lane": "engine-actions-smoke",
+  "leg": "engine-actions-smoke-gemini",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "engine": "gemini",
+      "estimated_cost_usd": 0.041794,
+      "input_tokens": 20872,
+      "model": "gemini-4-carbon",
+      "output_tokens": 5,
+      "priced_as": null,
+      "records": null,
+      "source": "gemini-telemetry"
+    }
+  ],
+  "recorded_at": "2026-11-23T19:51:26.385064Z",
+  "ref": "promote/2026-11-23",
+  "run_attempt": 1,
+  "run_id": "45252954219",
+  "schema_version": "1.0",
+  "selection": "gate",
+  "workflow": "integration-test"
+}

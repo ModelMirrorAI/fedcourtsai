@@ -1,0 +1,28 @@
+{
+  "conclusion": "success",
+  "environment": "staging",
+  "estimated_cost_usd": 0.0984248,
+  "lane": "engine-actions-smoke",
+  "leg": "engine-actions-smoke-claude-code",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 9588,
+      "cache_read_input_tokens": 11844,
+      "engine": "claude-code",
+      "estimated_cost_usd": 0.0984248,
+      "input_tokens": 2,
+      "model": "claude-fable-5-2",
+      "output_tokens": 4,
+      "priced_as": null,
+      "records": null,
+      "source": "claude-execution-file"
+    }
+  ],
+  "recorded_at": "2026-11-23T19:51:18.371009Z",
+  "ref": "promote/2026-11-23",
+  "run_attempt": 1,
+  "run_id": "45252954219",
+  "schema_version": "1.0",
+  "selection": "gate",
+  "workflow": "integration-test"
+}

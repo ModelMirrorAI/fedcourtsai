@@ -1,0 +1,28 @@
+{
+  "conclusion": "success",
+  "environment": "staging",
+  "estimated_cost_usd": 0.526398,
+  "lane": "engine-smoke",
+  "leg": "engine-smoke-codex",
+  "lines": [
+    {
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 297635,
+      "engine": "codex",
+      "estimated_cost_usd": 0.526398,
+      "input_tokens": 39823,
+      "model": "gpt-6.2-astra",
+      "output_tokens": 2219,
+      "priced_as": null,
+      "records": null,
+      "source": "codex-sessions"
+    }
+  ],
+  "recorded_at": "2026-11-23T18:06:07.151586Z",
+  "ref": "staging",
+  "run_attempt": 1,
+  "run_id": "45234265368",
+  "schema_version": "1.0",
+  "selection": "engine-smoke",
+  "workflow": "integration-test"
+}
