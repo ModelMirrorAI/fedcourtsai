@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000348",
+  "run_id": "20261124T010551Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener MCP (search)",
+    "web_fetch (supremecourt.gov docket JSON and companion filings)"
+  ],
+  "helpful": [
+    "same-question.json immediately surfaced companion lead petition No. 26-304 (score 1.0)",
+    "provisioned cert-reply.txt, brief-in-opposition.txt, petition.txt, and decision-below.txt",
+    "fedcourts query --docket-number for inspecting companion 26-304 and resolved SG hold petitions (24-1248, 24-1249, 18-428, 23-1341)",
+    "frozen cert_anchor and cert_amicus_line in record/context.json"
+  ],
+  "gaps": [
+    "fedcourts query lacks a petitioner-party or federal-band filter, requiring docket-number or broad disposition queries to inspect SG hold priors",
+    "shared 25/min CourtListener MCP rate limit caused transient HTTP 429s on parallel queries"
+  ],
+  "notes": "Provisioning of full cert briefing plus same-question.json made the hold relationship to United States v. Jackson (No. 26-304) immediately clear."
+}

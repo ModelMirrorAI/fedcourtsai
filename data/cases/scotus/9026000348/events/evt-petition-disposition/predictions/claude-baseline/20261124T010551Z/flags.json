@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000348",
+  "run_id": "20261124T010551Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "metrics/statpack.md heads its segment band table 'sal-v8' while record/context.json froze salience_version 'sal-v9'. The table's federal reached column (2017-2025, 155/212) reproduces cert_anchor.rate 0.731, so the anchor was unaffected."
+    },
+    {
+      "category": "capture-gap",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The government's petition and reply ask only that this petition be held for United States v. Jackson, No. 26-304 (same-question.json score 1.0, same Dec. 4 conference). The docket carries no Vide link and record/related/ is absent, so the hold relationship that drives this forecast is visible only in the briefs."
+    }
+  ]
+}
