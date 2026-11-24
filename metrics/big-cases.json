@@ -1,12 +1,12 @@
 {
-  "cases": 428,
-  "cases_at_court_next_conference": 45,
+  "cases": 430,
+  "cases_at_court_next_conference": 46,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 389,
+      "cases": 391,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1281,
+  "current_reads": 1287,
   "declared_no_view": 29,
   "frozen_process": {
     "digests": [
@@ -394,7 +394,7 @@
     ]
   },
   "median_adjacent_gap": 0.0017,
-  "median_score_range": 0.19,
+  "median_score_range": 0.195,
   "missing_reads": 9,
   "predictors": [
     "claude-baseline",
@@ -9961,6 +9961,171 @@
       "status": "resolved"
     },
     {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "United States v. Office of the New York State Attorney General",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000348",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "FVRA limits on installing acting U.S. Attorneys without Senate confirmation, arising from a politically charged federal grand-jury investigation of the New York Attorney General's office; but this docket is the trailing petition the government asks to be held for No. 26-304.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261124T010551Z"
+        },
+        {
+          "big_case_rationale": "The two statutory questions reach across federal offices requiring Senate confirmation and determine who may direct federal prosecutions during a vacancy.",
+          "big_case_score": 0.87,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261124T010551Z"
+        },
+        {
+          "big_case_rationale": "If decided, resolves government-wide Executive Branch authority under the FVRA and DOJ delegation statutes to staff vacant PAS offices during confirmation impasses, arising out of federal grand jury subpoenas to a State Attorney General.",
+          "big_case_score": 0.82,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261124T010551Z"
+        }
+      ],
+      "docket_id": 9026000348,
+      "docket_number": "26-348",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-348.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The FVRA questions (post-vacancy first assistants; full delegation of a vacant PAS office) decide who may lead several U.S. Attorney offices and touch grand-jury subpoenas aimed at the New York AG's Trump and NRA investigations, but this petition asks only to be held for No. 26-304 (Jackson), so its own disposition will be a companion order rather than the merits vehicle.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.4,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "The questions affect executive-branch vacancy management and prosecutorial authority nationwide, with additional stakes for federal investigations of a state attorney general. This petition is a follow-on vehicle with substantial procedural complications, not the government's preferred lead case.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.74,
+              "run_id": "20260927T182226Z"
+            },
+            {
+              "big_case_rationale": "FVRA interpretation impacts the President's ability to fill executive branch vacancies, a recurring structural separation-of-powers issue.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260927T182226Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. Office of the New York State Attorney General"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "FVRA limits on installing acting U.S. Attorneys without Senate confirmation, arising from a politically charged federal grand-jury investigation of the New York Attorney General's office; but this docket is the trailing petition the government asks to be held for No. 26-304.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-disposition/predictions/claude-baseline/20261124T010551Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-disposition/predictions/claude-baseline/20261124T010551Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.47,
+              "run_id": "20261124T010551Z"
+            },
+            {
+              "big_case_rationale": "The two statutory questions reach across federal offices requiring Senate confirmation and determine who may direct federal prosecutions during a vacancy.",
+              "big_case_score": 0.87,
+              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-disposition/predictions/codex-baseline/20261124T010551Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-disposition/predictions/codex-baseline/20261124T010551Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.61,
+              "run_id": "20261124T010551Z"
+            },
+            {
+              "big_case_rationale": "If decided, resolves government-wide Executive Branch authority under the FVRA and DOJ delegation statutes to staff vacant PAS offices during confirmation impasses, arising out of federal grand jury subpoenas to a State Attorney General.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-disposition/predictions/gemini-baseline/20261124T010551Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-disposition/predictions/gemini-baseline/20261124T010551Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.56,
+              "run_id": "20261124T010551Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. Office of the New York State Attorney General"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7633,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-15",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.87,
+      "score_min": 0.6,
+      "score_range": 0.27,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
       "asking_declined": null,
       "asking_party": "A. A.",
       "caption": "A. A., et al. v. Joshua Mast, et al.",
@@ -15130,6 +15295,113 @@
       "status": "pending"
     },
     {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Markwayne Mullin, Secretary, Department of Homeland Security, et al. v. Jose Arnulfo Guerrero Orellana",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000630",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The underlying question (no-bond mandatory detention under 8 U.S.C. 1225(b)(2)(A) for noncitizens who entered without inspection) is nationally important and affects thousands of detainees, and this is a certified New England class; but the Court already has the question under plenary review in No. 26-104, so this docket is most likely a follow-on.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261123T210705Z"
+        },
+        {
+          "big_case_rationale": "The statutory rule determines access to bond hearings nationwide for people arrested inside the country after entering without inspection. The Court already has a lead case to decide it.",
+          "big_case_score": 0.88,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261123T210705Z"
+        },
+        {
+          "big_case_rationale": "Underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question and certified Massachusetts class carry major national immigration stakes, though No. 26-630 itself sits as a trailing Solicitor General hold petition behind already-granted lead vehicle Rhoney v. Barbosa da Cunha (No. 26-104).",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261123T210705Z"
+        }
+      ],
+      "docket_id": 9026000630,
+      "docket_number": "26-630",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-630.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question (no-bond mandatory detention under 8 U.S.C. 1225(b)(2)(A) for noncitizens who entered without inspection) is nationally important and affects thousands of detainees, and this is a certified New England class; but the Court already has the question under plenary review in No. 26-104, so this docket is most likely a follow-on.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261123T210705Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261123T210705Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.6,
+              "run_id": "20261123T210705Z"
+            },
+            {
+              "big_case_rationale": "The statutory rule determines access to bond hearings nationwide for people arrested inside the country after entering without inspection. The Court already has a lead case to decide it.",
+              "big_case_score": 0.88,
+              "cell_path": "data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261123T210705Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261123T210705Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.69,
+              "run_id": "20261123T210705Z"
+            },
+            {
+              "big_case_rationale": "Underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question and certified Massachusetts class carry major national immigration stakes, though No. 26-630 itself sits as a trailing Solicitor General hold petition behind already-granted lead vehicle Rhoney v. Barbosa da Cunha (No. 26-104).",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261123T210705Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000630/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261123T210705Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.53,
+              "run_id": "20261123T210705Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Markwayne Mullin, Secretary, Department of Homeland Security, et al. v. Jose Arnulfo Guerrero Orellana"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6767,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-13",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.88,
+      "score_min": 0.55,
+      "score_range": 0.33,
+      "short_caption": null,
+      "status": "pending"
+    },
+    {
       "asking_declined": null,
       "asking_party": "Trevino",
       "caption": "Jose A. Trevino, et al. v. Steven Hobbs, Secretary of State of Washington, et al.",
@@ -15363,113 +15635,6 @@
       "score_min": 0.62,
       "score_range": 0.16,
       "short_caption": "Kimberly Ann Polk v. Montgomery County Public Schools",
-      "status": "pending"
-    },
-    {
-      "asking_declined": "short_form",
-      "asking_party": null,
-      "caption": "United States v. Office of the New York State Attorney General",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000348",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "The FVRA questions (post-vacancy first assistants; full delegation of a vacant PAS office) decide who may lead several U.S. Attorney offices and touch grand-jury subpoenas aimed at the New York AG's Trump and NRA investigations, but this petition asks only to be held for No. 26-304 (Jackson), so its own disposition will be a companion order rather than the merits vehicle.",
-          "big_case_score": 0.55,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "The questions affect executive-branch vacancy management and prosecutorial authority nationwide, with additional stakes for federal investigations of a state attorney general. This petition is a follow-on vehicle with substantial procedural complications, not the government's preferred lead case.",
-          "big_case_score": 0.82,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        },
-        {
-          "big_case_rationale": "FVRA interpretation impacts the President's ability to fill executive branch vacancies, a recurring structural separation-of-powers issue.",
-          "big_case_score": 0.65,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260927T182226Z"
-        }
-      ],
-      "docket_id": 9026000348,
-      "docket_number": "26-348",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-348.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The FVRA questions (post-vacancy first assistants; full delegation of a vacant PAS office) decide who may lead several U.S. Attorney offices and touch grand-jury subpoenas aimed at the New York AG's Trump and NRA investigations, but this petition asks only to be held for No. 26-304 (Jackson), so its own disposition will be a companion order rather than the merits vehicle.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/claude-baseline/20260927T182226Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.4,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "The questions affect executive-branch vacancy management and prosecutorial authority nationwide, with additional stakes for federal investigations of a state attorney general. This petition is a follow-on vehicle with substantial procedural complications, not the government's preferred lead case.",
-              "big_case_score": 0.82,
-              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/codex-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.74,
-              "run_id": "20260927T182226Z"
-            },
-            {
-              "big_case_rationale": "FVRA interpretation impacts the President's ability to fill executive branch vacancies, a recurring structural separation-of-powers issue.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000348/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20260927T182226Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.7,
-              "run_id": "20260927T182226Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "United States v. Office of the New York State Attorney General"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.6733,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-09-15",
-      "n": 3,
-      "other_party": null,
-      "outcome_lines": null,
-      "schedule": [],
-      "scheduled": null,
-      "score_max": 0.82,
-      "score_min": 0.55,
-      "score_range": 0.27,
-      "short_caption": null,
       "status": "pending"
     },
     {
@@ -23717,12 +23882,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-23",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.55,
@@ -26683,12 +26843,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-23",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.4,
@@ -28164,12 +28319,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-23",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.45,
@@ -33861,6 +34011,129 @@
       "score_min": 0.35,
       "score_range": 0.21,
       "short_caption": "Rivera-Perez v. Flowers",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "United States",
+      "caption": "United States v. Jorge Felix Ibarra-Perez",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000669",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The Section 1252(g) question matters a great deal for removal litigation, but this docket is a hold petition riding on D.V.D. (No. 26-426); its own disposition will most likely be a one-line order.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261124T010551Z"
+        },
+        {
+          "big_case_rationale": "A ruling on district-court jurisdiction could govern challenges to third-country removals nationwide, including suits for damages after removal.",
+          "big_case_score": 0.71,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261124T010551Z"
+        },
+        {
+          "big_case_rationale": "Significant underlying 5-2 circuit split on 8 U.S.C. 1252(g) and FTCA exposure for unlawful removal execution, tempered because this individual damages suit arrives as a follow-on hold petition behind the marquee classwide third-country removal case, DHS v. D.V.D. (No. 26-426).",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261124T010551Z"
+        }
+      ],
+      "docket_id": 9026000669,
+      "docket_number": "26-669",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-669.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The Section 1252(g) question matters a great deal for removal litigation, but this docket is a hold petition riding on D.V.D. (No. 26-426); its own disposition will most likely be a one-line order.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000669/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261124T010551Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000669/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261124T010551Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.74,
+              "run_id": "20261124T010551Z"
+            },
+            {
+              "big_case_rationale": "A ruling on district-court jurisdiction could govern challenges to third-country removals nationwide, including suits for damages after removal.",
+              "big_case_score": 0.71,
+              "cell_path": "data/cases/scotus/9026000669/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261124T010551Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000669/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261124T010551Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261124T010551Z"
+            },
+            {
+              "big_case_rationale": "Significant underlying 5-2 circuit split on 8 U.S.C. 1252(g) and FTCA exposure for unlawful removal execution, tempered because this individual damages suit arrives as a follow-on hold petition behind the marquee classwide third-country removal case, DHS v. D.V.D. (No. 26-426).",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000669/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261124T010551Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000669/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261124T010551Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20261124T010551Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "United States v. Jorge Felix Ibarra-Perez"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4533,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-11-23",
+      "n": 3,
+      "other_party": "Jorge Felix Ibarra-Perez",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the United States' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The United States' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-23",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.71,
+      "score_min": 0.3,
+      "score_range": 0.41,
+      "short_caption": "United States v. Jorge Felix Ibarra-Perez",
       "status": "pending"
     },
     {
@@ -61539,12 +61812,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-23",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
@@ -62926,5 +63194,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1243
+  "scored_reads": 1249
 }
