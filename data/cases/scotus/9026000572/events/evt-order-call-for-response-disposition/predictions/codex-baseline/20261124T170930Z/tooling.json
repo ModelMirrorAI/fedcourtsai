@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000572",
+  "run_id": "20261124T170930Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "metrics/statpack.json"],
+  "helpful": ["The docket-number lookup confirmed the grant in the lead case named on page 11 of the petition."],
+  "gaps": ["The statpack gives no grant rate for federal petitions expressly held for a decision on the same question."]
+}

@@ -1,0 +1,4 @@
+- Read the committed `metrics/statpack.md` modern cert, paid relist, CVSG, amicus, capital-case and salience tables. Checked the prior-Term private floor and the version-matched elevated rows in `metrics/statpack.json`.
+- `uv run fedcourts query --help` returned the structured filters. `uv run fedcourts query --court scotus --docket-number 14-7505 --limit 1` returned a Florida-origin row for the historical *Hurst* docket with no caption, disposition or opinion text. The description of *Hurst* comes from the provisioned filings. The query reported `ranged corpus reads: 766 GET(s), 200671232 byte(s)`.
+- CourtListener MCP opinion search for `Reynolds v. Florida`, court `scotus`, filed in 2018, returned zero results. No inference drawn.
+- The local path resolver initially encountered a read-only uv cache. It succeeded using a temporary cache and the existing environment. No web searches.
