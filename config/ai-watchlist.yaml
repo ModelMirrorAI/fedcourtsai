@@ -250,4 +250,13 @@ state_courts:
     short: S.F. Super. Ct.
     case_information: https://sf.courts.ca.gov/online-services/case-information
 
-state_cases: []
+state_cases:
+  - name: Reddit v. Anthropic
+    court: ca-super-sf
+    case_number: "CGC-25-625892"
+    category: computer-access
+    why: Whether scraping Reddit's content to train Claude breached its user agreement and state law.
+    developers: [Anthropic]
+    added: 2026-11-23
+    entries:
+      - {date: 2025-06-04, kind: complaint}
