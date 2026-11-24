@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000078",
+  "run_id": "20261124T174519Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "event_id": "evt-petition-disposition",
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The Markdown statpack displays sal-v8 while the cell is frozen under sal-v9. The alternate sal-v9 rows in metrics/statpack.json reproduce the frozen elevated-band anchor (499/2,011)."
+    }
+  ]
+}
