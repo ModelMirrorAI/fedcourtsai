@@ -355,6 +355,15 @@ def test_a_cluster_published_with_the_order_leaves_the_dissent_unknown() -> None
     noted = read_rehearing(named, judgment_date=_JUDGMENT, clusters=[_writing(502, "2025-06-02")])
     assert noted.dissent_noted is True
     assert noted.disposition_day_clusters == [502]
+    # A partial read with such a cluster stays unknown, as it was without one.
+    partial = read_rehearing(
+        entries, complete=False, judgment_date=_JUDGMENT, clusters=[_writing(502, "2025-06-02")]
+    )
+    assert partial.dissent_noted is None
+    assert partial.disposition_day_clusters == [502]
+    assert (
+        read_rehearing(entries, judgment_date=_JUDGMENT, clusters_whole=False).dissent_noted is None
+    )
     # Without a disposition there is no order for a cluster to be filed with.
     pending = read_rehearing(
         entries[:1],
@@ -1444,22 +1453,43 @@ def test_the_docket_row_names_a_writing_published_with_the_order() -> None:
     assert "  dissent noted: not named in the entries read" in record.text
     assert "dissent noted: none in the entries read" not in record.text
     assert (
-        "  Opinion cluster 502 (2025-06-02) was filed the day rehearing was disposed of: "
-        + "a writing the court published with its order"
+        "  Published the day rehearing was disposed of: opinion cluster 502 (2025-06-02). "
+        + "What the court published that day may be an amended opinion, or its order with"
     ) in record.text
     assert "no absence of a dissent is reported" in record.text
+    # Two clusters that day are both named, in the reading's order.
+    pair = _amended_upstream(
+        entries={11: quiet},
+        cluster_pages={
+            ("ca5", "24-50496"): [
+                _cluster(500, "2025-04-09", opinions=[900]),
+                _cluster(505, "2025-06-02"),
+                _cluster(502, "2025-06-02", opinions=[901]),
+            ]
+        },
+    )
+    with _client(pair) as client:
+        both = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
+    assert both is not None
+    assert "opinion cluster 502 (2025-06-02), 505 (2025-06-02). What" in both.text
+    # A cluster list that ran past one page may hold such a cluster unseen.
+    with _client(_matched_upstream(entries={11: quiet}, cluster_next=True)) as client:
+        cut = match_case(client, _facts(), case_id="scotus/1")
+    assert cut.clusters_truncated and cut.rehearing is not None
+    assert cut.rehearing.dissent_noted is None
+    assert cut.rehearing.disposition_day_clusters == []
     # With no cluster that day the absence is worded as one, and where an
     # entry names the dissent the record says yes and adds no note.
     with _client(_matched_upstream(entries={11: quiet})) as client:
         plain = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
     assert plain is not None
     assert "  dissent noted: none in the entries read" in plain.text
-    assert "was filed the day rehearing was disposed of" not in plain.text
+    assert "Published the day rehearing was disposed of" not in plain.text
     with _client(_amended_upstream()) as client:
         named = docket_document(match_case(client, _facts(), case_id="scotus/1"), today=_TODAY)
     assert named is not None
     assert "  dissent noted: yes" in named.text
-    assert "was filed the day rehearing was disposed of" not in named.text
+    assert "Published the day rehearing was disposed of" not in named.text
 
 
 def test_a_later_cluster_alone_is_stored_and_says_what_it_is() -> None:

@@ -22553,12 +22553,15 @@ freeze commit is recorded here.
     `True`. A cluster on the judgment date, or on any other day, changes
     nothing.
   - The docket record then says "dissent noted: not named in the entries
-    read" and adds one line that names the cluster and its date, says it is a
-    writing the court published with its order, which may be a dissent, a
-    concurrence or a statement, that CourtListener's record of the cluster
-    does not say which, and that no absence of a dissent is reported. The
-    line points to the decision below, under the heading with that filing
-    date, and to the petition's appendix.
+    read" and adds one line that names the cluster and its date, says what
+    the court published that day may be an amended opinion, or its order
+    with a dissent, a concurrence or a statement attached, that
+    CourtListener's record of the cluster does not say which, and that no
+    absence of a dissent is reported. The line points to the decision below,
+    under the heading with that filing date, and to the petition's appendix.
+  - Where a cluster list ran past one page, such a cluster may sit unseen,
+    so `dissent_noted` is unknown there too and the record says "not found"
+    in place of an absence.
   - No request is added, and the `decision-below` row does not change: the
     clusters were already listed and read.
 
@@ -22637,8 +22640,8 @@ freeze commit is recorded here.
     CourtListener still holds that cluster dated 2026-06-25;
   - once the fill has walked `scotus/9026000669` again after the promotion
     (its stamp goes stale on 2026-12-23), its `lower-court-docket` row
-    carries the line "Opinion cluster 10880332 (2026-06-25) was filed the day
-    rehearing was disposed of";
+    carries the line "Published the day rehearing was disposed of: opinion
+    cluster 10880332 (2026-06-25)";
   - on `main` once the promotion has merged, `uv run python -c "from
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('lower-court-docket-order-day-writing' in {b.name for b in H})"`
