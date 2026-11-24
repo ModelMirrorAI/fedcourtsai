@@ -194,8 +194,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   was disposed of and no entry names a dissent, the record names the cluster
   and reports no absence of one either: a court can docket an order with its
   writings attached as an order and nothing more, and CourtListener's record
-  of the cluster does not say whether it holds a dissent, a concurrence or a
-  statement. A stored case is walked again once its stamp is 30 days
+  of the cluster does not say whether it holds an amended opinion, a dissent,
+  a concurrence or a statement. Nor is an absence reported where a cluster
+  list ran past one page, since such a cluster may sit unseen. A stored case is walked again once its stamp is 30 days
   old and the rotation reaches it, until cert is denied or the merits are
   decided; `run-pull`'s live job runs it on six petitions each full
   window, four windows a day, and the predict backlog holds a cert arrival

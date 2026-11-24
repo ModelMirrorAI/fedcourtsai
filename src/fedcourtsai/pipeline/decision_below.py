@@ -450,9 +450,10 @@ class RehearingReading(BaseModel):
     disposition_day_clusters: list[int] = Field(
         default_factory=list,
         description="Opinion clusters filed after the judgment date on the day of the "
-        "disposition, or on the rehearing denial date the SCOTUS docket states: a writing the "
-        "court published with its order, whose kind the metadata does not say, so a dissent no "
-        "entry names is unknown rather than absent; empty without a disposition",
+        "disposition, or on the rehearing denial date the SCOTUS docket states: an amended "
+        "opinion, or the order published with its writings, which the metadata does not tell "
+        "apart, so a dissent no entry names is unknown rather than absent; empty without a "
+        "disposition",
     )
     cites: list[EntryCite] = Field(default_factory=list)
     unavailable: str | None = Field(

@@ -22561,7 +22561,8 @@ freeze commit is recorded here.
     under the heading with that filing date, and to the petition's appendix.
   - Where a cluster list ran past one page, such a cluster may sit unseen,
     so `dissent_noted` is unknown there too and the record says "not found"
-    in place of an absence.
+    (or "could not be read", where an entry is blank or a stated denial is
+    unrecorded) in place of an absence.
   - No request is added, and the `decision-below` row does not change: the
     clusters were already listed and read.
 
@@ -22602,7 +22603,8 @@ freeze commit is recorded here.
   after 2026-11-11, the day a record began to list later clusters. 24 of
   those 42 state no dissent, and one of the 24 lists a later cluster dated
   on the stated denial date or on the day of an entry the reading cites:
-  `scotus/9026000669`, the flagged case, whose line changes. Three more of
+  `scotus/9026000669`, the flagged case, whose line changes when the fill
+  next walks it. Three more of
   the 42 list such a cluster and say a dissent was noted, and do not change.
   The count reads every cited entry's day, the petition's among them, so it
   is an upper bound. The other 79 records were stored before that day and
@@ -22610,7 +22612,14 @@ freeze commit is recorded here.
   dissent, and how many of those dockets carry a cluster on the disposition's
   day is not known from the stored rows. Each is walked again once its stamp
   is 30 days stale, and the rotation's case cap can hold a stale row longer.
-  CourtListener was read for 26-669 only.
+  A stored record does not say whether its cluster list ran past one page,
+  so how many of the records that state no dissent the second rule reaches
+  is not known from the stored rows either.
+  CourtListener was read for 26-669 only. With this change, `uv run
+  fedcourts decision-below --docket 26-669` on 2026-11-24 prints one
+  `matched` case, its cluster list read whole, whose rehearing reading has
+  disposition `denied`, `dissent_noted` null and `disposition_day_clusters`
+  `[10880332]`; without it the same run prints `dissent_noted` false.
 
   **What the change does not reach.** A writing docketed and published on a
   later day than the order is not joined to it. A case whose row predates
