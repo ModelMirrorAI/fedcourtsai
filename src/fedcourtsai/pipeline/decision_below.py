@@ -114,8 +114,16 @@ and a complete read that reaches the stated denial without an entry recording
 an order on rehearing, panel or en banc, is ``denial_unrecorded`` — a court's
 feed can label its orders "Court order filed" and nothing more. A dissent is
 read off the order's own entry and off a separate writing docketed the same
-day, which is how some circuits file one. Without a judgment date there is no
-bound to read from, so the entries are not read.
+day, which is how some circuits file one. A court can also publish its order
+with the writings attached and docket it as an order and nothing more, so an
+opinion cluster filed on the day of the disposition, or on the denial date
+the SCOTUS docket states, leaves a dissent unknown rather than absent where
+no entry names one: the cluster's metadata does not say whether it holds an
+amended opinion, a dissent, a concurrence or a statement, and the docket
+record names the cluster and says so. A cluster list that ran past one page
+may hold such a cluster unseen, and leaves the dissent unknown as well.
+Without a judgment date there is no bound to read from, so the entries are
+not read.
 The SCOTUS docket's own ``LowerCourtRehearingDenied`` date is reported beside
 it unchanged; it does not say whether the denial was of panel or en banc
 rehearing. A refusal or a fault on the entries degrades the reading to
@@ -398,8 +406,9 @@ class RehearingReading(BaseModel):
     ``blank_entries`` is set, and ``None`` otherwise — an unread page is not
     evidence of absence, and neither is a docket upstream stopped receiving
     or an entry whose text does not say what was filed. For ``dissent_noted``
-    beside a disposition, ``False`` needs a complete read and no unread
-    writing on the disposition's day.
+    beside a disposition, ``False`` needs a complete read, no unread
+    writing on the disposition's day, no opinion cluster filed with the
+    disposition (``disposition_day_clusters``) and cluster lists read whole.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -437,6 +446,14 @@ class RehearingReading(BaseModel):
     disposition: Literal["denied", "granted"] | None = None
     dissent_noted: bool | None = Field(
         default=None, description="A dissent noted from the disposition; None without one"
+    )
+    disposition_day_clusters: list[int] = Field(
+        default_factory=list,
+        description="Opinion clusters filed after the judgment date on the day of the "
+        "disposition, or on the rehearing denial date the SCOTUS docket states: an amended "
+        "opinion, or the order published with its writings, which the metadata does not tell "
+        "apart, so a dissent no entry names is unknown rather than absent; empty without a "
+        "disposition",
     )
     cites: list[EntryCite] = Field(default_factory=list)
     unavailable: str | None = Field(
@@ -723,6 +740,8 @@ def read_rehearing(
     complete: bool = True,
     judgment_date: date | None = None,
     rehearing_denied: date | None = None,
+    clusters: Sequence[ClusterMatch] = (),
+    clusters_whole: bool = True,
 ) -> RehearingReading:
     """The en banc reading over ``(docket_id, entry)`` pairs.
 
@@ -735,6 +754,16 @@ def read_rehearing(
     ``judgment_date`` — on the judgment date itself a separate writing belongs
     to the panel's decision, not to the rehearing order. An either-kind label
     on the disposition's day leaves the dissent unknown rather than absent.
+
+    ``clusters`` are the case's opinion clusters. One filed after the judgment
+    date on a day an entry records the disposition, or on ``rehearing_denied``,
+    is a writing the court published with its order, and a clerk can docket
+    such an order without naming what is attached. Its metadata does not say
+    whether it holds a dissent, so with a disposition read and no dissent
+    named in the entries the dissent is unknown rather than absent, and the
+    clusters are reported in ``disposition_day_clusters``. ``clusters_whole``
+    says whether the cluster lists were read whole: a list that ran past one
+    page may hold such a cluster unseen, so it leaves the dissent unknown too.
 
     ``rehearing_denied`` is the denial date the SCOTUS docket states. Where
     the entries show no disposition and none is filed that late, upstream
@@ -813,7 +842,12 @@ def read_rehearing(
     # A disposition implies a petition was before the court, whether or not its
     # filing entry was among those read.
     filed_any = petition or disposition is not None
-    no_dissent = None if writing_unread or not complete else False
+    published = _disposition_day_clusters(
+        clusters, {filed for _, filed in disposed}, rehearing_denied
+    )
+    with_order = published if disposition is not None else []
+    unseen = writing_unread or not complete or not clusters_whole
+    no_dissent = None if unseen or with_order else False
     return RehearingReading(
         entries_read=read,
         complete=complete,
@@ -824,8 +858,26 @@ def read_rehearing(
         petition_filed=True if filed_any else negative,
         disposition=disposition,
         dissent_noted=None if disposition is None else (True if dissent else no_dissent),
+        disposition_day_clusters=with_order,
         cites=cites,
     )
+
+
+def _disposition_day_clusters(
+    clusters: Sequence[ClusterMatch], disposed: set[date], rehearing_denied: date | None
+) -> list[int]:
+    """The clusters filed after the judgment on a day rehearing was disposed of, oldest first.
+
+    The day is one an entry records the disposition on, or the denial date
+    the SCOTUS docket states. A cluster on the judgment date belongs to the
+    panel's decision and is left out.
+    """
+    days = disposed | ({rehearing_denied} if rehearing_denied is not None else set())
+    return [
+        cluster.cluster_id
+        for cluster in sorted(clusters, key=lambda c: (c.date_filed or date.min, c.cluster_id))
+        if cluster.after_judgment and cluster.date_filed in days
+    ]
 
 
 # --- the walk ------------------------------------------------------------------
@@ -1356,7 +1408,7 @@ def _match(walk: _Walk, facts: LowerCourtFacts, *, case_id: str | None) -> Decis
     if not clusters.truncated and not walk.search_faults:
         _mark_following(clusters.found, facts)
     _read_opinions(walk, clusters)
-    rehearing = _rehearing(walk, dockets, facts)
+    rehearing = _rehearing(walk, dockets, facts, clusters)
     status, reason = _verdict(clusters.found, dockets, facts)
     return DecisionBelowMatch(
         case_id=case_id,
@@ -1372,7 +1424,10 @@ def _match(walk: _Walk, facts: LowerCourtFacts, *, case_id: str | None) -> Decis
 
 
 def _rehearing(
-    walk: _Walk, dockets: Sequence[DocketRow], facts: LowerCourtFacts
+    walk: _Walk,
+    dockets: Sequence[DocketRow],
+    facts: LowerCourtFacts,
+    clusters: _Clusters,
 ) -> RehearingReading:
     """The en banc reading of the checked rows' post-judgment entries.
 
@@ -1412,7 +1467,12 @@ def _rehearing(
             if _before_docketing(entry, facts.scotus_docketed)
         )
     return read_rehearing(
-        pairs, complete=complete, judgment_date=since, rehearing_denied=facts.rehearing_denied
+        pairs,
+        complete=complete,
+        judgment_date=since,
+        rehearing_denied=facts.rehearing_denied,
+        clusters=clusters.found,
+        clusters_whole=not clusters.truncated,
     )
 
 
@@ -1708,6 +1768,9 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
     or after the judgment date with its opinion ids, a line naming the opinion
     read as following a judgment entered by order, and the en banc reading
     with the date its entries run through and the entries it rests on. Where
+    the court published an opinion cluster on the day of the disposition and
+    no entry names a dissent, the record names the cluster and says a dissent
+    is not ruled out. Where
     the entries' text could not carry an answer — an entry described nowhere,
     or a stated rehearing denial no entry records — the record says "could not
     be read" in place of an absence. Stored
@@ -1757,6 +1820,14 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
             if reading.blank_entries or reading.denial_unrecorded
             else "not found"
         )
+        # A writing published with the order explains an unnamed dissent; a
+        # dissent an entry names needs no such note.
+        by_id = {c.cluster_id: c for c in decided}
+        with_order = (
+            [by_id[ident] for ident in reading.disposition_day_clusters if ident in by_id]
+            if reading.dissent_noted is None
+            else []
+        )
         lines.extend(
             [
                 "Rehearing en banc, read from the text of "
@@ -1767,9 +1838,24 @@ def docket_document(match: DecisionBelowMatch, *, today: date) -> corpus.CaseDoc
                 + ":",
                 f"  petition filed: {_yes_no(reading.petition_filed, unknown)}",
                 f"  disposition: {reading.disposition or unknown}",
-                f"  dissent noted: {_yes_no(reading.dissent_noted, unknown)}",
+                "  dissent noted: "
+                + (
+                    "not named in the entries read"
+                    if with_order
+                    else _yes_no(reading.dissent_noted, unknown)
+                ),
             ]
         )
+        if with_order:
+            lines.append(
+                "  Published the day rehearing was disposed of: opinion cluster "
+                + ", ".join(f"{c.cluster_id} ({c.date_filed})" for c in with_order)
+                + ". What the court published that day may be an amended opinion, or its "
+                + "order with a dissent, a concurrence or a statement attached. CourtListener's "
+                + "record of the cluster does not say which, so no absence of a dissent is "
+                + "reported: read the writing itself, in the decision below under the heading "
+                + "with its filing date where its text is held, or in the petition's appendix."
+            )
         for cite in reading.cites:
             lines.append(
                 f"  entry {cite.entry_number if cite.entry_number is not None else '(unnumbered)'}"

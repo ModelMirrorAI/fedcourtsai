@@ -22517,3 +22517,141 @@ freeze commit is recorded here.
     fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('scrub-city-line-scan-marks' in {b.name for b in H})"` prints
     `True`.
+- **The docket record reports no absence of a dissent where the court
+  published a writing with its order on rehearing; recorded 2026-11-24.** A
+  **provisioning** change with a harness boundary, recorded ahead of the
+  promotion that carries it.
+
+  **Why.** A predictor flagged, in predict run `20261124T010551Z` on
+  `scotus/9026000669` (26-669, `evt-petition-arrival-disposition`), that the
+  staged `lower-court-docket.txt` reports no dissent from the denial of
+  rehearing en banc while the petition describes writings on that denial.
+  Read against CourtListener and the case store on 2026-11-24:
+  - CourtListener docket 71212351 (ca9 `24-631`) carries two published
+    clusters, 10661791 dated 2025-08-27, the judgment date, and 10880332
+    dated 2026-06-25, the day the SCOTUS docket says rehearing was denied.
+    The entry that records the denial (entry 62, filed that day) names no
+    dissent, and no other entry was filed that day.
+  - The record stored on 2026-11-23 lists cluster 10880332 as a later
+    opinion cluster and, a few lines on, says "dissent noted: none in the
+    entries read". The line is true of the entries and misleads beside the
+    cluster: a court can publish its order with the writings attached and
+    docket it as an order and nothing more.
+  - The flag also said `decision-below.txt` ends before that order. The
+    stored row does not bear that out: it holds the 2026-06-25 cluster first,
+    under its dated heading, for 48,435 characters, then the judgment-date
+    opinion, cut at the 150,000-character cap. That half is as the
+    `decision-below-later-opinions` boundary left it and does not move.
+
+  **What moved.** In `pipeline.decision_below`:
+  - The rehearing reading takes the case's clusters. One filed after the
+    judgment date on a day an entry records the disposition, or on the
+    rehearing-denial date the SCOTUS docket states, is reported in
+    `disposition_day_clusters`, only where a disposition was read.
+  - With such a cluster and no dissent named in the entries, `dissent_noted`
+    is unknown (`None`) where it was `False`. A dissent an entry names stays
+    `True`. A cluster on the judgment date, or on any other day, changes
+    nothing.
+  - The docket record then says "dissent noted: not named in the entries
+    read" and adds one line that names the cluster and its date, says what
+    the court published that day may be an amended opinion, or its order
+    with a dissent, a concurrence or a statement attached, that
+    CourtListener's record of the cluster does not say which, and that no
+    absence of a dissent is reported. The line points to the decision below,
+    under the heading with that filing date, and to the petition's appendix.
+  - Where a cluster list ran past one page, such a cluster may sit unseen,
+    so `dissent_noted` is unknown there too and the record says "not found"
+    (or "could not be read", where an entry is blank or a stated denial is
+    unrecorded) in place of an absence.
+  - No request is added, and the `decision-below` row does not change: the
+    clusters were already listed and read.
+
+  The rule reads dates and not the writing. It does not say a dissent was
+  filed: an amended opinion filed with the order, or an order published
+  alone, gets the same line.
+
+  No prompt byte and no field a digest reads moves: `uv run fedcourts
+  process-digest --all` prints `proc-v24` with the Court's six digests and
+  `ai-watchlist-v1` with the six trial digests, with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change alters
+  what a cert or merits predict cell reads under unchanged digests. It is
+  composition, not a cut. The pooled default and the paired figure keep both
+  sides and list each engine's `n` before and after. It cuts only a figure
+  that reads its own effect.
+  - **The registry row** is `lower-court-docket-order-day-writing`. It
+    applies to every predictor, and its reach is `all`, because no narrower
+    registered reach names petitions from the federal courts of appeals. It
+    is **gradual**: a stored row changes only when the fill walks its case,
+    on arrival or once its stamp is 30 days stale. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`),
+    under the 2026-10-14 merge-stamping declaration, and its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before
+    its case was walked again still reads the earlier row, so the after-side
+    `n` is an upper bound on exposure.
+
+  **The population.** Read from blob
+  `65ecfb948e4fa6b7bf7b469a03f03cc533a14ad3dab21939362f92c66098b7c4` (newest
+  pull 2026-11-24, newest stored snapshot row 2026-07-13; `main`'s pointer,
+  which differed from `staging`'s that day) and the case store on
+  2026-11-24: 557 cases carry a fill stamp, 541 hold a `lower-court-docket`
+  row and 460 a `decision-below` row. 121 of the 541 records read a
+  disposition, 118 a denial and 3 a grant. 42 of the 121 were stored on or
+  after 2026-11-11, the day a record began to list later clusters. 24 of
+  those 42 state no dissent, and one of the 24 lists a later cluster dated
+  on the stated denial date or on the day of an entry the reading cites:
+  `scotus/9026000669`, the flagged case, whose line changes when the fill
+  next walks it. Three more of
+  the 42 list such a cluster and say a dissent was noted, and do not change.
+  The count reads every cited entry's day, the petition's among them, so it
+  is an upper bound. The other 79 records were stored before that day and
+  list no later cluster whatever the docket holds; 53 of them state no
+  dissent, and how many of those dockets carry a cluster on the disposition's
+  day is not known from the stored rows. Each is walked again once its stamp
+  is 30 days stale, and the rotation's case cap can hold a stale row longer.
+  A stored record does not say whether its cluster list ran past one page,
+  so how many of the records that state no dissent the second rule reaches
+  is not known from the stored rows either.
+  CourtListener was read for 26-669 only. With this change, `uv run
+  fedcourts decision-below --docket 26-669` on 2026-11-24 prints one
+  `matched` case, its cluster list read whole, whose rehearing reading has
+  disposition `denied`, `dissent_noted` null and `disposition_day_clusters`
+  `[10880332]`; without it the same run prints `dissent_noted` false.
+
+  **What the change does not reach.** A writing docketed and published on a
+  later day than the order is not joined to it. A case whose row predates
+  this change keeps it until the fill walks it again, and no walk is brought
+  forward: 26-669's row was stored on 2026-11-23, its stamp goes stale on
+  2026-12-23, and its three predictors forecast
+  `evt-petition-arrival-disposition` on the earlier line.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. The match rate is unchanged. No skill movement
+  is predicted, and a movement in **either** direction across this boundary
+  may not be read as a model effect.
+
+  **The amendment debt.** It is unchanged. The predict prompt says the
+  record tells "whether a dissent was noted", which the new line still
+  answers, and already names "a writing on the denial of rehearing" among
+  the later opinions of `decision-below.txt`.
+
+  Carried to `main` by the promotion tagged `promotion/2026-11-24` (merge
+  commit `8e5b1bed0cf6bd80d48105abb924daae7f9d46de`, merged `2026-11-24T16:40:03Z`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_decision_below.py` is green;
+  - where a CourtListener token is set, `uv run fedcourts decision-below
+    --docket 26-669` prints one `matched` case whose rehearing reading has
+    `dissent_noted` null and `disposition_day_clusters` `[10880332]`, while
+    CourtListener still holds that cluster dated 2026-06-25;
+  - once the fill has walked `scotus/9026000669` again after the promotion
+    (its stamp goes stale on 2026-12-23), its `lower-court-docket` row
+    carries the line "Published the day rehearing was disposed of: opinion
+    cluster 10880332 (2026-06-25)";
+  - on `main` once the promotion has merged, `uv run python -c "from
+    fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('lower-court-docket-order-day-writing' in {b.name for b in H})"`
+    prints `True`.

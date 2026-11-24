@@ -41,6 +41,7 @@ from fedcourtsai.leaderboard import (
 from fedcourtsai.ops import render_substance, summarize_substance
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.semantic import SEMANTIC_SET_V1
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
 from fedcourtsai.process_version import PooledWindowsError
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 from fedcourtsai.release_sensitivity import (
@@ -587,26 +588,45 @@ def test_proc_v24_closes_every_predictor_window_and_opens_one_for_each() -> None
     assert len(rows) == 48
 
 
+def _populations() -> dict[str, str]:
+    """Each registered label's population."""
+    return {entry.label: entry.population for entry in process_version._REGISTRY.labels}
+
+
+def _scotus(windows: Iterable[CountingWindow]) -> list[CountingWindow]:
+    """``windows`` less a prediction slice's, order kept."""
+    populations = _populations()
+    return [
+        window
+        for window in windows
+        if populations.get(window.label, SCOTUS_POPULATION_KEY) == SCOTUS_POPULATION_KEY
+    ]
+
+
 def test_the_counting_registry_is_well_formed() -> None:
     """Windows are aware, ordered, non-overlapping per digest, and predictor-only.
 
-    Every window the current label opened opens at ``FROZEN_SINCE``; no window
-    opens after it; an open window's digest is still blessed, or its close is
-    pending; and every enabled predictor's live digest has an open window, or
-    one pending its opening, so today's fleet counts once its label is carried.
+    Every window a population's current label opened opens at that population's
+    counting instant, ``FROZEN_SINCE`` for the Supreme Court docket; no window
+    opens after its population's instant; an open window's digest is still
+    blessed, or its close is pending; and every enabled predictor's live digest
+    has an open window, or one pending its opening, so today's fleet counts once
+    its label is carried.
     """
     windows = process_version.COUNTING_WINDOWS
-    since = process_version.FROZEN_SINCE
-    assert bool(windows) == (since is not None)
+    populations = _populations()
+    assert bool(_scotus(windows)) == (process_version.FROZEN_SINCE is not None)
     for window in windows:
+        population = populations.get(window.label, SCOTUS_POPULATION_KEY)
+        since = process_version.counting_instant(process_version._REGISTRY, population)
         assert re.fullmatch(r"sha256:[0-9a-f]{64}", window.digest), window.digest
         assert window.opens.tzinfo is not None
         if window.closes is not None:
             assert window.closes.tzinfo is not None
             assert window.closes > window.opens
-        if since is not None:
-            assert window.opens <= since
-        if window.label == process_version.CURRENT_PROCESS_LABEL:
+        assert since is not None, f"{window.label}: a window with no counting instant"
+        assert window.opens <= since
+        if window.label == process_version.current_label(population):
             assert window.opens == since
         if window.closes is None and window.revoked_at is None:
             # A window whose successor's close is pending still reads open.
@@ -640,8 +660,17 @@ def test_the_counting_registry_is_well_formed() -> None:
 
 
 def test_the_board_record_carries_the_windows() -> None:
+    """The Supreme Court docket's record carries that docket's windows and
+    blessed digests, and none of a prediction slice's."""
     record = process_version.frozen_process_record()
-    assert record.windows == list(process_version.COUNTING_WINDOWS)
+    assert record.windows == _scotus(process_version.COUNTING_WINDOWS)
+    populations = _populations()
+    sliced = {
+        blessing.digest
+        for blessing in process_version._REGISTRY.blessings
+        if populations[blessing.label] != SCOTUS_POPULATION_KEY
+    }
+    assert record.digests == sorted(set(process_version.FROZEN_PROCESS_DIGESTS) - sliced)
 
 
 # A closed window (proc-a, digest A) and the successor that closed it (proc-b).

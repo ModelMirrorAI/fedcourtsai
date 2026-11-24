@@ -1601,6 +1601,14 @@
       "predictors": null,
       "reach": "self-represented dockets",
       "gradual": false
+    },
+    {
+      "name": "lower-court-docket-order-day-writing",
+      "merge": "8e5b1bed0cf6bd80d48105abb924daae7f9d46de",
+      "at": "2026-11-24T16:40:03Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

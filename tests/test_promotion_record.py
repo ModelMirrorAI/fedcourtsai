@@ -359,7 +359,10 @@ def test_the_board_record_lists_pending_rows_and_omits_an_empty_list() -> None:
         f"{stamp.kind} {stamp.ident}"
         for stamp in pending_registrations(scotus.model_dump(mode="json"))
     ]
-    assert set(live.get("pending", [])) <= set(process_version.PENDING_REGISTRATIONS)
+    assert set(live.get("pending", [])) <= {
+        f"{stamp.kind} {stamp.ident}"
+        for stamp in pending_registrations(process_version._REGISTRY.model_dump(mode="json"))
+    }
     assert "pending" not in FrozenProcessRecord(digests=[], since=None).model_dump(mode="json")
     record = FrozenProcessRecord(digests=[], since=None, pending=[f"label {NEW_LABEL}"])
     assert record.model_dump(mode="json")["pending"] == [f"label {NEW_LABEL}"]
