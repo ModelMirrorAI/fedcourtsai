@@ -710,7 +710,11 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 292
+      "petitions": 289
+    },
+    {
+      "conference": "2026-12-11",
+      "petitions": 3
     }
   ],
   "discovery": {
@@ -770,10 +774,10 @@
     ],
     "term": 26
   },
-  "documents_provisioned": 167,
+  "documents_provisioned": 168,
   "generated_on": "2026-11-24",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 292,
+  "next_conference_petitions": 289,
   "schema_version": "1.0",
   "skipped": false,
   "watchlist": 838
