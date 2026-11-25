@@ -1,12 +1,12 @@
 {
-  "cases": 430,
-  "cases_at_court_next_conference": 46,
+  "cases": 435,
+  "cases_at_court_next_conference": 45,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 391,
+      "cases": 396,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1287,
+  "current_reads": 1302,
   "declared_no_view": 29,
   "frozen_process": {
     "digests": [
@@ -393,8 +393,8 @@
       }
     ]
   },
-  "median_adjacent_gap": 0.0017,
-  "median_score_range": 0.195,
+  "median_adjacent_gap": 0.001,
+  "median_score_range": 0.2,
   "missing_reads": 9,
   "predictors": [
     "claude-baseline",
@@ -10523,12 +10523,12 @@
       ],
       "schedule": [
         {
-          "date": "2026-12-04",
+          "date": "2026-12-11",
           "kind": "conference"
         }
       ],
       "scheduled": {
-        "date": "2026-12-04",
+        "date": "2026-12-11",
         "kind": "conference"
       },
       "score_max": 0.82,
@@ -12370,6 +12370,132 @@
       "score_min": 0.72,
       "score_range": 0.01,
       "short_caption": "Novartis Pharmaceuticals v. Fitch",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Daniel Samuel Eta",
+      "caption": "Daniel Samuel Eta v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000604",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "If decided, it would set the Fourth Amendment rule for warrantless phone searches of every traveler at the border, a question nine circuits have split on; the case itself is an ordinary fraud prosecution.",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "A rule on when border officers may read travelers\u2019 phones would govern searches at ports of entry nationwide, including access to private messages and professional confidences.",
+          "big_case_score": 0.83,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling on whether the Fourth Amendment permits warrantless, non-border-related cell-phone searches at the border would govern tens of thousands of annual CBP device inspections nationwide and serve as a major digital-privacy sequel to Riley v. California, tempered slightly by the criminal suppression and good-faith posture.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        }
+      ],
+      "docket_id": 9026000604,
+      "docket_number": "26-604",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-604.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "If decided, it would set the Fourth Amendment rule for warrantless phone searches of every traveler at the border, a question nine circuits have split on; the case itself is an ordinary fraud prosecution.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000604/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000604/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.11,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "A rule on when border officers may read travelers\u2019 phones would govern searches at ports of entry nationwide, including access to private messages and professional confidences.",
+              "big_case_score": 0.83,
+              "cell_path": "data/cases/scotus/9026000604/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000604/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.09,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling on whether the Fourth Amendment permits warrantless, non-border-related cell-phone searches at the border would govern tens of thousands of annual CBP device inspections nationwide and serve as a major digital-privacy sequel to Riley v. California, tempered slightly by the criminal suppression and good-faith posture.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000604/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000604/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.045,
+              "run_id": "20261125T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Daniel Samuel Eta v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.7167,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-11-09",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Daniel Samuel Eta's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Daniel Samuel Eta's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.83,
+      "score_min": 0.6,
+      "score_range": 0.23,
+      "short_caption": "Daniel Samuel Eta v. United States",
       "status": "pending"
     },
     {
@@ -14838,6 +14964,132 @@
       "score_min": 0.6,
       "score_range": 0.13,
       "short_caption": "Daniel Defense v. Lowy",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Hunt",
+      "caption": "Michael H. Hunt v. Florida",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000078",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Capital case testing retroactive application of Florida's 8-4 death-recommendation statute; affects dozens of Florida capital prosecutions and, with companion Jackson (No. 26-76), the constitutionality of nonunanimous death verdicts.",
+          "big_case_score": 0.5,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261124T174519Z"
+        },
+        {
+          "big_case_rationale": "A ruling on unanimity could change how Florida and Alabama impose death sentences. A ruling confined to retroactivity could still determine whether people whose crimes predated Florida\u2019s 2023 amendment can receive a death sentence on a divided jury vote.",
+          "big_case_score": 0.83,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261124T174519Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, the case would resolve the constitutionality of nonunanimous capital sentencing (Florida's 8-4 statute and Alabama's 10-2 rule) and/or Ex Post Facto limits on retroactive changes to capital jury voting rules across dozens of death sentences.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261124T174519Z"
+        }
+      ],
+      "docket_id": 9026000078,
+      "docket_number": "26-78",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-78.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Capital case testing retroactive application of Florida's 8-4 death-recommendation statute; affects dozens of Florida capital prosecutions and, with companion Jackson (No. 26-76), the constitutionality of nonunanimous death verdicts.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000078/events/evt-petition-disposition/predictions/claude-baseline/20261124T174519Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000078/events/evt-petition-disposition/predictions/claude-baseline/20261124T174519Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.17,
+              "run_id": "20261124T174519Z"
+            },
+            {
+              "big_case_rationale": "A ruling on unanimity could change how Florida and Alabama impose death sentences. A ruling confined to retroactivity could still determine whether people whose crimes predated Florida\u2019s 2023 amendment can receive a death sentence on a divided jury vote.",
+              "big_case_score": 0.83,
+              "cell_path": "data/cases/scotus/9026000078/events/evt-petition-disposition/predictions/codex-baseline/20261124T174519Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000078/events/evt-petition-disposition/predictions/codex-baseline/20261124T174519Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.22,
+              "run_id": "20261124T174519Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, the case would resolve the constitutionality of nonunanimous capital sentencing (Florida's 8-4 statute and Alabama's 10-2 rule) and/or Ex Post Facto limits on retroactive changes to capital jury voting rules across dozens of death sentences.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000078/events/evt-petition-disposition/predictions/gemini-baseline/20261124T174519Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000078/events/evt-petition-disposition/predictions/gemini-baseline/20261124T174519Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.16,
+              "run_id": "20261124T174519Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael H. Hunt v. Florida"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6833,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-16",
+      "n": 3,
+      "other_party": "Florida",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hunt's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hunt's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.83,
+      "score_min": 0.5,
+      "score_range": 0.33,
+      "short_caption": "Hunt v. Florida",
       "status": "pending"
     },
     {
@@ -17583,9 +17835,9 @@
         }
       ],
       "docket_id": 73500214,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1313",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1313.html",
       "events": [
         {
           "actual_disposition": null,
@@ -18360,182 +18612,6 @@
       "score_min": 0.55,
       "score_range": 0.15,
       "short_caption": "Teck Metals v. Confederated Tribes of the Colville Reservation",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Padula",
-      "caption": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000572",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "The question (mandatory no-bond detention of noncitizens present without admission) is very high-stakes, but this docket is a follow-on hold behind the already-granted lead case, No. 26-104, so little turns on this petition itself.",
-          "big_case_score": 0.4,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261122T141632Z"
-        },
-        {
-          "big_case_rationale": "Bond eligibility for people arrested in the interior affects detention nationwide. Rhoney is already set to supply the governing rule.",
-          "big_case_score": 0.84,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261122T141632Z"
-        },
-        {
-          "big_case_rationale": "Presents a sweeping national question on mandatory immigration detention without bond for unadmitted interior-present noncitizens under 8 U.S.C. 1225(b)(2)(A), postured here as a follow-on SG hold petition behind granted lead case Rhoney v. Barbosa da Cunha (No. 26-104).",
-          "big_case_score": 0.68,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261122T141632Z"
-        }
-      ],
-      "docket_id": 9026000572,
-      "docket_number": "26-572",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-572.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The issue itself (whether 8 U.S.C. 1225(b)(2)(A) mandates no-bond detention for everyone present without admission) affects a very large detained population and is already granted in a lead case; this docket is a follow-on vehicle, which tempers its own stakes.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.52,
-              "run_id": "20261029T230557Z"
-            },
-            {
-              "big_case_rationale": "The statutory detention question affects bond-hearing eligibility for a large nationwide population and a central federal immigration policy, although this petition is likely to be a companion rather than the lead vehicle.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.8,
-              "run_id": "20261029T230557Z"
-            },
-            {
-              "big_case_rationale": "While the underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question affects hundreds of thousands of interior removal proceedings nationwide, certiorari was already granted on that question in Rhoney v. Barbosa da Cunha (No. 26-104), making this a follow-on Solicitor General hold petition expected to be resolved by summary GVR or denial rather than plenary review.",
-              "big_case_score": 0.25,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
-              "confidence": 0.78,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.68,
-              "run_id": "20261029T230557Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "The question (mandatory no-bond detention of noncitizens present without admission) is very high-stakes, but this docket is a follow-on hold behind the already-granted lead case, No. 26-104, so little turns on this petition itself.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.62,
-              "run_id": "20261122T141632Z"
-            },
-            {
-              "big_case_rationale": "Bond eligibility for people arrested in the interior affects detention nationwide. Rhoney is already set to supply the governing rule.",
-              "big_case_score": 0.84,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.69,
-              "run_id": "20261122T141632Z"
-            },
-            {
-              "big_case_rationale": "Presents a sweeping national question on mandatory immigration detention without bond for unadmitted interior-present noncitizens under 8 U.S.C. 1225(b)(2)(A), postured here as a follow-on SG hold petition behind granted lead case Rhoney v. Barbosa da Cunha (No. 26-104).",
-              "big_case_score": 0.68,
-              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
-              "confidence": 0.72,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.58,
-              "run_id": "20261122T141632Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.64,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-10-29",
-      "n": 3,
-      "other_party": "Jaciel Cirrus Rojas",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Padula's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Padula's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-12-04",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-12-04",
-        "kind": "conference"
-      },
-      "score_max": 0.84,
-      "score_min": 0.4,
-      "score_range": 0.44,
-      "short_caption": "Padula v. Jaciel Cirrus Rojas",
       "status": "pending"
     },
     {
@@ -20899,9 +20975,9 @@
         }
       ],
       "docket_id": 73500291,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1389",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1389.html",
       "events": [
         {
           "actual_disposition": null,
@@ -21124,9 +21200,9 @@
         }
       ],
       "docket_id": 73500244,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "25-1342",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1342.html",
       "events": [
         {
           "actual_disposition": null,
@@ -24929,6 +25005,236 @@
       "score_min": 0.4,
       "score_range": 0.25,
       "short_caption": "Herzon v. Arias",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Padula",
+      "caption": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas",
+      "caption_event_id": "evt-order-call-for-response-disposition",
+      "case_id": "scotus/9026000572",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The question (mandatory no-bond detention under 8 U.S.C. 1225(b)(2)(A) for everyone present without admission) is very high-stakes, but this docket is a follower the government asks the Court to hold for Rhoney v. Barbosa da Cunha (No. 26-104); the lead case, not this one, will carry the decision.",
+          "big_case_score": 0.4,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261124T174519Z"
+        },
+        {
+          "big_case_rationale": "The statutory question affects access to bond hearings nationwide for people arrested years after entering the country. The Court has already selected another case to settle it.",
+          "big_case_score": 0.84,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261124T174519Z"
+        },
+        {
+          "big_case_rationale": "The underlying question governs mandatory detention without bond under 8 U.S.C. 1225(b)(2)(A) for millions of unadmitted noncitizens, but this docket is an explicit Solicitor General hold petition slated for routine cleanup behind the already-granted lead case, Rhoney v. Barbosa da Cunha (No. 26-104).",
+          "big_case_score": 0.45,
+          "event_id": "evt-order-call-for-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261124T174519Z"
+        }
+      ],
+      "docket_id": 9026000572,
+      "docket_number": "26-572",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-572.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-call-for-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The question (mandatory no-bond detention under 8 U.S.C. 1225(b)(2)(A) for everyone present without admission) is very high-stakes, but this docket is a follower the government asks the Court to hold for Rhoney v. Barbosa da Cunha (No. 26-104); the lead case, not this one, will carry the decision.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261124T174519Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-order-call-for-response-disposition/predictions/claude-baseline/20261124T174519Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.6,
+              "run_id": "20261124T174519Z"
+            },
+            {
+              "big_case_rationale": "The statutory question affects access to bond hearings nationwide for people arrested years after entering the country. The Court has already selected another case to settle it.",
+              "big_case_score": 0.84,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261124T174519Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-order-call-for-response-disposition/predictions/codex-baseline/20261124T174519Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.7,
+              "run_id": "20261124T174519Z"
+            },
+            {
+              "big_case_rationale": "The underlying question governs mandatory detention without bond under 8 U.S.C. 1225(b)(2)(A) for millions of unadmitted noncitizens, but this docket is an explicit Solicitor General hold petition slated for routine cleanup behind the already-granted lead case, Rhoney v. Barbosa da Cunha (No. 26-104).",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261124T174519Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-order-call-for-response-disposition/predictions/gemini-baseline/20261124T174519Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.62,
+              "run_id": "20261124T174519Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The issue itself (whether 8 U.S.C. 1225(b)(2)(A) mandates no-bond detention for everyone present without admission) affects a very large detained population and is already granted in a lead case; this docket is a follow-on vehicle, which tempers its own stakes.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T230557Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.52,
+              "run_id": "20261029T230557Z"
+            },
+            {
+              "big_case_rationale": "The statutory detention question affects bond-hearing eligibility for a large nationwide population and a central federal immigration policy, although this petition is likely to be a companion rather than the lead vehicle.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T230557Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.8,
+              "run_id": "20261029T230557Z"
+            },
+            {
+              "big_case_rationale": "While the underlying 8 U.S.C. 1225(b)(2)(A) mandatory-detention question affects hundreds of thousands of interior removal proceedings nationwide, certiorari was already granted on that question in Rhoney v. Barbosa da Cunha (No. 26-104), making this a follow-on Solicitor General hold petition expected to be resolved by summary GVR or denial rather than plenary review.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261029T230557Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.68,
+              "run_id": "20261029T230557Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The question (mandatory no-bond detention of noncitizens present without admission) is very high-stakes, but this docket is a follow-on hold behind the already-granted lead case, No. 26-104, so little turns on this petition itself.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/claude-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.62,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "Bond eligibility for people arrested in the interior affects detention nationwide. Rhoney is already set to supply the governing rule.",
+              "big_case_score": 0.84,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/codex-baseline/20261122T141632Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.69,
+              "run_id": "20261122T141632Z"
+            },
+            {
+              "big_case_rationale": "Presents a sweeping national question on mandatory immigration detention without bond for unadmitted interior-present noncitizens under 8 U.S.C. 1225(b)(2)(A), postured here as a follow-on SG hold petition behind granted lead case Rhoney v. Barbosa da Cunha (No. 26-104).",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000572/events/evt-petition-disposition/predictions/gemini-baseline/20261122T141632Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.58,
+              "run_id": "20261122T141632Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Frank Padula, Acting Director of the Chicago Field Office of U.S. Immigration and Customs Enforcement, et al. v. Jaciel Cirrus Rojas"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5633,
+      "moment": "evt-order-call-for-response-disposition",
+      "moment_opened_at": "2026-11-24",
+      "n": 3,
+      "other_party": "Jaciel Cirrus Rojas",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Padula's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Padula's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        },
+        {
+          "date": "2026-12-24",
+          "kind": "response_due"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.84,
+      "score_min": 0.4,
+      "score_range": 0.44,
+      "short_caption": "Padula v. Jaciel Cirrus Rojas",
       "status": "pending"
     },
     {
@@ -29762,12 +30068,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-24",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.3,
@@ -29985,9 +30286,9 @@
         }
       ],
       "docket_id": 72483503,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
+      "docket_number": "24-1030",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/24-1030.html",
       "events": [
         {
           "actual_disposition": null,
@@ -37118,6 +37419,132 @@
       "score_min": 0.35,
       "score_range": 0.19,
       "short_caption": "Parasmo v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Richard Alan Kucera",
+      "caption": "Richard Alan Kucera v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000606",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A First Amendment mistake-of-age defense to a 15-year mandatory-minimum federal crime on a lopsided, decades-old circuit split; real doctrinal weight but a narrow class of defendants and no amicus interest.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "A decision would settle which age-related defense juries may hear nationwide under a federal production statute carrying a 15-year minimum sentence.",
+          "big_case_score": 0.52,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, resolving the 9-1 circuit split over whether the First Amendment requires a reasonable mistake-of-age defense under 18 U.S.C. \u00a7 2251(a) would govern federal child-exploitation prosecutions nationwide and clarify First Amendment scienter limits beyond X-Citement Video, though its real-world reach is cabined to rare factual disputes.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        }
+      ],
+      "docket_id": 9026000606,
+      "docket_number": "26-606",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-606.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A First Amendment mistake-of-age defense to a 15-year mandatory-minimum federal crime on a lopsided, decades-old circuit split; real doctrinal weight but a narrow class of defendants and no amicus interest.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000606/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000606/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "A decision would settle which age-related defense juries may hear nationwide under a federal production statute carrying a 15-year minimum sentence.",
+              "big_case_score": 0.52,
+              "cell_path": "data/cases/scotus/9026000606/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000606/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.07,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, resolving the 9-1 circuit split over whether the First Amendment requires a reasonable mistake-of-age defense under 18 U.S.C. \u00a7 2251(a) would govern federal child-exploitation prosecutions nationwide and clarify First Amendment scienter limits beyond X-Citement Video, though its real-world reach is cabined to rare factual disputes.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000606/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000606/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.018,
+              "run_id": "20261125T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Richard Alan Kucera v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4133,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-11-09",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Richard Alan Kucera's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Richard Alan Kucera's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.52,
+      "score_min": 0.3,
+      "score_range": 0.22,
+      "short_caption": "Richard Alan Kucera v. United States",
       "status": "pending"
     },
     {
@@ -48115,6 +48542,132 @@
       "score_min": 0.18,
       "score_range": 0.22,
       "short_caption": "Miguel Angel Delgado v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Jones",
+      "caption": "Debra Jones, Individually and as Natural Parent of Todd R. Murray, and as Personal Representative of the Estate of Todd R. Murray, et al. v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000515",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound spoliation dispute in a nonprecedential Federal Circuit treaty-damages case; human stakes for the family and Tribe, little doctrinal reach.",
+          "big_case_score": 0.1,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "A ruling on who may take custody of evidence after a fatal police shooting could guide investigations nationwide. The treaty damages claim presents that question through a dispute over sanctions.",
+          "big_case_score": 0.36,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling clarifying federal crime-scene firearm seizure authority under the plain-view doctrine and Rakas in Indian Country investigations would carry moderate doctrinal significance for criminal procedure and civil spoliation, well short of a major institutional or nationwide blockbuster.",
+          "big_case_score": 0.32,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        }
+      ],
+      "docket_id": 9026000515,
+      "docket_number": "26-515",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-515.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound spoliation dispute in a nonprecedential Federal Circuit treaty-damages case; human stakes for the family and Tribe, little doctrinal reach.",
+              "big_case_score": 0.1,
+              "cell_path": "data/cases/scotus/9026000515/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000515/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.006,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "A ruling on who may take custody of evidence after a fatal police shooting could guide investigations nationwide. The treaty damages claim presents that question through a dispute over sanctions.",
+              "big_case_score": 0.36,
+              "cell_path": "data/cases/scotus/9026000515/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000515/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.004,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling clarifying federal crime-scene firearm seizure authority under the plain-view doctrine and Rakas in Indian Country investigations would carry moderate doctrinal significance for criminal procedure and civil spoliation, well short of a major institutional or nationwide blockbuster.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000515/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000515/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.008,
+              "run_id": "20261125T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Debra Jones, Individually and as Natural Parent of Todd R. Murray, and as Personal Representative of the Estate of Todd R. Murray, et al. v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.26,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-16",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Jones' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Jones' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.36,
+      "score_min": 0.1,
+      "score_range": 0.26,
+      "short_caption": "Jones v. United States",
       "status": "pending"
     },
     {
@@ -59935,6 +60488,132 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Areizaga",
+      "caption": "Efrain Areizaga v. TForce Freight, Incorporated, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000509",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se, fact-bound challenge to a summary judgment in a single employee's Title VII/section 1981 retaliation suit; no issue reaching beyond the parties.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "A decision could clarify what evidence protects a worker who reports discrimination against a colleague. The pleadings and timing would likely confine its practical effect.",
+          "big_case_score": 0.12,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        },
+        {
+          "big_case_rationale": "Single-plaintiff pro se employment-retaliation dispute turning on case-specific summary-judgment facts, routine Rule 6(b) docket management, and settled Title VII and Section 1981 rules, with minimal doctrinal or public significance even if decided.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261125T011516Z"
+        }
+      ],
+      "docket_id": 9026000509,
+      "docket_number": "26-509",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-509.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se, fact-bound challenge to a summary judgment in a single employee's Title VII/section 1981 retaliation suit; no issue reaching beyond the parties.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000509/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000509/events/evt-petition-disposition/predictions/claude-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "A decision could clarify what evidence protects a worker who reports discrimination against a colleague. The pleadings and timing would likely confine its practical effect.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9026000509/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000509/events/evt-petition-disposition/predictions/codex-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.001,
+              "run_id": "20261125T011516Z"
+            },
+            {
+              "big_case_rationale": "Single-plaintiff pro se employment-retaliation dispute turning on case-specific summary-judgment facts, routine Rule 6(b) docket management, and settled Title VII and Section 1981 rules, with minimal doctrinal or public significance even if decided.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000509/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000509/events/evt-petition-disposition/predictions/gemini-baseline/20261125T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.003,
+              "run_id": "20261125T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Efrain Areizaga v. TForce Freight, Incorporated, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.0633,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-16",
+      "n": 3,
+      "other_party": "TForce Freight",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Areizaga's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Areizaga's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.12,
+      "score_min": 0.03,
+      "score_range": 0.09,
+      "short_caption": "Areizaga v. TForce Freight",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Sanders",
       "caption": "Leslie Sanders v. City of Long Beach, California",
       "caption_event_id": "evt-petition-disposition",
@@ -61508,7 +62187,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a729.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -61554,7 +62233,7 @@
               "run_id": "20261121T030841Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-11-23",
           "title": "Ian Buenaventura v. Leslie Buot"
         }
       ],
@@ -61582,7 +62261,7 @@
       "score_min": 0.02,
       "score_range": 0.01,
       "short_caption": "Buenaventura v. Buot",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -63194,5 +63873,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1249
+  "scored_reads": 1264
 }
