@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000515",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The salience table in metrics/statpack.md displays sal-v8. The cell uses sal-v9. The prior-Term private-petitioner floor and the sal-v9 alternate rows in metrics/statpack.json both reproduce the frozen 5.1784% grant rate (656 of 12,668)."
+    }
+  ]
+}

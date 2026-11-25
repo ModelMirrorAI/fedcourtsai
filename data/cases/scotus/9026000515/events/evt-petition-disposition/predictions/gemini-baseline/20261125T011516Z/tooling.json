@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000515",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Frozen cert_anchor and cert_amicus_line in record/context.json provided exact pre-pooled risk-set baselines despite metrics/statpack.md rendering sal-v8.",
+    "CourtListener MCP search_document and read_document recovered the exact pages of the Court of Federal Claims spoliation opinion (Jones VI, ECF No. 209) omitted after the 150,000-character cap in appendix.txt, plus panel verification on Jones v. Norton."
+  ],
+  "gaps": [
+    "fedcourts query --judge 'Taranto' timed out after 180s against the local corpus sidecar, likely scanning unindexed judge arrays across SCOTUS rows.",
+    "fedcourts query lacks an --originating-court filter (e.g., --originating-court cafc) for quickly pulling cert petitions from the same lower court."
+  ],
+  "notes": "Provisioned petition.txt and 2026-11-25.json snapshot were clean and complete; appendix truncation was cleanly marked and easily supplemented via RECAP."
+}

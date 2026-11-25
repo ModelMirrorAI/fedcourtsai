@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000572",
+  "run_id": "20261124T170930Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener MCP (search, get_endpoint_item, read_document)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt from the justice.gov OSG mirror despite paper_only_filings on supremecourt.gov, which immediately revealed this is an explicit hold petition for No. 26-104",
+    "fedcourts query --docket-number for inspecting the granted lead vehicle (26-104) and held split companions (25-1415, 26-43)",
+    "Pre-pooled cert_anchor and cert_amicus_line in record/context.json under sal-v9"
+  ],
+  "gaps": [
+    "record/same-question.json returned petitions: null even though No. 26-104, No. 25-1415, and No. 26-43 share the identical 8 U.S.C. 1225(b)(2)(A) question presented",
+    "metrics/statpack.md renders the salience band table under sal-v8 while context.json already uses sal-v9 (though context.cert_anchor.rate supplied the exact sal-v9 baseline)"
+  ],
+  "notes": "CourtListener opinion 11451136 (Barbosa Da Cunha amended/reissued cluster 10983473) had no extracted text in MCP read_document, but the provisioned CA7 opinion and SG petition thoroughly detailed Barbosa da Cunha (175 F.4th 61)."
+}

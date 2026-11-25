@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000078",
+  "run_id": "20261124T174519Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "record/related", "record/documents"],
+  "helpful": ["Staged companion docket snapshot (26-76)", "cert_anchor and cert_amicus_line in context.json", "--docket-number lookup for a case cited in the petition (Kian)"],
+  "gaps": ["Companion petition's own petition/BIO text was not staged", "No way to distinguish a pre-conference reschedule from a true relist in distribution_count or the band"],
+  "notes": "The elevated band here rests on a reschedule, not a relist."
+}

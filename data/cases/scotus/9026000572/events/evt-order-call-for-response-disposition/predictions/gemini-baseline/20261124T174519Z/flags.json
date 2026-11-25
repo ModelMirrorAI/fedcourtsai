@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000572",
+  "run_id": "20261124T174519Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "metrics/statpack.md renders 'Segment base rate by salience band (sal-v8)', whereas record/context.json assigns band 'federal' under salience_version 'sal-v9'. Both context.json's pre-pooled cert_anchor.rate (from statpack.json's sal-v9 alt_segments) and the federal caption-class reached floor over OT2017-OT2025 equal 155/212 (0.7311), so the rendered markdown heading lag does not change the anchor."
+    }
+  ]
+}

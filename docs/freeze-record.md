@@ -22638,8 +22638,8 @@ freeze commit is recorded here.
   answers, and already names "a writing on the denial of rehearing" among
   the later opinions of `decision-below.txt`.
 
-  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by the promotion tagged `promotion/2026-11-24` (merge
+  commit `8e5b1bed0cf6bd80d48105abb924daae7f9d46de`, merged `2026-11-24T16:40:03Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_decision_below.py` is green;

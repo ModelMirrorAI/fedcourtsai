@@ -1,0 +1,20 @@
+{
+  "case_id": "scotus/9026000078",
+  "run_id": "20261124T170930Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "CourtListener MCP search",
+    "committed statpack"
+  ],
+  "helpful": [
+    "Dated conference entries distinguished a reschedule from a post-conference relist.",
+    "The companion snapshot and the reply identified which case presents the retroactivity issue."
+  ],
+  "gaps": [
+    "The historical Hurst docket lookup returned no disposition or opinion text."
+  ]
+}

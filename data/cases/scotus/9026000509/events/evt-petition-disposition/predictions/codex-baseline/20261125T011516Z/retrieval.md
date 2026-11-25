@@ -1,0 +1,6 @@
+- Local path resolution, `uv run fedcourts paths --court scotus --docket 9026000509 --event evt-petition-disposition --role predictor`. The first invocation hit a read-only uv cache. The retry with `UV_CACHE_DIR=/tmp/uv-cache UV_NO_SYNC=1` returned the case and event paths. Subsequent CLI calls used those settings.
+- `uv run fedcourts query --help` returned the structured filters. `uv run fedcourts query --court scotus --era 2000s --citation '541 U.S. 369' --limit 1` returned no row and reported sparse citation coverage. Transfer line: `ranged corpus reads: 10 GET(s), 2621440 byte(s)`.
+- Read the committed `metrics/statpack.md` cert tables and pooled the prior-Term private-petitioner reached rates under sal-v8 and sal-v9 from `metrics/statpack.json`.
+- CourtListener MCP opinion search for Fifth Circuit docket 25-11255, filed after May 10 and before May 12, 2026, returned zero results.
+- CourtListener MCP opinion search for 541 U.S. 369, court scotus, returned HTTP 429 and no opinion.
+- Read the May 11, 2026 Fifth Circuit decision in docket 25-11255 from the court's opinion archive using `uv run fedcourts pdf-text` on the in-memory PDF. The one-page unpublished decision affirms under Fifth Circuit Rule 47.6. [Official opinion](https://www.ca5.uscourts.gov/opinions/unpub/25/25-11255.0.pdf)

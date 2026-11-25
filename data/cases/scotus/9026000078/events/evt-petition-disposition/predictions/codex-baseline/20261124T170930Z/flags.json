@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000078",
+  "run_id": "20261124T170930Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The salience table in metrics/statpack.md displays sal-v8, while this cell froze sal-v9. The alternate sal-v9 rows in metrics/statpack.json reproduce the 24.8% elevated-band anchor in context.json, which I used."
+    }
+  ]
+}

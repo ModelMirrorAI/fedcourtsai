@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000078",
+  "run_id": "20261124T170930Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md", "WebSearch"],
+  "helpful": [
+    "Full petition, BIO and reply text",
+    "record/related companion docket snapshot",
+    "query --docket-number for a granted related case (Kian)",
+    "cert_anchor frozen in context.json"
+  ],
+  "gaps": [
+    "The companion petition's own filings (Jackson petition, BIO, reply) were not staged, though this petition incorporates them by reference for Question 1",
+    "No argument date or calendar field for a granted related case in the corpus row",
+    "A cut separating reschedules from true relists would sharpen the anchor for dockets like this one"
+  ],
+  "notes": "The companion's related snapshot lagged the corpus row by one distribution."
+}

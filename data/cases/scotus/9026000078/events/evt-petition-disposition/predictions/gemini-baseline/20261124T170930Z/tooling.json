@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000078",
+  "run_id": "20261124T170930Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "Provisioned full-text filings (petition, BIO, cert reply, appendix) and related/26-76.json snapshot",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json",
+    "fedcourts query --docket-number --include-open for companion 26-76 and OT2026 grant 25-6623 (Kian v. Florida)",
+    "CourtListener read_document on Florida Supreme Court companion opinion in Jackson v. State (SC2023-1298)"
+  ],
+  "gaps": [
+    "A party/case-name substring filter on fedcourts query (e.g. --case-name) would speed up finding state-respondent SCOTUS priors without knowing docket numbers in advance",
+    "Provisioning the companion petition's brief text (26-76) when a petition explicitly incorporates a same-day companion petition under Rule 12.4/14.1(i) would add direct visibility into incorporated arguments"
+  ],
+  "notes": "metrics/statpack.md renders the sal-v8 segment table while context.json froze sal-v9 from statpack.json alt_segments (identical cert band counts in OT2017-OT2025, with cert_anchor.rate already pre-pooled in context.json)."
+}
