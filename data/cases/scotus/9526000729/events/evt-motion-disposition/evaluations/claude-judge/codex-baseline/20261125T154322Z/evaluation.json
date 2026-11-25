@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented stay application, with a sealing motion, from a Maine Supreme Judicial Court matter between two private individuals; denied by the Circuit Justice alone in six days with no response, referral, amicus or writing. No visible public-law question or effect beyond the parties."
+  },
+  "brier_score": 0.0004,
+  "brier_skill_score": 0.9706185239973701,
+  "case_id": "scotus/9526000729",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": 0.013214019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.005,
+          "Barrett": 0.003,
+          "Gorsuch": 0.004,
+          "Jackson": 0.012,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.003,
+          "Roberts": 0.002,
+          "Sotomayor": 0.005,
+          "Thomas": 0.004
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013214019934335405,
+    "total": 0.013214019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-25T15:48:13.012742Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (cutoff 2026-11-18, arrival-position; prediction written 2026-11-21, event resolved 2026-11-23). Captured coverage is partial (about 0.45), so the unobserved rows are graded on their queries: CourtListener searches for the Maine docket and caption were date-bounded before 2026-11-18, plus Hollingsworth and a 2022 application as a comparator. The latest legible document date is 2022-09-14. No query reaches this application's disposition and the reasoning does not presuppose it.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.8,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 23 2026: 'Application (26A729) for stay and motion for leave to file application and appendix under seal denied by Justice Jackson.' Six days after submission.",
+        "claim": "Justice Jackson will deny the stay herself within about two weeks of the Nov 17 submission.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals: response_requested false, referred_to_court false, amicus_briefs 0.",
+        "claim": "She will act without calling for a response or referring the matter to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "amicus_briefs 0; no votes or writings recorded; the order is a one-line docket entry.",
+        "claim": "There will be no further amicus filings and no signed explanation.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order states no reasons.",
+        "claim": "The basis is a failure to make the combined showing of a certworthy federal issue, a prospect of reversal and irreparable harm.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261121T030841Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "65bbe052a666a99aa2ef6fb00cfd007dafaa7852",
+    "stamped_at": "2026-11-25T15:48:13.012742Z"
+  },
+  "reasoning_quality": 0.7,
+  "run_id": "20261125T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
