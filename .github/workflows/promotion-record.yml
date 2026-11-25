@@ -216,7 +216,7 @@ jobs:
 
       - name: Mint the data App token (attempt 1)
         id: app-token-1
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -270,7 +270,7 @@ jobs:
       - name: Mint the data App token (attempt 2)
         id: app-token-2
         if: steps.push1.outputs.rejected == 'true'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
@@ -325,7 +325,7 @@ jobs:
       - name: Mint the data App token (attempt 3)
         id: app-token-3
         if: steps.push2.outputs.rejected == 'true'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.DATA_APP_CLIENT_ID }}
           private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
