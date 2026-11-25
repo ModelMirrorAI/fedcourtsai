@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000515",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "CourtListener search",
+    "CourtListener search_document"
+  ],
+  "helpful": [
+    "The staged appendix contains the complete appellate opinion.",
+    "CourtListener supplied the trial court\u2019s possessory-interest discussion beyond the appendix text cap."
+  ],
+  "gaps": [
+    "Sparse reporter citation coverage prevented the corpus lookup for Horton."
+  ]
+}

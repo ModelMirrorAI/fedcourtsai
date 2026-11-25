@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000606",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "event_id": "evt-petition-disposition",
+      "category": "data-quality",
+      "severity": "info",
+      "message": "The Markdown salience table is labeled sal-v8, while context.json freezes sal-v9. The JSON statpack includes sal-v9 as an alternate series and reproduces the frozen rate (656/12,668). The private-petitioner floor in the displayed series gives the same rate."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000515",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition and appendix text"],
+  "helpful": ["Frozen cert_anchor and cert_amicus_line in context.json", "Petition text with QP extraction"],
+  "gaps": ["No base-rate cut conditioned on a waived response with no call for a response", "Corpus query cannot filter by originating court or subject, so priors returned were unrelated"],
+  "notes": "The --era vocabulary is decade tokens; the first query failed on 'modern'."
+}

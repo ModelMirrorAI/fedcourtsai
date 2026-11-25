@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000515",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/context.json assigns salience_version 'sal-v9' (with frozen cert_anchor.rate = 0.05178402273444901 under statpack_digest sha256:43224abac2bb0f0345ecf1f208a4c5c1229f4514030d2604ba6ab51a139bed19), whereas the checked-out metrics/statpack.md renders 'Segment base rate by salience band (sal-v8)' (sha256:14812795... on metrics/statpack.json, which holds sal-v9 in alt_segments). Per the prompt's salience-version rule, I anchored on cert_anchor.rate and cross-checked the private caption-class floor ('baseline' reached over OT2017-OT2025), both of which equal 656 / 12,668 = 0.05178402273444901."
+    }
+  ]
+}

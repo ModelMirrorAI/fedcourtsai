@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000604",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned cert_anchor and cert_amicus_line in record/context.json anchored the sal-v9 baseline rate cleanly despite statpack.md rendering sal-v8.",
+    "fedcourts query --docket-number surfaced the live corpus row for companion petition Anibowei v. Blanche (No. 26-208), including its 10 amicus curiae parties and open status, as well as prior Solicitor General cert denial United States v. Cano (No. 20-1043).",
+    "Clean full-text extraction of petition.txt and appendix.txt made the Seventh Circuit's alternative Davis good-faith holding and transnational-crime reasoning immediately inspectable."
+  ],
+  "gaps": [
+    "same-question.json returned an empty petitions list at threshold 0.5 even though Anibowei v. Blanche (No. 26-208) and Belmonte Cardozo v. United States (No. 26-6011) present closely overlapping border cell-phone search questions cited in the petition.",
+    "fedcourts query does not support a party-name substring filter, requiring exact docket numbers to look up cited SCOTUS petitions."
+  ],
+  "notes": "All provisioned inputs were complete and legible."
+}
