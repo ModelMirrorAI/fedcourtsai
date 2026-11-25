@@ -1,72 +1,72 @@
 {
   "application_topics": {
-    "agree": 214,
-    "batches": 6,
-    "docket_only_cases": 2200,
+    "agree": 222,
+    "batches": 7,
+    "docket_only_cases": 2204,
     "floor": 0.3817427385892116,
-    "frame_rows": 2242,
-    "labeled_cases": 2242,
+    "frame_rows": 2248,
+    "labeled_cases": 2248,
     "labeler": "claude-code/claude-opus-5-5",
-    "matched_cases": 2242,
+    "matched_cases": 2248,
     "n": 241,
     "reference_rows": 241,
     "section": {
       "buckets": [
         {
-          "cases": 977,
+          "cases": 980,
           "dispositions": [
             {
-              "count": 812,
+              "count": 815,
               "disposition": "denied",
-              "share": 0.8371134020618557
+              "share": 0.8376156217882836
             },
             {
               "count": 144,
               "disposition": "granted",
-              "share": 0.14845360824742268
+              "share": 0.14799588900308325
             },
             {
               "count": 13,
               "disposition": "withdrawn",
-              "share": 0.013402061855670102
+              "share": 0.013360739979445015
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.0010309278350515464
+              "share": 0.0010277492291880781
             }
           ],
           "key": "unclassifiable",
           "open": 7,
-          "resolved": 970
+          "resolved": 973
         },
         {
-          "cases": 555,
+          "cases": 557,
           "dispositions": [
             {
-              "count": 492,
+              "count": 494,
               "disposition": "denied",
-              "share": 0.9010989010989011
+              "share": 0.9014598540145985
             },
             {
               "count": 46,
               "disposition": "granted",
-              "share": 0.08424908424908426
+              "share": 0.08394160583941605
             },
             {
               "count": 7,
               "disposition": "withdrawn",
-              "share": 0.01282051282051282
+              "share": 0.012773722627737226
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.0018315018315018315
+              "share": 0.0018248175182481751
             }
           ],
           "key": "habeas-and-postconviction",
           "open": 9,
-          "resolved": 546
+          "resolved": 548
         },
         {
           "cases": 191,
@@ -138,27 +138,27 @@
           "resolved": 89
         },
         {
-          "cases": 90,
+          "cases": 91,
           "dispositions": [
             {
               "count": 67,
               "disposition": "denied",
-              "share": 0.7613636363636364
+              "share": 0.7528089887640449
             },
             {
               "count": 18,
               "disposition": "granted",
-              "share": 0.20454545454545456
+              "share": 0.20224719101123595
             },
             {
-              "count": 3,
+              "count": 4,
               "disposition": "withdrawn",
-              "share": 0.03409090909090909
+              "share": 0.0449438202247191
             }
           ],
           "key": "immigration",
           "open": 2,
-          "resolved": 88
+          "resolved": 89
         },
         {
           "cases": 40,
@@ -345,7 +345,7 @@
       "court": "scotus",
       "group_by": "qp_topic",
       "live_slice": true,
-      "scope_note": "Labeled applications only \u2014 2242 of 2252 in-frame live-slice applications labeled, 2200 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are rows too, each counted once. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 6's extract counted 2242 application(s) in the frame it cut from, of which the artifact held 2242 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 2001 drawn from the 2001 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 2001 were drawn.",
+      "scope_note": "Labeled applications only \u2014 2248 of 2254 in-frame live-slice applications labeled, 2204 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are rows too, each counted once. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 7's extract counted 2248 application(s) in the frame it cut from, of which the artifact held 2248 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 2007 drawn from the 2007 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 2007 were drawn.",
       "title": "Emergency applications by topic (`qp-topic-v1`)",
       "weighted": true
     },
@@ -353,12 +353,12 @@
       {
         "label": "unclassifiable",
         "reference_rows": 92,
-        "rows": 977
+        "rows": 980
       },
       {
         "label": "habeas-and-postconviction",
         "reference_rows": 43,
-        "rows": 555
+        "rows": 557
       },
       {
         "label": "criminal-law",
@@ -378,7 +378,7 @@
       {
         "label": "immigration",
         "reference_rows": 10,
-        "rows": 90
+        "rows": 91
       },
       {
         "label": "administrative-law-and-benefit-programs",
@@ -444,328 +444,328 @@
       "tax"
     ]
   },
-  "corpus_rows": 2154327,
-  "corpus_through": "2026-11-23",
+  "corpus_rows": 2154376,
+  "corpus_through": "2026-11-25",
   "coverage": {
-    "census_filings": 46618,
-    "live_slice_resolved": 58476,
-    "live_slice_rows": 59905
+    "census_filings": 46654,
+    "live_slice_resolved": 58486,
+    "live_slice_rows": 59956
   },
-  "open": 2064884,
+  "open": 2064923,
   "qp_topics": {
-    "agree": 314,
-    "batches": 14,
+    "agree": 325,
+    "batches": 15,
     "floor": 0.23076923076923078,
-    "frame_rows": 15930,
-    "labeled_cases": 11898,
+    "frame_rows": 15995,
+    "labeled_cases": 12747,
     "labeler": "claude-code/claude-opus-5-5",
-    "matched_cases": 11894,
+    "matched_cases": 12743,
     "n": 351,
     "reference_rows": 353,
     "section": {
       "buckets": [
         {
-          "cases": 3688,
+          "cases": 4172,
           "dispositions": [
             {
-              "count": 3496,
+              "count": 3978,
               "disposition": "denied",
-              "share": 0.9512925170068027
+              "share": 0.9567099567099567
             },
             {
-              "count": 110,
+              "count": 111,
               "disposition": "gvr",
-              "share": 0.029931972789115645
+              "share": 0.026695526695526696
             },
             {
               "count": 44,
               "disposition": "granted",
-              "share": 0.01197278911564626
+              "share": 0.010582010582010581
             },
             {
               "count": 25,
               "disposition": "dismissed",
-              "share": 0.006802721088435374
+              "share": 0.006012506012506013
             }
           ],
           "key": "criminal-law",
-          "open": 13,
-          "resolved": 3675
+          "open": 14,
+          "resolved": 4158
         },
         {
-          "cases": 2012,
+          "cases": 2079,
           "dispositions": [
             {
-              "count": 1877,
+              "count": 1940,
               "disposition": "denied",
-              "share": 0.9417962870045158
+              "share": 0.9426627793974732
             },
             {
-              "count": 51,
+              "count": 52,
               "disposition": "dismissed",
-              "share": 0.025589563472152535
+              "share": 0.025267249757045675
             },
             {
               "count": 47,
               "disposition": "granted",
-              "share": 0.023582538886101356
-            },
-            {
-              "count": 18,
-              "disposition": "gvr",
-              "share": 0.009031610637230306
-            }
-          ],
-          "key": "civil-procedure",
-          "open": 19,
-          "resolved": 1993
-        },
-        {
-          "cases": 1369,
-          "dispositions": [
-            {
-              "count": 1278,
-              "disposition": "denied",
-              "share": 0.9403973509933775
-            },
-            {
-              "count": 36,
-              "disposition": "dismissed",
-              "share": 0.026490066225165563
-            },
-            {
-              "count": 29,
-              "disposition": "granted",
-              "share": 0.021339220014716703
-            },
-            {
-              "count": 16,
-              "disposition": "gvr",
-              "share": 0.01177336276674025
-            }
-          ],
-          "key": "constitutional-rights",
-          "open": 10,
-          "resolved": 1359
-        },
-        {
-          "cases": 1098,
-          "dispositions": [
-            {
-              "count": 1042,
-              "disposition": "denied",
-              "share": 0.9515981735159817
-            },
-            {
-              "count": 27,
-              "disposition": "dismissed",
-              "share": 0.024657534246575342
-            },
-            {
-              "count": 16,
-              "disposition": "granted",
-              "share": 0.014611872146118721
-            },
-            {
-              "count": 10,
-              "disposition": "gvr",
-              "share": 0.0091324200913242
-            }
-          ],
-          "key": "habeas-and-postconviction",
-          "open": 3,
-          "resolved": 1095
-        },
-        {
-          "cases": 584,
-          "dispositions": [
-            {
-              "count": 534,
-              "disposition": "denied",
-              "share": 0.925476603119584
-            },
-            {
-              "count": 21,
-              "disposition": "granted",
-              "share": 0.036395147313691506
-            },
-            {
-              "count": 18,
-              "disposition": "dismissed",
-              "share": 0.03119584055459272
-            },
-            {
-              "count": 4,
-              "disposition": "gvr",
-              "share": 0.006932409012131715
-            }
-          ],
-          "key": "employment-and-antidiscrimination",
-          "open": 7,
-          "resolved": 577
-        },
-        {
-          "cases": 572,
-          "dispositions": [
-            {
-              "count": 476,
-              "disposition": "denied",
-              "share": 0.8561151079136691
-            },
-            {
-              "count": 36,
-              "disposition": "granted",
-              "share": 0.06474820143884892
-            },
-            {
-              "count": 24,
-              "disposition": "dismissed",
-              "share": 0.04316546762589928
-            },
-            {
-              "count": 20,
-              "disposition": "gvr",
-              "share": 0.03597122302158273
-            }
-          ],
-          "key": "business-and-financial-regulation",
-          "open": 16,
-          "resolved": 556
-        },
-        {
-          "cases": 510,
-          "dispositions": [
-            {
-              "count": 463,
-              "disposition": "denied",
-              "share": 0.9150197628458498
-            },
-            {
-              "count": 32,
-              "disposition": "gvr",
-              "share": 0.06324110671936758
-            },
-            {
-              "count": 10,
-              "disposition": "granted",
-              "share": 0.019762845849802372
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.001976284584980237
-            }
-          ],
-          "key": "firearms",
-          "open": 4,
-          "resolved": 506
-        },
-        {
-          "cases": 486,
-          "dispositions": [
-            {
-              "count": 436,
-              "disposition": "denied",
-              "share": 0.9217758985200846
-            },
-            {
-              "count": 25,
-              "disposition": "granted",
-              "share": 0.052854122621564484
-            },
-            {
-              "count": 8,
-              "disposition": "gvr",
-              "share": 0.016913319238900635
-            },
-            {
-              "count": 4,
-              "disposition": "dismissed",
-              "share": 0.008456659619450317
-            }
-          ],
-          "key": "first-amendment",
-          "open": 13,
-          "resolved": 473
-        },
-        {
-          "cases": 394,
-          "dispositions": [
-            {
-              "count": 313,
-              "disposition": "denied",
-              "share": 0.8151041666666666
-            },
-            {
-              "count": 48,
-              "disposition": "granted",
-              "share": 0.125
+              "share": 0.0228377065111759
             },
             {
               "count": 19,
               "disposition": "gvr",
-              "share": 0.049479166666666664
+              "share": 0.00923226433430515
+            }
+          ],
+          "key": "civil-procedure",
+          "open": 21,
+          "resolved": 2058
+        },
+        {
+          "cases": 1404,
+          "dispositions": [
+            {
+              "count": 1310,
+              "disposition": "denied",
+              "share": 0.9417685118619699
+            },
+            {
+              "count": 36,
+              "disposition": "dismissed",
+              "share": 0.025880661394680086
+            },
+            {
+              "count": 29,
+              "disposition": "granted",
+              "share": 0.020848310567936738
+            },
+            {
+              "count": 16,
+              "disposition": "gvr",
+              "share": 0.011502516175413372
+            }
+          ],
+          "key": "constitutional-rights",
+          "open": 13,
+          "resolved": 1391
+        },
+        {
+          "cases": 1222,
+          "dispositions": [
+            {
+              "count": 1166,
+              "disposition": "denied",
+              "share": 0.9565217391304348
+            },
+            {
+              "count": 27,
+              "disposition": "dismissed",
+              "share": 0.022149302707136997
+            },
+            {
+              "count": 16,
+              "disposition": "granted",
+              "share": 0.013125512715340444
+            },
+            {
+              "count": 10,
+              "disposition": "gvr",
+              "share": 0.008203445447087777
+            }
+          ],
+          "key": "habeas-and-postconviction",
+          "open": 3,
+          "resolved": 1219
+        },
+        {
+          "cases": 603,
+          "dispositions": [
+            {
+              "count": 551,
+              "disposition": "denied",
+              "share": 0.9276094276094277
+            },
+            {
+              "count": 21,
+              "disposition": "granted",
+              "share": 0.03535353535353535
+            },
+            {
+              "count": 18,
+              "disposition": "dismissed",
+              "share": 0.030303030303030304
+            },
+            {
+              "count": 4,
+              "disposition": "gvr",
+              "share": 0.006734006734006734
+            }
+          ],
+          "key": "employment-and-antidiscrimination",
+          "open": 9,
+          "resolved": 594
+        },
+        {
+          "cases": 582,
+          "dispositions": [
+            {
+              "count": 485,
+              "disposition": "denied",
+              "share": 0.8584070796460177
+            },
+            {
+              "count": 36,
+              "disposition": "granted",
+              "share": 0.06371681415929203
+            },
+            {
+              "count": 24,
+              "disposition": "dismissed",
+              "share": 0.04247787610619469
+            },
+            {
+              "count": 20,
+              "disposition": "gvr",
+              "share": 0.035398230088495575
+            }
+          ],
+          "key": "business-and-financial-regulation",
+          "open": 17,
+          "resolved": 565
+        },
+        {
+          "cases": 535,
+          "dispositions": [
+            {
+              "count": 487,
+              "disposition": "denied",
+              "share": 0.9171374764595104
+            },
+            {
+              "count": 33,
+              "disposition": "gvr",
+              "share": 0.062146892655367235
+            },
+            {
+              "count": 10,
+              "disposition": "granted",
+              "share": 0.018832391713747645
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.0018832391713747645
+            }
+          ],
+          "key": "firearms",
+          "open": 4,
+          "resolved": 531
+        },
+        {
+          "cases": 498,
+          "dispositions": [
+            {
+              "count": 447,
+              "disposition": "denied",
+              "share": 0.9235537190082644
+            },
+            {
+              "count": 25,
+              "disposition": "granted",
+              "share": 0.05165289256198347
+            },
+            {
+              "count": 8,
+              "disposition": "gvr",
+              "share": 0.01652892561983471
             },
             {
               "count": 4,
               "disposition": "dismissed",
-              "share": 0.010416666666666666
+              "share": 0.008264462809917356
             }
           ],
-          "key": "administrative-law-and-benefit-programs",
-          "open": 10,
-          "resolved": 384
+          "key": "first-amendment",
+          "open": 14,
+          "resolved": 484
         },
         {
-          "cases": 385,
+          "cases": 433,
           "dispositions": [
             {
-              "count": 347,
+              "count": 395,
               "disposition": "denied",
-              "share": 0.9083769633507853
+              "share": 0.9186046511627907
             },
             {
               "count": 34,
               "disposition": "dismissed",
-              "share": 0.08900523560209424
+              "share": 0.07906976744186046
             },
             {
               "count": 1,
               "disposition": "granted",
-              "share": 0.002617801047120419
+              "share": 0.002325581395348837
             }
           ],
           "key": "unclassifiable",
           "open": 3,
-          "resolved": 382
+          "resolved": 430
         },
         {
-          "cases": 246,
+          "cases": 400,
           "dispositions": [
             {
-              "count": 198,
+              "count": 318,
               "disposition": "denied",
-              "share": 0.8215767634854771
+              "share": 0.8174807197943444
+            },
+            {
+              "count": 48,
+              "disposition": "granted",
+              "share": 0.12339331619537275
+            },
+            {
+              "count": 19,
+              "disposition": "gvr",
+              "share": 0.04884318766066838
+            },
+            {
+              "count": 4,
+              "disposition": "dismissed",
+              "share": 0.010282776349614395
+            }
+          ],
+          "key": "administrative-law-and-benefit-programs",
+          "open": 11,
+          "resolved": 389
+        },
+        {
+          "cases": 252,
+          "dispositions": [
+            {
+              "count": 204,
+              "disposition": "denied",
+              "share": 0.8259109311740891
             },
             {
               "count": 26,
               "disposition": "granted",
-              "share": 0.1078838174273859
+              "share": 0.10526315789473684
             },
             {
               "count": 15,
               "disposition": "gvr",
-              "share": 0.06224066390041494
+              "share": 0.06072874493927125
             },
             {
               "count": 2,
               "disposition": "dismissed",
-              "share": 0.008298755186721992
+              "share": 0.008097165991902834
             }
           ],
           "key": "sovereignty-and-foreign-relations",
           "open": 5,
-          "resolved": 241
+          "resolved": 247
         },
         {
           "cases": 214,
@@ -791,25 +791,53 @@
           "resolved": 211
         },
         {
-          "cases": 106,
+          "cases": 109,
           "dispositions": [
             {
-              "count": 101,
+              "count": 104,
               "disposition": "denied",
-              "share": 0.9528301886792453
+              "share": 0.9541284403669725
             },
             {
               "count": 5,
               "disposition": "granted",
-              "share": 0.04716981132075472
+              "share": 0.045871559633027525
             }
           ],
           "key": "tax",
           "open": 0,
-          "resolved": 106
+          "resolved": 109
         },
         {
-          "cases": 91,
+          "cases": 93,
+          "dispositions": [
+            {
+              "count": 71,
+              "disposition": "denied",
+              "share": 0.8255813953488372
+            },
+            {
+              "count": 6,
+              "disposition": "granted",
+              "share": 0.06976744186046512
+            },
+            {
+              "count": 5,
+              "disposition": "dismissed",
+              "share": 0.05813953488372093
+            },
+            {
+              "count": 4,
+              "disposition": "gvr",
+              "share": 0.046511627906976744
+            }
+          ],
+          "key": "election-law",
+          "open": 7,
+          "resolved": 86
+        },
+        {
+          "cases": 93,
           "dispositions": [
             {
               "count": 76,
@@ -828,71 +856,43 @@
             }
           ],
           "key": "environment-energy-and-property",
-          "open": 1,
+          "open": 3,
           "resolved": 90
         },
         {
-          "cases": 90,
+          "cases": 54,
           "dispositions": [
             {
-              "count": 69,
+              "count": 29,
               "disposition": "denied",
-              "share": 0.8214285714285714
+              "share": 0.5686274509803921
             },
             {
-              "count": 6,
+              "count": 18,
               "disposition": "granted",
-              "share": 0.07142857142857142
-            },
-            {
-              "count": 5,
-              "disposition": "dismissed",
-              "share": 0.05952380952380952
-            },
-            {
-              "count": 4,
-              "disposition": "gvr",
-              "share": 0.047619047619047616
-            }
-          ],
-          "key": "election-law",
-          "open": 6,
-          "resolved": 84
-        },
-        {
-          "cases": 49,
-          "dispositions": [
-            {
-              "count": 26,
-              "disposition": "denied",
-              "share": 0.5531914893617021
-            },
-            {
-              "count": 17,
-              "disposition": "granted",
-              "share": 0.3617021276595745
+              "share": 0.35294117647058826
             },
             {
               "count": 3,
               "disposition": "gvr",
-              "share": 0.06382978723404255
+              "share": 0.058823529411764705
             },
             {
               "count": 1,
               "disposition": "dismissed",
-              "share": 0.02127659574468085
+              "share": 0.0196078431372549
             }
           ],
           "key": "immigration",
-          "open": 2,
-          "resolved": 47
+          "open": 3,
+          "resolved": 51
         }
       ],
       "cert_stage": true,
       "court": "scotus",
       "group_by": "qp_topic",
       "live_slice": true,
-      "scope_note": "QP-bearing rows only \u2014 11894 of 46631 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows, and so are the bucket counts, each row counted once; no weighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 34737 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 14's extract sized the second: it counted 15930 QP-bearing row(s) in the frame it cut from, of which the artifact held 11898 labeled (74.7%). Both counts are batch 14's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 11541 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 14's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 14 landed: 353 carried in with certainty against 11545 drawn from the 15577 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
+      "scope_note": "QP-bearing rows only \u2014 12743 of 46667 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows, and so are the bucket counts, each row counted once; no weighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 33924 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 15's extract sized the second: it counted 15995 QP-bearing row(s) in the frame it cut from, of which the artifact held 12747 labeled (79.7%). Both counts are batch 15's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 12390 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 15's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 15 landed: 353 carried in with certainty against 12394 drawn from the 15642 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
       "title": "Cert petitions by question-presented topic (`qp-topic-v0`)",
       "weighted": true
     },
@@ -900,57 +900,57 @@
       {
         "label": "criminal-law",
         "reference_rows": 81,
-        "rows": 3688
+        "rows": 4172
       },
       {
         "label": "civil-procedure",
         "reference_rows": 55,
-        "rows": 2012
+        "rows": 2079
       },
       {
         "label": "constitutional-rights",
         "reference_rows": 36,
-        "rows": 1369
+        "rows": 1404
       },
       {
         "label": "habeas-and-postconviction",
         "reference_rows": 14,
-        "rows": 1098
+        "rows": 1222
       },
       {
         "label": "employment-and-antidiscrimination",
         "reference_rows": 18,
-        "rows": 584
+        "rows": 603
       },
       {
         "label": "business-and-financial-regulation",
         "reference_rows": 21,
-        "rows": 572
+        "rows": 582
       },
       {
         "label": "firearms",
         "reference_rows": 35,
-        "rows": 510
+        "rows": 535
       },
       {
         "label": "first-amendment",
         "reference_rows": 13,
-        "rows": 486
-      },
-      {
-        "label": "administrative-law-and-benefit-programs",
-        "reference_rows": 29,
-        "rows": 394
+        "rows": 498
       },
       {
         "label": "unclassifiable",
         "reference_rows": 14,
-        "rows": 385
+        "rows": 433
+      },
+      {
+        "label": "administrative-law-and-benefit-programs",
+        "reference_rows": 29,
+        "rows": 400
       },
       {
         "label": "sovereignty-and-foreign-relations",
         "reference_rows": 13,
-        "rows": 246
+        "rows": 252
       },
       {
         "label": "intellectual-property",
@@ -960,22 +960,22 @@
       {
         "label": "tax",
         "reference_rows": 3,
-        "rows": 106
-      },
-      {
-        "label": "environment-energy-and-property",
-        "reference_rows": 6,
-        "rows": 91
+        "rows": 109
       },
       {
         "label": "election-law",
         "reference_rows": 5,
-        "rows": 90
+        "rows": 93
+      },
+      {
+        "label": "environment-energy-and-property",
+        "reference_rows": 6,
+        "rows": 93
       },
       {
         "label": "immigration",
         "reference_rows": 5,
-        "rows": 49
+        "rows": 54
       }
     ],
     "uncovered": 2,
@@ -987,48 +987,48 @@
       "tax"
     ]
   },
-  "resolved": 89443,
+  "resolved": 89453,
   "schema_version": "1.0",
   "sections": [
     {
       "buckets": [
         {
-          "cases": 592217,
+          "cases": 592266,
           "dispositions": [
             {
-              "count": 45512,
+              "count": 45516,
               "disposition": "denied",
-              "share": 0.774382358946437
+              "share": 0.7743186689803001
             },
             {
-              "count": 11376,
+              "count": 11382,
               "disposition": "granted",
-              "share": 0.1935615599264956
+              "share": 0.19363070327651322
             },
             {
               "count": 977,
               "disposition": "dismissed",
-              "share": 0.016623562240522697
+              "share": 0.016620734238372292
             },
             {
               "count": 642,
               "disposition": "gvr",
-              "share": 0.01092356904648472
+              "share": 0.010921710727773808
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.003947457973184509
+              "share": 0.003946786431220442
             },
             {
               "count": 33,
               "disposition": "withdrawn",
-              "share": 0.0005614918668753828
+              "share": 0.000561396345820149
             }
           ],
           "key": "scotus",
-          "open": 533445,
-          "resolved": 58772
+          "open": 533484,
+          "resolved": 58782
         },
         {
           "cases": 247638,
@@ -1464,7 +1464,7 @@
     {
       "buckets": [
         {
-          "cases": 126117,
+          "cases": 126114,
           "dispositions": [
             {
               "count": 204,
@@ -1488,7 +1488,7 @@
             }
           ],
           "key": "(none)",
-          "open": 125850,
+          "open": 125847,
           "resolved": 267
         },
         {
@@ -1582,37 +1582,37 @@
           "resolved": 3
         },
         {
-          "cases": 35768,
+          "cases": 35820,
           "dispositions": [
             {
-              "count": 27275,
+              "count": 27279,
               "disposition": "denied",
-              "share": 0.7932237894430711
+              "share": 0.7931094635848234
             },
             {
-              "count": 6113,
+              "count": 6119,
               "disposition": "granted",
-              "share": 0.17778100916097136
+              "share": 0.17790376508213404
             },
             {
               "count": 580,
               "disposition": "dismissed",
-              "share": 0.016867820270466773
+              "share": 0.016862916121529292
             },
             {
               "count": 393,
               "disposition": "gvr",
-              "share": 0.011429402355678348
+              "share": 0.011426079372001744
             },
             {
               "count": 24,
               "disposition": "withdrawn",
-              "share": 0.0006979787698124182
+              "share": 0.0006977758395115569
             }
           ],
           "key": "2020s",
-          "open": 1383,
-          "resolved": 34385
+          "open": 1425,
+          "resolved": 34395
         },
         {
           "cases": 107,
@@ -1702,10 +1702,10 @@
           "resolved": 43038
         },
         {
-          "cases": 1385,
+          "cases": 1421,
           "dispositions": [],
           "key": "(open)",
-          "open": 1385,
+          "open": 1421,
           "resolved": 0
         },
         {
@@ -1759,7 +1759,7 @@
     {
       "buckets": [
         {
-          "cases": 12721,
+          "cases": 12734,
           "dispositions": [
             {
               "count": 11809,
@@ -1783,11 +1783,11 @@
             }
           ],
           "key": "(none)",
-          "open": 486,
+          "open": 499,
           "resolved": 12235
         },
         {
-          "cases": 5807,
+          "cases": 5817,
           "dispositions": [
             {
               "count": 5383,
@@ -1811,11 +1811,11 @@
             }
           ],
           "key": "ca9",
-          "open": 136,
+          "open": 146,
           "resolved": 5671
         },
         {
-          "cases": 5539,
+          "cases": 5545,
           "dispositions": [
             {
               "count": 5101,
@@ -1839,7 +1839,7 @@
             }
           ],
           "key": "ca5",
-          "open": 145,
+          "open": 151,
           "resolved": 5394
         },
         {
@@ -1871,7 +1871,7 @@
           "resolved": 3769
         },
         {
-          "cases": 3369,
+          "cases": 3371,
           "dispositions": [
             {
               "count": 3121,
@@ -1895,11 +1895,11 @@
             }
           ],
           "key": "ca4",
-          "open": 82,
+          "open": 84,
           "resolved": 3287
         },
         {
-          "cases": 3098,
+          "cases": 3101,
           "dispositions": [
             {
               "count": 2903,
@@ -1923,11 +1923,11 @@
             }
           ],
           "key": "ca6",
-          "open": 67,
+          "open": 70,
           "resolved": 3031
         },
         {
-          "cases": 2279,
+          "cases": 2281,
           "dispositions": [
             {
               "count": 2052,
@@ -1951,11 +1951,11 @@
             }
           ],
           "key": "ca2",
-          "open": 71,
+          "open": 73,
           "resolved": 2208
         },
         {
-          "cases": 2232,
+          "cases": 2234,
           "dispositions": [
             {
               "count": 2081,
@@ -1979,7 +1979,7 @@
             }
           ],
           "key": "ca8",
-          "open": 50,
+          "open": 52,
           "resolved": 2182
         },
         {
@@ -2011,7 +2011,7 @@
           "resolved": 1906
         },
         {
-          "cases": 1676,
+          "cases": 1677,
           "dispositions": [
             {
               "count": 1543,
@@ -2035,11 +2035,11 @@
             }
           ],
           "key": "ca7",
-          "open": 53,
+          "open": 54,
           "resolved": 1623
         },
         {
-          "cases": 1527,
+          "cases": 1528,
           "dispositions": [
             {
               "count": 1407,
@@ -2063,11 +2063,11 @@
             }
           ],
           "key": "ca10",
-          "open": 35,
+          "open": 36,
           "resolved": 1492
         },
         {
-          "cases": 922,
+          "cases": 923,
           "dispositions": [
             {
               "count": 820,
@@ -2091,11 +2091,11 @@
             }
           ],
           "key": "cafc",
-          "open": 34,
+          "open": 35,
           "resolved": 888
         },
         {
-          "cases": 910,
+          "cases": 909,
           "dispositions": [
             {
               "count": 847,
@@ -2119,7 +2119,7 @@
             }
           ],
           "key": "ca1",
-          "open": 21,
+          "open": 20,
           "resolved": 889
         },
         {
@@ -2158,13 +2158,6 @@
           "resolved": 0
         },
         {
-          "cases": 4,
-          "dispositions": [],
-          "key": "va",
-          "open": 4,
-          "resolved": 0
-        },
-        {
           "cases": 2,
           "dispositions": [],
           "key": "nebctapp",
@@ -2181,7 +2174,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "alacivapp",
+          "key": "alnd",
           "open": 1,
           "resolved": 0
         },
@@ -2223,6 +2216,13 @@
         {
           "cases": 1,
           "dispositions": [],
+          "key": "fladistctapp2",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
           "key": "fladistctapp5",
           "open": 1,
           "resolved": 0
@@ -2230,21 +2230,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "me",
-          "open": 1,
-          "resolved": 0
-        },
-        {
-          "cases": 1,
-          "dispositions": [],
           "key": "michctapp",
-          "open": 1,
-          "resolved": 0
-        },
-        {
-          "cases": 1,
-          "dispositions": [],
-          "key": "ncmd",
           "open": 1,
           "resolved": 0
         },
@@ -2272,6 +2258,13 @@
         {
           "cases": 1,
           "dispositions": [],
+          "key": "scctapp",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
           "key": "texcrimapp",
           "open": 1,
           "resolved": 0
@@ -2279,7 +2272,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "txwd",
+          "key": "va",
           "open": 1,
           "resolved": 0
         },
@@ -2302,7 +2295,7 @@
     {
       "buckets": [
         {
-          "cases": 38564,
+          "cases": 38598,
           "dispositions": [
             {
               "count": 36127,
@@ -2326,7 +2319,7 @@
             }
           ],
           "key": "0",
-          "open": 1265,
+          "open": 1299,
           "resolved": 37299
         },
         {
@@ -2386,7 +2379,7 @@
           "resolved": 822
         },
         {
-          "cases": 793,
+          "cases": 795,
           "dispositions": [
             {
               "count": 507,
@@ -2410,7 +2403,7 @@
             }
           ],
           "key": "2",
-          "open": 18,
+          "open": 20,
           "resolved": 775
         },
         {
@@ -2432,7 +2425,7 @@
     {
       "buckets": [
         {
-          "cases": 46431,
+          "cases": 46467,
           "dispositions": [
             {
               "count": 42935,
@@ -2456,7 +2449,7 @@
             }
           ],
           "key": "none",
-          "open": 1351,
+          "open": 1387,
           "resolved": 45080
         },
         {
@@ -2506,7 +2499,7 @@
     {
       "buckets": [
         {
-          "cases": 45019,
+          "cases": 45054,
           "dispositions": [
             {
               "count": 41513,
@@ -2530,11 +2523,11 @@
             }
           ],
           "key": "unmarked",
-          "open": 1354,
+          "open": 1389,
           "resolved": 43665
         },
         {
-          "cases": 1612,
+          "cases": 1613,
           "dispositions": [
             {
               "count": 1525,
@@ -2558,7 +2551,7 @@
             }
           ],
           "key": "capital",
-          "open": 31,
+          "open": 32,
           "resolved": 1581
         }
       ],
@@ -2573,7 +2566,7 @@
     {
       "buckets": [
         {
-          "cases": 5807,
+          "cases": 5817,
           "dispositions": [
             {
               "count": 5383,
@@ -2597,11 +2590,11 @@
             }
           ],
           "key": "ca9",
-          "open": 136,
+          "open": 146,
           "resolved": 5671
         },
         {
-          "cases": 5539,
+          "cases": 5545,
           "dispositions": [
             {
               "count": 5101,
@@ -2625,7 +2618,7 @@
             }
           ],
           "key": "ca5",
-          "open": 145,
+          "open": 151,
           "resolved": 5394
         },
         {
@@ -2657,7 +2650,7 @@
           "resolved": 3769
         },
         {
-          "cases": 3369,
+          "cases": 3371,
           "dispositions": [
             {
               "count": 3121,
@@ -2681,11 +2674,11 @@
             }
           ],
           "key": "ca4",
-          "open": 82,
+          "open": 84,
           "resolved": 3287
         },
         {
-          "cases": 3098,
+          "cases": 3101,
           "dispositions": [
             {
               "count": 2903,
@@ -2709,11 +2702,11 @@
             }
           ],
           "key": "ca6",
-          "open": 67,
+          "open": 70,
           "resolved": 3031
         },
         {
-          "cases": 2279,
+          "cases": 2281,
           "dispositions": [
             {
               "count": 2052,
@@ -2737,11 +2730,11 @@
             }
           ],
           "key": "ca2",
-          "open": 71,
+          "open": 73,
           "resolved": 2208
         },
         {
-          "cases": 2232,
+          "cases": 2234,
           "dispositions": [
             {
               "count": 2081,
@@ -2765,7 +2758,7 @@
             }
           ],
           "key": "ca8",
-          "open": 50,
+          "open": 52,
           "resolved": 2182
         },
         {
@@ -2797,7 +2790,7 @@
           "resolved": 1906
         },
         {
-          "cases": 1676,
+          "cases": 1677,
           "dispositions": [
             {
               "count": 1543,
@@ -2821,11 +2814,11 @@
             }
           ],
           "key": "ca7",
-          "open": 53,
+          "open": 54,
           "resolved": 1623
         },
         {
-          "cases": 1635,
+          "cases": 1638,
           "dispositions": [
             {
               "count": 1396,
@@ -2839,11 +2832,11 @@
             }
           ],
           "key": "(none)",
-          "open": 228,
+          "open": 231,
           "resolved": 1407
         },
         {
-          "cases": 1527,
+          "cases": 1528,
           "dispositions": [
             {
               "count": 1407,
@@ -2867,11 +2860,11 @@
             }
           ],
           "key": "ca10",
-          "open": 35,
+          "open": 36,
           "resolved": 1492
         },
         {
-          "cases": 922,
+          "cases": 923,
           "dispositions": [
             {
               "count": 820,
@@ -2895,11 +2888,11 @@
             }
           ],
           "key": "cafc",
-          "open": 34,
+          "open": 35,
           "resolved": 888
         },
         {
-          "cases": 910,
+          "cases": 909,
           "dispositions": [
             {
               "count": 847,
@@ -2923,7 +2916,7 @@
             }
           ],
           "key": "ca1",
-          "open": 21,
+          "open": 20,
           "resolved": 889
         },
         {
@@ -3034,7 +3027,7 @@
           "resolved": 311
         },
         {
-          "cases": 304,
+          "cases": 307,
           "dispositions": [
             {
               "count": 294,
@@ -3053,7 +3046,7 @@
             }
           ],
           "key": "Supreme Court of Virginia",
-          "open": 5,
+          "open": 8,
           "resolved": 299
         },
         {
@@ -3103,25 +3096,7 @@
           "resolved": 244
         },
         {
-          "cases": 222,
-          "dispositions": [
-            {
-              "count": 217,
-              "disposition": "denied",
-              "share": 0.9908675799086758
-            },
-            {
-              "count": 2,
-              "disposition": "dismissed",
-              "share": 0.0091324200913242
-            }
-          ],
-          "key": "Appellate Court of Illinois, First District",
-          "open": 3,
-          "resolved": 219
-        },
-        {
-          "cases": 222,
+          "cases": 223,
           "dispositions": [
             {
               "count": 187,
@@ -3140,11 +3115,29 @@
             }
           ],
           "key": "District Court of Appeal of Florida, Fourth District",
-          "open": 27,
+          "open": 28,
           "resolved": 195
         },
         {
-          "cases": 217,
+          "cases": 222,
+          "dispositions": [
+            {
+              "count": 217,
+              "disposition": "denied",
+              "share": 0.9908675799086758
+            },
+            {
+              "count": 2,
+              "disposition": "dismissed",
+              "share": 0.0091324200913242
+            }
+          ],
+          "key": "Appellate Court of Illinois, First District",
+          "open": 3,
+          "resolved": 219
+        },
+        {
+          "cases": 218,
           "dispositions": [
             {
               "count": 212,
@@ -3158,7 +3151,7 @@
             }
           ],
           "key": "Court of Appeals of Michigan",
-          "open": 2,
+          "open": 3,
           "resolved": 215
         },
         {
@@ -3208,7 +3201,7 @@
           "resolved": 149
         },
         {
-          "cases": 152,
+          "cases": 151,
           "dispositions": [
             {
               "count": 139,
@@ -3222,7 +3215,7 @@
             }
           ],
           "key": "District Court of Appeal of Florida, Second District",
-          "open": 10,
+          "open": 9,
           "resolved": 142
         },
         {
@@ -3410,7 +3403,7 @@
           "resolved": 119
         },
         {
-          "cases": 118,
+          "cases": 119,
           "dispositions": [
             {
               "count": 108,
@@ -3424,7 +3417,7 @@
             }
           ],
           "key": "District Court of Appeal of Florida, Third District",
-          "open": 1,
+          "open": 2,
           "resolved": 117
         },
         {
@@ -3697,20 +3690,7 @@
           "resolved": 84
         },
         {
-          "cases": 84,
-          "dispositions": [
-            {
-              "count": 83,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Criminal Appeals of Alabama",
-          "open": 1,
-          "resolved": 83
-        },
-        {
-          "cases": 84,
+          "cases": 85,
           "dispositions": [
             {
               "count": 77,
@@ -3724,8 +3704,21 @@
             }
           ],
           "key": "Supreme Court of South Carolina",
-          "open": 3,
+          "open": 4,
           "resolved": 81
+        },
+        {
+          "cases": 84,
+          "dispositions": [
+            {
+              "count": 83,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Criminal Appeals of Alabama",
+          "open": 1,
+          "resolved": 83
         },
         {
           "cases": 83,
@@ -4062,29 +4055,6 @@
           "resolved": 58
         },
         {
-          "cases": 59,
-          "dispositions": [
-            {
-              "count": 53,
-              "disposition": "denied",
-              "share": 0.9298245614035088
-            },
-            {
-              "count": 3,
-              "disposition": "dismissed",
-              "share": 0.05263157894736842
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.017543859649122806
-            }
-          ],
-          "key": "Supreme Court of Michigan",
-          "open": 2,
-          "resolved": 57
-        },
-        {
           "cases": 58,
           "dispositions": [
             {
@@ -4114,6 +4084,29 @@
           "key": "Court of Appeals of Texas, First District",
           "open": 0,
           "resolved": 58
+        },
+        {
+          "cases": 58,
+          "dispositions": [
+            {
+              "count": 53,
+              "disposition": "denied",
+              "share": 0.9298245614035088
+            },
+            {
+              "count": 3,
+              "disposition": "dismissed",
+              "share": 0.05263157894736842
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.017543859649122806
+            }
+          ],
+          "key": "Supreme Court of Michigan",
+          "open": 1,
+          "resolved": 57
         },
         {
           "cases": 56,
@@ -4347,6 +4340,24 @@
           "resolved": 53
         },
         {
+          "cases": 53,
+          "dispositions": [
+            {
+              "count": 45,
+              "disposition": "denied",
+              "share": 0.9782608695652174
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.021739130434782608
+            }
+          ],
+          "key": "Supreme Judicial Court of Maine",
+          "open": 7,
+          "resolved": 46
+        },
+        {
           "cases": 52,
           "dispositions": [
             {
@@ -4455,24 +4466,6 @@
           "resolved": 50
         },
         {
-          "cases": 51,
-          "dispositions": [
-            {
-              "count": 45,
-              "disposition": "denied",
-              "share": 0.9782608695652174
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.021739130434782608
-            }
-          ],
-          "key": "Supreme Judicial Court of Maine",
-          "open": 5,
-          "resolved": 46
-        },
-        {
           "cases": 50,
           "dispositions": [
             {
@@ -4499,6 +4492,29 @@
           "resolved": 46
         },
         {
+          "cases": 48,
+          "dispositions": [
+            {
+              "count": 43,
+              "disposition": "denied",
+              "share": 0.9347826086956522
+            },
+            {
+              "count": 2,
+              "disposition": "granted",
+              "share": 0.043478260869565216
+            },
+            {
+              "count": 1,
+              "disposition": "dismissed",
+              "share": 0.021739130434782608
+            }
+          ],
+          "key": "Supreme Court of Wisconsin",
+          "open": 2,
+          "resolved": 46
+        },
+        {
           "cases": 47,
           "dispositions": [
             {
@@ -4520,29 +4536,6 @@
           "key": "Court of Appeal of California, Fifth Appellate District",
           "open": 0,
           "resolved": 47
-        },
-        {
-          "cases": 47,
-          "dispositions": [
-            {
-              "count": 43,
-              "disposition": "denied",
-              "share": 0.9347826086956522
-            },
-            {
-              "count": 2,
-              "disposition": "granted",
-              "share": 0.043478260869565216
-            },
-            {
-              "count": 1,
-              "disposition": "dismissed",
-              "share": 0.021739130434782608
-            }
-          ],
-          "key": "Supreme Court of Wisconsin",
-          "open": 1,
-          "resolved": 46
         },
         {
           "cases": 45,
@@ -5025,7 +5018,7 @@
           "resolved": 31
         },
         {
-          "cases": 30,
+          "cases": 29,
           "dispositions": [
             {
               "count": 29,
@@ -5034,7 +5027,7 @@
             }
           ],
           "key": "Court of Appeals of South Carolina",
-          "open": 1,
+          "open": 0,
           "resolved": 29
         },
         {
@@ -5381,6 +5374,19 @@
           "resolved": 21
         },
         {
+          "cases": 21,
+          "dispositions": [
+            {
+              "count": 20,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Civil Appeals of Alabama",
+          "open": 1,
+          "resolved": 20
+        },
+        {
           "cases": 20,
           "dispositions": [
             {
@@ -5405,19 +5411,6 @@
           "key": "Court of Appeals of Texas, Twelfth District",
           "open": 1,
           "resolved": 19
-        },
-        {
-          "cases": 20,
-          "dispositions": [
-            {
-              "count": 20,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Civil Appeals of Alabama",
-          "open": 0,
-          "resolved": 20
         },
         {
           "cases": 20,
@@ -5622,6 +5615,19 @@
           "resolved": 14
         },
         {
+          "cases": 14,
+          "dispositions": [
+            {
+              "count": 13,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Supreme Court of Maryland",
+          "open": 1,
+          "resolved": 13
+        },
+        {
           "cases": 13,
           "dispositions": [
             {
@@ -5638,19 +5644,6 @@
           "key": "Court of Appeals of Wisconsin, District IV",
           "open": 1,
           "resolved": 12
-        },
-        {
-          "cases": 13,
-          "dispositions": [
-            {
-              "count": 13,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Supreme Court of Maryland",
-          "open": 0,
-          "resolved": 13
         },
         {
           "cases": 12,
@@ -5876,33 +5869,7 @@
           "resolved": 6
         },
         {
-          "cases": 5,
-          "dispositions": [
-            {
-              "count": 5,
-              "disposition": "denied",
-              "share": 1.0
-            }
-          ],
-          "key": "Court of Appeals of Missouri, Southern District",
-          "open": 0,
-          "resolved": 5
-        },
-        {
-          "cases": 5,
-          "dispositions": [
-            {
-              "count": 2,
-              "disposition": "gvr",
-              "share": 1.0
-            }
-          ],
-          "key": "United States District Court for the Northern District of Alabama",
-          "open": 3,
-          "resolved": 2
-        },
-        {
-          "cases": 5,
+          "cases": 6,
           "dispositions": [
             {
               "count": 3,
@@ -5916,6 +5883,19 @@
             }
           ],
           "key": "United States District Court for the Western District of Texas",
+          "open": 1,
+          "resolved": 5
+        },
+        {
+          "cases": 5,
+          "dispositions": [
+            {
+              "count": 5,
+              "disposition": "denied",
+              "share": 1.0
+            }
+          ],
+          "key": "Court of Appeals of Missouri, Southern District",
           "open": 0,
           "resolved": 5
         },
@@ -6099,10 +6079,16 @@
         },
         {
           "cases": 4,
-          "dispositions": [],
-          "key": "va",
-          "open": 4,
-          "resolved": 0
+          "dispositions": [
+            {
+              "count": 2,
+              "disposition": "gvr",
+              "share": 1.0
+            }
+          ],
+          "key": "United States District Court for the Northern District of Alabama",
+          "open": 2,
+          "resolved": 2
         },
         {
           "cases": 3,
@@ -6300,6 +6286,24 @@
           "key": "United States District Court for the District of Maryland",
           "open": 0,
           "resolved": 3
+        },
+        {
+          "cases": 3,
+          "dispositions": [
+            {
+              "count": 1,
+              "disposition": "granted",
+              "share": 0.5
+            },
+            {
+              "count": 1,
+              "disposition": "gvr",
+              "share": 0.5
+            }
+          ],
+          "key": "United States District Court for the Middle District of North Carolina",
+          "open": 1,
+          "resolved": 2
         },
         {
           "cases": 3,
@@ -6687,24 +6691,6 @@
             }
           ],
           "key": "United States District Court for the Eastern District of Virginia",
-          "open": 0,
-          "resolved": 2
-        },
-        {
-          "cases": 2,
-          "dispositions": [
-            {
-              "count": 1,
-              "disposition": "granted",
-              "share": 0.5
-            },
-            {
-              "count": 1,
-              "disposition": "gvr",
-              "share": 0.5
-            }
-          ],
-          "key": "United States District Court for the Middle District of North Carolina",
           "open": 0,
           "resolved": 2
         },
@@ -8221,7 +8207,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "alacivapp",
+          "key": "alnd",
           "open": 1,
           "resolved": 0
         },
@@ -8263,6 +8249,13 @@
         {
           "cases": 1,
           "dispositions": [],
+          "key": "fladistctapp2",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
           "key": "fladistctapp5",
           "open": 1,
           "resolved": 0
@@ -8270,21 +8263,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "me",
-          "open": 1,
-          "resolved": 0
-        },
-        {
-          "cases": 1,
-          "dispositions": [],
           "key": "michctapp",
-          "open": 1,
-          "resolved": 0
-        },
-        {
-          "cases": 1,
-          "dispositions": [],
-          "key": "ncmd",
           "open": 1,
           "resolved": 0
         },
@@ -8312,6 +8291,13 @@
         {
           "cases": 1,
           "dispositions": [],
+          "key": "scctapp",
+          "open": 1,
+          "resolved": 0
+        },
+        {
+          "cases": 1,
+          "dispositions": [],
           "key": "texcrimapp",
           "open": 1,
           "resolved": 0
@@ -8319,7 +8305,7 @@
         {
           "cases": 1,
           "dispositions": [],
-          "key": "txwd",
+          "key": "va",
           "open": 1,
           "resolved": 0
         },
@@ -8342,7 +8328,7 @@
     {
       "buckets": [
         {
-          "cases": 32337,
+          "cases": 32361,
           "dispositions": [
             {
               "count": 30291,
@@ -8366,11 +8352,11 @@
             }
           ],
           "key": "ifp",
-          "open": 931,
+          "open": 955,
           "resolved": 31406
         },
         {
-          "cases": 14282,
+          "cases": 14294,
           "dispositions": [
             {
               "count": 12747,
@@ -8394,7 +8380,7 @@
             }
           ],
           "key": "paid",
-          "open": 442,
+          "open": 454,
           "resolved": 13840
         },
         {
@@ -8442,9 +8428,9 @@
       ],
       "est_grant_family_rate": 0.01238390092879257,
       "est_grant_rate": 0.01238390092879257,
-      "filings": 1878,
+      "filings": 1914,
       "grants": 12,
-      "ingested": 1878,
+      "ingested": 1914,
       "median_days_to_grant": 71.0,
       "resolved": 969,
       "term": 2026,
@@ -8769,363 +8755,363 @@
   "topic_mix": {
     "stages": [
       {
-        "cases": 11894,
-        "rows": 11894,
-        "scope_note": "QP-bearing rows only \u2014 11894 of 46631 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows, and so are the bucket counts, each row counted once; no weighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 34737 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 14's extract sized the second: it counted 15930 QP-bearing row(s) in the frame it cut from, of which the artifact held 11898 labeled (74.7%). Both counts are batch 14's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 11541 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 14's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 14 landed: 353 carried in with certainty against 11545 drawn from the 15577 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
+        "cases": 12743,
+        "rows": 12743,
+        "scope_note": "QP-bearing rows only \u2014 12743 of 46667 in-scope ingested rows labeled; grant-enriched; primaries only; not docket-representative. Those two counts are raw rows, and so are the bucket counts, each row counted once; no weighting recovers the docket \u2014 QP presence is itself outcome- and stream-correlated, so this stays a share of QP-bearing rows. Coverage is uneven across Terms and zero on the earliest of them, so the mix is not the whole slice's; the base-rate column is over a grant-enriched population and is not comparable to the sections above. The 33924 unlabeled row(s) span two gaps at once \u2014 rows carrying no stored questions-presented text, which no labeling batch can reach, and QP-bearing rows whose batch has not come up \u2014 and batch 15's extract sized the second: it counted 15995 QP-bearing row(s) in the frame it cut from, of which the artifact held 12747 labeled (79.7%). Both counts are batch 15's, taken at its own corpus vintage rather than this pack's: the frame grows with every pull while the labeled count moves only when a batch lands, so read that share as a ceiling on the share of the frame as it now stands, not as a reading of this blob. Labeling accrues in batches, so the labeled rows are two populations on different terms: 353 hand reference-set members, carried in every batch and so included with certainty, and 12390 drawn over this blob by a Term x fee-class-stratified, seeded-hash order from the QP-bearing frame batch 15's extract counted. Both count once here, so the reference block \u2014 grant-enriched by design and carrying no sampling weights \u2014 is over-represented by at least about 1.3x \u2014 row for row, how much likelier a reference row was to be included than a drawn one when batch 15 landed: 353 carried in with certainty against 12394 drawn from the 15642 QP-bearing row(s) outside the block that batch's extract counted. Measured against that frame rather than bounded over rows no batch could reach \u2014 and a floor rather than a ceiling at this pack's vintage, since the frame grows with every pull while the drawn count waits for the next batch. It closes to 1.0x as the frame is labeled, which a bound over unreachable rows never does, and this mix is not the frame's until every QP-bearing row is labeled. A naive share partly counts coordinated filing campaigns rather than subjects; no de-duplicated companion is published.",
         "shares": [
           {
-            "cases": 3688,
-            "classified_share": 0.3204448692327744,
+            "cases": 4172,
+            "classified_share": 0.3389114541023558,
             "label": "criminal-law",
-            "rows": 3688,
-            "share": 0.3100723053640491
+            "rows": 4172,
+            "share": 0.32739543278662797
           },
           {
-            "cases": 2012,
-            "classified_share": 0.17481970631679555,
+            "cases": 2079,
+            "classified_share": 0.16888708367181154,
             "label": "civil-procedure",
-            "rows": 2012,
-            "share": 0.1691609214730116
+            "rows": 2079,
+            "share": 0.16314839519736327
           },
           {
-            "cases": 1369,
-            "classified_share": 0.11895038665392302,
+            "cases": 1404,
+            "classified_share": 0.1140536149471974,
             "label": "constitutional-rights",
-            "rows": 1369,
-            "share": 0.11510005044560283
+            "rows": 1404,
+            "share": 0.11017813701640117
           },
           {
-            "cases": 1098,
-            "classified_share": 0.09540359718481188,
+            "cases": 1222,
+            "classified_share": 0.0992688870836718,
             "label": "habeas-and-postconviction",
-            "rows": 1098,
-            "share": 0.09231545316966537
+            "rows": 1222,
+            "share": 0.09589578592168249
           },
           {
-            "cases": 584,
-            "classified_share": 0.05074289686332435,
+            "cases": 603,
+            "classified_share": 0.04898456539398863,
             "label": "employment-and-antidiscrimination",
-            "rows": 584,
-            "share": 0.04910038674962166
+            "rows": 603,
+            "share": 0.04732009730832614
           },
           {
-            "cases": 572,
-            "classified_share": 0.04970023459900947,
+            "cases": 582,
+            "classified_share": 0.04727863525588952,
             "label": "business-and-financial-regulation",
-            "rows": 572,
-            "share": 0.04809147469312258
+            "rows": 582,
+            "share": 0.04567213372047398
           },
           {
-            "cases": 510,
-            "classified_share": 0.04431314623338257,
+            "cases": 535,
+            "classified_share": 0.04346060113728676,
             "label": "firearms",
-            "rows": 510,
-            "share": 0.0428787624012107
+            "rows": 535,
+            "share": 0.04198383426194774
           },
           {
-            "cases": 486,
-            "classified_share": 0.0422278217047528,
+            "cases": 498,
+            "classified_share": 0.04045491470349309,
             "label": "first-amendment",
-            "rows": 486,
-            "share": 0.040860938288212544
+            "rows": 498,
+            "share": 0.03908027936906537
           },
           {
-            "cases": 394,
-            "classified_share": 0.03423407767833869,
-            "label": "administrative-law-and-benefit-programs",
-            "rows": 394,
-            "share": 0.03312594585505297
-          },
-          {
-            "cases": 385,
+            "cases": 433,
             "classified_share": null,
             "label": "unclassifiable",
-            "rows": 385,
-            "share": 0.032369261812678664
+            "rows": 433,
+            "share": 0.03397943969238013
           },
           {
-            "cases": 246,
-            "classified_share": 0.02137457641845512,
+            "cases": 400,
+            "classified_share": 0.03249390739236393,
+            "label": "administrative-law-and-benefit-programs",
+            "rows": 400,
+            "share": 0.031389782625755314
+          },
+          {
+            "cases": 252,
+            "classified_share": 0.020471161657189277,
             "label": "sovereignty-and-foreign-relations",
-            "rows": 246,
-            "share": 0.02068269715823104
+            "rows": 252,
+            "share": 0.01977556305422585
           },
           {
             "cases": 214,
-            "classified_share": 0.01859414371361543,
+            "classified_share": 0.017384240454914702,
             "label": "intellectual-property",
             "rows": 214,
-            "share": 0.01799226500756684
+            "share": 0.016793533704779096
           },
           {
-            "cases": 106,
-            "classified_share": 0.009210183334781475,
+            "cases": 109,
+            "classified_share": 0.008854589764419172,
             "label": "tax",
-            "rows": 106,
-            "share": 0.008912056499075165
+            "rows": 109,
+            "share": 0.008553715765518324
           },
           {
-            "cases": 91,
-            "classified_share": 0.00790685550438787,
-            "label": "environment-energy-and-property",
-            "rows": 91,
-            "share": 0.00765091642845132
-          },
-          {
-            "cases": 90,
-            "classified_share": 0.00781996698236163,
+            "cases": 93,
+            "classified_share": 0.007554833468724614,
             "label": "election-law",
-            "rows": 90,
-            "share": 0.007566840423743064
+            "rows": 93,
+            "share": 0.007298124460488111
           },
           {
-            "cases": 49,
-            "classified_share": 0.004257537579285776,
+            "cases": 93,
+            "classified_share": 0.007554833468724614,
+            "label": "environment-energy-and-property",
+            "rows": 93,
+            "share": 0.007298124460488111
+          },
+          {
+            "cases": 54,
+            "classified_share": 0.004386677497969131,
             "label": "immigration",
-            "rows": 49,
-            "share": 0.004119724230704557
+            "rows": 54,
+            "share": 0.0042376206544769675
           }
         ],
         "stage": "cert",
         "vocabulary": "qp-topic-v0"
       },
       {
-        "cases": 350,
-        "rows": 350,
-        "scope_note": "Granted QP-bearing petitions only \u2014 350 labeled grant(s) of the 642 plenary grant(s) in the cert scope; primaries only; not docket-representative. Plenary review here is the `granted` disposition, which takes in probable jurisdiction noted on a direct appeal and leaves out GVRs recorded as such (a few older merits GVRs still carry `granted`). The petition frame is still being labeled, so the missing grants are both those with no stored questions-presented text and those whose batch has not come up; reference-set grants are in every batch, so they are over-represented until it clears. Questions-presented coverage is zero before Term 2023 and uneven after, so this mix is weighted toward the Terms with stored texts and is not the merits docket's.",
+        "cases": 351,
+        "rows": 351,
+        "scope_note": "Granted QP-bearing petitions only \u2014 351 labeled grant(s) of the 642 plenary grant(s) in the cert scope; primaries only; not docket-representative. Plenary review here is the `granted` disposition, which takes in probable jurisdiction noted on a direct appeal and leaves out GVRs recorded as such (a few older merits GVRs still carry `granted`). The petition frame is still being labeled, so the missing grants are both those with no stored questions-presented text and those whose batch has not come up; reference-set grants are in every batch, so they are over-represented until it clears. Questions-presented coverage is zero before Term 2023 and uneven after, so this mix is weighted toward the Terms with stored texts and is not the merits docket's.",
         "shares": [
           {
             "cases": 48,
-            "classified_share": 0.13753581661891118,
+            "classified_share": 0.13714285714285715,
             "label": "administrative-law-and-benefit-programs",
             "rows": 48,
-            "share": 0.13714285714285715
+            "share": 0.13675213675213677
           },
           {
             "cases": 47,
-            "classified_share": 0.1346704871060172,
+            "classified_share": 0.13428571428571429,
             "label": "civil-procedure",
             "rows": 47,
-            "share": 0.13428571428571429
+            "share": 0.1339031339031339
           },
           {
             "cases": 44,
-            "classified_share": 0.12607449856733524,
+            "classified_share": 0.12571428571428572,
             "label": "criminal-law",
             "rows": 44,
-            "share": 0.12571428571428572
+            "share": 0.12535612535612536
           },
           {
             "cases": 36,
-            "classified_share": 0.10315186246418338,
+            "classified_share": 0.10285714285714286,
             "label": "business-and-financial-regulation",
             "rows": 36,
-            "share": 0.10285714285714286
+            "share": 0.10256410256410256
           },
           {
             "cases": 29,
-            "classified_share": 0.0830945558739255,
+            "classified_share": 0.08285714285714285,
             "label": "constitutional-rights",
             "rows": 29,
-            "share": 0.08285714285714285
+            "share": 0.08262108262108261
           },
           {
             "cases": 26,
-            "classified_share": 0.07449856733524356,
+            "classified_share": 0.07428571428571429,
             "label": "sovereignty-and-foreign-relations",
             "rows": 26,
-            "share": 0.07428571428571429
+            "share": 0.07407407407407407
           },
           {
             "cases": 25,
-            "classified_share": 0.07163323782234957,
+            "classified_share": 0.07142857142857142,
             "label": "first-amendment",
             "rows": 25,
-            "share": 0.07142857142857142
+            "share": 0.07122507122507123
           },
           {
             "cases": 21,
-            "classified_share": 0.06017191977077364,
+            "classified_share": 0.06,
             "label": "employment-and-antidiscrimination",
             "rows": 21,
-            "share": 0.06
+            "share": 0.05982905982905983
           },
           {
-            "cases": 17,
-            "classified_share": 0.04871060171919771,
+            "cases": 18,
+            "classified_share": 0.05142857142857143,
             "label": "immigration",
-            "rows": 17,
-            "share": 0.04857142857142857
+            "rows": 18,
+            "share": 0.05128205128205128
           },
           {
             "cases": 16,
-            "classified_share": 0.045845272206303724,
+            "classified_share": 0.045714285714285714,
             "label": "habeas-and-postconviction",
             "rows": 16,
-            "share": 0.045714285714285714
+            "share": 0.045584045584045586
           },
           {
             "cases": 10,
-            "classified_share": 0.02865329512893983,
+            "classified_share": 0.02857142857142857,
             "label": "firearms",
             "rows": 10,
-            "share": 0.02857142857142857
+            "share": 0.02849002849002849
           },
           {
             "cases": 10,
-            "classified_share": 0.02865329512893983,
+            "classified_share": 0.02857142857142857,
             "label": "intellectual-property",
             "rows": 10,
-            "share": 0.02857142857142857
+            "share": 0.02849002849002849
           },
           {
             "cases": 9,
-            "classified_share": 0.025787965616045846,
+            "classified_share": 0.025714285714285714,
             "label": "environment-energy-and-property",
             "rows": 9,
-            "share": 0.025714285714285714
+            "share": 0.02564102564102564
           },
           {
             "cases": 6,
-            "classified_share": 0.017191977077363897,
+            "classified_share": 0.017142857142857144,
             "label": "election-law",
             "rows": 6,
-            "share": 0.017142857142857144
+            "share": 0.017094017094017096
           },
           {
             "cases": 5,
-            "classified_share": 0.014326647564469915,
+            "classified_share": 0.014285714285714285,
             "label": "tax",
             "rows": 5,
-            "share": 0.014285714285714285
+            "share": 0.014245014245014245
           },
           {
             "cases": 1,
             "classified_share": null,
             "label": "unclassifiable",
             "rows": 1,
-            "share": 0.002857142857142857
+            "share": 0.002849002849002849
           }
         ],
         "stage": "merits",
         "vocabulary": "qp-topic-v0"
       },
       {
-        "cases": 2242,
-        "rows": 2242,
-        "scope_note": "Labeled applications only \u2014 2242 of 2252 in-frame live-slice applications labeled, 2200 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are rows too, each counted once. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 6's extract counted 2242 application(s) in the frame it cut from, of which the artifact held 2242 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 2001 drawn from the 2001 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 2001 were drawn.",
+        "cases": 2248,
+        "rows": 2248,
+        "scope_note": "Labeled applications only \u2014 2248 of 2254 in-frame live-slice applications labeled, 2204 of the labeled read from the docket alone; primaries only; not docket-representative. Those counts are raw rows (the second includes the few duplicate rows the labeling frame folds into one per docket number); the bucket counts are rows too, each counted once. The frame is the live slice's non-extension application dockets, substantive asks and asks whose kind was never read alike, read from different inputs than the petition cut, so the two are never pooled. A docket-only row whose caption and entries name no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets are as much as what the applications are about. Batch 7's extract counted 2248 application(s) in the frame it cut from, of which the artifact held 2248 labeled (100.0%); read that share as a ceiling on the share of the frame as it now stands, since the frame grows with every pull. The reference block rides in every batch, so its 241 row(s) are over-represented against the 2007 drawn from the 2007 outside it by no factor \u2014 the frame was fully labeled when that batch landed, and this mix is not the frame's until every application is labeled. Of the labeled rows here, 241 are reference-block members and 2007 were drawn.",
         "shares": [
           {
-            "cases": 977,
+            "cases": 980,
             "classified_share": null,
             "label": "unclassifiable",
-            "rows": 977,
-            "share": 0.43577163247100803
+            "rows": 980,
+            "share": 0.4359430604982206
           },
           {
-            "cases": 555,
-            "classified_share": 0.43873517786561267,
+            "cases": 557,
+            "classified_share": 0.4392744479495268,
             "label": "habeas-and-postconviction",
-            "rows": 555,
-            "share": 0.24754683318465656
+            "rows": 557,
+            "share": 0.24777580071174377
           },
           {
             "cases": 191,
-            "classified_share": 0.1509881422924901,
+            "classified_share": 0.15063091482649843,
             "label": "criminal-law",
             "rows": 191,
-            "share": 0.08519179304192685
+            "share": 0.0849644128113879
           },
           {
             "cases": 134,
-            "classified_share": 0.10592885375494071,
+            "classified_share": 0.1056782334384858,
             "label": "civil-procedure",
             "rows": 134,
-            "share": 0.05976806422836753
+            "share": 0.059608540925266906
           },
           {
             "cases": 91,
-            "classified_share": 0.07193675889328063,
+            "classified_share": 0.07176656151419558,
             "label": "election-law",
             "rows": 91,
-            "share": 0.040588760035682424
+            "share": 0.04048042704626335
           },
           {
-            "cases": 90,
-            "classified_share": 0.07114624505928854,
+            "cases": 91,
+            "classified_share": 0.07176656151419558,
             "label": "immigration",
-            "rows": 90,
-            "share": 0.04014272970561998
+            "rows": 91,
+            "share": 0.04048042704626335
           },
           {
             "cases": 40,
-            "classified_share": 0.03162055335968379,
+            "classified_share": 0.031545741324921134,
             "label": "administrative-law-and-benefit-programs",
             "rows": 40,
-            "share": 0.01784121320249777
+            "share": 0.017793594306049824
           },
           {
             "cases": 35,
-            "classified_share": 0.02766798418972332,
+            "classified_share": 0.027602523659305992,
             "label": "environment-energy-and-property",
             "rows": 35,
-            "share": 0.015611061552185548
+            "share": 0.015569395017793594
           },
           {
             "cases": 34,
-            "classified_share": 0.026877470355731226,
+            "classified_share": 0.026813880126182965,
             "label": "first-amendment",
             "rows": 34,
-            "share": 0.015165031222123104
+            "share": 0.015124555160142349
           },
           {
             "cases": 33,
-            "classified_share": 0.02608695652173913,
+            "classified_share": 0.026025236593059938,
             "label": "employment-and-antidiscrimination",
             "rows": 33,
-            "share": 0.014719000892060661
+            "share": 0.014679715302491103
           },
           {
             "cases": 23,
-            "classified_share": 0.01818181818181818,
+            "classified_share": 0.018138801261829655,
             "label": "business-and-financial-regulation",
             "rows": 23,
-            "share": 0.010258697591436218
+            "share": 0.010231316725978648
           },
           {
             "cases": 13,
-            "classified_share": 0.010276679841897233,
+            "classified_share": 0.01025236593059937,
             "label": "constitutional-rights",
             "rows": 13,
-            "share": 0.005798394290811775
+            "share": 0.005782918149466192
           },
           {
             "cases": 13,
-            "classified_share": 0.010276679841897233,
+            "classified_share": 0.01025236593059937,
             "label": "sovereignty-and-foreign-relations",
             "rows": 13,
-            "share": 0.005798394290811775
+            "share": 0.005782918149466192
           },
           {
             "cases": 6,
-            "classified_share": 0.0047430830039525695,
+            "classified_share": 0.00473186119873817,
             "label": "firearms",
             "rows": 6,
-            "share": 0.0026761819803746653
+            "share": 0.0026690391459074734
           },
           {
             "cases": 4,
-            "classified_share": 0.0031620553359683794,
+            "classified_share": 0.0031545741324921135,
             "label": "intellectual-property",
             "rows": 4,
-            "share": 0.001784121320249777
+            "share": 0.0017793594306049821
           },
           {
             "cases": 3,
-            "classified_share": 0.0023715415019762848,
+            "classified_share": 0.002365930599369085,
             "label": "tax",
             "rows": 3,
-            "share": 0.0013380909901873326
+            "share": 0.0013345195729537367
           }
         ],
         "stage": "interim",
