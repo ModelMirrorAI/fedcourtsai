@@ -1,6 +1,6 @@
 {
   "cases": 435,
-  "cases_at_court_next_conference": 45,
+  "cases_at_court_next_conference": 44,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
@@ -4223,12 +4223,12 @@
       ],
       "schedule": [
         {
-          "date": "2026-12-04",
+          "date": "2026-12-11",
           "kind": "conference"
         }
       ],
       "scheduled": {
-        "date": "2026-12-04",
+        "date": "2026-12-11",
         "kind": "conference"
       },
       "score_max": 0.88,
