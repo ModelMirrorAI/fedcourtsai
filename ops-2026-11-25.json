@@ -1,0 +1,4575 @@
+{
+  "cost": {
+    "actions_cost_usd": 0.0,
+    "actions_minutes": 1059.1,
+    "actions_monthly_usd": 0.0,
+    "estimated_monthly_usd": 1444.67,
+    "fixed_monthly_usd": 115.0,
+    "model_cost_usd": 5950.503624,
+    "model_monthly_usd": 1329.67,
+    "window_days": 1.0
+  },
+  "data_health": {
+    "corpus": {
+      "checks": [
+        {
+          "checked": 1,
+          "detail": "corpus opened",
+          "failures": 0,
+          "name": "corpus_opens",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154376,
+          "detail": "2154376 rows vs baseline 2154376",
+          "failures": 0,
+          "name": "row_count_monotonic",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 4312223,
+          "detail": "",
+          "failures": 0,
+          "name": "required_columns_non_empty",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154376,
+          "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
+          "failures": 0,
+          "name": "docket_numbers_carry_no_capital_marking",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154376,
+          "detail": "every stored weight is 1 or unset",
+          "failures": 0,
+          "name": "sample_weights_are_unit",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 3073,
+          "detail": "as of 2026-11-25",
+          "failures": 0,
+          "name": "snapshot_not_future_dated",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 642,
+          "detail": "granted before 2024-11-25 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
+          "failures": 0,
+          "name": "no_stale_unparsed_grants",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2154376,
+          "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-25); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+          "failures": 75,
+          "name": "case_dates_ordered",
+          "passed": true,
+          "problems": [
+            "case 'ca1/4490126' is decided before filed (filed 2016-06-17, decided 2014-01-29; docket row)",
+            "case 'ca10/4134809' is decided before filed (filed 2016-06-24, decided 2015-05-01; docket row)",
+            "case 'ca10/66666109' is decided before filed (filed 2022-12-15, decided 2022-11-16; docket row)",
+            "case 'ca11/4565191' is decided before filed (filed 2017-09-01, decided 2015-01-05; docket row)",
+            "case 'ca2/4135978' is decided before filed (filed 2015-10-02, decided 2014-03-27; docket row)",
+            "case 'ca2/65360496' is decided before filed (filed 2023-03-29, decided 2023-01-24; docket row)",
+            "case 'ca3/4490420' is decided before filed (filed 2015-09-03, decided 2015-04-08; docket row)",
+            "case 'ca3/66808103' is decided before filed (filed 2023-09-08, decided 2023-08-17; docket row)",
+            "case 'ca5/66761616' is decided before filed (filed 2025-10-01, decided 2020-07-07; docket row)",
+            "case 'ca5/67681435' is decided before filed (filed 2023-12-11, decided 2023-10-19; docket row)",
+            "case 'ca6/66766012' is decided before filed (filed 2023-10-11, decided 2023-08-16; docket row)",
+            "case 'ca9/64454285' is decided before filed (filed 2023-10-23, decided 2023-06-23; docket row)",
+            "case 'ca9/64883208' is decided before filed (filed 2023-09-08, decided 2023-06-16; docket row)",
+            "case 'ca9/65770700' is decided before filed (filed 2023-11-06, decided 2022-12-16; docket row)",
+            "case 'ca9/67108822' is decided before filed (filed 2023-08-10, decided 2023-07-19; docket row)",
+            "case 'ca9/70552707' is decided before filed (filed 2025-06-03, decided 1994-08-08; docket row)",
+            "case 'ca9/71959035' is decided before filed (filed 2025-11-25, decided 1995-09-28; docket row)",
+            "case 'ca9/72111052' is decided before filed (filed 2025-12-12, decided 1994-10-04; docket row)",
+            "case 'ca9/73391004' is decided before filed (filed 2026-05-20, decided 1994-06-07; docket row)",
+            "case 'cafc/64942476' is decided before filed (filed 2023-08-21, decided 2023-07-14; docket row)"
+          ]
+        },
+        {
+          "checked": 4309150,
+          "detail": "",
+          "failures": 0,
+          "name": "domain_values_valid",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 4312223,
+          "detail": "",
+          "failures": 0,
+          "name": "no_duplicate_cases_or_events",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 19438,
+          "detail": "",
+          "failures": 0,
+          "name": "ledger_references_exist",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 388,
+          "detail": "",
+          "failures": 0,
+          "name": "minted_moments_defined_in_ledger",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 30077,
+          "detail": "",
+          "failures": 0,
+          "name": "event_dirs_hold_only_ledger_entries",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2652,
+          "detail": "",
+          "failures": 0,
+          "name": "evaluation_targets_prediction",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 1923,
+          "detail": "",
+          "failures": 0,
+          "name": "base_rate_basis_carries_version",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 4500,
+          "detail": "",
+          "failures": 0,
+          "name": "prediction_docs_exist",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2045,
+          "detail": "",
+          "failures": 0,
+          "name": "prediction_claims_scoreable",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 231,
+          "detail": "",
+          "failures": 0,
+          "name": "prediction_semantic_claims_conform",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 0,
+          "detail": "",
+          "failures": 0,
+          "name": "evaluation_semantic_grades_gradeable",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2652,
+          "detail": "",
+          "failures": 0,
+          "name": "predicted_reasoning_grade_only_under_a_prompt_that_asks",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 225,
+          "detail": "",
+          "failures": 0,
+          "name": "merits_predictions_carry_judgment",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 2652,
+          "detail": "",
+          "failures": 0,
+          "name": "vote_accuracy_only_on_merits_events",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 14331,
+          "detail": "",
+          "failures": 0,
+          "name": "outcome_votes_await_a_registered_source",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 863,
+          "detail": "",
+          "failures": 0,
+          "name": "evaluation_correct_agrees",
+          "passed": true,
+          "problems": []
+        },
+        {
+          "checked": 14323,
+          "detail": "",
+          "failures": 0,
+          "name": "judgment_only_on_merits_outcomes",
+          "passed": true,
+          "problems": []
+        }
+      ],
+      "corpus_events": 2154774,
+      "corpus_rows": 2154376,
+      "ok": true,
+      "schema_version": "1.0",
+      "skipped": false
+    },
+    "ledger": {
+      "checked": 47282,
+      "invalid": 0,
+      "ok": true,
+      "problems": []
+    },
+    "ok": true
+  },
+  "flags": {
+    "archived": 1092,
+    "blockers": 0,
+    "cells": 83,
+    "harness": 6,
+    "infos": 73,
+    "normalised_cells": 0,
+    "recent": [
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000606",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The Markdown salience table is labeled sal-v8, while context.json freezes sal-v9. The JSON statpack includes sal-v9 as an alternate series and reproduces the frozen rate (656/12,668). The private-petitioner floor in the displayed series gives the same rate.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000606",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "metrics/statpack.md heads its band table 'Segment base rate by salience band (sal-v8)' while record/context.json carries salience_version sal-v9. Band is baseline, which is also the private caption-class floor, and I anchored on the frozen cert_anchor.rate (0.0518) and cert_amicus_line, so the forecast is unaffected.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000604",
+        "flags": [
+          {
+            "category": "other",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "Salience-version heading mismatch between record/context.json (salience_version='sal-v9', which carries a valid non-null cert_anchor.rate=0.051784 pooled from statpack.json's sal-v9 series) and metrics/statpack.md's rendered table heading ('Segment base rate by salience band (sal-v8)', where the private-petitioner baseline reached floor across OT2017-OT2025 is 5.20%, 659/12668). Both figures agree at ~5.2%.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000604",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The rendered statpack labels the salience table sal-v8 while context.json freezes sal-v9. The JSON pack's sal-v9 rows reproduce the frozen baseline of 656/12,668, so the forecast used the matching rate.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000604",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "metrics/statpack.md heads its per-Term salience band table sal-v8 while record/context.json carries salience_version sal-v9. I anchored on the frozen cert_anchor.rate (0.0518), which matches the private-caption baseline floor either way.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000515",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "record/context.json assigns salience_version 'sal-v9' (with frozen cert_anchor.rate = 0.05178402273444901 under statpack_digest sha256:43224abac2bb0f0345ecf1f208a4c5c1229f4514030d2604ba6ab51a139bed19), whereas the checked-out metrics/statpack.md renders 'Segment base rate by salience band (sal-v8)' (sha256:14812795... on metrics/statpack.json, which holds sal-v9 in alt_segments). Per the prompt's salience-version rule, I anchored on cert_anchor.rate and cross-checked the private caption-class floor ('baseline' reached over OT2017-OT2025), both of which equal 656 / 12,668 = 0.05178402273444901.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000515",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The salience table in metrics/statpack.md displays sal-v8. The cell uses sal-v9. The prior-Term private-petitioner floor and the sal-v9 alternate rows in metrics/statpack.json both reproduce the frozen 5.1784% grant rate (656 of 12,668).",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000515",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "metrics/statpack.md's 'Segment base rate by salience band' table is headed sal-v8 while record/context.json froze this cell's band under sal-v9. Anchored on the frozen cert_anchor.rate (0.0518) and the baseline (private caption class) floor rather than reading the band off the table.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000509",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The salience table in metrics/statpack.md is labeled sal-v8, while the cell uses sal-v9. The private-petitioner reached rate pooled over OT2017\u201325 is identical under both versions in metrics/statpack.json and reproduces the frozen 5.1784% anchor. The version difference had no numerical effect.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000509",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "context.json carries salience_version sal-v9 but the committed metrics/statpack.md band table is headed sal-v8. I anchored on the frozen cert_anchor.rate (0.052) and did not pool the table.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000572",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "metrics/statpack.md renders 'Segment base rate by salience band (sal-v8)', whereas record/context.json assigns band 'federal' under salience_version 'sal-v9'. Both context.json's pre-pooled cert_anchor.rate (from statpack.json's sal-v9 alt_segments) and the federal caption-class reached floor over OT2017-OT2025 equal 155/212 (0.7311), so the rendered markdown heading lag does not change the anchor.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T174519Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000572",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "The Markdown statpack labels the band table sal-v8, while the cell froze sal-v9. The JSON statpack includes both versions and their prior-Term federal rates agree with the frozen anchor.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          },
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "same-question.json has petitions set to null despite a legible staged question presented. The government's petition expressly names the already-granted lead case, No. 26-104, which the corpus docket lookup confirmed.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T174519Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000572",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "metrics/statpack.md's 'Segment base rate by salience band' table is headed sal-v8 while record/context.json carries salience_version sal-v9. I anchored on the frozen cert_anchor.rate (0.731) rather than the table.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          },
+          {
+            "category": "capture-gap",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "This is a hold petition: the government asks only that it be held for Rhoney v. Barbosa da Cunha, No. 26-104 (cert granted 2026-10-01, same question presented). The docket carries no Vide link, so record/related/ is absent and the band anchor does not reflect that the outcome tracks the lead case's merits decision.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T174519Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000078",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The Markdown statpack displays sal-v8 while the cell is frozen under sal-v9. The alternate sal-v9 rows in metrics/statpack.json reproduce the frozen elevated-band anchor (499/2,011).",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T174519Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000572",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "The rendered salience-band table in metrics/statpack.md uses sal-v8. The cell froze sal-v9. The corresponding prior-Term federal rows in metrics/statpack.json reproduce the frozen 73.11% anchor used here.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          },
+          {
+            "category": "other",
+            "event_id": "evt-order-call-for-response-disposition",
+            "issue": null,
+            "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 1 call(s), e.g. 'predictions/codex-baseline,/predictions'. Read from retrieval_log.json, which records what a call named, not what it returned; check the transcript before treating it as a read.",
+            "normalised": false,
+            "severity": "warning",
+            "source": "harness"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T170930Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000078",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "The salience table in metrics/statpack.md displays sal-v8, while this cell froze sal-v9. The alternate sal-v9 rows in metrics/statpack.json reproduce the 24.8% elevated-band anchor in context.json, which I used.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T170930Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000078",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-disposition",
+            "issue": null,
+            "message": "Salience version mismatch: record/context.json carries salience_version sal-v9 (band elevated), while the committed metrics/statpack.md band table is headed sal-v8. I anchored on the frozen cert_anchor.rate (0.248) rather than the table, and noted the private-class baseline floor (about 5%) for reference.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T170930Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000669",
+        "flags": [
+          {
+            "category": "other",
+            "event_id": "evt-petition-arrival-disposition",
+            "issue": null,
+            "message": "record/context.json carries salience_version 'sal-v9' (with a valid frozen cert_anchor.rate of 0.731132 pooled from statpack.json's sal-v9 series), whereas metrics/statpack.md's rendered salience-band table heading displays '(sal-v8)'. For the fixed 'federal' caption band, both versions yield the identical strictly-prior OT2017-OT2025 rate (155/212 = 73.11%).",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          },
+          {
+            "category": "capture-gap",
+            "event_id": "evt-petition-arrival-disposition",
+            "issue": null,
+            "message": "record/documents/lower-court-docket.txt reports 'dissent noted: none in the entries read' on CA9 docket entry 62 denying rehearing en banc (2026-06-25), and decision-below.txt truncates before the June 25, 2026 rehearing order, whereas petition.txt (pp. III, 6-7, and App. C) shows Judge Bea filed a 12-judge dissent/statement respecting the denial of rehearing en banc.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T010551Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000669",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-arrival-disposition",
+            "issue": null,
+            "message": "The Markdown statpack displays sal-v8 while the cell freezes sal-v9. The sal-v9 federal rows in statpack.json reproduce the frozen prior-Term grant rate (155/212).",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T010551Z",
+        "schema_version": "1.0"
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000669",
+        "flags": [
+          {
+            "category": "data-quality",
+            "event_id": "evt-petition-arrival-disposition",
+            "issue": null,
+            "message": "metrics/statpack.md heads its 'Segment base rate by salience band' table as sal-v8, while record/context.json carries salience_version sal-v9. The frozen cert_anchor.rate (0.731) reproduces exactly from the table's federal reached column over Terms 2017-2025 (155/212), so I anchored on it rather than falling back.",
+            "normalised": false,
+            "severity": "info",
+            "source": "agent"
+          }
+        ],
+        "role": "predictor",
+        "run_id": "20261124T010551Z",
+        "schema_version": "1.0"
+      }
+    ],
+    "total": 101,
+    "warnings": 28,
+    "window_days": 14
+  },
+  "generated_at": "2026-11-25T08:09:23.819582+00:00",
+  "health": [
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-24T15:44:02Z",
+      "median_seconds": 88,
+      "p95_seconds": 88,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "Dependabot Updates"
+    },
+    {
+      "failures": 9,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T07:25:57Z",
+      "median_seconds": 115,
+      "p95_seconds": 564,
+      "runs_considered": 51,
+      "success_rate": 0.8235294117647058,
+      "successes": 42,
+      "workflow": "ci"
+    },
+    {
+      "failures": 2,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T07:25:57Z",
+      "median_seconds": 291,
+      "p95_seconds": 353,
+      "runs_considered": 54,
+      "success_rate": 0.9629629629629629,
+      "successes": 52,
+      "workflow": "codeql"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T07:50:49Z",
+      "median_seconds": 33,
+      "p95_seconds": 43,
+      "runs_considered": 48,
+      "success_rate": 1.0,
+      "successes": 48,
+      "workflow": "corpus-check"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-24T15:29:13Z",
+      "median_seconds": 121,
+      "p95_seconds": 1015,
+      "runs_considered": 2,
+      "success_rate": 1.0,
+      "successes": 2,
+      "workflow": "integration-test"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T07:29:56Z",
+      "median_seconds": 48,
+      "p95_seconds": 95,
+      "runs_considered": 27,
+      "success_rate": 1.0,
+      "successes": 27,
+      "workflow": "promotion-prep"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T07:25:57Z",
+      "median_seconds": 19,
+      "p95_seconds": 27,
+      "runs_considered": 30,
+      "success_rate": 1.0,
+      "successes": 30,
+      "workflow": "promotion-record"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T04:37:20Z",
+      "median_seconds": 363,
+      "p95_seconds": 1748,
+      "runs_considered": 5,
+      "success_rate": 1.0,
+      "successes": 5,
+      "workflow": "run-analytics"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-24T15:42:56Z",
+      "median_seconds": 119,
+      "p95_seconds": 119,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "run-evaluate"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": null,
+      "last_run_at": "2026-11-25T08:07:58Z",
+      "median_seconds": 135,
+      "p95_seconds": 135,
+      "runs_considered": 2,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "run-ops"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T01:14:23Z",
+      "median_seconds": 3194,
+      "p95_seconds": 3480,
+      "runs_considered": 4,
+      "success_rate": 1.0,
+      "successes": 4,
+      "workflow": "run-predict"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T07:21:41Z",
+      "median_seconds": 795,
+      "p95_seconds": 1237,
+      "runs_considered": 17,
+      "success_rate": 1.0,
+      "successes": 17,
+      "workflow": "run-pull"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T02:36:07Z",
+      "median_seconds": 819,
+      "p95_seconds": 855,
+      "runs_considered": 4,
+      "success_rate": 1.0,
+      "successes": 4,
+      "workflow": "run-seed"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T03:44:13Z",
+      "median_seconds": 1073,
+      "p95_seconds": 1073,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "summarize"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-11-25T03:20:44Z",
+      "median_seconds": 496,
+      "p95_seconds": 496,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "sync-staging"
+    }
+  ],
+  "leakage": {
+    "assessed": 459,
+    "flagged": [],
+    "likely": 0,
+    "none": 2,
+    "not_applicable": 456,
+    "possible": 1,
+    "window_days": 14
+  },
+  "open_triggers": [],
+  "schedule_delivery": {
+    "settle_minutes": 120,
+    "workflows": [
+      {
+        "crons": [
+          "27 4 * * 4"
+        ],
+        "day": {
+          "delivered": 0,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-19T04:29:51Z",
+        "week": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 2,
+          "lateness_p50_min": 2,
+          "slots": 1
+        },
+        "workflow": "codeql"
+      },
+      {
+        "crons": [
+          "19,49 * * * *"
+        ],
+        "day": {
+          "delivered": 48,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 23,
+          "lateness_p50_min": 2,
+          "slots": 48
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T07:50:49Z",
+        "week": {
+          "delivered": 336,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 25,
+          "lateness_p50_min": 1,
+          "slots": 336
+        },
+        "workflow": "corpus-check"
+      },
+      {
+        "crons": [
+          "53 11 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 1,
+          "lateness_p50_min": 1,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-24T11:54:15Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 1,
+          "lateness_p50_min": 1,
+          "slots": 7
+        },
+        "workflow": "integration-test"
+      },
+      {
+        "crons": [
+          "57 12 * * 1"
+        ],
+        "day": {
+          "delivered": 0,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-23T13:00:23Z",
+        "week": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 3,
+          "lateness_p50_min": 3,
+          "slots": 1
+        },
+        "workflow": "post-public-update"
+      },
+      {
+        "crons": [
+          "26 * * * *"
+        ],
+        "day": {
+          "delivered": 24,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 19,
+          "lateness_p50_min": 2,
+          "slots": 24
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T07:29:56Z",
+        "week": {
+          "delivered": 168,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 21,
+          "lateness_p50_min": 2,
+          "slots": 168
+        },
+        "workflow": "promotion-prep"
+      },
+      {
+        "crons": [
+          "41 5 * * 1",
+          "36 4 * * *",
+          "59 12 * * 1",
+          "8 9 * * 2",
+          "4 9 * * 3",
+          "14 9 * * 4",
+          "11 21 * * 5",
+          "21 21 * * 2",
+          "22 9 * * 3",
+          "33 15 * * *",
+          "9 16 * * *"
+        ],
+        "day": {
+          "delivered": 5,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 8,
+          "lateness_p50_min": 3,
+          "slots": 5
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T04:37:20Z",
+        "week": {
+          "delivered": 29,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 9,
+          "lateness_p50_min": 3,
+          "slots": 29
+        },
+        "workflow": "run-analytics"
+      },
+      {
+        "crons": [
+          "23 6 * * 6"
+        ],
+        "day": {
+          "delivered": 0,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-21T06:33:27Z",
+        "week": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 10,
+          "lateness_p50_min": 10,
+          "slots": 1
+        },
+        "workflow": "run-backtest"
+      },
+      {
+        "crons": [
+          "39 15 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 3,
+          "lateness_p50_min": 3,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-24T15:42:56Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 4,
+          "lateness_p50_min": 4,
+          "slots": 7
+        },
+        "workflow": "run-evaluate"
+      },
+      {
+        "crons": [
+          "0 8 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 8,
+          "lateness_p50_min": 8,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T08:07:58Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 9,
+          "lateness_p50_min": 7,
+          "slots": 7
+        },
+        "workflow": "run-ops"
+      },
+      {
+        "crons": [
+          "12 14 * * *",
+          "32 17 * * *"
+        ],
+        "day": {
+          "delivered": 2,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 5,
+          "lateness_p50_min": 3,
+          "slots": 2
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-24T17:33:48Z",
+        "week": {
+          "delivered": 14,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 6,
+          "lateness_p50_min": 2,
+          "slots": 14
+        },
+        "workflow": "run-predict"
+      },
+      {
+        "crons": [
+          "17 1,7,13,19 * * *",
+          "47 4,10,16,22 * * *",
+          "47 0,2,6,8,12,14,18,20 * * *"
+        ],
+        "day": {
+          "delivered": 16,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 9,
+          "lateness_p50_min": 3,
+          "slots": 16
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T07:21:41Z",
+        "week": {
+          "delivered": 112,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 12,
+          "lateness_p50_min": 4,
+          "slots": 112
+        },
+        "workflow": "run-pull"
+      },
+      {
+        "crons": [
+          "31 2 * * *",
+          "31 8 * * *",
+          "31 14 * * *",
+          "31 20 * * *"
+        ],
+        "day": {
+          "delivered": 4,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 5,
+          "lateness_p50_min": 5,
+          "slots": 4
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T02:36:07Z",
+        "week": {
+          "delivered": 28,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 7,
+          "lateness_p50_min": 4,
+          "slots": 28
+        },
+        "workflow": "run-seed"
+      },
+      {
+        "crons": [
+          "43 3 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 1,
+          "lateness_p50_min": 1,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T03:44:13Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 1,
+          "lateness_p50_min": 1,
+          "slots": 7
+        },
+        "workflow": "summarize"
+      },
+      {
+        "crons": [
+          "13 3 * * *"
+        ],
+        "day": {
+          "delivered": 1,
+          "dropped": 0,
+          "hours": 24,
+          "lateness_max_min": 7,
+          "lateness_p50_min": 7,
+          "slots": 1
+        },
+        "flags": [],
+        "last_scheduled_at": "2026-11-25T03:20:44Z",
+        "week": {
+          "delivered": 7,
+          "dropped": 0,
+          "hours": 168,
+          "lateness_max_min": 8,
+          "lateness_p50_min": 6,
+          "slots": 7
+        },
+        "workflow": "sync-staging"
+      }
+    ]
+  },
+  "schema_version": "1.0",
+  "spend": {
+    "estimated_cost_usd": 5950.503624,
+    "mean_cost_usd_per_run": 1.779457,
+    "runs": 3344,
+    "total_tokens": 5348419145,
+    "window_days": 134.2554976851852
+  },
+  "substance": {
+    "calibration": {
+      "accuracy": 0.7857,
+      "accuracy_scored": 42,
+      "base_rate_cases": 45246,
+      "deny_base_rate": 0.9512,
+      "lift_over_always_deny": -0.1655,
+      "mean_brier": 0.1384,
+      "mean_brier_skill": -11.9339,
+      "sample": 42,
+      "segment_base_rate_cases": 13840,
+      "segment_grant_rate": 0.0664,
+      "windows": [
+        {
+          "n": 6,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v17"
+        },
+        {
+          "n": 3,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v23"
+        },
+        {
+          "n": 6,
+          "predictor_id": "claude-baseline",
+          "process_window": "proc-v24"
+        },
+        {
+          "n": 6,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v17"
+        },
+        {
+          "n": 6,
+          "predictor_id": "codex-baseline",
+          "process_window": "proc-v24"
+        },
+        {
+          "n": 6,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v17"
+        },
+        {
+          "n": 3,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v23"
+        },
+        {
+          "n": 6,
+          "predictor_id": "gemini-baseline",
+          "process_window": "proc-v24"
+        }
+      ]
+    },
+    "cells": {
+      "evaluations_forward": 2070,
+      "evaluations_forward_delta": 117,
+      "evaluations_retrospective": 42,
+      "evaluations_retrospective_delta": 24,
+      "events_predicted": 669,
+      "predicted_resolved": 291,
+      "predicted_resolved_delta": 6,
+      "predictions": 2455,
+      "predictions_delta": 92
+    },
+    "forward_claim": {
+      "by_predictor": {
+        "claude-baseline": 3,
+        "codex-baseline": 3,
+        "gemini-baseline": 3
+      },
+      "claimed_forward": 2271,
+      "excluded": 9,
+      "policy": "exclude"
+    },
+    "leakage_exclusion": {
+      "assessed": 2271,
+      "by_predictor": {
+        "gemini-baseline": 4
+      },
+      "excluded": 4
+    },
+    "live_frontier": {
+      "conferences": [
+        {
+          "conference": "2017-09-25",
+          "petitions": 3
+        },
+        {
+          "conference": "2017-10-06",
+          "petitions": 4
+        },
+        {
+          "conference": "2017-10-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2017-11-03",
+          "petitions": 2
+        },
+        {
+          "conference": "2017-11-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2017-11-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2017-12-01",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-01-05",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-01-19",
+          "petitions": 3
+        },
+        {
+          "conference": "2018-02-16",
+          "petitions": 4
+        },
+        {
+          "conference": "2018-02-23",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-03-23",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-04-13",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-05-10",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-05-17",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-05-31",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-06-07",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-06-21",
+          "petitions": 2
+        },
+        {
+          "conference": "2018-06-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-09-24",
+          "petitions": 12
+        },
+        {
+          "conference": "2018-10-05",
+          "petitions": 5
+        },
+        {
+          "conference": "2018-10-12",
+          "petitions": 3
+        },
+        {
+          "conference": "2018-10-26",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-11-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2018-11-30",
+          "petitions": 7
+        },
+        {
+          "conference": "2019-01-04",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-01-18",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-02-15",
+          "petitions": 4
+        },
+        {
+          "conference": "2019-03-15",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-03-22",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-03-29",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-04-26",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-05-16",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-06-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-06-13",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-06-20",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-10-01",
+          "petitions": 13
+        },
+        {
+          "conference": "2019-10-11",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-11-08",
+          "petitions": 2
+        },
+        {
+          "conference": "2019-11-22",
+          "petitions": 1
+        },
+        {
+          "conference": "2019-12-06",
+          "petitions": 3
+        },
+        {
+          "conference": "2020-01-10",
+          "petitions": 3
+        },
+        {
+          "conference": "2020-01-17",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-03-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-03-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-04-24",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-05-01",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-05-15",
+          "petitions": 2
+        },
+        {
+          "conference": "2020-05-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-06-04",
+          "petitions": 2
+        },
+        {
+          "conference": "2020-06-11",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-06-18",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-06-25",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-09-29",
+          "petitions": 7
+        },
+        {
+          "conference": "2020-10-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-11-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-11-13",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-11-20",
+          "petitions": 1
+        },
+        {
+          "conference": "2020-12-04",
+          "petitions": 4
+        },
+        {
+          "conference": "2020-12-11",
+          "petitions": 3
+        },
+        {
+          "conference": "2021-01-08",
+          "petitions": 2
+        },
+        {
+          "conference": "2021-01-15",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-02-19",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-03-05",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-03-26",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-04-16",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-05-13",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-05-20",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-05-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-06-10",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-06-24",
+          "petitions": 3
+        },
+        {
+          "conference": "2021-09-27",
+          "petitions": 6
+        },
+        {
+          "conference": "2021-10-08",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-10-15",
+          "petitions": 2
+        },
+        {
+          "conference": "2021-10-29",
+          "petitions": 2
+        },
+        {
+          "conference": "2021-11-12",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-11-19",
+          "petitions": 1
+        },
+        {
+          "conference": "2021-12-03",
+          "petitions": 2
+        },
+        {
+          "conference": "2022-01-07",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-02-18",
+          "petitions": 3
+        },
+        {
+          "conference": "2022-02-25",
+          "petitions": 2
+        },
+        {
+          "conference": "2022-03-04",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-03-18",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-05-12",
+          "petitions": 4
+        },
+        {
+          "conference": "2022-05-19",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-05-26",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-06-16",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-09-28",
+          "petitions": 3
+        },
+        {
+          "conference": "2022-10-07",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-10-14",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-10-28",
+          "petitions": 4
+        },
+        {
+          "conference": "2022-11-04",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-11-10",
+          "petitions": 4
+        },
+        {
+          "conference": "2022-11-18",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-12-02",
+          "petitions": 1
+        },
+        {
+          "conference": "2022-12-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-01-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-01-20",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-02-17",
+          "petitions": 2
+        },
+        {
+          "conference": "2023-03-03",
+          "petitions": 3
+        },
+        {
+          "conference": "2023-03-24",
+          "petitions": 2
+        },
+        {
+          "conference": "2023-03-31",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-04-14",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-05-11",
+          "petitions": 2
+        },
+        {
+          "conference": "2023-05-25",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-06-22",
+          "petitions": 5
+        },
+        {
+          "conference": "2023-09-26",
+          "petitions": 18
+        },
+        {
+          "conference": "2023-10-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-10-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-11-03",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-11-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2023-12-08",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-01-05",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-01-19",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-02-16",
+          "petitions": 4
+        },
+        {
+          "conference": "2024-02-23",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-03-01",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-03-15",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-03-28",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-04-12",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-04-19",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-05-09",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-05-16",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-05-30",
+          "petitions": 3
+        },
+        {
+          "conference": "2024-06-06",
+          "petitions": 3
+        },
+        {
+          "conference": "2024-06-13",
+          "petitions": 3
+        },
+        {
+          "conference": "2024-06-20",
+          "petitions": 3
+        },
+        {
+          "conference": "2024-09-30",
+          "petitions": 13
+        },
+        {
+          "conference": "2024-10-11",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-10-18",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-11-08",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-11-15",
+          "petitions": 1
+        },
+        {
+          "conference": "2024-11-22",
+          "petitions": 2
+        },
+        {
+          "conference": "2024-12-06",
+          "petitions": 7
+        },
+        {
+          "conference": "2024-12-13",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-01-10",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-01-17",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-01-24",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-02-21",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-03-28",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-04-04",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-04-17",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-04-25",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-05-02",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-05-29",
+          "petitions": 3
+        },
+        {
+          "conference": "2025-06-05",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-06-18",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-09-29",
+          "petitions": 13
+        },
+        {
+          "conference": "2025-10-10",
+          "petitions": 3
+        },
+        {
+          "conference": "2025-10-17",
+          "petitions": 3
+        },
+        {
+          "conference": "2025-11-07",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-11-14",
+          "petitions": 4
+        },
+        {
+          "conference": "2025-11-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2025-12-05",
+          "petitions": 2
+        },
+        {
+          "conference": "2025-12-12",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-01-09",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-01-16",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-02-20",
+          "petitions": 4
+        },
+        {
+          "conference": "2026-02-27",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-03-06",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-03-20",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-04-02",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-04-17",
+          "petitions": 4
+        },
+        {
+          "conference": "2026-04-24",
+          "petitions": 3
+        },
+        {
+          "conference": "2026-05-01",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-05-14",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-05-21",
+          "petitions": 1
+        },
+        {
+          "conference": "2026-05-28",
+          "petitions": 3
+        },
+        {
+          "conference": "2026-06-11",
+          "petitions": 2
+        },
+        {
+          "conference": "2026-06-18",
+          "petitions": 4
+        },
+        {
+          "conference": "2026-06-25",
+          "petitions": 6
+        },
+        {
+          "conference": "2026-06-29",
+          "petitions": 3
+        },
+        {
+          "conference": "2026-09-28",
+          "petitions": 54
+        },
+        {
+          "conference": "2026-10-09",
+          "petitions": 26
+        },
+        {
+          "conference": "2026-10-16",
+          "petitions": 9
+        },
+        {
+          "conference": "2026-11-06",
+          "petitions": 35
+        },
+        {
+          "conference": "2026-11-13",
+          "petitions": 37
+        },
+        {
+          "conference": "2026-12-04",
+          "petitions": 293
+        },
+        {
+          "conference": "2026-12-11",
+          "petitions": 8
+        }
+      ],
+      "discovery": {
+        "ok": true,
+        "streams": [
+          {
+            "alarms": [],
+            "checked_on": "2026-11-25",
+            "cursor": 676,
+            "frontier": 676,
+            "holes": 0,
+            "holes_reprobed": 0,
+            "holes_serving": [],
+            "lookahead_hits": [],
+            "newest_filed": "2026-11-24",
+            "outside_serial": 526,
+            "outside_source": "order-list 2026-11-16",
+            "problems": [],
+            "quiet_business_days": 0,
+            "stall_threshold": 3,
+            "stream": "paid"
+          },
+          {
+            "alarms": [],
+            "checked_on": "2026-11-25",
+            "cursor": 6238,
+            "frontier": 6238,
+            "holes": 0,
+            "holes_reprobed": 0,
+            "holes_serving": [],
+            "lookahead_hits": [],
+            "newest_filed": "2026-11-24",
+            "outside_serial": 6187,
+            "outside_source": "miscellaneous-order 2026-11-19",
+            "problems": [],
+            "quiet_business_days": 0,
+            "stall_threshold": 7,
+            "stream": "ifp"
+          },
+          {
+            "alarms": [],
+            "checked_on": "2026-11-25",
+            "cursor": 742,
+            "frontier": 742,
+            "holes": 2,
+            "holes_reprobed": 2,
+            "holes_serving": [],
+            "lookahead_hits": [],
+            "newest_filed": "2026-11-24",
+            "outside_serial": 716,
+            "outside_source": "miscellaneous-order 2026-11-19",
+            "problems": [],
+            "quiet_business_days": 0,
+            "stall_threshold": 3,
+            "stream": "application"
+          }
+        ],
+        "term": 26
+      },
+      "documents_provisioned": 173,
+      "generated_on": "2026-11-25",
+      "next_conference": "2026-12-04",
+      "next_conference_petitions": 293,
+      "schema_version": "1.0",
+      "skipped": false,
+      "watchlist": 848
+    },
+    "predictor_scores": [
+      {
+        "accuracy": 0.9319,
+        "accuracy_scored": 705,
+        "evaluations": 705,
+        "median": 0.85,
+        "p25": 0.78,
+        "p75": 0.88,
+        "predictor_id": "claude-baseline",
+        "process_window": null,
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 52
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 38
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 38
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 34
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 38
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ],
+        "windows": [
+          {
+            "n": 477,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          },
+          {
+            "n": 75,
+            "opens": "2026-10-11T12:00:00Z",
+            "process_window": "proc-v9"
+          },
+          {
+            "n": 12,
+            "opens": "2026-10-23T02:37:11Z",
+            "process_window": "proc-v11"
+          },
+          {
+            "n": 6,
+            "opens": "2026-10-25T13:40:46Z",
+            "process_window": "proc-v12"
+          },
+          {
+            "n": 45,
+            "opens": "2026-10-29T14:16:26Z",
+            "process_window": "proc-v14"
+          },
+          {
+            "n": 27,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-01T17:45:59Z",
+            "process_window": "proc-v16"
+          },
+          {
+            "n": 18,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
+          },
+          {
+            "n": 21,
+            "opens": "2026-11-08T18:17:04Z",
+            "process_window": "proc-v20"
+          },
+          {
+            "n": 3,
+            "opens": "2026-11-12T19:49:39Z",
+            "process_window": "proc-v21"
+          },
+          {
+            "n": 9,
+            "opens": "2026-11-14T15:51:37Z",
+            "process_window": "proc-v23"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-18T22:03:05Z",
+            "process_window": "proc-v24"
+          }
+        ]
+      },
+      {
+        "accuracy": 0.9231,
+        "accuracy_scored": 702,
+        "evaluations": 702,
+        "median": 0.88,
+        "p25": 0.82,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": null,
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 52
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 37
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 37
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 34
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 37
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ],
+        "windows": [
+          {
+            "n": 528,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          },
+          {
+            "n": 24,
+            "opens": "2026-10-20T15:24:42Z",
+            "process_window": "proc-v10"
+          },
+          {
+            "n": 12,
+            "opens": "2026-10-23T02:37:11Z",
+            "process_window": "proc-v11"
+          },
+          {
+            "n": 6,
+            "opens": "2026-10-25T13:40:46Z",
+            "process_window": "proc-v12"
+          },
+          {
+            "n": 45,
+            "opens": "2026-10-29T14:16:26Z",
+            "process_window": "proc-v14"
+          },
+          {
+            "n": 27,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-01T17:45:59Z",
+            "process_window": "proc-v16"
+          },
+          {
+            "n": 18,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
+          },
+          {
+            "n": 21,
+            "opens": "2026-11-08T18:17:04Z",
+            "process_window": "proc-v20"
+          },
+          {
+            "n": 3,
+            "opens": "2026-11-12T19:49:39Z",
+            "process_window": "proc-v21"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-14T15:51:37Z",
+            "process_window": "proc-v23"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-18T22:03:05Z",
+            "process_window": "proc-v24"
+          }
+        ]
+      },
+      {
+        "accuracy": 0.8894,
+        "accuracy_scored": 705,
+        "evaluations": 705,
+        "median": 0.6,
+        "p25": 0.5,
+        "p75": 0.78,
+        "predictor_id": "gemini-baseline",
+        "process_window": null,
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 52
+          },
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 38
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 38
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 34
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 28
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 38
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 7
+          },
+          {
+            "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 31
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ],
+        "windows": [
+          {
+            "n": 528,
+            "opens": "2026-09-16T00:26:04Z",
+            "process_window": "proc-v8"
+          },
+          {
+            "n": 24,
+            "opens": "2026-10-20T15:24:42Z",
+            "process_window": "proc-v10"
+          },
+          {
+            "n": 12,
+            "opens": "2026-10-23T02:37:11Z",
+            "process_window": "proc-v11"
+          },
+          {
+            "n": 6,
+            "opens": "2026-10-25T13:40:46Z",
+            "process_window": "proc-v12"
+          },
+          {
+            "n": 45,
+            "opens": "2026-10-29T14:16:26Z",
+            "process_window": "proc-v14"
+          },
+          {
+            "n": 27,
+            "opens": "2026-10-30T16:38:43Z",
+            "process_window": "proc-v15"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-01T17:45:59Z",
+            "process_window": "proc-v16"
+          },
+          {
+            "n": 18,
+            "opens": "2026-11-02T17:51:42Z",
+            "process_window": "proc-v17"
+          },
+          {
+            "n": 21,
+            "opens": "2026-11-08T18:17:04Z",
+            "process_window": "proc-v20"
+          },
+          {
+            "n": 3,
+            "opens": "2026-11-12T19:49:39Z",
+            "process_window": "proc-v21"
+          },
+          {
+            "n": 9,
+            "opens": "2026-11-14T15:51:37Z",
+            "process_window": "proc-v23"
+          },
+          {
+            "n": 6,
+            "opens": "2026-11-18T22:03:05Z",
+            "process_window": "proc-v24"
+          }
+        ]
+      }
+    ],
+    "predictor_scores_by_protocol": [
+      {
+        "accuracy": 0.9308,
+        "accuracy_scored": 477,
+        "evaluations": 477,
+        "median": 0.85,
+        "p25": 0.82,
+        "p75": 0.9,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v8",
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 44
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 10
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 20
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 10
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 20
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 10
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ]
+      },
+      {
+        "accuracy": 0.88,
+        "accuracy_scored": 75,
+        "evaluations": 75,
+        "median": 0.8,
+        "p25": 0.75,
+        "p75": 0.85,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v9",
+        "rubrics": [
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 13
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 13
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 13
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 12,
+        "evaluations": 12,
+        "median": 0.8,
+        "p25": 0.78,
+        "p75": 0.84,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v11",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.81,
+        "p25": 0.75,
+        "p75": 0.85,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v12",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 45,
+        "evaluations": 45,
+        "median": 0.78,
+        "p25": 0.72,
+        "p75": 0.8,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v14",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 27,
+        "evaluations": 27,
+        "median": 0.76,
+        "p25": 0.7,
+        "p75": 0.78,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v15",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 0.5,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.75,
+        "p25": 0.62,
+        "p75": 0.85,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v16",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 18,
+        "evaluations": 18,
+        "median": 0.78,
+        "p25": 0.72,
+        "p75": 0.8,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v17",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 21,
+        "evaluations": 21,
+        "median": 0.76,
+        "p25": 0.72,
+        "p75": 0.79,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v20",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 3,
+        "evaluations": 3,
+        "median": 0.83,
+        "p25": 0.8,
+        "p75": 0.85,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v21",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.82,
+        "p25": 0.8,
+        "p75": 0.84,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v23",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 0.5,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.72,
+        "p25": 0.69,
+        "p75": 0.74,
+        "predictor_id": "claude-baseline",
+        "process_window": "proc-v24",
+        "rubrics": [
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 0.9148,
+        "accuracy_scored": 528,
+        "evaluations": 528,
+        "median": 0.88,
+        "p25": 0.84,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v8",
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 47
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ]
+      },
+      {
+        "accuracy": 0.875,
+        "accuracy_scored": 24,
+        "evaluations": 24,
+        "median": 0.87,
+        "p25": 0.8,
+        "p75": 0.91,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v10",
+        "rubrics": [
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 12,
+        "evaluations": 12,
+        "median": 0.91,
+        "p25": 0.85,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v11",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.86,
+        "p25": 0.85,
+        "p75": 0.94,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v12",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 45,
+        "evaluations": 45,
+        "median": 0.88,
+        "p25": 0.8,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v14",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 27,
+        "evaluations": 27,
+        "median": 0.88,
+        "p25": 0.8,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v15",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 0.5,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.8,
+        "p25": 0.74,
+        "p75": 0.92,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v16",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 18,
+        "evaluations": 18,
+        "median": 0.85,
+        "p25": 0.78,
+        "p75": 0.9,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v17",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 21,
+        "evaluations": 21,
+        "median": 0.84,
+        "p25": 0.68,
+        "p75": 0.9,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v20",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 3,
+        "evaluations": 3,
+        "median": 0.81,
+        "p25": 0.75,
+        "p75": 0.9,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v21",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.82,
+        "p25": 0.82,
+        "p75": 0.91,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v23",
+        "rubrics": [
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 0.5,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.6,
+        "p25": 0.55,
+        "p75": 0.78,
+        "predictor_id": "codex-baseline",
+        "process_window": "proc-v24",
+        "rubrics": [
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 0.8807,
+        "accuracy_scored": 528,
+        "evaluations": 528,
+        "median": 0.58,
+        "p25": 0.5,
+        "p75": 0.67,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v8",
+        "rubrics": [
+          {
+            "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 47
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
+            "evaluator_id": "claude-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+            "evaluator_id": "codex-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1",
+            "evaluator_id": "codex-judge",
+            "n": 99
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+            "evaluator_id": "gemini-judge",
+            "n": 24
+          },
+          {
+            "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 23
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 8
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 21
+          },
+          {
+            "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
+            "evaluator_id": "gemini-judge",
+            "n": 99
+          }
+        ]
+      },
+      {
+        "accuracy": 0.75,
+        "accuracy_scored": 24,
+        "evaluations": 24,
+        "median": 0.81,
+        "p25": 0.72,
+        "p75": 0.88,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v10",
+        "rubrics": [
+          {
+            "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 12,
+        "evaluations": 12,
+        "median": 0.82,
+        "p25": 0.78,
+        "p75": 0.86,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v11",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.8,
+        "p25": 0.8,
+        "p75": 0.88,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v12",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 0.9333,
+        "accuracy_scored": 45,
+        "evaluations": 45,
+        "median": 0.64,
+        "p25": 0.5,
+        "p75": 0.84,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v14",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 11
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 27,
+        "evaluations": 27,
+        "median": 0.85,
+        "p25": 0.82,
+        "p75": 0.92,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v15",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:b9a5d8408b80383c6332b1000913ceb2ded3db8e2af508ed1db3a63978e59768",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 6
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:b29afb1d2d63a06932fc4d49782a2dccc6bd1a68ebfe2d3c426bbc4e627544f5",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 0.5,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.5,
+        "p25": 0.5,
+        "p75": 0.58,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v16",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 18,
+        "evaluations": 18,
+        "median": 0.82,
+        "p25": 0.66,
+        "p75": 0.94,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v17",
+        "rubrics": [
+          {
+            "digest": "sha256:3b78d93b3ba83aae257bfba9067e0f3dc8871b5d7e093e4a511e931bed59f8bf",
+            "evaluator_id": "claude-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:5c7cc4e6cce5add4d77984ca6f6413bd3e54f43d88549e373589c63d7c5e319a",
+            "evaluator_id": "codex-judge",
+            "n": 5
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:8966bfb25d509c1f2d11386404a14291724b8f361f6aabd38c30d059382948f9",
+            "evaluator_id": "gemini-judge",
+            "n": 5
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 21,
+        "evaluations": 21,
+        "median": 0.8,
+        "p25": 0.68,
+        "p75": 0.82,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v20",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:c1b452dea2e2f9a5c263428a31ed4c11f562c6ca10765b1dcfe66ff54daa733d",
+            "evaluator_id": "claude-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:ce1c037ed0770c6bddf0c712206246832b212a62d537fc7e3ead95e6c67c0a8c",
+            "evaluator_id": "codex-judge",
+            "n": 3
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 4
+          },
+          {
+            "digest": "sha256:93dfd6b52d95a78cbc7ce722aa2230f0e8ce09716d6219c95036ca071419fee9",
+            "evaluator_id": "gemini-judge",
+            "n": 3
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 3,
+        "evaluations": 3,
+        "median": 0.85,
+        "p25": 0.8,
+        "p75": 0.95,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v21",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          }
+        ]
+      },
+      {
+        "accuracy": 1.0,
+        "accuracy_scored": 9,
+        "evaluations": 9,
+        "median": 0.82,
+        "p25": 0.63,
+        "p75": 0.9,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v23",
+        "rubrics": [
+          {
+            "digest": "sha256:6d65018d24d8a3c1abbe1b600a2ec623704edc1c290e4617c1d229497badde08",
+            "evaluator_id": "claude-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:ad4c6cc627f2c4d876bc7a2d120e732a12f9064d5ea892b2007e0868e871add5",
+            "evaluator_id": "codex-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:71a3fe8733351fddf55686da800b6043c79ce53273e944eaa5c5e8a4df674d5a",
+            "evaluator_id": "gemini-judge",
+            "n": 1
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      },
+      {
+        "accuracy": 0.5,
+        "accuracy_scored": 6,
+        "evaluations": 6,
+        "median": 0.85,
+        "p25": 0.83,
+        "p75": 0.92,
+        "predictor_id": "gemini-baseline",
+        "process_window": "proc-v24",
+        "rubrics": [
+          {
+            "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+            "evaluator_id": "claude-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+            "evaluator_id": "codex-judge",
+            "n": 2
+          },
+          {
+            "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+            "evaluator_id": "gemini-judge",
+            "n": 2
+          }
+        ]
+      }
+    ],
+    "process_scope": "frozen",
+    "set_aside": {
+      "by_predictor": {
+        "claude-baseline": 51,
+        "codex-baseline": 51,
+        "gemini-baseline": 45
+      },
+      "by_reason": {
+        "interim-decision-day": 75,
+        "post-conference-first-forecast": 72
+      },
+      "events": [
+        "scotus/73500246 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000066 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000079 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000080 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000095 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000121 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000183 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9026000462 evt-petition-disposition post-conference-first-forecast",
+        "scotus/9526000428 evt-brief-response-disposition interim-decision-day",
+        "scotus/9526000428 evt-motion-disposition interim-decision-day",
+        "scotus/9526000434 evt-motion-disposition interim-decision-day",
+        "scotus/9526000437 evt-motion-disposition interim-decision-day",
+        "scotus/9526000447 evt-motion-disposition interim-decision-day",
+        "scotus/9526000477 evt-brief-response-disposition interim-decision-day",
+        "scotus/9526000477 evt-motion-disposition interim-decision-day",
+        "scotus/9526000477 evt-order-response-requested-disposition interim-decision-day",
+        "scotus/9526000716 evt-motion-disposition interim-decision-day"
+      ],
+      "excluded": 147
+    }
+  },
+  "tooling": {
+    "base_rate_uses": 321,
+    "corpus_query_uses": 213,
+    "gaps": [
+      {
+        "count": 3,
+        "label": "No base rate conditioned on a called-for response"
+      },
+      {
+        "count": 2,
+        "label": "No base-rate cut conditioned on a called-for response"
+      },
+      {
+        "count": 2,
+        "label": "No statpack cut conditioning on a called-for response"
+      },
+      {
+        "count": 2,
+        "label": "Web attempts returned no visible source content"
+      },
+      {
+        "count": 2,
+        "label": "Web calls returned no usable content"
+      },
+      {
+        "count": 2,
+        "label": "no base-rate cut for self-represented paid petitioners"
+      },
+      {
+        "count": 1,
+        "label": "150,000-character cap truncated the tail of Judge Walker's partial dissent in decision-below.txt, and CourtListener opinion_id 11315059 carried no extracted text"
+      },
+      {
+        "count": 1,
+        "label": "A --case-name substring filter or --originating-docket-number filter on fedcourts query would allow looking up prior SCOTUS cert petitions from known circuit decisions (e.g. D.C. Cir. 20-1245 or 23-1160) without needing a web search to find the SCOTUS docket number first"
+      },
+      {
+        "count": 1,
+        "label": "A --cvsg filter flag on fedcourts query to pull historical CVSG petitions directly without scanning broader disposition buckets"
+      },
+      {
+        "count": 1,
+        "label": "A --cvsg filter on fedcourts query would streamline retrieving historical post-CVSG SCOTUS priors directly"
+      }
+    ],
+    "helpful": [
+      {
+        "count": 17,
+        "label": "cert_anchor in context.json"
+      },
+      {
+        "count": 10,
+        "label": "fedcourts statpack-at"
+      },
+      {
+        "count": 9,
+        "label": "Historical statpack reconstruction"
+      },
+      {
+        "count": 9,
+        "label": "decision-below.txt"
+      },
+      {
+        "count": 7,
+        "label": "context.json cert_anchor and cert_amicus_line"
+      },
+      {
+        "count": 6,
+        "label": "Frozen cert_anchor and cert_amicus_line in record/context.json"
+      },
+      {
+        "count": 6,
+        "label": "cert_anchor and cert_amicus_line in context.json"
+      },
+      {
+        "count": 5,
+        "label": "frozen cert_anchor in context.json"
+      },
+      {
+        "count": 4,
+        "label": "Prediction-time statpack reconstruction"
+      },
+      {
+        "count": 4,
+        "label": "statpack CVSG cut"
+      }
+    ],
+    "recent": [
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000606",
+        "gaps": [
+          "fedcourts query lacks a case-name or question-presented text filter, requiring CourtListener MCP for topical precedent lookup.",
+          "metrics/statpack.md renders sal-v8 in its band table heading while context.json uses sal-v9 (though cert_anchor.rate already supplies the exact sal-v9 pooled anchor from statpack.json)."
+        ],
+        "helpful": [
+          "Pre-pooled cert_anchor and cert_amicus_line in record/context.json gave exact sal-v9 baseline and zero-amicus reference rates.",
+          "Full text of the petition and Eighth Circuit appendix in record/documents/petition.txt allowed direct verification of preservation, Judge Kelly's concurrence, and the unchallenged 18 U.S.C. \u00a7 1591 convictions.",
+          "CourtListener opinion search and search_document quickly located recent circuit treatment (United States v. Deschambault, 1st Cir. May 2026) and prior SCOTUS cert denials on the same 18 U.S.C. \u00a7 2251(a) split."
+        ],
+        "notes": "All provisioned inputs were complete and clean.",
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": [
+          "courtlistener"
+        ],
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts query",
+          "fedcourts validate",
+          "mcp_courtlistener_search",
+          "mcp_courtlistener_search_document",
+          "mcp_courtlistener_get_endpoint_item"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000606",
+        "gaps": [
+          "The corpus citation lookup did not return X-Citement Video."
+        ],
+        "helpful": [
+          "The petition appendix reproduces the requested defense and the panel concurrence.",
+          "CourtListener supplied the original opinions behind the circuit conflict."
+        ],
+        "notes": null,
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query",
+          "metrics/statpack",
+          "CourtListener search",
+          "CourtListener search_document"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000606",
+        "gaps": [
+          "no way to pull prior petitions on the same question by statute or topic; same-question.json was empty and the corpus query has no subject filter for SCOTUS rows",
+          "no base rate conditioned on a respondent's waiver of response"
+        ],
+        "helpful": [
+          "frozen cert_anchor and cert_amicus_line in context.json",
+          "provisioned petition text"
+        ],
+        "notes": "The structured corpus query returned unrelated recent denials; it did not inform the forecast.",
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query",
+          "metrics/statpack.md",
+          "fedcourts validate"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000604",
+        "gaps": [
+          "same-question.json returned an empty petitions list at threshold 0.5 even though Anibowei v. Blanche (No. 26-208) and Belmonte Cardozo v. United States (No. 26-6011) present closely overlapping border cell-phone search questions cited in the petition.",
+          "fedcourts query does not support a party-name substring filter, requiring exact docket numbers to look up cited SCOTUS petitions."
+        ],
+        "helpful": [
+          "Provisioned cert_anchor and cert_amicus_line in record/context.json anchored the sal-v9 baseline rate cleanly despite statpack.md rendering sal-v8.",
+          "fedcourts query --docket-number surfaced the live corpus row for companion petition Anibowei v. Blanche (No. 26-208), including its 10 amicus curiae parties and open status, as well as prior Solicitor General cert denial United States v. Cano (No. 20-1043).",
+          "Clean full-text extraction of petition.txt and appendix.txt made the Seventh Circuit's alternative Davis good-faith holding and transnational-crime reasoning immediately inspectable."
+        ],
+        "notes": "All provisioned inputs were complete and legible.",
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": [
+          "courtlistener"
+        ],
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts query",
+          "fedcourts validate",
+          "mcp_courtlistener_search",
+          "mcp_courtlistener_get_endpoint_item",
+          "mcp_courtlistener_read_document"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000604",
+        "gaps": [],
+        "helpful": [
+          "The appendix preserved both the appellate holding and the officer\u2019s testimony about the search.",
+          "The exact-docket lookup located both petitions identified by Eta. The official docket supplied the response request and deadline in Anibowei."
+        ],
+        "notes": null,
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query",
+          "committed statpack",
+          "Supreme Court docket JSON",
+          "fedcourts validate"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "claude-baseline",
+        "case_id": "scotus/9026000604",
+        "gaps": [
+          "same-question.json missed No. 26-208, which the petition names as presenting the same issue",
+          "the corpus row for 26-208 showed response_requested null although the Court's docket records a response request on Sept 29, 2026"
+        ],
+        "helpful": [
+          "cert_anchor in context.json",
+          "docket-number lookup for the companion petition",
+          "full petition and appendix text"
+        ],
+        "notes": "The petition text itself was the pointer to the related pending petition; the live docket page supplied its state.",
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query --docket-number",
+          "metrics/statpack.md",
+          "WebFetch supremecourt.gov docket"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "gemini-baseline",
+        "case_id": "scotus/9026000515",
+        "gaps": [
+          "fedcourts query --judge 'Taranto' timed out after 180s against the local corpus sidecar, likely scanning unindexed judge arrays across SCOTUS rows.",
+          "fedcourts query lacks an --originating-court filter (e.g., --originating-court cafc) for quickly pulling cert petitions from the same lower court."
+        ],
+        "helpful": [
+          "Frozen cert_anchor and cert_amicus_line in record/context.json provided exact pre-pooled risk-set baselines despite metrics/statpack.md rendering sal-v8.",
+          "CourtListener MCP search_document and read_document recovered the exact pages of the Court of Federal Claims spoliation opinion (Jones VI, ECF No. 209) omitted after the 150,000-character cap in appendix.txt, plus panel verification on Jones v. Norton."
+        ],
+        "notes": "Provisioned petition.txt and 2026-11-25.json snapshot were clean and complete; appendix truncation was cleanly marked and easily supplemented via RECAP.",
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts paths",
+          "fedcourts query",
+          "fedcourts validate",
+          "mcp_courtlistener_search",
+          "mcp_courtlistener_search_document",
+          "mcp_courtlistener_read_document"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      },
+      {
+        "actor_id": "codex-baseline",
+        "case_id": "scotus/9026000515",
+        "gaps": [
+          "Sparse reporter citation coverage prevented the corpus lookup for Horton."
+        ],
+        "helpful": [
+          "The staged appendix contains the complete appellate opinion.",
+          "CourtListener supplied the trial court\u2019s possessory-interest discussion beyond the appendix text cap."
+        ],
+        "notes": null,
+        "role": "predictor",
+        "run_id": "20261125T011516Z",
+        "schema_version": "1.0",
+        "tool_manifest": null,
+        "tools_used": [
+          "fedcourts query",
+          "metrics/statpack.md",
+          "metrics/statpack.json",
+          "CourtListener search",
+          "CourtListener search_document"
+        ],
+        "used_base_rates": true,
+        "used_corpus_query": true
+      }
+    ],
+    "reports": 356,
+    "window_days": 14
+  }
+}
