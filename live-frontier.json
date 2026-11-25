@@ -662,7 +662,7 @@
     },
     {
       "conference": "2026-05-14",
-      "petitions": 1
+      "petitions": 2
     },
     {
       "conference": "2026-05-21",
@@ -710,11 +710,11 @@
     },
     {
       "conference": "2026-12-04",
-      "petitions": 289
+      "petitions": 294
     },
     {
       "conference": "2026-12-11",
-      "petitions": 3
+      "petitions": 7
     }
   ],
   "discovery": {
@@ -722,14 +722,14 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-24",
-        "cursor": 669,
-        "frontier": 669,
+        "checked_on": "2026-11-25",
+        "cursor": 676,
+        "frontier": 676,
         "holes": 0,
         "holes_reprobed": 0,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-23",
+        "newest_filed": "2026-11-24",
         "outside_serial": 526,
         "outside_source": "order-list 2026-11-16",
         "problems": [],
@@ -739,14 +739,14 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-24",
-        "cursor": 6226,
-        "frontier": 6226,
+        "checked_on": "2026-11-25",
+        "cursor": 6238,
+        "frontier": 6238,
         "holes": 0,
         "holes_reprobed": 0,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-23",
+        "newest_filed": "2026-11-24",
         "outside_serial": 6187,
         "outside_source": "miscellaneous-order 2026-11-19",
         "problems": [],
@@ -756,29 +756,29 @@
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-24",
-        "cursor": 729,
-        "frontier": 729,
+        "checked_on": "2026-11-25",
+        "cursor": 742,
+        "frontier": 742,
         "holes": 2,
         "holes_reprobed": 2,
         "holes_serving": [],
         "lookahead_hits": [],
-        "newest_filed": "2026-11-20",
+        "newest_filed": "2026-11-24",
         "outside_serial": 716,
         "outside_source": "miscellaneous-order 2026-11-19",
         "problems": [],
-        "quiet_business_days": 1,
+        "quiet_business_days": 0,
         "stall_threshold": 3,
         "stream": "application"
       }
     ],
     "term": 26
   },
-  "documents_provisioned": 168,
-  "generated_on": "2026-11-24",
+  "documents_provisioned": 172,
+  "generated_on": "2026-11-25",
   "next_conference": "2026-12-04",
-  "next_conference_petitions": 289,
+  "next_conference_petitions": 294,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 838
+  "watchlist": 848
 }
