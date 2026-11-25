@@ -1,0 +1,126 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.01,
+    "notes": "Pro se stay application accompanied by a denied Rule 34.7 sealing motion arising from private Maine state-court domestic-relations litigation (And-26-291), summarily denied in chambers by Justice Jackson six days after submission with no response requested, no full-Court referral, no amicus participation, and no separate writing. Zero doctrinal, institutional, or public policy significance beyond the immediate litigants."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000729",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-25T15:59:53.355764Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Genuine forward-mode prediction generated on 2026-11-21 (run 20261121T030841Z), two days before Justice Jackson's 2026-11-23 denial order. Full result capture (result_capture_coverage = 1.0 across 5 shell/file calls); latest retrieved_doc_date is 2026-11-20 from a corpus query of denied SCOTUS priors, with no CourtListener or web calls and no reads of data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.85,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Justice Jackson denied Application 26A729 in chambers without opinion on November 23, 2026 \u2014 six days after submission \u2014 with actual_disposition = 'denied' and interim_granted = 0.",
+        "claim": "Justice Jackson will deny the stay application herself without opinion within roughly one to three weeks of the November 17 submission, granting no partial relief and no administrative stay.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records interim_signals.response_requested = false and interim_signals.referred_to_court = false.",
+        "claim": "No response will be called for from the respondent and the application will most likely not be referred to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 23, 2026 docket entry disposed of both motions together without comment ('Application (26A729) for stay and motion for leave to file application and appendix under seal denied by Justice Jackson'), though the forecast did not specify whether sealing itself would be granted or denied.",
+        "claim": "The motion for leave to file under seal will be disposed of alongside the stay application without separate comment.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json records amicus_briefs = 0, votes = [], writing_roles = null, and noted_dissent_from_denial = null.",
+        "claim": "Zero amicus briefs will be filed and no Justice will write or note a dissent on the disposing order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261121T030841Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "65bbe052a666a99aa2ef6fb00cfd007dafaa7852",
+    "stamped_at": "2026-11-25T15:59:53.355764Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261125T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

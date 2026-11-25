@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.04,
+    "notes": "The application sought to stay a Maine order in a dispute between two individuals. The public docket identifies no relief affecting others, and the one-sentence denial announces no rule. The papers describing the potential harm to the parties are unavailable here."
+  },
+  "brier_score": 0.0001,
+  "brier_skill_score": 0.9926546309993426,
+  "case_id": "scotus/9526000729",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": 0.013514019934335405
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.01,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.003,
+          "Barrett": 0.002,
+          "Gorsuch": 0.003,
+          "Jackson": 0.004,
+          "Kagan": 0.002,
+          "Kavanaugh": 0.002,
+          "Roberts": 0.002,
+          "Sotomayor": 0.003,
+          "Thomas": 0.003
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013514019934335405,
+    "total": 0.013514019934335405
+  },
+  "correct": 1,
+  "created_at": "2026-11-25T15:50:44.168260Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All six calls in the November 21 forward log have captured results. The recent-denials query carries a November 20 document date and the candidate describes it as a source of comparators. The rationale describes the arrival entry. Neither source indicates access to this application\u2019s November 23 denial.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.2-astra",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.98,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The two docket entries show submission on November 17 and outright denial by Jackson on November 23, with no intervening order. Six days is just short of the approximate window.",
+        "claim": "Jackson would deny the stay herself, with no partial or administrative stay, in roughly one to three weeks.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome records response_requested and referred_to_court as false.",
+        "claim": "Jackson would act without requesting a response or referring the application to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The disposing entry denies the stay and leave to file under seal together and gives no explanation.",
+        "claim": "The sealing motion would be resolved with the stay, without separate comment.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The outcome reports zero amicus briefs.",
+        "claim": "No amicus would file.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The sole disposition is a brief docket entry naming Jackson, with no separate statement or noted dissent.",
+        "claim": "No Justice would write separately or publicly note a dissent on the order.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261121T030841Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:93effb84fe9a7e92cfacd6af8c11b1b43aa2ccf00ff24a8a9286acc4f5c0c022",
+    "label": "proc-v24",
+    "pipeline_sha": "65bbe052a666a99aa2ef6fb00cfd007dafaa7852",
+    "stamped_at": "2026-11-25T15:50:44.168260Z"
+  },
+  "reasoning_quality": 0.83,
+  "run_id": "20261125T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

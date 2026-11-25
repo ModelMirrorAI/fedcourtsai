@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.01,
+    "notes": "Pro se stay application accompanied by a denied Rule 34.7 sealing motion arising from private Maine state-court domestic-relations litigation (And-26-291), summarily denied in chambers by Justice Jackson six days after submission with no response requested, no full-Court referral, no amicus participation, and no separate writing. Zero doctrinal, institutional, or public policy significance beyond the immediate litigants."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000729",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.001,
+          "Jackson": 0.004,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.0005,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-25T15:59:53.355764Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Genuine forward-mode prediction generated on 2026-11-21 (run 20261121T030841Z), two days before Justice Jackson's 2026-11-23 denial order existed. All retrieval calls in retrieval_log.json (result_capture = 'outcome_only', coverage 0.0) targeted corpus priors, pre-decision CourtListener RECAP dockets (2:25-mc-00465, 4:26-cv-01666, 2:24-cv-00089), and prior related SCOTUS dockets (25A572, 26-5639), with web queries explicitly excluding 26A729 and zero reads of data/qp-topics/.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-carbon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.92,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "The November 23, 2026 docket entry records that Application 26A729 for a stay was denied by Justice Jackson alone, and outcome.json records actual_disposition = 'denied', interim_granted = 0, and referred_to_court = false.",
+        "claim": "Justice Jackson, acting alone in chambers as Circuit Justice for the First Circuit, will deny the stay application in whole.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Justice Jackson disposed of the application via a one-sentence summary docket entry with no accompanying opinion or statement, so the staged record is silent on the substantive legal ground for the denial.",
+        "claim": "The application fails 28 U.S.C. \u00a7 1257(a) finality and federal-question requirements as well as the Hollingsworth/Nken stay factors because And-26-291 arises out of ongoing Maine state domestic-relations litigation.",
+        "status": "unresolved"
+      },
+      {
+        "basis": "outcome.json records interim_signals of response_requested = false, referred_to_court = false, and amicus_briefs = 0.",
+        "claim": "Justice Jackson will neither call for a response from Respondent Buot nor refer the application to the full Court, and zero amicus briefs will be filed before disposition.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The November 23, 2026 docket entry simultaneously resolved both requests in chambers ('Application (26A729) for stay and motion for leave to file application and appendix under seal denied by Justice Jackson'), though the forecast hedged between granting and denying the sealing request itself.",
+        "claim": "Justice Jackson will dispose of the accompanying Rule 34.7 motion for leave to file the application and appendix under seal in the same chambers order sequence.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Justice Jackson entered a summary chambers denial on November 23, 2026 \u2014 six days after the November 17 submission \u2014 and outcome.json records votes = [], writing_roles = null, and noted_dissent_from_denial = null.",
+        "claim": "Disposition will occur via summary docket order within roughly one to two weeks of submission, with no separate opinion, concurrence, dissent, or statement by any Justice.",
+        "status": "borne-out"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261121T030841Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a6a0e47c21708e4132f1e0adc246dc2b9c25ec366548be935c09bb5c0b7920bf",
+    "label": "proc-v24",
+    "pipeline_sha": "65bbe052a666a99aa2ef6fb00cfd007dafaa7852",
+    "stamped_at": "2026-11-25T15:59:53.355764Z"
+  },
+  "reasoning_quality": 0.96,
+  "run_id": "20261125T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

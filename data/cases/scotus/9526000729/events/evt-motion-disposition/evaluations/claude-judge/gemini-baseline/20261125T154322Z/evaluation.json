@@ -1,0 +1,131 @@
+{
+  "amicus_line_rate": null,
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Self-represented stay application, with a sealing motion, from a Maine Supreme Judicial Court matter between two private individuals; denied by the Circuit Justice alone in six days with no response, referral, amicus or writing. No visible public-law question or effect beyond the parties."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9981636577498356,
+  "case_id": "scotus/9526000729",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.11667913238593867,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.013589019934335403
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v3",
+    "distributions": [
+      {
+        "baseline": null,
+        "claim_id": "order-writers",
+        "outcome": null,
+        "probabilities": {
+          "Alito": 0.001,
+          "Barrett": 0.0005,
+          "Gorsuch": 0.001,
+          "Jackson": 0.004,
+          "Kagan": 0.0005,
+          "Kavanaugh": 0.001,
+          "Roberts": 0.0005,
+          "Sotomayor": 0.0005,
+          "Thomas": 0.001
+        },
+        "score": null,
+        "scored": false
+      }
+    ],
+    "floor": 0.0,
+    "lift": 0.013589019934335403,
+    "total": 0.013589019934335403
+  },
+  "correct": 1,
+  "created_at": "2026-11-25T15:48:13.012742Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (cutoff 2026-11-18, arrival-position; prediction written 2026-11-21, event resolved 2026-11-23), so no disposition existed when it ran. Every call in the log is outcome_only, so graded on queries: the web searches explicitly excluded 26A729, the two supremecourt.gov fetches were of other dockets between the same parties (25A572, 26-5639), and CourtListener lookups targeted lower-court dockets. No query reaches this application's own disposition and the reasoning does not presuppose it. Related-docket history is legitimate forward signal.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-fable-5-2",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": 0.9,
+  "predicted_reasoning_review": {
+    "central_claims": [
+      {
+        "basis": "Docket entry of Nov 23 2026: 'Application (26A729) for stay and motion for leave to file application and appendix under seal denied by Justice Jackson.'",
+        "claim": "Justice Jackson, acting alone as Circuit Justice, will deny the stay application in whole.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "outcome.json interim_signals: response_requested false, referred_to_court false, amicus_briefs 0. The order was entered by Justice Jackson alone.",
+        "claim": "No response will be called for and the application will not be referred to the full Court.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "Docket entry of Nov 23 2026: 'Application (26A729) for stay and motion for leave to file application and appendix under seal denied by Justice Jackson.' outcome.json records no votes or writings.",
+        "claim": "The sealing motion will be disposed of in chambers in the same order, with no separate opinion or statement.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "amicus_briefs 0; submitted Nov 17, denied Nov 23 (six days) - at the short edge of the stated window.",
+        "claim": "No amicus briefs will be filed, and the denial will come by summary order within roughly one to two weeks of submission.",
+        "status": "borne-out"
+      },
+      {
+        "basis": "The order states no reasons.",
+        "claim": "The denial rests on section 1257 finality/state-law barriers, no certworthiness and no irreparable harm.",
+        "status": "unresolved"
+      }
+    ],
+    "not_gradeable": null
+  },
+  "prediction_run_id": "20261121T030841Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:ed3295d92108cc1c45ab03f10e24f469ea3705204e1f7836aee9b5524d9d5cd5",
+    "label": "proc-v24",
+    "pipeline_sha": "65bbe052a666a99aa2ef6fb00cfd007dafaa7852",
+    "stamped_at": "2026-11-25T15:48:13.012742Z"
+  },
+  "reasoning_quality": 0.85,
+  "run_id": "20261125T154322Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.11667913238593867,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
