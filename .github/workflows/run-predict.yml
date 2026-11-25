@@ -67,8 +67,11 @@ permissions: {}
 # already-predicted gate is blind to: that gate reads *committed* state, so a
 # round whose collect PR has not merged is invisible to it, and the next round
 # plans the moment this group releases — minutes after the previous one ended,
-# and long before its PR merges. The stranded-run guard below is what covers
-# that window; this group covers the overlapping one.
+# and long before its PR merges. Nor does it cover a round that waited in this
+# group: a run checks out the commit it was created at, so a queued round
+# plans on a ledger from before the round ahead of it merged, however long it
+# waited. The stranded-run guard below is what covers both; this group covers
+# the overlapping one.
 #
 # `cancel-in-progress: false` protects the *running* round, not the queue behind
 # it: GitHub holds at most one pending run per group, and a third arrival
@@ -208,14 +211,16 @@ jobs:
 
       # The stranded-run guard's census. A cell spends its tokens *before*
       # `collect`, the run's single durability step, and the already-predicted
-      # gate reads *committed* state on `main` — so every run between "the cells
-      # spent their tokens" and "the collect PR merged" is invisible to it, and
+      # gate reads *committed* state as this job checked it out — so every run
+      # between "the cells spent their tokens" and "the collect PR's merge is in
+      # this checkout" is invisible to it, and
       # the next scheduled round re-derives the same events and re-spends the
-      # identical run. Three ways a run sits in that gap: `collect` failed, its
-      # PR is open (auto-merge waiting on checks, or a draft), or it concluded
+      # identical run. Four ways a run sits in that gap: `collect` failed, its
+      # PR is open (auto-merge waiting on checks, or a draft), it concluded
       # success having pushed no branch at all, which is what the secret scan's
-      # withhold looks like from outside. This lists recent runs' cell artifacts
-      # with the two facts that tell those apart — whether `collect` succeeded,
+      # withhold looks like from outside, or its PR merged after the commit this
+      # job checked out, which is every round that queued behind another. This
+      # lists recent runs' cell artifacts with the two facts that tell those apart — whether `collect` succeeded,
       # and the run's own window — plus this lane's collect PRs; the matrix step
       # below withholds the cells and names the remedy for each.
       #
@@ -227,10 +232,11 @@ jobs:
       # resolves every ambiguity the safe way.
       #
       # Fetch and filter only — the decision lives in the tested `predict-matrix`
-      # command. Fail-open by construction, at three grains (see the shell
+      # command. Fail-open by construction, at four grains (see the shell
       # below): an unreadable run drops out of the census, an unreadable PR
-      # listing disarms the collect-PR arm alone, and a failure leaving nothing
-      # usable empties the census. The failure this guard prevents is expensive,
+      # listing disarms the collect-PR arm alone, a merged PR whose comparison
+      # with this checkout went unanswered reads as landed, and a failure
+      # leaving nothing usable empties the census. The failure this guard prevents is expensive,
       # not dangerous, so it must never be the reason a legitimate run does not
       # start.
       - name: Census the cell artifacts of recent runs that have not landed
@@ -241,7 +247,9 @@ jobs:
           set -euo pipefail
           echo '[]' > stranded-artifacts.json
           rm -f collect-prs.json
-          # Three degradation grains. `degraded` is the whole-guard one: nothing
+          # Three degradation helpers, and a fourth grain the comparison loop
+          # below carries inline (one unanswered comparison releases one PR's
+          # run). `degraded` is the whole-guard one: nothing
           # usable was fetched, so withhold nothing. `skipped` loses one run's
           # cells from the census and keeps the rest — a flake on the seventh
           # candidate must not discard the six good ones and re-spend them.
@@ -310,8 +318,8 @@ jobs:
           # jail requires it of a head before believing its name. Then the head
           # must be a run branch of this lane.
           #
-          # Projected to the four fields the decision needs, in the fetch rather
-          # than after it, so the PR *bodies* — which carry rolled-up agent flag
+          # Projected to the fields the decision needs, and the merge commit the
+          # comparison below reads, in the fetch rather than after it, so the PR *bodies* — which carry rolled-up agent flag
           # text on this lane — never land in the plan job's workspace at all.
           # The page is trusted only when its oldest row predates the census
           # window, since a page that stopped short would report a run's PR as
@@ -323,7 +331,7 @@ jobs:
           # taking the whole arm off.
           if api collect-prs-raw.json \
                "repos/${REPO}/pulls?base=main&state=all&sort=created&direction=desc&per_page=100" \
-               --jq '{oldest: (([.[].created_at] | min) // ""), prs: [.[] | select((.head.repo.full_name // "") == env.REPO) | select((.head.ref // "") | startswith("predict/run-")) | {number, head_ref: .head.ref, head_repo: .head.repo.full_name, is_open: (.state == "open"), merged: (.merged_at != null)}]}'; then
+               --jq '{oldest: (([.[].created_at] | min) // ""), prs: [.[] | select((.head.repo.full_name // "") == env.REPO) | select((.head.ref // "") | startswith("predict/run-")) | {number, head_ref: .head.ref, head_repo: .head.repo.full_name, is_open: (.state == "open"), merged: (.merged_at != null), merged_at, merge_sha: .merge_commit_sha}]}'; then
             # `|| true` so a jq failure reads as no coverage rather than tripping
             # errexit: this whole step must never be the reason a round does not
             # start, and an assignment is the one context where a failed
@@ -336,6 +344,49 @@ jobs:
             fi
           else
             pr_arm_off "could not list this lane's pull requests"
+          fi
+          # A merged collect PR has landed for THIS round only if the merge is
+          # in the commit this job checked out. A run reads the commit it was
+          # created at, and the serializing group starts a queued round the
+          # moment the round ahead of it ends — after that round's PR merged,
+          # on a checkout from before it did. So each PR merged inside the
+          # window is compared against the checkout, and the compare API's
+          # status for the checkout relative to the merge commit rides to the
+          # decision step as it came: that step reads it, and withholds only
+          # on a status that establishes the checkout lacks the merge. A
+          # comparison that could not be made leaves the status null, which
+          # releases the run, as every degraded reading here does. The merge
+          # commit is matched as a full hex sha before it reaches the request
+          # path, and one commit per page is asked for because only the status
+          # is read.
+          head_sha=$(git rev-parse HEAD || true)
+          if [ -f collect-prs.json ] && [ -z "$head_sha" ]; then
+            echo "::warning::stranded-run guard could not name this checkout's commit; every merged collect PR reads as landed, so a run merged after this round was created may have its cells re-minted"
+          elif [ -f collect-prs.json ]; then
+            : > pr-compare.ndjson
+            while IFS=$'\t' read -r number merge_sha; do
+              [ -n "$number" ] || continue
+              if api compare-status.json \
+                   "repos/${REPO}/compare/${merge_sha}...${head_sha}?per_page=1" \
+                   --jq '{status: (.status // null)}'; then
+                jq -c --arg number "$number" '{number: ($number | tonumber), compare_status: .status}' \
+                  compare-status.json >> pr-compare.ndjson \
+                  || echo "::warning::stranded-run guard could not record collect PR #${number}'s comparison with this checkout; it reads as landed, so its run's cells may be re-minted"
+              else
+                echo "::warning::stranded-run guard could not compare collect PR #${number}'s merge with this checkout; it reads as landed, so its run's cells may be re-minted"
+              fi
+            done < <(jq -r '.[] | select(.merged) | select((.merged_at // "") > env.CUTOFF) | select((.merge_sha // "") | test("^[0-9a-f]{40}$")) | [.number, .merge_sha] | @tsv' collect-prs.json || true)
+            # Joined back by PR number, dropping the two fields only the
+            # comparison needed. A failed join leaves the listing as it was,
+            # which the decision step reads as every comparison unanswered.
+            if jq --slurpfile seen pr-compare.ndjson \
+                 '($seen | map({(.number | tostring): .compare_status}) | add // {}) as $m | map(del(.merged_at, .merge_sha) + {compare_status: $m[(.number | tostring)]})' \
+                 collect-prs.json > collect-prs-joined.json \
+               && mv collect-prs-joined.json collect-prs.json; then
+              :
+            else
+              echo "::warning::stranded-run guard could not record which merged collect PRs this checkout holds; each reads as landed"
+            fi
           fi
           api candidate-runs.tsv "repos/${REPO}/actions/workflows/run-predict.yml/runs?status=completed&per_page=50" \
             --jq '.workflow_runs[] | select(.created_at > env.CUTOFF) | [.id, ([.created_at, (.run_started_at // .created_at)] | min), .updated_at] | @tsv' \
@@ -429,7 +480,7 @@ jobs:
                 # guard's own account (the run ids and the remedy), so it is
                 # rendered rather than paraphrased: the annotations name what
                 # the census skipped, but only the note carries the whole story.
-                echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Every cell this round would have minted already ran in a run whose output has not reached \`main\` — \`collect\` failed, its PR is still open, or it pushed no branch at all — so the tokens are spent and the predictions exist. Those events stay owed until their predictions are committed, so landing that run, not another round, is what clears them; the note below says which of the three it is and names the run and its PR."
+                echo "This matrix is empty because the stranded-run guard withheld every cell, not because the backlog is drained. Every cell this round would have minted already ran in a run whose output is not in the commit this round reads — \`collect\` failed, its PR is still open, it pushed no branch at all, or its PR merged after this round was created — so the tokens are spent and the predictions exist. The note below says which of the four it is, names the run and its PR, and says what, if anything, has to land."
                 echo ""
                 cat stranded-note.md
               else

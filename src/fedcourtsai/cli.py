@@ -27627,8 +27627,9 @@ def _predict_backlog_cases(
     consequences hold: no stamp holds anything off in either direction (this
     lane leaves none, and it does not honour the pull/live lane's — that lane
     mints nothing, so its stamp would hold off the only lane that does), and the
-    gate reads *committed* state, so what bounds a second derivation firing before a
-    collect PR merges is the stranded-run guard — the workflow's concurrency
+    gate reads *committed* state as this round checked it out, so what bounds a
+    second derivation firing before a collect PR merges, or reading a commit from
+    before it merged, is the stranded-run guard — the workflow's concurrency
     group serializes *rounds*, which is a different window — not this gate.
 
     Writing no stamp does not leave the live channel's relist suppression
@@ -28193,8 +28194,9 @@ _STRANDED_RERUN_CAVEAT = (
     "`collect` job alone instead."
 )
 _STRANDED_OVERRIDE = (
-    "The guard releases itself: a run stops being withheld once its collect PR settles — merged, "
-    "which is when the ledger actually gains the predictions, or closed unmerged, which abandons "
+    "The guard releases itself: a run stops being withheld once its collect PR settles — merged "
+    "into the commit a round reads, which is when the ledger it plans from holds the "
+    "predictions, or closed unmerged, which abandons "
     "them — and ages out of the 48-hour census window regardless. To get a fresh round *sooner*, "
     "delete the stranded run's cell artifacts (`gh api -X DELETE "
     "repos/<owner>/<repo>/actions/artifacts/<artifact_id>`) and let the next derivation mint them "
@@ -28220,11 +28222,26 @@ _STRANDED_REMEDY: dict[StrandedReason, str] = {
         "secret-scan withhold looks like from outside — review the run's withheld content and "
         "salvage it by hand (pipeline.md -> Recovering a run whose `collect` failed)"
     ),
+    StrandedReason.MERGED_AFTER_CHECKOUT: (
+        "its collect PR merged after the commit this round reads, so the predictions are in "
+        "the ledger on `main` and only this round's checkout lacks them — nothing to land; the "
+        "next round reads them"
+    ),
 }
 
 
+def _stranded_needs_landing(cells: Sequence[StrandedCell]) -> bool:
+    """Whether any withheld cell's run still has output to land.
+
+    A run whose collect PR merged after this round's checkout has nothing left
+    to land, so a report made only of those must not tell a maintainer to land
+    anything.
+    """
+    return any(cell.reason is not StrandedReason.MERGED_AFTER_CHECKOUT for cell in cells)
+
+
 def _stranded_remedy(cell: StrandedCell) -> str:
-    """The one sentence saying what lands this cell's run, run id filled in."""
+    """The one sentence saying what, if anything, lands this cell's run."""
     return _STRANDED_REMEDY[cell.reason].format(run=cell.run_db_id)
 
 
@@ -28272,8 +28289,10 @@ def _stranded_note(cells: Sequence[StrandedCell]) -> str:
     derivation will do rather than about closing anything.
 
     One line per withheld run, each carrying that run's own remedy, because the
-    three ways output goes unlanded do not share one: an uncollected run is
-    rerun, an unmerged PR is merged, and a withheld collect is salvaged by hand.
+    ways output goes unlanded do not share one: an uncollected run is rerun, an
+    unmerged PR is merged, a withheld collect is salvaged by hand, and a run
+    whose PR merged after this round's checkout needs nothing. A note made only
+    of that last kind says so instead of asking for a recovery.
     """
     # The caveat rides only where a rerun is actually the remedy: on a note that
     # is entirely unmerged PRs it would be advice about a command nobody should
@@ -28286,6 +28305,15 @@ def _stranded_note(cells: Sequence[StrandedCell]) -> str:
     lines = _stranded_run_lines(cells)
     subject = "that run" if len(lines) == 1 else "those runs"
     rendered = "\n".join(lines)
+    if not _stranded_needs_landing(cells):
+        return (
+            "Every cell this round would have minted is already predicted on `main`. This round "
+            "reads the commit it was created at, and it was created before the collect PR "
+            "carrying those predictions merged, so its own checkout still shows the events as "
+            f"owed:\n\n{rendered}\n\n"
+            "Nothing needs landing and nothing is lost: the next round reads a commit that holds "
+            "the predictions and derives only what is still owed.\n"
+        )
     return (
         "Every cell this round would have minted already ran in a run whose output has not "
         "reached the ledger — the predictions exist; what is missing is the step that commits "
@@ -28346,7 +28374,8 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
 
     Three channels, all of them a run's record rather than a plan's: a
     ``::warning::`` per withheld cell carrying its own remedy, the escalated
-    ``::error::`` plus the ``note_file`` recovery note when the guard emptied
+    ``::error::`` (a ``::notice::`` where no withheld run has anything left to
+    land) plus the ``note_file`` recovery note when the guard emptied
     the matrix (the plan step branches on that file's presence so an empty
     matrix reads as "land that run" rather than as a drained backlog), and the
     Actions step summary. Called only when something was actually withheld.
@@ -28393,12 +28422,25 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
         # note that says otherwise, and escalate here so the cause is on the
         # record even if the note never reaches a reader.
         summary = " ".join(line.lstrip("- ") for line in run_lines)
-        typer.echo(
-            f"::error::{stage}: the stranded-run guard withheld ALL "
-            f"{len(guarded.withheld)} cell(s) — every event this round derived already ran in "
-            f"a run whose output has not reached the ledger. {summary} " + _STRANDED_OVERRIDE,
-            err=True,
-        )
+        if _stranded_needs_landing(guarded.withheld):
+            typer.echo(
+                f"::error::{stage}: the stranded-run guard withheld ALL "
+                f"{len(guarded.withheld)} cell(s) — every event this round derived already ran "
+                f"in a run whose output has not reached the ledger. {summary} "
+                + _STRANDED_OVERRIDE,
+                err=True,
+            )
+        else:
+            # Not a fault and nothing to recover, so a notice rather than an
+            # error: the predictions are on `main`, and this round only read a
+            # commit from before they landed.
+            typer.echo(
+                f"::notice::{stage}: the stranded-run guard withheld ALL "
+                f"{len(guarded.withheld)} cell(s) — every event this round derived is already "
+                f"predicted on `main`, in a collect PR that merged after the commit this round "
+                f"reads. {summary}",
+                err=True,
+            )
         if note_file is not None:
             try:
                 note_file.write_text(_stranded_note(guarded.withheld), encoding="utf-8")
@@ -28417,21 +28459,34 @@ def _report_stranded_guard(guarded: GuardedMatrix, note_file: Path | None, *, st
         typer.echo(
             f"::warning::{stage}: the stranded-run guard withheld "
             f"{len(guarded.withheld)} cell(s) whose output sits in run(s) {runs} that have not "
-            f"reached the ledger; the remaining {len(guarded.include)} cell(s) are genuinely new",
+            f"reached the ledger this round reads; the remaining {len(guarded.include)} cell(s) "
+            f"are genuinely new",
             err=True,
         )
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as fh:
+            if _stranded_needs_landing(guarded.withheld):
+                lead = (
+                    f"Their output already exists — the tokens are spent — but has not reached "
+                    f"committed state, which is what the already-predicted gate reads. "
+                    f"Land {'that run' if len(run_lines) == 1 else 'those runs'} rather than "
+                    f"starting another round:"
+                )
+                tail = f" {_STRANDED_OVERRIDE}"
+            else:
+                lead = (
+                    "Their predictions are already on `main`, in a collect PR that merged after "
+                    "the commit this round reads. Nothing needs landing; the next round reads "
+                    "them:"
+                )
+                tail = ""
             fh.write(
                 f"## run-predict — stranded-run guard withheld {len(guarded.withheld)} cell(s)\n"
-                f"Their output already exists — the tokens are spent — but has not reached "
-                f"committed state, which is what the already-predicted gate reads. "
-                f"Land {'that run' if len(run_lines) == 1 else 'those runs'} rather than "
-                f"starting another round:\n\n"
+                f"{lead}\n\n"
                 + "\n".join(run_lines)
                 + f"\n\n{caveat}Kept {len(guarded.include)} genuinely new "
-                f"cell(s). {_STRANDED_OVERRIDE}\n"
+                f"cell(s).{tail}\n"
             )
 
 
@@ -29754,14 +29809,31 @@ def _render_approval_report(plan: dict[str, Any], *, stage: str, run_url: str = 
         by_run: dict[tuple[int, object], list[dict[str, Any]]] = {}
         for record in withheld:
             by_run.setdefault((record["run_db_id"], record.get("collect_pr")), []).append(record)
-        lines.extend(["", "### Withheld: waiting on a run to land", ""])
+        # A cell whose predictions are on a `main` newer than this round's
+        # checkout is waiting on nothing, so a section made only of those must
+        # not tell an approver to land a run.
+        landed_elsewhere = StrandedReason.MERGED_AFTER_CHECKOUT.value
+        needs_landing = any(record.get("unlanded") != landed_elsewhere for record in withheld)
+        heading = (
+            "### Withheld: waiting on a run to land"
+            if needs_landing
+            else "### Withheld: already predicted on `main`"
+        )
+        lines.extend(["", heading, ""])
         for (run_db_id, collect_pr), records in sorted(by_run.items(), key=lambda kv: kv[0][0]):
             where = f"run `{run_db_id}`" + (f", collect PR #{collect_pr}" if collect_pr else "")
             lines.append(f"- {len(records)} cell(s) from {where} — {records[0]['remedy']}.")
         lines.append("")
         lines.append(
             "Those cells are not new spend this round would buy: the tokens are already spent "
-            "and the output exists. Landing the run is what commits them."
+            "and the output exists. "
+            + (
+                "Landing the run is what commits them, except where a line says nothing is "
+                "left to land."
+                if needs_landing
+                else "It is committed on `main`; this round reads a commit from before that "
+                "merge, and the next round reads the predictions."
+            )
         )
     if guard is not None and (
         guard["degraded_reason"]

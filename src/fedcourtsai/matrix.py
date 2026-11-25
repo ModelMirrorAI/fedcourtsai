@@ -401,8 +401,9 @@ def _cell_key(predictor_id: str, court: str, docket: int, event_id: str) -> _Cel
 class StrandedReason(StrEnum):
     """Why one run's cell output is not in committed state yet.
 
-    Three ways a run can spend its tokens and leave the ledger untouched, all
-    of them invisible to the already-predicted gate, which reads `main`:
+    Four ways a run can spend its tokens and leave the ledger this round reads
+    untouched, all of them invisible to the already-predicted gate, which reads
+    the round's own checkout:
 
     * ``UNCOLLECTED`` — `collect` did not conclude success, so the output is
       still sitting in the cell artifacts. Rerunning `collect` recovers it.
@@ -413,8 +414,14 @@ class StrandedReason(StrEnum):
       at all, which is what the secret scan's withhold looks like from outside.
       The output exists only as cell artifacts, and only a hand salvage recovers
       it, so this one names a doctrine rather than a command.
+    * ``MERGED_AFTER_CHECKOUT`` — `collect` succeeded and its PR merged, but the
+      merge is not in the commit this round checked out. A run reads the commit
+      it was **created** at, so one that queued behind another round starts
+      after that round's PR merged and still cannot see its predictions. Nothing
+      is left to land: the ledger on `main` has them, and the next round, created
+      after the merge, reads them.
 
-    The distinction is not cosmetic: the three carry different remedies, and the
+    The distinction is not cosmetic: the four carry different remedies, and the
     guard's whole value at the hold is telling a maintainer which one to reach
     for.
     """
@@ -422,6 +429,7 @@ class StrandedReason(StrEnum):
     UNCOLLECTED = "uncollected"
     UNMERGED_COLLECT_PR = "unmerged_collect_pr"
     WITHHELD_COLLECT = "withheld_collect"
+    MERGED_AFTER_CHECKOUT = "merged_after_checkout"
 
 
 @dataclass(frozen=True)
@@ -512,10 +520,17 @@ class CollectPr:
     the fork's own branch name, so the ref is only this lane's word for a run
     when the head is this repository's.
 
-    ``merged`` is carried for the record and is deliberately not what the
-    verdict keys on — :func:`_run_verdict` asks whether any match is still
-    *open*, because a PR closed unmerged is an abandoned collect that should
-    release its run rather than hold it.
+    ``merged`` does not release a run on its own — :func:`_run_verdict` asks
+    whether any match is still *open*, because a PR closed unmerged is an
+    abandoned collect that should release its run rather than hold it — and
+    with ``in_checkout`` it decides whether a settled run is visible to this
+    round.
+
+    ``in_checkout`` says whether a merged PR's merge commit is in the commit
+    this round checked out: ``False`` when the census established that it is
+    not, ``None`` when it did not ask or could not tell. Only an established
+    ``False`` withholds, so an unreadable answer releases the run as every
+    degraded reading here does.
     """
 
     number: int
@@ -525,6 +540,7 @@ class CollectPr:
     minted_at: datetime
     is_open: bool
     merged: bool
+    in_checkout: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -636,12 +652,31 @@ def read_stranded_census(path: Path) -> StrandedCensus:
     return StrandedCensus(tuple(cells), tuple(unparsed), tuple(runs.values()))
 
 
+def _in_checkout(compare_status: object) -> bool | None:
+    """Whether the round's checkout holds a merge commit, from the compare API.
+
+    The status describes the checkout relative to the merge commit: ``ahead``
+    or ``identical`` means the checkout contains it, ``behind`` or ``diverged``
+    means it does not. Anything else — a comparison the census did not make or
+    could not read, or a status this does not know — is ``None``, which never
+    withholds.
+    """
+    if compare_status in ("ahead", "identical"):
+        return True
+    if compare_status in ("behind", "diverged"):
+        return False
+    return None
+
+
 def read_collect_prs(path: Path, *, repo: str | None = None) -> CollectPrCensus | None:
     """Read the census of this lane's collect PRs to `main`.
 
     The file is a JSON list of ``{"number": <int>, "head_ref": <str>,
-    "head_repo": <str>, "is_open": <bool>, "merged": <bool>}`` records, written
-    by the plan job's census step from the pulls API. ``None`` — a file that is
+    "head_repo": <str>, "is_open": <bool>, "merged": <bool>, "compare_status":
+    <str or null>}`` records, written by the plan job's census step from the
+    pulls API. ``compare_status`` is the compare API's status for this round's
+    checkout relative to a merged PR's merge commit, as it came, and
+    :func:`_in_checkout` reads it. ``None`` — a file that is
     **absent or empty** — is the arm switched off: the census step deletes it
     rather than writing an empty list when it could not fetch, because an empty
     list is a claim (this lane has no collect PR in the window) that would read
@@ -701,6 +736,7 @@ def read_collect_prs(path: Path, *, repo: str | None = None) -> CollectPrCensus 
                 minted_at=minted_at,
                 is_open=record.get("is_open") is True,
                 merged=record.get("merged") is True,
+                in_checkout=_in_checkout(record.get("compare_status")),
             )
         )
     return CollectPrCensus(tuple(prs), tuple(unparsed))
@@ -719,19 +755,25 @@ def _run_verdict(
     run's own `plan` job, so it falls inside the run's window. Containment is
     sound rather than exact: a run that was queued while another ran has a
     window wide enough to contain the other's stamp too. Both directions of
-    that ambiguity are resolved the safe way — an extra match that merged
-    releases the run (fail open, as the guard does everywhere), an extra match
-    still open withholds cells for at most the census window, and a run the
-    census could not describe is released untouched.
+    that ambiguity are resolved the safe way — an extra match that merged into
+    this checkout releases the run (fail open, as the guard does everywhere),
+    one merged outside it withholds until a round reads a commit that holds it,
+    an extra match still open withholds cells for at most the census window,
+    and a run the census could not describe is released untouched.
 
-    The three outcomes for a collected run:
+    The four outcomes for a collected run:
 
     * **an open PR matches** — the output is on a branch; withhold and name it,
       so the plan reads as waiting on a merge rather than as drained.
     * **no PR matches at all** — `collect` succeeded having pushed nothing,
       which is what a secret-scan withhold looks like from outside. Withhold and
       let the report name the salvage doctrine.
-    * **every match is settled** — merged, or closed unmerged (abandoned, so
+    * **a match merged, and the merge is not in this round's checkout** — the
+      predictions are on `main` and this round reads a commit from before they
+      landed, which is what a round that queued behind that run does. Withhold
+      and name the PR; the next round reads a newer commit and releases it.
+    * **every match is settled and visible** — merged into this checkout (or
+      merged with the comparison unanswered), or closed unmerged (abandoned, so
       re-minting *is* the recovery). Released.
     """
     if not run.collect_succeeded:
@@ -744,6 +786,9 @@ def _run_verdict(
         return (StrandedReason.UNMERGED_COLLECT_PR, min(pr.number for pr in open_matches))
     if not matches:
         return (StrandedReason.WITHHELD_COLLECT, None)
+    unseen = [pr for pr in matches if pr.merged and pr.in_checkout is False]
+    if unseen:
+        return (StrandedReason.MERGED_AFTER_CHECKOUT, min(pr.number for pr in unseen))
     return None
 
 
@@ -752,10 +797,11 @@ def classify_stranded_cells(
 ) -> tuple[StrandedCell, ...]:
     """The census's cells narrowed to the ones whose run has not landed.
 
-    The already-predicted gate reads committed state on `main`, so every run
-    between "cells spent their tokens" and "the collect PR merged" is invisible
-    to it — whether `collect` failed, whether its PR is still open, or whether
-    it pushed no branch at all. This is the one place those three are told
+    The already-predicted gate reads committed state as the round checked it
+    out, so every run between "cells spent their tokens" and "the collect PR's
+    merge is in this checkout" is invisible to it — whether `collect` failed,
+    whether its PR is still open, whether it pushed no branch at all, or whether
+    its PR merged after the checkout. This is the one place those four are told
     apart, and each surviving cell carries the reason and the PR number its
     report will name.
 
@@ -801,14 +847,14 @@ def drop_stranded_cells(
       that spent tokens and produced nothing is therefore withheld too, because
       collecting the run is how anyone learns which of the two it was; once
       collect lands, an event with no committed prediction re-queues normally.
-    * **Until the PR merges, not until collect succeeds.** A run leaves the
-      guard when its collect PR lands on `main`, which is when the ledger the
-      already-predicted gate reads actually gains the predictions —
+    * **Until the merge is in this round's checkout, not until collect
+      succeeds.** A run leaves the guard when its collect PR has merged *and*
+      the commit this round checked out contains that merge, which is when the
+      ledger the already-predicted gate reads actually holds the predictions —
       :func:`classify_stranded_cells` decides that, and a run it cannot judge is
-      released. What remains outside the guard is the window between that merge
-      and this plan's own read of committed state, which is the plan-time-read
-      race :func:`predict_matrix` documents and the workflow's concurrency group
-      bounds.
+      released. The second half matters because the workflow's concurrency
+      group starts a queued round the moment the round ahead of it ends, on the
+      commit the queued round was created at.
     """
     if not stranded:
         return GuardedMatrix(matrix["include"], ())
@@ -819,9 +865,10 @@ def drop_stranded_cells(
     # one existed would be honest and still send a maintainer the wrong way.
     # Recency breaks ties, the census being written newest run first.
     remedy_cost = {
-        StrandedReason.UNMERGED_COLLECT_PR: 0,
-        StrandedReason.UNCOLLECTED: 1,
-        StrandedReason.WITHHELD_COLLECT: 2,
+        StrandedReason.MERGED_AFTER_CHECKOUT: 0,
+        StrandedReason.UNMERGED_COLLECT_PR: 1,
+        StrandedReason.UNCOLLECTED: 2,
+        StrandedReason.WITHHELD_COLLECT: 3,
     }
     by_key: dict[_CellKey, StrandedCell] = {}
     for stranded_cell in stranded:

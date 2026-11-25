@@ -18,6 +18,7 @@ from fedcourtsai.collect import ExpectedCell, cell_artifact_name, run_branch
 from fedcourtsai.config import SpendConfig
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
+from fedcourtsai.matrix import _in_checkout
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
@@ -372,6 +373,7 @@ def _collect_pr(
     merged: bool,
     suffix: str = "",
     head_repo: str = _REPO,
+    compare_status: object = None,
 ) -> dict[str, object]:
     """One collect-PR census record, its head ref built by the production helper."""
     return {
@@ -380,6 +382,7 @@ def _collect_pr(
         "head_repo": head_repo,
         "is_open": is_open,
         "merged": merged,
+        "compare_status": compare_status,
     }
 
 
@@ -484,6 +487,152 @@ def test_predict_matrix_releases_a_run_whose_collect_pr_merged(tmp_path: Path) -
     assert result.exit_code == 0
     assert len(_cells(result.stdout)) == 3
     assert "stranded" not in result.stderr
+
+
+def test_predict_matrix_withholds_a_run_merged_after_this_rounds_checkout(tmp_path: Path) -> None:
+    # A round that queued behind another starts once that round ends, on the
+    # commit it was created at — from before the other round's collect PR
+    # merged. The PR reads as merged, the ledger this round checked out does
+    # not hold its predictions, and releasing the run would pay for them twice.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=False, merged=True, compare_status="behind")],
+    )
+    assert result.exit_code == 0
+    assert {c["predictor_id"] for c in _cells(result.stdout)} == {
+        "codex-baseline",
+        "gemini-baseline",
+    }
+    assert "collect PR #1845" in result.stderr
+    assert "nothing to land" in result.stderr
+    # Neither a rerun nor a merge is owed, and the report must not ask for one.
+    assert "gh run rerun" not in result.stderr
+    assert "merge that PR" not in result.stderr
+
+
+def test_predict_matrix_releases_a_merged_run_this_rounds_checkout_holds(tmp_path: Path) -> None:
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=False, merged=True, compare_status="ahead")],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+    assert "stranded" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        ("ahead", True),
+        ("identical", True),
+        ("behind", False),
+        ("diverged", False),
+        ("unknown", None),
+        ("", None),
+        (None, None),
+        (True, None),
+    ],
+)
+def test_in_checkout_reads_the_compare_status(status: object, expected: bool | None) -> None:
+    # The status describes the checkout relative to the merge commit, and only
+    # the two that establish the merge is missing may ever withhold.
+    assert _in_checkout(status) is expected
+
+
+def test_predict_matrix_withholds_when_one_of_two_merged_matches_is_unseen(
+    tmp_path: Path,
+) -> None:
+    # A wide window can hold a neighbour's stamp. One merged match the checkout
+    # holds does not vouch for another it does not: the unseen one is named.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [
+            _collect_pr(1845, is_open=False, merged=True, compare_status="ahead"),
+            _collect_pr(1846, is_open=False, merged=True, compare_status="behind", suffix="-x"),
+        ],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 2
+    assert "collect PR #1846" in result.stderr
+
+
+def test_predict_matrix_an_open_match_outranks_one_merged_after_checkout(tmp_path: Path) -> None:
+    # Something still has to merge, so that is the remedy the report names.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [
+            _collect_pr(1845, is_open=True, merged=False),
+            _collect_pr(1846, is_open=False, merged=True, compare_status="behind", suffix="-x"),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "collect PR #1845" in result.stderr
+    assert "merge that PR" in result.stderr
+
+
+def test_predict_matrix_releases_a_merged_run_whose_comparison_did_not_read(
+    tmp_path: Path,
+) -> None:
+    # Fail open: only an established "not in this checkout" withholds. A
+    # status the reader does not know is no such thing.
+    result = _guard_run(
+        tmp_path,
+        [_stranded_cell(4242, "claude-baseline", collected=True)],
+        [_collect_pr(1845, is_open=False, merged=True, compare_status="unknown")],
+    )
+    assert result.exit_code == 0
+    assert len(_cells(result.stdout)) == 3
+
+
+def test_predict_matrix_all_cells_merged_after_checkout_asks_for_nothing(tmp_path: Path) -> None:
+    # Every cell withheld because its predictions are already on `main`: the
+    # note must not send a maintainer to land or delete anything.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    env["GITHUB_REPOSITORY"] = _REPO
+    census = _stranded_census(
+        tmp_path,
+        [
+            _stranded_cell(4242, pid, collected=True)
+            for pid in ("claude-baseline", "codex-baseline", "gemini-baseline")
+        ],
+    )
+    prs = _collect_prs(
+        tmp_path, [_collect_pr(1845, is_open=False, merged=True, compare_status="behind")]
+    )
+    note = tmp_path / "stranded-close.md"
+    result = runner.invoke(
+        app,
+        [
+            "predict-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+            "--collect-prs-file",
+            str(prs),
+            "--stranded-note-file",
+            str(note),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0
+    assert _cells(result.stdout) == []
+    assert "::error::" not in result.stderr
+    assert "::notice::" in result.stderr
+    assert "withheld ALL 3 cell(s)" in result.stderr
+    body_text = note.read_text()
+    assert "already predicted on `main`" in body_text
+    assert "collect PR #1845" in body_text
+    assert "gh run rerun" not in body_text
+    assert "gh api -X DELETE" not in body_text
 
 
 def test_predict_matrix_withholds_a_run_whose_collect_pushed_no_branch(tmp_path: Path) -> None:
@@ -2145,6 +2294,7 @@ def test_predict_plan_enumerates_exactly_the_cells_predict_matrix_would_mint(
             "uncollected": 0,
             "unmerged_collect_pr": 0,
             "withheld_collect": 0,
+            "merged_after_checkout": 0,
         },
     }
     # No ceiling configured: the backstop never read the ledger, so its figures
@@ -2987,6 +3137,46 @@ def test_the_approval_report_says_a_quiet_plan_is_waiting_on_a_merge(tmp_path: P
     assert {r["collect_pr"] for r in plan["withheld_stranded"]} == {1845}
     assert plan["stranded_guard"]["withheld_by_reason"]["unmerged_collect_pr"] == 3
     assert plan["stranded_guard"]["collect_pr_arm_off"] is None
+    _assert_predict_balances(plan)
+
+
+def test_the_approval_report_asks_for_no_landing_when_main_already_holds_the_cells(
+    tmp_path: Path,
+) -> None:
+    # Cells withheld because their predictions are on a `main` newer than this
+    # round's checkout wait on nothing, and the document an approver decides
+    # from must not send them to land a run.
+    body = tmp_path / "issue-body.md"
+    body.write_text(_SINGLE_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",), seed_predictions=False)
+    census = _stranded_census(
+        tmp_path, [_stranded_cell(4242, pid, collected=True) for pid in _PREDICTORS]
+    )
+    prs = _collect_prs(
+        tmp_path, [_collect_pr(1845, is_open=False, merged=True, compare_status="behind")]
+    )
+
+    report, stdout = _report(
+        tmp_path,
+        [
+            "predict-plan",
+            "--body-file",
+            str(body),
+            "--stranded-file",
+            str(census),
+            "--collect-prs-file",
+            str(prs),
+        ],
+        env,
+    )
+
+    assert "### Withheld: already predicted on `main`" in report
+    assert "waiting on a run to land" not in report
+    assert "3 cell(s) from run `4242`, collect PR #1845" in report
+    assert "Landing the run" not in report
+    plan = _plan(stdout)
+    assert {r["unlanded"] for r in plan["withheld_stranded"]} == {"merged_after_checkout"}
+    assert plan["stranded_guard"]["withheld_by_reason"]["merged_after_checkout"] == 3
     _assert_predict_balances(plan)
 
 
