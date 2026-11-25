@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000606",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "metrics/statpack.md heads its band table 'Segment base rate by salience band (sal-v8)' while record/context.json carries salience_version sal-v9. Band is baseline, which is also the private caption-class floor, and I anchored on the frozen cert_anchor.rate (0.0518) and cert_amicus_line, so the forecast is unaffected."
+    }
+  ]
+}

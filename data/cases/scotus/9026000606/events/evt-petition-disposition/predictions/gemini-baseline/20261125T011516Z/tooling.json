@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000606",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_get_endpoint_item"
+  ],
+  "helpful": [
+    "Pre-pooled cert_anchor and cert_amicus_line in record/context.json gave exact sal-v9 baseline and zero-amicus reference rates.",
+    "Full text of the petition and Eighth Circuit appendix in record/documents/petition.txt allowed direct verification of preservation, Judge Kelly's concurrence, and the unchallenged 18 U.S.C. § 1591 convictions.",
+    "CourtListener opinion search and search_document quickly located recent circuit treatment (United States v. Deschambault, 1st Cir. May 2026) and prior SCOTUS cert denials on the same 18 U.S.C. § 2251(a) split."
+  ],
+  "gaps": [
+    "fedcourts query lacks a case-name or question-presented text filter, requiring CourtListener MCP for topical precedent lookup.",
+    "metrics/statpack.md renders sal-v8 in its band table heading while context.json uses sal-v9 (though cert_anchor.rate already supplies the exact sal-v9 pooled anchor from statpack.json)."
+  ],
+  "notes": "All provisioned inputs were complete and clean."
+}

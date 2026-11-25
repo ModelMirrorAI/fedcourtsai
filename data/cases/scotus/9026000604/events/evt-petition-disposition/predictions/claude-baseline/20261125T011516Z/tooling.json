@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000604",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "WebFetch supremecourt.gov docket"],
+  "helpful": ["cert_anchor in context.json", "docket-number lookup for the companion petition", "full petition and appendix text"],
+  "gaps": ["same-question.json missed No. 26-208, which the petition names as presenting the same issue", "the corpus row for 26-208 showed response_requested null although the Court's docket records a response request on Sept 29, 2026"],
+  "notes": "The petition text itself was the pointer to the related pending petition; the live docket page supplied its state."
+}

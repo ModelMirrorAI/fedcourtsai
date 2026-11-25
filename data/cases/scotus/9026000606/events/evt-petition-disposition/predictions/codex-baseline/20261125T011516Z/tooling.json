@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/9026000606",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack",
+    "CourtListener search",
+    "CourtListener search_document"
+  ],
+  "helpful": [
+    "The petition appendix reproduces the requested defense and the panel concurrence.",
+    "CourtListener supplied the original opinions behind the circuit conflict."
+  ],
+  "gaps": [
+    "The corpus citation lookup did not return X-Citement Video."
+  ]
+}

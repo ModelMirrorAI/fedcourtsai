@@ -1,0 +1,18 @@
+{
+  "case_id": "scotus/9026000604",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "committed statpack",
+    "Supreme Court docket JSON",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "The appendix preserved both the appellate holding and the officer\u2019s testimony about the search.",
+    "The exact-docket lookup located both petitions identified by Eta. The official docket supplied the response request and deadline in Anibowei."
+  ]
+}

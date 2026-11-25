@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000604",
+  "run_id": "20261125T011516Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "metrics/statpack.md heads its per-Term salience band table sal-v8 while record/context.json carries salience_version sal-v9. I anchored on the frozen cert_anchor.rate (0.0518), which matches the private-caption baseline floor either way."
+    }
+  ]
+}
