@@ -3735,16 +3735,27 @@ burns the cap is open follow-up work.
 
 On `run-predict`, `plan` also refuses to re-mint a cell that already ran. A cell
 spends its tokens before `collect`, the run's single durability step, and the
-already-predicted gate reads *committed* state on `main` — so every run between
-"the cells spent their tokens" and "the collect PR merged" is invisible to that
-gate, and the next round re-derives the same events and re-spends the whole run.
-Three ways a run sits in that gap, each with its own remedy:
+already-predicted gate reads *committed* state as the round checked it out —
+so every run between "the cells spent their tokens" and "the collect PR's merge
+is in this round's checkout" is invisible to that gate, and the next round
+re-derives the same events and re-spends the whole run. Four ways a run sits in
+that gap, each with its own remedy:
 
 | what the run looks like | where its output is | remedy |
 |---|---|---|
 | `collect` did not conclude success | the cell artifacts | `gh run rerun <id> --failed` |
 | `collect` succeeded, its PR is open | the collect branch | merge that PR |
 | `collect` succeeded, no branch pushed | the cell artifacts, for their retention window | salvage by hand (the secret-scan row of the collect-recovery table below) |
+| `collect` succeeded, its PR merged after the commit this round reads | `main`, ahead of this round's checkout | none — the next round reads it |
+
+The last row is a round that waited in the serializing group. A run checks out
+the commit it was **created** at, and the group starts a queued round the
+moment the round ahead of it ends, so the queued round plans on a ledger from
+before that round's collect PR merged, however long it waited. The census asks
+the compare API, once per collect PR merged inside the window, whether the
+checkout holds the merge commit, and hands the answer to `predict-matrix` as it
+came. Only an established "no" withholds: a comparison the census could not make
+releases the run with a `::warning::`.
 
 Before building the matrix, `plan` lists the cell artifacts of this workflow's
 completed runs from the last 48 hours, together with each run's `collect`
@@ -3768,7 +3779,8 @@ is the fork's own branch name, and believing one would let an outsider withhold
 a legitimate round.
 
 **Any open match withholds.** A run is released only when every match is
-settled — merged, which is when the ledger gains the predictions, or closed
+settled — merged into the commit this round reads, which is when the ledger it
+plans from holds the predictions, or closed
 unmerged, which abandons them and makes re-minting the recovery. One run can
 hold a merged ready PR beside an open draft, and that run is still waiting.
 The containment is sound rather than exact — a run queued while another ran has
@@ -3780,17 +3792,18 @@ failed collect never pushed.
 
 The census step fetches and filters only: every decision is in `fedcourts
 predict-matrix` (`--stranded-file`, `--collect-prs-file`), and it degrades open
-at three grains rather than blocking a legitimate run, since the failure this
+at four grains rather than blocking a legitimate run, since the failure this
 guard prevents is expensive rather than dangerous — a run it cannot read after
 three attempts drops out of the census with a `::warning::`, a PR listing it
 cannot read (or one that does not reach back past the window) disarms the
-collect-PR half alone and leaves the uncollected half armed, and a failure
+collect-PR half alone and leaves the uncollected half armed, a merged PR whose
+comparison with the checkout went unanswered reads as landed, and a failure
 leaving nothing usable empties the census altogether. The collect-PR file's
 *absence* is what disarms that half, never an empty list: an empty list is a
 claim that this lane has no collect PR, and a plan believing it would read every
 collected run as having pushed nothing and withhold every cell it ever produced.
 The guard also releases itself: a run stops being withheld once its collect PR
-settles, and ages out of the census window regardless. A maintainer who wants a fresh run *sooner* makes that
+settles and, where it merged, a round reads a commit holding the merge, and ages out of the census window regardless. A maintainer who wants a fresh run *sooner* makes that
 an explicit act — delete the stranded run's cell artifacts (`gh
 api -X DELETE repos/<owner>/<repo>/actions/artifacts/<artifact_id>`), then
 dispatch a round.
@@ -3812,11 +3825,15 @@ run-predict the stranded-run guard is
 the one exception: when it withholds *every* cell, `predict-matrix` writes its
 own note (`--stranded-note-file`) and the summary carries that instead, so a
 fully-superseded run says land the run it is waiting on — naming that run, its
-PR and the remedy — rather than reading as a drained backlog. Below the
+PR and the remedy, or saying that nothing needs landing where every cell is
+already predicted on a `main` newer than the round's checkout — rather than
+reading as a drained backlog. Below the
 all-withheld threshold the same facts ride in the plan report the hold is judged
-on, as a *Withheld: waiting on a run to land* section, so a narrowed fan-out is
-never read as a short one. Each surfaces its own escalated `::error::` for correct
-attribution, and ending the round is safe in each case for its own reason: a cap-
+on, as a *Withheld: waiting on a run to land* section (headed *Withheld: already
+predicted on `main`* where no withheld run has anything left to land), so a
+narrowed fan-out is never read as a short one. Each surfaces its own escalated
+`::error::` for correct attribution (the guard a `::notice::` instead where
+nothing is left to land), and ending the round is safe in each case for its own reason: a cap-
 or spend-deferred case stays in its queue and re-derives next cycle, an
 unforecastable event needs something other than another round (a grade for a
 resolved one, a corpus fix for a stale grant), and a withheld event
