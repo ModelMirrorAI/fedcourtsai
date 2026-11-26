@@ -30,6 +30,7 @@ import yaml
 
 from fedcourtsai import process_version
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
 from fedcourtsai.process_version import _config_canonical
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors, load_predictors
 from fedcourtsai.schemas import ProcessVersion
@@ -442,12 +443,21 @@ def test_a_full_freeze_orders_the_instant_after_every_bless_it_carries() -> None
     holding the evaluator half alone, at a single moment later than the instant
     that label held. That is not a full freeze, so the check waits for the
     carrying merge to stamp the pending rows.
+
+    The map read is the Supreme Court docket's: the digests blessed under its
+    labels, against its instant. A prediction slice's digests are blessed at
+    the slice's own promotion and ordered against the slice's own instant, so
+    they are no part of whether the docket's freeze was a full one.
     """
     since = process_version.FROZEN_SINCE
-    moments = set(process_version.FROZEN_PROCESS_DIGESTS.values())
+    docket = process_version._of_population(process_version._REGISTRY, SCOTUS_POPULATION_KEY)
+    moments = {
+        process_version.FROZEN_PROCESS_DIGESTS[digest]
+        for digest in process_version.frozen_process_record().digests
+    }
     if since is None or len(moments) != 1:
         return
-    if any(blessing.blessed.pending for blessing in process_version._REGISTRY.blessings):
+    if any(blessing.blessed.pending for blessing in docket.blessings):
         return
     carried = moments.pop()
     assert since >= carried, (
