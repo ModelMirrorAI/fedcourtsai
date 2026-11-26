@@ -25,7 +25,8 @@ from fedcourtsai.pipeline import documents
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.pipeline.salience import SalienceScorer
-from fedcourtsai.registry import enabled_predictors
+from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
+from fedcourtsai.registry import predictors_for
 from fedcourtsai.schemas import (
     CountingWindow,
     Disposition,
@@ -198,13 +199,20 @@ def frozen_stamp() -> ProcessVersion:
     :data:`fedcourtsai.process_version.FROZEN_PROCESS_DIGESTS` plus a time
     bound, so any blessed digest serves; the stamp is read off the module rather
     than written out, so a freeze cutover moves it without touching a test.
+
+    The stamp is the Supreme Court docket's: its label is that docket's and its
+    instant that docket's, so the digest is read from that docket's rows alone
+    (:func:`fedcourtsai.process_version.frozen_process_record`). A prediction
+    slice's window is open-ended and so contains any later docket instant; read
+    over every population, it would put a slice digest under the docket's label.
     """
     since = process_version.FROZEN_SINCE or datetime(2026, 1, 1, tzinfo=UTC)
+    docket = process_version.frozen_process_record()
     # A counting window's digest, so the stamp counts: only a predictor digest
     # has a window, and the bless map holds the evaluator half too. The window
     # must contain the instant — a window the current label closed ends there.
-    windows = [w for w in process_version.COUNTING_WINDOWS if w.contains(since)]
-    digest = windows[0].digest if windows else sorted(process_version.FROZEN_PROCESS_DIGESTS)[0]
+    windows = [w for w in docket.windows if w.contains(since)]
+    digest = windows[0].digest if windows else docket.digests[0]
     return ProcessVersion(
         label=process_version.CURRENT_PROCESS_LABEL, digest=digest, stamped_at=since
     )
@@ -393,6 +401,11 @@ def open_freeze_window() -> tuple[str, datetime] | None:
     label whose enforced half still has one open, silently retiring every
     caller.
 
+    It is the Supreme Court docket's predictors alone, because the instant is
+    that docket's. A prediction slice's predictor is blessed at its own label's
+    promotion, which can fall after the docket's instant without closing
+    anything on the docket.
+
     The stamp is taken from the instant's edge rather than the bless moment's,
     so these tests keep running for the whole life of a late-guessed instant
     instead of only the day after the promotion.
@@ -402,7 +415,7 @@ def open_freeze_window() -> tuple[str, datetime] | None:
         return None
     enforced = {
         process_version.digest_for_actor(Path("."), Path("config"), "predictor", entry.id)
-        for entry in enabled_predictors(Path("config") / "predictors.yaml")
+        for entry in predictors_for(Path("config") / "predictors.yaml", SCOTUS_POPULATION_KEY)
     }
     blessed_enforced = {
         digest: moment
