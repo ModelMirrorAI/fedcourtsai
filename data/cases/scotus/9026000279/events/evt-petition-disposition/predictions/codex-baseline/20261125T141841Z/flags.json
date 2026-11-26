@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000279",
+  "run_id": "20261125T141841Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The rendered statpack band table is labeled sal-v8 while context.json freezes sal-v9. The JSON includes sal-v9 among the alternative segments. For this private baseline petition both versions yield 656 grants in 12,668 prior-Term cases, matching the frozen anchor. The version difference had no numerical effect."
+    }
+  ]
+}

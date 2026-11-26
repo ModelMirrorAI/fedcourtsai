@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000729",
+  "run_id": "20261125T154322Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "Read",
+    "Bash"
+  ],
+  "helpful": [
+    "Blinded staging with per-call result_capture markers made the forward leakage check quick.",
+    "The record snapshot's docket entries settled every forecast claim on this cell."
+  ],
+  "gaps": [
+    "The staged retrieval log has no prediction timestamp of its own; I read created_at from prediction.json to place the run against the resolution date."
+  ],
+  "notes": "Simple interim cell: one-line chambers denial, three candidates all predicting denial. No corpus or statpack lookups were needed."
+}

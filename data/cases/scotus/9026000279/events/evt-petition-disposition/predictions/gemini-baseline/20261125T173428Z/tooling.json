@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000279",
+  "run_id": "20261125T173428Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned full text of petition, BIO, cert reply, and Fifth Circuit opinions in record/documents/",
+    "Frozen cert_anchor and cert_amicus_line in record/context.json alongside metrics/statpack.md cuts",
+    "CourtListener MCP read_document for verifying exact scope and lineup of Andrew v. White, 604 U.S. 86 (2025)"
+  ],
+  "gaps": [
+    "Staging cert-stage amicus briefs in record/documents/ when a petition has a small number of amici (here 2) would avoid relying solely on docket captions and party-brief quotations",
+    "Filtering fedcourts query by originating_court (e.g. --originating-court ca5) and capital_case would sharpen cert prior retrieval"
+  ],
+  "notes": "Corpus query sidecar worked smoothly via fedcourts query; all primary cert briefs were cleanly extracted without truncation."
+}
