@@ -36,7 +36,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
@@ -1082,6 +1082,52 @@ def event_has_evaluations(
     return any(root.glob(f"{evaluator_id or '*'}/*/*/evaluation.json"))
 
 
+#: An evaluate cell's identity: evaluator, court, docket, event.
+EvaluateCellKey = tuple[str, str, int, str]
+
+# A committed grading's path from the repository root, as `git diff
+# --name-only` prints it. Depth-anchored by the filename, as
+# :func:`event_has_evaluations`'s glob is, so a per-run sibling one level
+# shallower cannot match.
+_GRADING_PATH = re.compile(
+    r"data/cases/(?P<court>[^/]+)/(?P<docket>[0-9]+)/events/(?P<event>[^/]+)"
+    r"/evaluations/(?P<evaluator>[^/]+)/[^/]+/[^/]+/evaluation\.json"
+)
+
+
+def read_gradings_on_main(path: Path) -> frozenset[EvaluateCellKey] | None:
+    """The cells `main` holds a grading for that this round's checkout lacks.
+
+    A run checks out the commit it was **created** at, and run-evaluate's
+    serializing group starts a queued round the moment the round ahead of it
+    ends — after that round's collect PR merged, on a checkout from before it
+    did. :func:`event_has_evaluations` reads the checkout, so every grading that
+    round landed is invisible to it. The plan job therefore lists the files
+    `main` holds and the checkout does not, one repository-relative path a
+    line, and this narrows that listing to the committed gradings and names
+    each one's cell.
+
+    Only paths are read, never a file's contents, so the listing answers
+    whatever shape the newer ledger's records have. ``None`` — an absent or
+    unreadable file — is the guard switched off: the plan job writes none when
+    it could not compare the two commits, and a round nobody could check is
+    graded exactly as an unchecked one always was. A file that is present and
+    lists no grading is the claim that `main` gained none, which withholds
+    nothing. A line that is not a committed grading's path is skipped, since
+    the listing carries every file `main` added.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    cells: set[EvaluateCellKey] = set()
+    for line in text.splitlines():
+        match = _GRADING_PATH.fullmatch(line.strip())
+        if match is not None:
+            cells.add((match["evaluator"], match["court"], int(match["docket"]), match["event"]))
+    return frozenset(cells)
+
+
 def cell_failure_count(
     data_root: Path,
     court: str,
@@ -1293,6 +1339,7 @@ def evaluate_matrix(
     skip_evaluated: bool = True,
     opinion_present: Mapping[str, bool] | None = None,
     slices: Mapping[str, Population] | None = None,
+    graded_on_main: Collection[EvaluateCellKey] = (),
 ) -> dict[str, list[dict[str, Any]]]:
     """Build the evaluator x case x event matrix, dropping cells with nothing to do.
 
@@ -1306,7 +1353,7 @@ def evaluate_matrix(
       makes a *sequential* re-queue idempotent: a later run, or a manual
       single-issue recovery, mints only the missing judges. It is a plan-time
       read of the checked-out ledger, not a lock — two runs planned before
-      either's PR merges both see an ungraded event and both mint, and
+      either's output reaches `main` both see an ungraded event and both mint, and
       ``gh run rerun --failed`` reuses the cached matrix without re-planning at
       all, so neither is protected by this.
       What it saves is model spend, not accuracy: the boards count one grading
@@ -1315,6 +1362,12 @@ def evaluate_matrix(
       grading supersedes rather than reweighting the standings. See
       :func:`event_has_evaluations` for the grain this gate works at, and the
       coverage gap that follows from it.
+    * **graded on main after this checkout** — a cell in ``graded_on_main``
+      (:func:`read_gradings_on_main`) is not re-minted either: `main` holds its
+      grading and only this round's checkout, the commit the run was created
+      at, lacks it. That is every round that queued behind another, and it is
+      the half of the idempotency a read of the checkout cannot give. Off under
+      ``skip_evaluated=False``, as the gate above is.
     * **held: awaiting opinion** — given ``opinion_present`` (each case id's
       awaited presence bit, :func:`awaited_presence`; a case whose body
       enrichment can never land is left out), a decided merits event whose case carries no
@@ -1379,12 +1432,15 @@ def evaluate_matrix(
                 if (
                     data_root is not None
                     and skip_evaluated
-                    and event_has_evaluations(
-                        data_root,
-                        case.court,
-                        case.docket,
-                        event_id,
-                        evaluator_id=evaluator.id,
+                    and (
+                        event_has_evaluations(
+                            data_root,
+                            case.court,
+                            case.docket,
+                            event_id,
+                            evaluator_id=evaluator.id,
+                        )
+                        or (evaluator.id, case.court, case.docket, event_id) in graded_on_main
                     )
                 ):
                     continue

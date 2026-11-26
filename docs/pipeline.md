@@ -4942,6 +4942,23 @@ a group does and does not buy: it keeps two rounds from overlapping, but the
 next round plans the moment it releases, which can be well before the previous round's collect PR merges. Predict closes that
 remaining window with its stranded-run guard; evaluate has no equivalent.
 
+The neighbouring window evaluate does close. A run checks out the commit it was
+**created** at, so a round that waited in the group plans on a ledger from
+before the round ahead of it merged, however long it waited, and the gate would
+read every cell that round graded as still owed. Before the matrix step, `plan`
+fetches `main` and lists the files it holds under `data/cases` that the checkout
+lacks (`git diff --name-only --diff-filter=A`, tree to tree, so the shallow
+checkout is enough and nothing from the newer commit is checked out).
+`evaluate-matrix` reads the listing (`--graded-on-main-file`) and withholds each
+cell it names a committed grading for, with a `::notice::` and a section on the
+run's summary; the plan report counts the same cells as
+`withheld_graded_on_main`. Nothing is left to land for such a cell: the next
+round reads a commit that holds the grading. The listing fails open: where the
+fetch or the comparison did not answer, no listing is written, the step warns,
+and the round is planned on its checkout alone. A pilot round skips the step.
+What stays uncovered is a round whose output has not reached `main` at all (a
+failed `collect`, or a collect PR still open) when the next round plans.
+
 The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no
 ceiling, so a cell that fails *every* attempt (a persistent quota wall, a
 malformed record) would re-queue forever. The **ledger-derived failure facts** are the backstop: the corpus-blind
