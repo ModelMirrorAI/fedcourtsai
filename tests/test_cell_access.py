@@ -7,13 +7,15 @@ import json
 import pytest
 
 from fedcourtsai.cell_access import AccessHit, AccessKind, audit_cell_access
+from fedcourtsai.retrieval import QUERY_CAP
 from fedcourtsai.schemas import RetrievalCall
 
 ACTOR = "gemini-baseline"
 RUN = "20261014T174020Z"
 CASE_DIR = "data/cases/scotus/73500219"
 EVENT = "evt-petition-disposition"
-OWN = f"{CASE_DIR}/events/{EVENT}/predictions/{ACTOR}/{RUN}"
+EVENT_DIR = f"{CASE_DIR}/events/{EVENT}"
+OWN = f"{EVENT_DIR}/predictions/{ACTOR}/{RUN}"
 
 
 def _audit(*calls: tuple[str, str]) -> list[AccessHit]:
@@ -63,6 +65,111 @@ def test_reads_of_this_cells_own_run_directory_are_its_lane() -> None:
     assert (
         _audit(("Bash", f"cat {OWN}/prediction.json"), ("Read", f'{{"file_path": "{OWN}"}}')) == []
     )
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # the cell's own directory chain, as one brace list
+        f"ls -ld {EVENT_DIR}{{,/predictions,/predictions/{ACTOR},/predictions/{ACTOR}/{RUN}}}",
+        f"ls -ld {EVENT_DIR}/predictions/{ACTOR}{{,/{RUN}}}",
+        f"cat {OWN}/{{prediction.json,reasoning.md}}",
+        f"cat {EVENT_DIR}/{{predictions/{ACTOR}/{RUN},record}}/context.json",
+        # the same list inside a code-mode wrapper
+        f'{{cmd:"ls -ld {EVENT_DIR}{{,/predictions,/predictions/{ACTOR}}}"'
+        + ',"max_output_tokens":1500}',
+        # nested lists
+        f"ls -ld {EVENT_DIR}{{,/predictions{{,/{ACTOR}{{,/{RUN}}}}}}}",
+        # a wrapper's own closing brace after the path
+        f"{{cmd:cat {OWN}/prediction.json}}",
+        # a parameter expansion is not a list
+        f"d={OWN}; ls ${{d,,}} {EVENT_DIR}/predictions/{ACTOR}/{RUN}",
+    ],
+)
+def test_a_brace_list_over_this_cells_own_directories_is_its_lane(command: str) -> None:
+    assert _audit(("Bash", command)) == []
+
+
+@pytest.mark.parametrize(
+    ("command", "named"),
+    [
+        (
+            f"ls {EVENT_DIR}/predictions/{{{ACTOR},claude-baseline}}/{RUN}",
+            f"predictions/claude-baseline/{RUN}",
+        ),
+        (
+            f"ls -ld {EVENT_DIR}{{,/predictions/claude-baseline}}",
+            "predictions/claude-baseline",
+        ),
+        (
+            f"cat {EVENT_DIR}/predictions/{ACTOR}/{{{RUN},20260816T173750Z}}/prediction.json",
+            f"predictions/{ACTOR}/20260816T173750Z",
+        ),
+        # the list supplies the head of the path, and the run follows it
+        (
+            f"ls {EVENT_DIR}/{{predictions/{ACTOR},record}}/20260816T173750Z",
+            f"predictions/{ACTOR}/20260816T173750Z",
+        ),
+        # two lists in one word
+        (
+            f"cat {EVENT_DIR}/predictions/{{{ACTOR},codex-baseline}}/{RUN}/{{a,b}}.json",
+            f"predictions/codex-baseline/{RUN}",
+        ),
+        # nested lists
+        (
+            f"ls {EVENT_DIR}/predictions/{{{ACTOR},claude-{{baseline,alt}}}}",
+            "predictions/claude-baseline",
+        ),
+        (
+            f"ls {EVENT_DIR}/{{predictions/{ACTOR},{{record,x}}}}/20260816T173750Z",
+            f"predictions/{ACTOR}/20260816T173750Z",
+        ),
+        # a glob beside the cell's own predictor
+        (f"ls {EVENT_DIR}/predictions/{{{ACTOR},*}}", "predictions/*"),
+    ],
+)
+def test_a_brace_list_reaching_another_cells_output_is_a_cell_record_hit(
+    command: str, named: str
+) -> None:
+    hits = _audit(("Bash", command))
+    assert {hit.kind for hit in hits} == {AccessKind.cell_record}
+    assert named in [hit.path for hit in hits]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # a quote, an escape or a substitution splits the list off its closing brace
+        f'ls {EVENT_DIR}/{{predictions/{ACTOR},"record"}}/20260816T173750Z',
+        f"ls {EVENT_DIR}/{{predictions/{ACTOR},rec\\ ord}}/20260816T173750Z",
+        f"ls {EVENT_DIR}/{{predictions/{ACTOR},$(echo record)}}/20260816T173750Z",
+        f'ls {EVENT_DIR}/{{predictions/,"record/"}}claude-baseline',
+        # the tail of a list whose head a quote split off
+        f'ls {EVENT_DIR}/{{"a b",predictions/{ACTOR}}}/20260816T173750Z',
+        # more alternatives than are written out
+        f"ls {EVENT_DIR}/{{predictions/{ACTOR},{','.join(f'r{n}' for n in range(70))}}}"
+        + "/20260816T173750Z",
+        # a list left open in a command the capture did not cut
+        f"ls -ld {EVENT_DIR}{{,/predictions/{ACTOR},/pre",
+    ],
+)
+def test_a_brace_list_that_cannot_be_written_out_is_a_cell_record_hit(command: str) -> None:
+    assert _kinds(("Bash", command)) == [AccessKind.cell_record]
+
+
+@pytest.mark.parametrize(
+    "tail",
+    [
+        # cut before the list's closing brace
+        f"ls -ld {EVENT_DIR}{{,/predictions,/predictions/{ACTOR},/predictions/{ACTOR}/{RUN},/pre",
+        # cut inside the run the list's first path leads to
+        f"cat {EVENT_DIR}/{{predictions/{ACTOR},record}}/{RUN[:7]}",
+    ],
+)
+def test_a_brace_list_the_capture_cut_is_not_read_as_another_run(tail: str) -> None:
+    command = f"echo {'x' * (QUERY_CAP - len(tail) - 7)}; {tail}"
+    assert len(command) == QUERY_CAP
+    assert _audit(("Bash", command)) == []
 
 
 @pytest.mark.parametrize(

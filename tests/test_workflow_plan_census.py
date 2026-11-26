@@ -118,7 +118,7 @@ def test_the_census_degrades_open_and_says_so() -> None:
         for line in joined.splitlines()
         if line.strip().startswith(("api ", "if ! api ", "if api "))  # the retrying fetch helper
     ]
-    assert len(fetches) == 4, "pulls, runs, jobs, artifacts"
+    assert len(fetches) == 5, "pulls, compare, runs, jobs, artifacts"
     # Either the whole-guard degrade inline, or a per-grain one in the `if` body.
     assert all(
         ("|| degraded" in line or line.strip().startswith(("if ! api", "if api")))
@@ -184,6 +184,28 @@ def test_the_census_is_bounded_and_filters_to_uncollected_cell_artifacts() -> No
     # The self-releasing property rests on this, so it is explicit rather than
     # inherited from an API default.
     assert "filter=latest" in body
+
+
+def test_the_census_asks_whether_each_merged_collect_pr_is_in_this_checkout() -> None:
+    """A run reads the commit it was created at, so a round that queued behind
+    another plans on a ledger from before that round's collect PR merged. The
+    census compares each merged PR's merge commit with the checkout and hands
+    the decision step the answer; only an established `false` may withhold, so
+    every failure here has to leave the answer null rather than guess."""
+    body = _joined(_step("Census the cell artifacts"))
+    assert "merge_sha: .merge_commit_sha" in body
+    assert "git rev-parse HEAD" in body
+    assert "compare/${merge_sha}...${head_sha}?per_page=1" in body
+    # The status rides to the decision step as it came; the shell maps nothing.
+    assert "compare_status: .status" in body
+    assert "verdict=" not in body
+    # The merge commit reaches a request path, so it is matched as a sha first.
+    assert 'test("^[0-9a-f]{40}$")' in body
+    # Bounded to the census window: one comparison per recent merged PR.
+    assert 'select((.merged_at // "") > env.CUTOFF)' in body
+    assert "compare_status: $m[(.number | tostring)]" in body
+    # An unanswered comparison says so and releases the run.
+    assert "could not compare collect PR" in body
 
 
 def test_the_collect_job_keeps_the_name_the_census_matches_on() -> None:

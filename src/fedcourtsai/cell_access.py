@@ -61,8 +61,12 @@ target sits past the cut. A relative path is matched as
 written, so a write after a ``cd`` into the case directory names no ``data/``;
 a call that reads through an indirection (a variable, a script file) or a
 glob over the hidden name itself (``qp-top*``) names nothing the patterns
-match; a write is seen only through a file tool or a shell redirection or
-``tee`` — ``cp``, ``mv``, ``sed -i`` or an interpreter's own writes are not;
+match; a shell brace list (``events/<id>{,/predictions}``) is read as the paths
+the shell forms from it, and one that cannot be written out (a brace left open
+or closed by a quote or an escape, or a list longer than the cap) is a hit
+wherever its word names ``predictions/``, save a word the capture cut; a write
+is seen only through a file tool or a shell redirection or ``tee`` — ``cp``,
+``mv``, ``sed -i`` or an interpreter's own writes are not;
 and a write is matched to the cell's own run directory by its
 ``predictions/<id>/<run>`` segment and, where the path names one, its case and
 event, so a write into another case of the same run is caught only when its
@@ -151,9 +155,16 @@ _ORACLE = re.compile(rf"{_TOKEN}qp-topics\b{_TOKEN}")
 _EVALUATIONS = re.compile(rf"{_TOKEN}(?<![\w-])evaluations\b{_TOKEN}")
 # A git command that reads the committed tree rather than the working one.
 _HISTORY = re.compile(r"\bgit\s+(?:-C\s+\S+\s+)?(?:log|show|diff|grep|ls-tree|cat-file|archive)\b")
-# `predictions/<id>[/<run>]`, where either segment may be a glob.
-_PREDICTIONS = re.compile(r"(?:^|[^\w-])predictions/([^/\s'\"`;|&)\\]*)(?:/([^/\s'\"`;|&)\\]*))?")
+# `predictions/<id>[/<run>]`, where either segment may be a glob. A segment also
+# ends at a comma or a closing brace, which separate the alternatives of a
+# brace list rather than belong to a directory's name.
+_SEGMENT = r"[^/\s'\"`;|&),}\\]*"
+_PREDICTIONS = re.compile(rf"(?:^|[^\w-])predictions/({_SEGMENT})(?:/({_SEGMENT}))?")
 _GLOB = re.compile(r"[*?\[{]")
+# One shell word: a run of anything but a quote, a space or a shell delimiter.
+_WORD = re.compile(r"[^\s'\"`;|&<>()\\]+")
+# The most paths one word's brace lists are written out into.
+_BRACE_CAP = 64
 
 # Where a file tool's target sits in its captured slice, when the slice is JSON
 # (capture's own :data:`~fedcourtsai.retrieval.PATH_KEYS`). The slice may be cut
@@ -235,9 +246,94 @@ def _is_own_run(path: str, own: _OwnRun) -> bool:
     return "events/" not in prefix or prefix.endswith(f"{own.case_id}/events/{own.event_id}/")
 
 
+def _brace_group(word: str) -> tuple[int, int] | None:
+    """The first brace group in ``word`` that closes, as its two brace offsets."""
+    for start, char in enumerate(word):
+        if char != "{":
+            continue
+        depth = 0
+        for end in range(start, len(word)):
+            depth += (word[end] == "{") - (word[end] == "}")
+            if depth == 0:
+                return start, end
+    return None
+
+
+def _alternatives(body: str) -> list[str]:
+    """A brace group's body, split at the commas outside any group nested in it."""
+    parts, depth, last = [], 0, 0
+    for at, char in enumerate(body):
+        depth += (char == "{") - (char == "}")
+        if char == "," and depth == 0:
+            parts.append(body[last:at])
+            last = at + 1
+    return [*parts, body[last:]]
+
+
+def _expand_word(word: str) -> list[str] | None:
+    """The paths the shell forms from one word's brace lists, nested ones included.
+
+    ``a{b,c}d`` is ``abd`` and ``acd``. A group without a comma, or one a ``$``
+    opens (a parameter expansion), is no list and stays as written. ``None``
+    where the word cannot be read as the shell would read it: a brace that
+    never closes, a closing brace with no opening one and more path after it
+    (the tail of a list whose head a quote or an escape split off), or more
+    paths than :data:`_BRACE_CAP`.
+    """
+    group = _brace_group(word)
+    if group is None:
+        stray = "{" in word or "}" in word.rstrip("}")
+        return None if stray else [word]
+    start, end = group
+    head, body, rest = word[:start], word[start + 1 : end], word[end + 1 :]
+    tails = _expand_word(rest)
+    if tails is None:
+        return None
+    alternatives = _alternatives(body)
+    if head.endswith("$") or len(alternatives) < 2:
+        middles: list[str] = [f"{{{body}}}"]
+    else:
+        middles = []
+        for alternative in alternatives:
+            expanded = _expand_word(alternative)
+            if expanded is None:
+                return None
+            middles += expanded
+    if "{" in head or "}" in head or len(middles) * len(tails) > _BRACE_CAP:
+        return None
+    return [f"{head}{middle}{tail}" for middle in middles for tail in tails]
+
+
 def _record_reads(text: str, own: _OwnRun, *, cut: bool) -> Iterable[str]:
     """The ``predictions/`` and ``evaluations/`` paths ``text`` names that are not this cell's."""
     yield from _EVALUATIONS.findall(text)
+    history = _HISTORY.search(text) is not None
+    # Each stretch of the slice the path pattern reads, and whether the capture
+    # may have cut it at its end.
+    pieces: list[tuple[str, bool]] = []
+    plain = 0
+    for word in _WORD.finditer(text):
+        if "{" not in word.group(0) and "}" not in word.group(0):
+            continue
+        last = cut and word.end() == len(text)
+        expanded = _expand_word(word.group(0))
+        if expanded is None:
+            if not last and _PREDICTIONS.search(word.group(0)):
+                # A brace list that cannot be written out may form any path
+                # under the directory it names.
+                yield word.group(0)
+            expanded = [word.group(0)]
+        pieces.append((text[plain : word.start()], False))
+        # Each path of a list is its own stretch, so one the capture cut is
+        # judged where that path ends rather than where the list does.
+        pieces += [(path, last) for path in expanded]
+        plain = word.end()
+    pieces.append((text[plain:], cut))
+    for piece, piece_cut in pieces:
+        yield from _predictions_named(piece, own, cut=piece_cut, history=history)
+
+
+def _predictions_named(text: str, own: _OwnRun, *, cut: bool, history: bool) -> Iterable[str]:
     for match in _PREDICTIONS.finditer(text):
         if cut and match.end() == len(text):
             # The capture cut this slice: a segment that runs to its end may be
@@ -249,7 +345,7 @@ def _record_reads(text: str, own: _OwnRun, *, cut: bool) -> Iterable[str]:
             # The bare directory: in the working tree, the parent of this
             # cell's own, which the hidden tree leaves holding only that; in
             # history, every predictor's committed output.
-            if _HISTORY.search(text):
+            if history:
                 yield named
             continue
         other_predictor = _GLOB.search(predictor) is not None or predictor != own.actor_id
