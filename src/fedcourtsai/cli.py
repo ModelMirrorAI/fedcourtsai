@@ -29128,13 +29128,19 @@ def _evaluate_fanout(
             )
             # The other half of the same gate: graded on `main`, in a commit
             # this round's checkout predates. Attributed here only where the
-            # checkout's own ledger did not already account for the cell.
-            unseen = {
-                evaluator.id
-                for evaluator in evaluators
-                if evaluator.id not in graded
-                and (evaluator.id, case.court, case.docket, event_id) in (on_main or ())
-            }
+            # checkout's own ledger did not already account for the cell. A
+            # voided event is the void registry's drop, so it is never reported
+            # withheld here either.
+            unseen = (
+                set()
+                if is_voided(case_id, event_id)
+                else {
+                    evaluator.id
+                    for evaluator in evaluators
+                    if evaluator.id not in graded
+                    and (evaluator.id, case.court, case.docket, event_id) in (on_main or ())
+                }
+            )
             landed.extend(
                 _DropRecord(
                     case_id,
@@ -29212,8 +29218,8 @@ def _report_graded_on_main(landed: Sequence[_DropRecord], *, kept: int, stage: s
         with open(summary_path, "a", encoding="utf-8") as fh:
             fh.write(
                 f"## run-evaluate — {len(landed)} cell(s) already graded on `main`\n"
-                "This round reads the commit it was created at, and it was created before "
-                f"the collect PR carrying those gradings merged. It {sentence}\n"
+                "This round reads the commit it was created at, and `main` has gained those "
+                f"gradings since. It {sentence}\n"
             )
 
 

@@ -51,9 +51,7 @@ def test_the_listing_runs_before_the_matrix_and_feeds_it() -> None:
     listing_idx = next(i for i, n in enumerate(names) if n.startswith("List the files main gained"))
     matrix_idx = next(i for i, n in enumerate(names) if n.startswith("Build evaluator x case"))
     assert listing_idx < matrix_idx
-    assert f"> {LISTING}" in _joined(_step("List the files main gained")) or (
-        f"mv main-gained.partial {LISTING}" in _joined(_step("List the files main gained"))
-    )
+    assert f"mv main-gained.partial {LISTING}" in _joined(_step("List the files main gained"))
     assert f"--graded-on-main-file {LISTING}" in _joined(_step("Build evaluator x case"))
 
 
@@ -74,7 +72,8 @@ def test_the_listing_compares_the_checkout_with_main_by_path_alone() -> None:
     out into the plan job's tree, and a record whose shape moved under a
     promotion cannot break a round created before it."""
     body = _joined(_step("List the files main gained"))
-    assert "git fetch --no-tags --quiet --depth=1 origin main" in body
+    # Bounded inside the conditional, so a hung fetch degrades like a failed one.
+    assert "if timeout 120 git fetch --no-tags --quiet --depth=1 origin main" in body
     assert "git diff --no-renames --name-only --diff-filter=A HEAD FETCH_HEAD -- data/cases" in body
     assert "git checkout" not in body
     assert "git merge" not in body

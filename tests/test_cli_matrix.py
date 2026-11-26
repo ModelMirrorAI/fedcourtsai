@@ -2647,6 +2647,32 @@ def test_an_evaluate_round_with_no_listing_is_planned_unchecked_and_says_so(
     assert missing.exit_code == 0
     assert len(_cells(missing.stdout)) == 6
     assert "::warning::evaluate-matrix: could not read" in missing.stderr
+    unread = runner.invoke(app, ["evaluate-plan", "--body-file", str(body), *flag], env=env)
+    assert unread.exit_code == 0
+    assert _plan(unread.stdout)["main_ledger_guard"] == {"checked": False}
+    assert "warning: evaluate-plan: could not read" in unread.stderr
+    assert "::warning::" not in unread.stderr
+
+
+def test_a_voided_event_listed_on_main_is_not_reported_withheld(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A voided event owes no grading on any route, so the listing must not
+    claim its cells as graded elsewhere."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    monkeypatch.setattr(cli, "is_voided", lambda case_id, event_id: case_id == "scotus/24001")
+    listing = _main_gained(tmp_path, (24001, "claude-judge"))
+
+    planned = runner.invoke(
+        app,
+        ["evaluate-plan", "--body-file", str(body), "--graded-on-main-file", str(listing)],
+        env=env,
+    )
+
+    assert planned.exit_code == 0, planned.stderr
+    assert _plan(planned.stdout)["withheld_graded_on_main"] == []
 
 
 def test_a_forced_regrade_sets_the_listing_aside(tmp_path: Path) -> None:

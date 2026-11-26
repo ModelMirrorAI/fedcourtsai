@@ -1090,7 +1090,7 @@ EvaluateCellKey = tuple[str, str, int, str]
 # :func:`event_has_evaluations`'s glob is, so a per-run sibling one level
 # shallower cannot match.
 _GRADING_PATH = re.compile(
-    r"data/cases/(?P<court>[^/]+)/(?P<docket>[0-9]+)/events/(?P<event>[^/]+)"
+    r"data/cases/(?P<court>[^/]+)/(?P<docket>[0-9]{1,18})/events/(?P<event>[^/]+)"
     r"/evaluations/(?P<evaluator>[^/]+)/[^/]+/[^/]+/evaluation\.json"
 )
 
@@ -1111,7 +1111,7 @@ def read_gradings_on_main(path: Path) -> frozenset[EvaluateCellKey] | None:
     whatever shape the newer ledger's records have. ``None`` — an absent or
     unreadable file — is the guard switched off: the plan job writes none when
     it could not compare the two commits, and a round nobody could check is
-    graded exactly as an unchecked one always was. A file that is present and
+    planned exactly as an unchecked one is. A file that is present and
     lists no grading is the claim that `main` gained none, which withholds
     nothing. A line that is not a committed grading's path is skipped, since
     the listing carries every file `main` added.
@@ -1385,7 +1385,7 @@ def evaluate_matrix(
       cell lands grades against an empty slot, and one whose cell failed is
       re-minted later, after the body may have landed.
 
-    ``data_root=None`` skips all three (callers that assemble their own ledger).
+    ``data_root=None`` skips every gate (callers that assemble their own ledger).
     ``skip_evaluated=False`` keeps the second gate off for a deliberate
     re-grade — a prompt or rubric change, where the point *is* to score an
     already-graded event again — so that never requires deleting committed

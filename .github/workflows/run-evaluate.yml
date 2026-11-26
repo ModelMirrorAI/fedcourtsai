@@ -310,7 +310,8 @@ jobs:
       # one-commit fetch are enough. Read without a credential, as the checkout
       # above leaves none behind and the repository is public.
       #
-      # Fail-open: a fetch or a comparison that did not answer leaves no
+      # Fail-open: a fetch or a comparison that did not answer, or a fetch
+      # still running after two minutes, leaves no
       # listing, and the round is planned exactly as an unchecked one. The
       # failure this prevents is expensive, not dangerous, so it must never be
       # the reason a legitimate round does not start.
@@ -323,7 +324,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -f main-gained.txt
-          if git fetch --no-tags --quiet --depth=1 origin main \
+          if timeout 120 git fetch --no-tags --quiet --depth=1 origin main \
              && git diff --no-renames --name-only --diff-filter=A HEAD FETCH_HEAD -- data/cases > main-gained.partial; then
             mv main-gained.partial main-gained.txt
             echo "main gained $(wc -l < main-gained.txt) file(s) under data/cases after this checkout ($(git rev-parse HEAD) against $(git rev-parse FETCH_HEAD))."

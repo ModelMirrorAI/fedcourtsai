@@ -4956,6 +4956,10 @@ run's summary; the plan report counts the same cells as
 round reads a commit that holds the grading. The listing fails open: where the
 fetch or the comparison did not answer, no listing is written, the step warns,
 and the round is planned on its checkout alone. A pilot round skips the step.
+The backlog derivation itself still reads the checkout, so a queued round can
+spend its `backlog_cases_per_cycle` cap on cases the listing then withholds and
+mint nothing while gradings beyond the cap are still owed; the next round
+derives them.
 What stays uncovered is a round whose output has not reached `main` at all (a
 failed `collect`, or a collect PR still open) when the next round plans.
 
