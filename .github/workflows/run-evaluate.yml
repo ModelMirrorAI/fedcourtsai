@@ -96,6 +96,11 @@ permissions: {}
 # merged yet, and this group — not that gate — is what keeps a second derivation
 # out of that window.
 #
+# The group does not cover a round that waited in it: a run checks out the
+# commit it was created at, so a queued round plans on a ledger from before the
+# round ahead of it merged, however long it waited. The plan job's listing of
+# what `main` gained after its checkout is what covers that one.
+#
 # `cancel-in-progress: false` protects the *running* round, not the queue behind
 # it: GitHub holds at most one pending run per group, and a third arrival
 # supersedes the one that was waiting. Read that against the review hold, which
@@ -288,6 +293,46 @@ jobs:
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/merits-forecasts
 
+      # The already-graded gate reads the ledger as this job checked it out, and
+      # a run checks out the commit it was CREATED at. A round that waited in
+      # the serializing group starts the moment the round ahead of it ends —
+      # after that round's collect PR merged, on a checkout from before it did
+      # — so every grading that round landed is invisible to the gate, and this
+      # round would grade the same cells again. This lists the files `main`
+      # holds and this checkout lacks; the matrix step hands the listing to
+      # `evaluate-matrix`, which withholds each cell it names a committed
+      # grading for and says so on the run.
+      #
+      # Fetch and list only — the decision is the tested command's. Paths, never
+      # contents: the listing answers whatever shape the newer ledger's records
+      # have, and nothing `main` holds is checked out into this job's tree. The
+      # two commits are compared tree to tree, so the shallow checkout and a
+      # one-commit fetch are enough. Read without a credential, as the checkout
+      # above leaves none behind and the repository is public.
+      #
+      # Fail-open: a fetch or a comparison that did not answer, or a fetch
+      # still running after two minutes, leaves no
+      # listing, and the round is planned exactly as an unchecked one. The
+      # failure this prevents is expensive, not dangerous, so it must never be
+      # the reason a legitimate round does not start.
+      #
+      # A pilot round skips it: it re-grades graded events by design and
+      # commits nothing.
+      - name: List the files main gained after this checkout
+        if: ${{ !(github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'reasoning-pilot')) }}
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          rm -f main-gained.txt
+          if timeout 120 git fetch --no-tags --quiet --depth=1 origin main \
+             && git diff --no-renames --name-only --diff-filter=A HEAD FETCH_HEAD -- data/cases > main-gained.partial; then
+            mv main-gained.partial main-gained.txt
+            echo "main gained $(wc -l < main-gained.txt) file(s) under data/cases after this checkout ($(git rev-parse HEAD) against $(git rev-parse FETCH_HEAD))."
+          else
+            rm -f main-gained.partial
+            echo "::warning::could not list what main gained after this round's checkout; the already-graded gate reads this checkout alone, so a cell another round graded since this round was created may be graded again"
+          fi
+
       - name: Build evaluator x case x event matrix
         id: plan
         env:
@@ -333,7 +378,13 @@ jobs:
             matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id" "${args[@]}" \
               --pilot-section .github/prompts/pilot/predicted-reasoning-quality.md)
           else
-            matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id")
+            # Absent where the listing step could not answer, and the command
+            # then withholds nothing. Carried in `args`, so the report step
+            # below prices the fan-out this step minted.
+            if [ -f main-gained.txt ]; then
+              args=(--graded-on-main-file main-gained.txt)
+            fi
+            matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id" "${args[@]}")
           fi
           # One argument a line, and an empty file for none: the report step
           # reads it back with `mapfile`, which would turn a lone blank line
@@ -358,16 +409,18 @@ jobs:
           echo "## run-evaluate — queued ${count} evaluation job(s)" >> "$GITHUB_STEP_SUMMARY"
           # The step summary is the whole record — there is no trigger issue to
           # close with a note — so say what an empty matrix means rather than
-          # leaving a bare zero. An empty matrix has two readings: the backlog
-          # is drained, or every grading it still owes sits on a decided merits
-          # event held for its opinion body. Either is the ordinary resting state
-          # of a healthy lane, not a fault, and the run ends cleanly on it: the
+          # leaving a bare zero. An empty matrix has three readings: the backlog
+          # is drained, every grading it still owes sits on a decided merits
+          # event held for its opinion body, or the cells it derived are graded
+          # on a `main` newer than this checkout (`evaluate-matrix` writes its
+          # own section above this one when it withheld any). Each is an ordinary
+          # state of a healthy lane, not a fault, and the run ends cleanly on it: the
           # `evaluate` and `collect` jobs are skipped (`needs` + `has_jobs`) and
           # nothing spends. The plan report below runs only when jobs were
           # queued, so the held count lives in this step's log.
           if [ "$count" -eq 0 ]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Nothing to grade this cycle: the evaluate backlog is drained, or every grading it still owes is held for its opinion body. No resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap) except those held. Nothing to run; no spend — the run ends cleanly here. Held cells are counted in this step's log, and are graded once the body lands or the 14-day hold runs out." >> "$GITHUB_STEP_SUMMARY"
+            echo "Nothing to grade this cycle: the evaluate backlog is drained, every grading it still owes is held for its opinion body, or the cells this round derived are already graded on a \`main\` newer than the commit it reads (a section above says so where that happened). No resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap) except those. Nothing to run; no spend — the run ends cleanly here. Held cells are counted in this step's log, and are graded once the body lands or the 14-day hold runs out." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # The pilot's sample travels with the round: the report job reads which
@@ -405,7 +458,8 @@ jobs:
       # comes — the pending deployment review links this run, so the summary is
       # the page an approver lands on. Unlike predict's twin there is no
       # stranded-run census to attach — the evaluate plan carries no stranded
-      # guard — so the call is the bare report form.
+      # guard — and the listing of what `main` gained after this checkout rides
+      # in the arguments read back below.
       #
       # This step runs on EVERY round that queued jobs. The report is what the
       # review hold is judged on, so a round that skipped it would ask a
