@@ -29,8 +29,8 @@ Detectors, strongest first:
   can reproduce — a party's initials after a hyphen in an opinion URL — so it
   does not count when everything after it reads as a hyphenated slug:
   lowercase letters and digits in a few short segments. A prefix counts at a
-  word boundary and at the places a transcript or a logged URL puts a token with none: directly after
-  a JSON escape (a token printed at the start of a line arrives as ``\\n`` and
+  word boundary and at the places a transcript or a logged URL puts a token
+  with none: directly after a JSON escape (a token printed at the start of a line arrives as ``\\n`` and
   then the token), a terminal colour code, a percent-escape, or an
   underscore. The typed Anthropic prefix and ``github_pat_`` count anywhere. A
   token glued to any other letter or digit is not found by shape.
