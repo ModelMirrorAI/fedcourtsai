@@ -267,6 +267,7 @@ from .matrix import (
     CappedMatrix,
     CaseRequest,
     CollectPr,
+    EvaluateCellKey,
     GuardedMatrix,
     StrandedCell,
     StrandedReason,
@@ -282,6 +283,7 @@ from .matrix import (
     predict_matrix,
     predicted_case_ids,
     read_collect_prs,
+    read_gradings_on_main,
     read_stranded_census,
     reopened_for,
     run_day,
@@ -27435,7 +27437,12 @@ def _evaluate_backlog_cases(
     standing lane does — the hold is vacuous in practice. And the gate reads
     *committed* state, so it cannot see a run whose collect
     PR has not merged; what bounds a second derivation firing into that window
-    is the workflow's concurrency group, not this gate.
+    is the workflow's concurrency group, not this gate. A round that waited in
+    that group reads a checkout from before the round ahead of it merged, which
+    the fan-out's listing of what `main` gained since covers
+    (:func:`fedcourtsai.matrix.read_gradings_on_main`); the deriver itself reads
+    the checkout, so such a round can spend its case cap on cases the fan-out
+    then withholds.
 
     Requires a **pulled** corpus, and enforces it. The scan is one pass over
     every resolved event plus a point query per candidate case — tens of
@@ -28900,10 +28907,14 @@ class _EvaluateFanout:
     """One pass of the evaluate planning pipeline, recorded step by step.
 
     The cell-grain drop classes stay apart — a cost gate (nothing to score), an
-    idempotency gate (already scored) and a deferral (a decided merits event
-    held for its opinion body) — because collapsed, a fully-graded re-queue
-    reads as a run with no predictions, and a held decision reads as one
-    nobody owes.
+    idempotency gate (already scored), its other half (scored on a `main` newer
+    than this round's checkout) and a deferral (a decided merits event held for
+    its opinion body) — because collapsed, a fully-graded re-queue reads as a
+    run with no predictions, and a held decision reads as one nobody owes.
+
+    ``main_ledger_checked`` says whether the round was handed the listing of
+    what `main` gained after its checkout: an empty ``graded_on_main`` means
+    nothing only where it is true.
     """
 
     requested: list[CaseRequest]
@@ -28912,6 +28923,8 @@ class _EvaluateFanout:
     resolution: _ResolveReport
     predictionless: tuple[_DropRecord, ...]
     already_evaluated: tuple[_DropRecord, ...]
+    graded_on_main: tuple[_DropRecord, ...]
+    main_ledger_checked: bool
     held_awaiting_opinion: tuple[_DropRecord, ...]
     candidates: int
     matrix: dict[str, list[dict[str, Any]]]
@@ -28977,6 +28990,7 @@ def _evaluate_fanout(
     force: bool,
     report: bool,
     findings: _BacklogFindings | None = None,
+    graded_on_main_file: Path | None = None,
 ) -> _EvaluateFanout:
     """Run the evaluate planning pipeline: scope, resolution, and the plan-time gates.
 
@@ -28997,6 +29011,14 @@ def _evaluate_fanout(
     corpus's ``has_opinion`` bit (:func:`_opinion_presence`) and the run id's
     day, so the minting command and a plan re-derived under the same run id
     hold the same cells.
+
+    ``graded_on_main_file`` is the plan job's listing of the files `main` holds
+    and this round's checkout lacks (:func:`fedcourtsai.matrix.read_gradings_on_main`).
+    A cell it names a committed grading for is withheld and reported on its own
+    line, apart from the already-graded drop: the checkout's ledger did not
+    show it, which is what a round that queued behind another looks like. An
+    absent or unreadable file leaves the check off, with a warning where a file
+    was named, and ``force`` sets it aside as it does the already-graded gate.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
@@ -29025,6 +29047,16 @@ def _evaluate_fanout(
     # graded the event is not re-minted. See `evaluate_matrix`.
     evaluators_path = settings.config_root / "evaluators.yaml"
     presence = _opinion_presence(cases, stage=stage, findings=findings)
+    on_main: frozenset[EvaluateCellKey] | None = None
+    if graded_on_main_file is not None and not force:
+        on_main = read_gradings_on_main(graded_on_main_file)
+        if on_main is None:
+            typer.echo(
+                f"{_warn_prefix(findings)}{stage}: could not read {graded_on_main_file}, the "
+                "listing of what `main` gained after this round's checkout, so a cell another "
+                "round graded since then may be graded again",
+                err=True,
+            )
     matrix = evaluate_matrix(
         evaluators_path,
         cases,
@@ -29033,6 +29065,7 @@ def _evaluate_fanout(
         skip_evaluated=not force,
         opinion_present=presence,
         slices=slices,
+        graded_on_main=on_main or frozenset(),
     )
     fleet = enabled_evaluators(evaluators_path)
     candidates = 0
@@ -29046,6 +29079,7 @@ def _evaluate_fanout(
     # print a negative.
     predictionless: list[_DropRecord] = []
     already: list[_DropRecord] = []
+    landed: list[_DropRecord] = []
     held: list[_DropRecord] = []
     for case in cases:
         case_id = ids.case_id(case.court, case.docket)
@@ -29092,6 +29126,33 @@ def _evaluate_fanout(
                 for evaluator in evaluators
                 if evaluator.id in graded
             )
+            # The other half of the same gate: graded on `main`, in a commit
+            # this round's checkout predates. Attributed here only where the
+            # checkout's own ledger did not already account for the cell. A
+            # voided event is the void registry's drop, so it is never reported
+            # withheld here either.
+            unseen = (
+                set()
+                if is_voided(case_id, event_id)
+                else {
+                    evaluator.id
+                    for evaluator in evaluators
+                    if evaluator.id not in graded
+                    and (evaluator.id, case.court, case.docket, event_id) in (on_main or ())
+                }
+            )
+            landed.extend(
+                _DropRecord(
+                    case_id,
+                    "this evaluator's grading is on `main`, committed after the commit this "
+                    "round reads",
+                    event_id=event_id,
+                    actor_id=evaluator.id,
+                )
+                for evaluator in evaluators
+                if evaluator.id in unseen
+            )
+            graded |= unseen
             hold = opinion_hold(
                 settings.data_root,
                 case.court,
@@ -29113,6 +29174,8 @@ def _evaluate_fanout(
         typer.echo(f"{stage}: dropped {len(predictionless)} predictionless cell(s)", err=True)
     if report and already:
         typer.echo(f"{stage}: dropped {len(already)} already-evaluated cell(s)", err=True)
+    if report and landed:
+        _report_graded_on_main(landed, kept=len(matrix["include"]), stage=stage)
     if report and held:
         typer.echo(
             f"{stage}: held {len(held)} cell(s) on decided merits events awaiting their "
@@ -29126,14 +29189,42 @@ def _evaluate_fanout(
         resolution=resolution,
         predictionless=tuple(predictionless),
         already_evaluated=tuple(already),
+        graded_on_main=tuple(landed),
+        main_ledger_checked=on_main is not None,
         held_awaiting_opinion=tuple(held),
         candidates=candidates,
         matrix=matrix,
     )
 
 
+def _report_graded_on_main(landed: Sequence[_DropRecord], *, kept: int, stage: str) -> None:
+    """Say on the minting run's record that cells were withheld as graded on `main`.
+
+    A ``::notice::`` rather than a warning: nothing is at fault and nothing
+    needs recovering — the gradings are committed, and this round only read a
+    commit from before they landed. The Actions step summary carries the same
+    sentence, because a round this empties would otherwise read as a drained
+    backlog.
+    """
+    events = len({(record.case_id, record.event_id) for record in landed})
+    sentence = (
+        f"withheld {len(landed)} cell(s) on {events} event(s) whose gradings are already on "
+        f"`main`, committed after the commit this round reads; kept {kept} cell(s). Nothing "
+        "needs landing: the next round reads a commit that holds them."
+    )
+    typer.echo(f"::notice::{stage}: {sentence}", err=True)
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as fh:
+            fh.write(
+                f"## run-evaluate — {len(landed)} cell(s) already graded on `main`\n"
+                "This round reads the commit it was created at, and `main` has gained those "
+                f"gradings since. It {sentence}\n"
+            )
+
+
 @app.command("evaluate-matrix")
-def evaluate_matrix_cmd(
+def evaluate_matrix_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     run_id: Annotated[str, typer.Option(help="Shared run id for this fan-out.")],
     body_file: Annotated[
         Path | None,
@@ -29179,6 +29270,15 @@ def evaluate_matrix_cmd(
             "does not project them from it. Needs --pilot-section."
         ),
     ] = False,
+    graded_on_main_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The plan job's listing of the files `main` holds and this round's checkout "
+            "lacks, one repository-relative path a line. A cell it names a committed grading "
+            "for is withheld rather than graded again. Absent or unreadable, nothing is "
+            "withheld; ignored under --force."
+        ),
+    ] = None,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
@@ -29199,6 +29299,13 @@ def evaluate_matrix_cmd(
     backlog mode re-plan the same backlog without re-minting a graded cell.
     ``--force`` disables it for a deliberate re-grade, which otherwise would
     need committed artifacts deleted to get a cell minted.
+
+    That gate reads this checkout, and a run checks out the commit it was
+    created at, so a round that waited behind another reads a ledger from
+    before that round's gradings merged. ``--graded-on-main-file`` closes that:
+    it names the files `main` holds and the checkout lacks, and a cell with a
+    committed grading among them is withheld and reported
+    (:func:`fedcourtsai.matrix.read_gradings_on_main`).
 
     A third gate defers rather than drops: a decided merits event whose case's
     corpus row carries no opinion body is **held** for up to
@@ -29242,6 +29349,7 @@ def evaluate_matrix_cmd(
         stage="evaluate-matrix",
         force=force,
         report=True,
+        graded_on_main_file=graded_on_main_file,
     )
     # The same ex-post backstop predict consults: the ceiling governs total
     # inference spend, and a grading costs a cell like a forecast does. An owed
@@ -29684,6 +29792,10 @@ _APPROVAL_DROP_CLASSES: tuple[tuple[str, str], ...] = (
     ("dropped_already_predicted", "cell(s) dropped as already predicted by that predictor"),
     ("dropped_predictionless", "cell(s) dropped as having no committed prediction to score"),
     ("dropped_already_evaluated", "cell(s) dropped as already graded by that judge"),
+    (
+        "withheld_graded_on_main",
+        "cell(s) withheld: graded on `main` after the commit this round reads",
+    ),
     (
         "held_awaiting_opinion",
         "cell(s) held: a decided merits event awaiting its opinion body (graded later)",
@@ -30898,6 +31010,15 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             "than over its default lookback. Backlog mode only.",
         ),
     ] = None,
+    graded_on_main_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The plan job's listing of the files `main` holds and this round's checkout "
+            "lacks, one repository-relative path a line. A cell it names a committed grading "
+            "for is reported withheld, as `evaluate-matrix` withholds it. Absent or "
+            "unreadable, nothing is withheld; ignored under --force."
+        ),
+    ] = None,
     approval_report: _ApprovalReportOption = None,
     approval_report_run_url: _ApprovalReportRunUrlOption = "",
 ) -> None:
@@ -30908,7 +31029,11 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
     score, a judge that already graded the event is not re-minted, and a
     decided merits event still awaiting its opinion body is held, each held
     cell listed under ``held_awaiting_opinion`` with a ``held: awaiting
-    opinion`` reason naming the day it is graded regardless. Same
+    opinion`` reason naming the day it is graded regardless. Given
+    ``--graded-on-main-file``, a cell graded on a `main` newer than the
+    checkout is listed under ``withheld_graded_on_main``, and
+    ``main_ledger_guard.checked`` says whether that listing was read at all,
+    since a withheld count of zero means nothing without it. Same
     grain-split ``counts``, stdout/stderr split, and spend-gate reading as
     ``predict-plan``: the backstop's verdict is reported, never applied.
 
@@ -30964,6 +31089,7 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         force=force,
         report=False,
         findings=derived,
+        graded_on_main_file=graded_on_main_file,
     )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
@@ -30993,10 +31119,12 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             },
             "cell_ledger": {
                 # The opening balance, so the drops below reconcile: candidates
-                # - predictionless - already_evaluated - held == would_mint.
+                # - predictionless - already_evaluated - graded_on_main - held
+                # == would_mint.
                 "candidate_cells": fanout.candidates,
                 "dropped_predictionless_cells": len(fanout.predictionless),
                 "dropped_already_evaluated_cells": len(fanout.already_evaluated),
+                "withheld_graded_on_main_cells": len(fanout.graded_on_main),
                 "held_awaiting_opinion_cells": len(fanout.held_awaiting_opinion),
                 "would_mint_cells": len(would_mint),
                 "would_mint_cells_after_spend_gate": (0 if verdict.breached else len(would_mint)),
@@ -31020,6 +31148,10 @@ def evaluate_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
         "cases_with_no_default_events": [r.as_json() for r in fanout.resolution.no_default_events],
         "dropped_predictionless": [r.as_json() for r in fanout.predictionless],
         "dropped_already_evaluated": [r.as_json() for r in fanout.already_evaluated],
+        "withheld_graded_on_main": [r.as_json() for r in fanout.graded_on_main],
+        # Whether the listing of what `main` gained after this checkout was
+        # read: a withheld count of zero is a finding only where it was.
+        "main_ledger_guard": {"checked": fanout.main_ledger_checked},
         "held_awaiting_opinion": [r.as_json() for r in fanout.held_awaiting_opinion],
         "spend_gate": _spend_verdict_json(verdict),
         "would_mint": would_mint,

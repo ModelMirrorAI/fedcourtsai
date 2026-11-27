@@ -23,6 +23,7 @@ from fedcourtsai.matrix import (
     parse_cases,
     predict_matrix,
     predicted_case_ids,
+    read_gradings_on_main,
     run_day,
 )
 from fedcourtsai.paths import CasePaths
@@ -424,6 +425,79 @@ def test_evaluate_matrix_drops_predictionless_events(tmp_path: Path) -> None:
     # Without a ledger, the gate is off and both fan out (offline callers).
     ungated = evaluate_matrix(EVALUATORS, cases, "RID")
     assert {(c["docket"]) for c in ungated["include"]} == {1, 2}
+
+
+def _grading_path(
+    docket: int, evaluator_id: str, *, event_id: str = "evt-petition-disposition"
+) -> str:
+    """A committed grading's path as `git diff --name-only` prints it, built by
+    the path helpers so the reader's pattern is held to the real layout."""
+    return (
+        CasePaths(Path("data"), "scotus", docket)
+        .event(event_id)
+        .evaluation(evaluator_id, "claude-baseline", "20261125T154322Z")
+        .as_posix()
+    )
+
+
+def test_read_gradings_on_main_names_each_committed_gradings_cell(tmp_path: Path) -> None:
+    """The listing carries every file `main` added, so the reader keeps only the
+    committed gradings — and not the per-run siblings one level shallower, which
+    a judge's failed cell leaves without having graded anything."""
+    event = CasePaths(Path("data"), "scotus", 2).event("evt-petition-disposition")
+    listing = tmp_path / "main-gained.txt"
+    listing.write_text(
+        "\n".join(
+            [
+                _grading_path(1, "claude-judge"),
+                # A second predictor's grading by the same judge: one cell.
+                _grading_path(1, "claude-judge").replace("claude-baseline", "codex-baseline"),
+                event.evaluation_usage("codex-judge", "20261125T154322Z").as_posix(),
+                event.prediction("claude-baseline", "20261125T154322Z").as_posix(),
+                event.evaluation_notes("gemini-judge", "claude-baseline", "RID").as_posix(),
+                "data/cases/scotus/not-a-docket/events/evt-x/evaluations/a/b/c/evaluation.json",
+                "",
+            ]
+        )
+        + "\n"
+    )
+    assert read_gradings_on_main(listing) == frozenset(
+        {("claude-judge", "scotus", 1, "evt-petition-disposition")}
+    )
+
+
+def test_read_gradings_on_main_tells_no_listing_from_an_empty_one(tmp_path: Path) -> None:
+    """Absent is the check switched off; present and empty is the finding that
+    `main` gained nothing. A caller that merged the two could not say whether a
+    withheld count of zero was checked."""
+    assert read_gradings_on_main(tmp_path / "absent.txt") is None
+    empty = tmp_path / "main-gained.txt"
+    empty.write_text("")
+    assert read_gradings_on_main(empty) == frozenset()
+
+
+def test_evaluate_matrix_withholds_a_cell_graded_on_main_after_the_checkout(
+    tmp_path: Path,
+) -> None:
+    """A round that queued behind another reads a ledger from before that
+    round's gradings merged, so the checkout shows the cell as owed. The
+    listing is what says otherwise, per judge, and a deliberate re-grade sets
+    it aside as it does the gate on the checkout."""
+    data_root = tmp_path / "data"
+    seed_prediction(data_root, "scotus", 1, "evt-petition-disposition")
+    cases = [CaseRequest(court="scotus", docket=1, events=("evt-petition-disposition",))]
+    on_main = frozenset({("claude-judge", "scotus", 1, "evt-petition-disposition")})
+
+    unchecked = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root)
+    guarded = evaluate_matrix(EVALUATORS, cases, "RID", data_root=data_root, graded_on_main=on_main)
+    forced = evaluate_matrix(
+        EVALUATORS, cases, "RID", data_root=data_root, graded_on_main=on_main, skip_evaluated=False
+    )
+
+    judges = {c["evaluator_id"] for c in unchecked["include"]}
+    assert "claude-judge" in judges
+    assert {c["evaluator_id"] for c in guarded["include"]} == judges - {"claude-judge"}
+    assert {c["evaluator_id"] for c in forced["include"]} == judges
 
 
 def test_event_has_evaluations_ignores_the_shallow_per_run_siblings(tmp_path: Path) -> None:

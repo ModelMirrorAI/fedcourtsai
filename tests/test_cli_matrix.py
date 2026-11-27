@@ -19,6 +19,7 @@ from fedcourtsai.config import SpendConfig
 from fedcourtsai.corpus_ranged import RangedBackendError
 from fedcourtsai.finalize import FinalizeRole
 from fedcourtsai.matrix import _in_checkout
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
 from fedcourtsai.prediction_slices import SCOTUS_POPULATION_KEY
@@ -2220,6 +2221,7 @@ def _assert_evaluate_balances(plan: dict[str, Any]) -> None:
         c["candidate_cells"]
         - c["dropped_predictionless_cells"]
         - c["dropped_already_evaluated_cells"]
+        - c["withheld_graded_on_main_cells"]
         - c["held_awaiting_opinion_cells"]
         == c["would_mint_cells"]
     )
@@ -2532,6 +2534,183 @@ def test_evaluate_plan_reports_already_graded_cells_and_what_force_would_change(
     assert forced_plan["dropped_already_evaluated"] == []
     assert forced_plan["counts"]["cell_ledger"]["would_mint_cells"] == 6
     _assert_evaluate_balances(forced_plan)
+
+
+def _main_gained(tmp_path: Path, *cells: tuple[int, str]) -> Path:
+    """The plan job's listing: the files `main` holds and the checkout lacks."""
+    listing = tmp_path / "main-gained.txt"
+    data = Path("data")
+    listing.write_text(
+        "".join(
+            CasePaths(data, "scotus", docket)
+            .event(EVENT)
+            .evaluation(judge, "claude-baseline", "20261125T154322Z")
+            .as_posix()
+            + "\n"
+            for docket, judge in cells
+        )
+    )
+    return listing
+
+
+def test_a_queued_evaluate_round_withholds_what_main_graded_after_its_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The queued-round window. The round ahead graded 24001 under every judge
+    and merged; this round's checkout predates that merge, so its own ledger
+    still shows those three cells as owed. The listing withholds exactly them,
+    the matrix and the plan agree, and the run's summary says why the fan-out
+    is short rather than leaving it to read as a drained backlog."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    judges = ("claude-judge", "codex-judge", "gemini-judge")
+    listing = _main_gained(tmp_path, *((24001, judge) for judge in judges))
+    summary = tmp_path / "summary.md"
+    args = ["--run-id", "RID", "--body-file", str(body), "--graded-on-main-file", str(listing)]
+
+    minted = runner.invoke(
+        app, ["evaluate-matrix", *args], env={**env, "GITHUB_STEP_SUMMARY": str(summary)}
+    )
+    planned = runner.invoke(app, ["evaluate-plan", *args], env=env)
+
+    assert minted.exit_code == 0, minted.stderr
+    assert planned.exit_code == 0, planned.stderr
+    cells = _cells(minted.stdout)
+    assert {(c["docket"], c["evaluator_id"]) for c in cells} == {(24002, j) for j in judges}
+    assert "::notice::evaluate-matrix: withheld 3 cell(s) on 1 event(s)" in minted.stderr
+    assert "3 cell(s) already graded on `main`" in summary.read_text()
+
+    plan = _plan(planned.stdout)
+    ledger = plan["counts"]["cell_ledger"]
+    assert ledger["withheld_graded_on_main_cells"] == 3
+    assert ledger["dropped_already_evaluated_cells"] == 0
+    assert ledger["would_mint_cells"] == len(cells) == 3
+    assert {(r["case_id"], r["actor_id"]) for r in plan["withheld_graded_on_main"]} == {
+        ("scotus/24001", j) for j in judges
+    }
+    assert plan["main_ledger_guard"] == {"checked": True}
+    _assert_evaluate_balances(plan)
+    # A plan is not a run: it writes no annotation.
+    assert "::notice::" not in planned.stderr
+
+
+def test_a_grading_the_checkout_already_holds_is_counted_once(tmp_path: Path) -> None:
+    """A cell in both ledgers is the already-graded drop's, not a second
+    withheld record, or the cell ledger would stop reconciling."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    seed_evaluation(Path(env["FEDCOURTS_DATA_ROOT"]), "scotus", 24001, EVENT)
+    listing = _main_gained(tmp_path, (24001, "claude-judge"), (24002, "codex-judge"))
+
+    planned = runner.invoke(
+        app,
+        ["evaluate-plan", "--body-file", str(body), "--graded-on-main-file", str(listing)],
+        env=env,
+    )
+
+    assert planned.exit_code == 0, planned.stderr
+    plan = _plan(planned.stdout)
+    assert [r["case_id"] for r in plan["dropped_already_evaluated"]] == ["scotus/24001"]
+    assert [(r["case_id"], r["actor_id"]) for r in plan["withheld_graded_on_main"]] == [
+        ("scotus/24002", "codex-judge")
+    ]
+    assert plan["counts"]["cell_ledger"]["would_mint_cells"] == 4
+    _assert_evaluate_balances(plan)
+
+
+def test_an_evaluate_round_with_no_listing_is_planned_unchecked_and_says_so(
+    tmp_path: Path,
+) -> None:
+    """Fail-open, in both of its forms. With no listing named the check never
+    ran; with one named and unreadable it failed. Neither withholds a cell, and
+    the plan's own flag keeps a zero from reading as a finding."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+
+    flag = ["--graded-on-main-file", str(tmp_path / "absent.txt")]
+
+    bare = runner.invoke(app, ["evaluate-plan", "--body-file", str(body)], env=env)
+    missing = runner.invoke(
+        app,
+        ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body), *flag],
+        env=env,
+    )
+
+    assert bare.exit_code == 0
+    plan = _plan(bare.stdout)
+    assert plan["main_ledger_guard"] == {"checked": False}
+    assert plan["withheld_graded_on_main"] == []
+    assert plan["counts"]["cell_ledger"]["would_mint_cells"] == 6
+    assert missing.exit_code == 0
+    assert len(_cells(missing.stdout)) == 6
+    assert "::warning::evaluate-matrix: could not read" in missing.stderr
+    unread = runner.invoke(app, ["evaluate-plan", "--body-file", str(body), *flag], env=env)
+    assert unread.exit_code == 0
+    assert _plan(unread.stdout)["main_ledger_guard"] == {"checked": False}
+    assert "warning: evaluate-plan: could not read" in unread.stderr
+    assert "::warning::" not in unread.stderr
+
+
+def test_a_voided_event_listed_on_main_is_not_reported_withheld(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A voided event owes no grading on any route, so the listing must not
+    claim its cells as graded elsewhere."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    monkeypatch.setattr(cli, "is_voided", lambda case_id, event_id: case_id == "scotus/24001")
+    listing = _main_gained(tmp_path, (24001, "claude-judge"))
+
+    planned = runner.invoke(
+        app,
+        ["evaluate-plan", "--body-file", str(body), "--graded-on-main-file", str(listing)],
+        env=env,
+    )
+
+    assert planned.exit_code == 0, planned.stderr
+    assert _plan(planned.stdout)["withheld_graded_on_main"] == []
+
+
+def test_a_forced_regrade_sets_the_listing_aside(tmp_path: Path) -> None:
+    """A re-grade names graded events on purpose; the listing is the same gate's
+    other half, so `--force` lifts both."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    listing = _main_gained(tmp_path, (24001, "claude-judge"))
+    flag = ["--graded-on-main-file", str(listing)]
+
+    forced = runner.invoke(
+        app,
+        ["evaluate-matrix", "--run-id", "RID", "--body-file", str(body), "--force", *flag],
+        env=env,
+    )
+
+    assert forced.exit_code == 0
+    assert len(_cells(forced.stdout)) == 6
+    assert "withheld" not in forced.stderr
+
+
+def test_the_evaluate_approval_report_names_cells_graded_on_main(tmp_path: Path) -> None:
+    """The hold is judged on the report, so a fan-out narrowed by the listing
+    says so there rather than reading as a short backlog."""
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    listing = _main_gained(tmp_path, (24001, "claude-judge"))
+
+    report, _ = _report(
+        tmp_path,
+        ["evaluate-plan", "--body-file", str(body), "--graded-on-main-file", str(listing)],
+        env,
+    )
+
+    assert "evaluate-plan: 5 cell(s) held for approval" in report
+    assert "- 1 cell(s) withheld: graded on `main` after the commit this round reads" in report
 
 
 def test_evaluate_plan_names_a_decided_merits_case_held_for_its_opinion(

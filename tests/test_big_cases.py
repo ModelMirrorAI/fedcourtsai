@@ -66,15 +66,21 @@ _EVENT = "evt-petition-disposition"
 #: windows are the Supreme Court docket's own, the population the board reads: a
 #: prediction slice's window opens at its own label's instant, which the
 #: fixtures' clock need not have reached.
-_OPEN = sorted(
-    w.digest for w in frozen_process_record().windows if w.closes is None and w.revoked_at is None
-)
-_BLESSED = next((d for d in _OPEN if d in FROZEN_PROCESS_DIGESTS), _OPEN[0])
+_OPEN = {
+    w.digest: w
+    for w in frozen_process_record().windows
+    if w.closes is None and w.revoked_at is None
+}
+_BLESSED = next((d for d in sorted(_OPEN) if d in FROZEN_PROCESS_DIGESTS), min(_OPEN))
 #: A digest no freeze commit blessed: a stamped run that is still out of scope.
 _RETIRED = "sha256:" + "0" * 64
-#: The default harness clock, after the freeze instant so the default fixture is
-#: eligible. Every explicit clock a test passes sits in the same era.
-_CLOCK = datetime(2026, 11, 20, tzinfo=UTC)
+#: The default harness clock: a day into the window of the digest the default
+#: fixture carries, so its stamp is in the frozen scope. Read off the registry as
+#: the digest is, because a stamp counts only inside its own digest's window and a
+#: literal date would fall before the window a later label opens. An explicit
+#: clock a test passes is ordered against the other explicit clocks of that test,
+#: never against this one.
+_CLOCK = _OPEN[_BLESSED].opens + timedelta(days=1)
 
 
 def _stamp(when: datetime, *, digest: str = _BLESSED) -> ProcessVersion:
