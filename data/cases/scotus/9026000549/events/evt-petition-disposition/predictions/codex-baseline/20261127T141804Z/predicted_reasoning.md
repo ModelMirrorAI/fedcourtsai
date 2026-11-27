@@ -1,0 +1,3 @@
+The Court will deny the petition after the December 11 conference, with zero further distributions beyond the one already recorded. I expect no request for a response, no invitation for the Solicitor General's views, and no noted dissent or statement respecting denial.
+
+If the Court grants review, I expect it to hear argument on the petition's sole question, framed neutrally around the connection § 2680(c) requires between the detention of property and an alleged assault, battery or false imprisonment by federal officers. The claim against the individual agents would remain outside that question. The Fifth Circuit already considered *Martin*, so a summary remand in light of that decision is unlikely.
