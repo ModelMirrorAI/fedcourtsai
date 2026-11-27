@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 919.9,
+    "actions_minutes": 924.7,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1440.32,
     "fixed_monthly_usd": 115.0,
     "model_cost_usd": 5961.075716,
     "model_monthly_usd": 1325.32,
-    "window_days": 1.1
+    "window_days": 1.4
   },
   "data_health": {
     "corpus": {
@@ -54,7 +54,7 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-11-26",
+          "detail": "as of 2026-11-27",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
@@ -62,7 +62,7 @@
         },
         {
           "checked": 642,
-          "detail": "granted before 2024-11-26 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
+          "detail": "granted before 2024-11-27 (730 days); 14 resolved by termination (1 abated, 1 grant-vacated, 3 judgment-issued, 9 voluntary-dismissal)",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
@@ -70,7 +70,7 @@
         },
         {
           "checked": 2154400,
-          "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-26); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+          "detail": "0 future-dated, 75 decided-before-filed (21 docket rows vs accepted baseline 30, 54 SCOTUS application rows vs accepted baseline 70; as of 2026-11-27); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
           "failures": 75,
           "name": "case_dates_ordered",
           "passed": true,
@@ -241,7 +241,7 @@
       "skipped": false
     },
     "ledger": {
-      "checked": 47323,
+      "checked": 47330,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -249,11 +249,11 @@
     "ok": true
   },
   "flags": {
-    "archived": 1092,
+    "archived": 1103,
     "blockers": 0,
-    "cells": 85,
+    "cells": 76,
     "harness": 6,
-    "infos": 75,
+    "infos": 65,
     "normalised_cells": 0,
     "recent": [
       {
@@ -653,21 +653,21 @@
         "schema_version": "1.0"
       }
     ],
-    "total": 103,
-    "warnings": 28,
+    "total": 92,
+    "warnings": 27,
     "window_days": 14
   },
-  "generated_at": "2026-11-26T08:08:49.606027+00:00",
+  "generated_at": "2026-11-27T08:09:15.864650+00:00",
   "health": [
     {
-      "failures": 1,
+      "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-25T15:45:25Z",
-      "median_seconds": 166,
-      "p95_seconds": 204,
-      "runs_considered": 4,
-      "success_rate": 0.75,
-      "successes": 3,
+      "last_run_at": "2026-11-26T15:44:02Z",
+      "median_seconds": 81,
+      "p95_seconds": 81,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
       "workflow": "Dependabot Updates"
     },
     {
@@ -682,33 +682,33 @@
       "workflow": "Dependency Graph"
     },
     {
-      "failures": 5,
+      "failures": 2,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T07:25:40Z",
-      "median_seconds": 110,
-      "p95_seconds": 538,
-      "runs_considered": 47,
-      "success_rate": 0.8936170212765957,
-      "successes": 42,
+      "last_run_at": "2026-11-27T07:25:43Z",
+      "median_seconds": 98,
+      "p95_seconds": 565,
+      "runs_considered": 42,
+      "success_rate": 0.9523809523809523,
+      "successes": 40,
       "workflow": "ci"
     },
     {
-      "failures": 2,
+      "failures": 1,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T07:25:40Z",
-      "median_seconds": 299,
-      "p95_seconds": 355,
-      "runs_considered": 49,
-      "success_rate": 0.9591836734693877,
-      "successes": 47,
+      "last_run_at": "2026-11-27T07:25:43Z",
+      "median_seconds": 297,
+      "p95_seconds": 352,
+      "runs_considered": 46,
+      "success_rate": 0.9782608695652174,
+      "successes": 45,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T07:50:28Z",
-      "median_seconds": 34,
-      "p95_seconds": 40,
+      "last_run_at": "2026-11-27T07:50:49Z",
+      "median_seconds": 31,
+      "p95_seconds": 35,
       "runs_considered": 48,
       "success_rate": 1.0,
       "successes": 48,
@@ -717,8 +717,8 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-25T23:29:19Z",
-      "median_seconds": 131,
+      "last_run_at": "2026-11-26T11:54:26Z",
+      "median_seconds": 138,
       "p95_seconds": 549,
       "runs_considered": 2,
       "success_rate": 1.0,
@@ -728,31 +728,31 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T00:44:34Z",
+      "last_run_at": "2026-11-26T14:09:56Z",
       "median_seconds": 23,
-      "p95_seconds": 24,
-      "runs_considered": 4,
+      "p95_seconds": 23,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 4,
+      "successes": 3,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T07:29:55Z",
-      "median_seconds": 48,
-      "p95_seconds": 90,
-      "runs_considered": 28,
+      "last_run_at": "2026-11-27T07:29:37Z",
+      "median_seconds": 47,
+      "p95_seconds": 51,
+      "runs_considered": 33,
       "success_rate": 1.0,
-      "successes": 28,
+      "successes": 33,
       "workflow": "promotion-prep"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T07:25:39Z",
-      "median_seconds": 19,
-      "p95_seconds": 28,
+      "last_run_at": "2026-11-27T07:25:43Z",
+      "median_seconds": 18,
+      "p95_seconds": 26,
       "runs_considered": 30,
       "success_rate": 1.0,
       "successes": 30,
@@ -761,20 +761,20 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T04:37:14Z",
+      "last_run_at": "2026-11-27T04:37:41Z",
       "median_seconds": 98,
-      "p95_seconds": 1149,
-      "runs_considered": 6,
+      "p95_seconds": 597,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 6,
+      "successes": 5,
       "workflow": "run-analytics"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-25T15:42:47Z",
-      "median_seconds": 423,
-      "p95_seconds": 423,
+      "last_run_at": "2026-11-26T15:43:17Z",
+      "median_seconds": 63,
+      "p95_seconds": 63,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
@@ -783,67 +783,67 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-11-26T08:07:44Z",
-      "median_seconds": 133,
-      "p95_seconds": 133,
+      "last_run_at": "2026-11-27T08:08:00Z",
+      "median_seconds": 97,
+      "p95_seconds": 97,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
       "workflow": "run-ops"
     },
     {
-      "failures": 1,
+      "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-25T17:33:36Z",
-      "median_seconds": 2210,
-      "p95_seconds": 3802,
+      "last_run_at": "2026-11-26T17:34:00Z",
+      "median_seconds": 163,
+      "p95_seconds": 3425,
       "runs_considered": 2,
-      "success_rate": 0.5,
-      "successes": 1,
+      "success_rate": 1.0,
+      "successes": 2,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T07:21:38Z",
-      "median_seconds": 735,
-      "p95_seconds": 896,
-      "runs_considered": 18,
+      "last_run_at": "2026-11-27T07:21:27Z",
+      "median_seconds": 722,
+      "p95_seconds": 1096,
+      "runs_considered": 23,
       "success_rate": 1.0,
-      "successes": 18,
+      "successes": 23,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T02:35:49Z",
-      "median_seconds": 821,
-      "p95_seconds": 885,
-      "runs_considered": 4,
+      "last_run_at": "2026-11-27T02:36:09Z",
+      "median_seconds": 824,
+      "p95_seconds": 852,
+      "runs_considered": 5,
       "success_rate": 1.0,
-      "successes": 4,
+      "successes": 5,
       "workflow": "run-seed"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T03:44:13Z",
-      "median_seconds": 855,
+      "last_run_at": "2026-11-27T03:44:09Z",
+      "median_seconds": 852,
       "p95_seconds": 855,
-      "runs_considered": 1,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "summarize"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-11-26T03:20:18Z",
-      "median_seconds": 554,
+      "last_run_at": "2026-11-27T03:20:29Z",
+      "median_seconds": 71,
       "p95_seconds": 554,
-      "runs_considered": 1,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "sync-staging"
     }
   ],
@@ -865,12 +865,12 @@
           "27 4 * * 4"
         ],
         "day": {
-          "delivered": 1,
+          "delivered": 0,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 3,
-          "lateness_p50_min": 3,
-          "slots": 1
+          "lateness_max_min": null,
+          "lateness_p50_min": null,
+          "slots": 0
         },
         "flags": [],
         "last_scheduled_at": "2026-11-26T04:30:23Z",
@@ -892,12 +892,12 @@
           "delivered": 48,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 21,
+          "lateness_max_min": 22,
           "lateness_p50_min": 2,
           "slots": 48
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T07:50:28Z",
+        "last_scheduled_at": "2026-11-27T07:50:49Z",
         "week": {
           "delivered": 336,
           "dropped": 0,
@@ -921,7 +921,7 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-25T11:54:17Z",
+        "last_scheduled_at": "2026-11-26T11:54:26Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -964,12 +964,12 @@
           "delivered": 24,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 18,
+          "lateness_max_min": 19,
           "lateness_p50_min": 2,
           "slots": 24
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T07:29:55Z",
+        "last_scheduled_at": "2026-11-27T07:29:37Z",
         "week": {
           "delivered": 168,
           "dropped": 0,
@@ -995,15 +995,15 @@
           "9 16 * * *"
         ],
         "day": {
-          "delivered": 5,
+          "delivered": 4,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 11,
-          "lateness_p50_min": 4,
-          "slots": 5
+          "lateness_max_min": 7,
+          "lateness_p50_min": 3,
+          "slots": 4
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T04:37:14Z",
+        "last_scheduled_at": "2026-11-27T04:37:41Z",
         "week": {
           "delivered": 29,
           "dropped": 0,
@@ -1046,18 +1046,18 @@
           "delivered": 1,
           "dropped": 0,
           "hours": 24,
-          "lateness_max_min": 3,
-          "lateness_p50_min": 3,
+          "lateness_max_min": 4,
+          "lateness_p50_min": 4,
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-25T15:42:47Z",
+        "last_scheduled_at": "2026-11-26T15:43:17Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
           "hours": 168,
           "lateness_max_min": 4,
-          "lateness_p50_min": 3,
+          "lateness_p50_min": 4,
           "slots": 7
         },
         "workflow": "run-evaluate"
@@ -1075,7 +1075,7 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T08:07:44Z",
+        "last_scheduled_at": "2026-11-27T08:08:00Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1100,7 +1100,7 @@
           "slots": 2
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-25T17:33:36Z",
+        "last_scheduled_at": "2026-11-26T17:34:00Z",
         "week": {
           "delivered": 14,
           "dropped": 0,
@@ -1126,7 +1126,7 @@
           "slots": 16
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T07:21:38Z",
+        "last_scheduled_at": "2026-11-27T07:21:27Z",
         "week": {
           "delivered": 112,
           "dropped": 0,
@@ -1149,17 +1149,17 @@
           "dropped": 0,
           "hours": 24,
           "lateness_max_min": 6,
-          "lateness_p50_min": 4,
+          "lateness_p50_min": 5,
           "slots": 4
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T02:35:49Z",
+        "last_scheduled_at": "2026-11-27T02:36:09Z",
         "week": {
           "delivered": 28,
           "dropped": 0,
           "hours": 168,
           "lateness_max_min": 7,
-          "lateness_p50_min": 4,
+          "lateness_p50_min": 5,
           "slots": 28
         },
         "workflow": "run-seed"
@@ -1177,7 +1177,7 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T03:44:13Z",
+        "last_scheduled_at": "2026-11-27T03:44:09Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1201,7 +1201,7 @@
           "slots": 1
         },
         "flags": [],
-        "last_scheduled_at": "2026-11-26T03:20:18Z",
+        "last_scheduled_at": "2026-11-27T03:20:29Z",
         "week": {
           "delivered": 7,
           "dropped": 0,
@@ -1284,9 +1284,9 @@
       "evaluations_retrospective_delta": 18,
       "events_predicted": 670,
       "predicted_resolved": 291,
-      "predicted_resolved_delta": 6,
+      "predicted_resolved_delta": 1,
       "predictions": 2458,
-      "predictions_delta": 84
+      "predictions_delta": 63
     },
     "forward_claim": {
       "by_predictor": {
@@ -1997,7 +1997,7 @@
         },
         {
           "conference": "2026-09-28",
-          "petitions": 53
+          "petitions": 52
         },
         {
           "conference": "2026-10-09",
@@ -2021,7 +2021,7 @@
         },
         {
           "conference": "2026-12-11",
-          "petitions": 24
+          "petitions": 30
         }
       ],
       "discovery": {
@@ -2029,7 +2029,7 @@
         "streams": [
           {
             "alarms": [],
-            "checked_on": "2026-11-26",
+            "checked_on": "2026-11-27",
             "cursor": 683,
             "frontier": 683,
             "holes": 0,
@@ -2040,30 +2040,30 @@
             "outside_serial": 526,
             "outside_source": "order-list 2026-11-16",
             "problems": [],
-            "quiet_business_days": 0,
+            "quiet_business_days": 1,
             "stall_threshold": 3,
             "stream": "paid"
           },
           {
             "alarms": [],
-            "checked_on": "2026-11-26",
+            "checked_on": "2026-11-27",
             "cursor": 6245,
             "frontier": 6245,
             "holes": 0,
-            "holes_reprobed": 1,
+            "holes_reprobed": 0,
             "holes_serving": [],
             "lookahead_hits": [],
             "newest_filed": "2026-11-25",
             "outside_serial": 6187,
             "outside_source": "miscellaneous-order 2026-11-19",
             "problems": [],
-            "quiet_business_days": 0,
+            "quiet_business_days": 1,
             "stall_threshold": 7,
             "stream": "ifp"
           },
           {
             "alarms": [],
-            "checked_on": "2026-11-26",
+            "checked_on": "2026-11-27",
             "cursor": 752,
             "frontier": 752,
             "holes": 2,
@@ -2074,20 +2074,20 @@
             "outside_serial": 716,
             "outside_source": "miscellaneous-order 2026-11-19",
             "problems": [],
-            "quiet_business_days": 0,
+            "quiet_business_days": 1,
             "stall_threshold": 3,
             "stream": "application"
           }
         ],
         "term": 26
       },
-      "documents_provisioned": 176,
-      "generated_on": "2026-11-26",
+      "documents_provisioned": 178,
+      "generated_on": "2026-11-27",
       "next_conference": "2026-12-04",
       "next_conference_petitions": 303,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 870
+      "watchlist": 875
     },
     "predictor_scores": [
       {
@@ -4296,24 +4296,12 @@
     }
   },
   "tooling": {
-    "base_rate_uses": 319,
-    "corpus_query_uses": 217,
+    "base_rate_uses": 292,
+    "corpus_query_uses": 191,
     "gaps": [
       {
         "count": 3,
         "label": "No base rate conditioned on a called-for response"
-      },
-      {
-        "count": 2,
-        "label": "No base-rate cut conditioned on a called-for response"
-      },
-      {
-        "count": 2,
-        "label": "No statpack cut conditioning on a called-for response"
-      },
-      {
-        "count": 2,
-        "label": "Web attempts returned no visible source content"
       },
       {
         "count": 2,
@@ -4338,11 +4326,23 @@
       {
         "count": 1,
         "label": "A --cvsg filter on fedcourts query would streamline retrieving historical post-CVSG SCOTUS priors directly"
+      },
+      {
+        "count": 1,
+        "label": "A --merits-judgment filter on fedcourts query (e.g., --merits-judgment vacated) would make retrieving historical SCOTUS merits comparators by judgment verb even faster."
+      },
+      {
+        "count": 1,
+        "label": "A --merits-judgment filter on fedcourts query (e.g., filtering granted SCOTUS rows by merits_judgment or non-null merits_decided) would make retrieving comparable resolved merits dockets faster without scanning broad granted cohorts."
+      },
+      {
+        "count": 1,
+        "label": "A --originating-court filter on fedcourts query would allow direct retrieval of historical CAAF cert petitions from the corpus without scanning general SCOTUS rows"
       }
     ],
     "helpful": [
       {
-        "count": 17,
+        "count": 13,
         "label": "cert_anchor in context.json"
       },
       {
@@ -4351,11 +4351,11 @@
       },
       {
         "count": 9,
-        "label": "decision-below.txt"
+        "label": "fedcourts statpack-at"
       },
       {
-        "count": 9,
-        "label": "fedcourts statpack-at"
+        "count": 8,
+        "label": "decision-below.txt"
       },
       {
         "count": 7,
@@ -4585,7 +4585,7 @@
         "used_corpus_query": true
       }
     ],
-    "reports": 355,
+    "reports": 328,
     "window_days": 14
   }
 }
