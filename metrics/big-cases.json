@@ -34241,11 +34241,14 @@
       ],
       "schedule": [
         {
-          "date": "2026-12-03",
-          "kind": "response_due"
+          "date": "2026-12-11",
+          "kind": "conference"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
       "score_max": 0.5,
       "score_min": 0.42,
       "score_range": 0.08,
@@ -35604,8 +35607,16 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [],
-      "scheduled": null,
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
       "score_max": 0.62,
       "score_min": 0.3,
       "score_range": 0.32,

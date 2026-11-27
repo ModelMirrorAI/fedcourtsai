@@ -1,0 +1,56 @@
+{
+  "actor_id": "gemini-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1466903,
+  "case_id": "scotus/9526000752",
+  "created_at": "2026-11-26T14:19:00Z",
+  "engine": "gemini",
+  "engine_version": "0.70.0",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 2.0886823,
+  "event_id": "evt-motion-disposition",
+  "input_tokens": 834456,
+  "model": "gemini-4-carbon",
+  "output_tokens": 27308,
+  "pipeline_sha": "82c8aa052fe99fb8da25330e6898f78865f4e91b",
+  "post_run_poll": {
+    "docket_number": "26A752",
+    "polled_at": "2026-11-26T14:58:12.630417Z",
+    "reason": null,
+    "signals": {
+      "cvsg": null,
+      "referred_to_court": {
+        "entry_date": null,
+        "present": false
+      },
+      "response_requested": {
+        "entry_date": null,
+        "present": false
+      }
+    },
+    "state": "open"
+  },
+  "pre_mint_poll": {
+    "docket_number": "26A752",
+    "polled_at": "2026-11-26T14:44:45.458970Z",
+    "reason": null,
+    "signals": {
+      "cvsg": null,
+      "referred_to_court": {
+        "entry_date": null,
+        "present": false
+      },
+      "response_requested": {
+        "entry_date": null,
+        "present": false
+      }
+    },
+    "state": "open"
+  },
+  "role": "predictor",
+  "run_id": "20261126T141900Z",
+  "schema_version": "1.0",
+  "served_models": [
+    "gemini-4-carbon"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000549",
+  "run_id": "20261127T141804Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned petition text"],
+  "helpful": ["cert_anchor and cert_amicus_line in context.json", "petition text with appendix bound in"],
+  "gaps": ["a base rate conditioned on respondent waiver / call-for-response status", "corpus search by statute or question presented"],
+  "notes": "Structured corpus filters could not surface FTCA-specific priors; the query was generic."
+}

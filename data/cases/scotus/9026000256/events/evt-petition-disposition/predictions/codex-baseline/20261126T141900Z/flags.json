@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000256",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "The November 24 entry labeled \u201cReply of Christopher Dier submitted\u201d links a readable reply PDF. The staged documents manifest omitted it. The reply was retrieved from the snapshot link and considered, including its discussion of Stone and the competing petitions."
+    }
+  ]
+}

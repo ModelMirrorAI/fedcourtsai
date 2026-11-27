@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000502",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen count of two distributions and elevated band include the October 9 conference, which preceded the October 13 sealing-motion grant and October 15 petition docketing. December 11 appears to be the first conference on certiorari. Treating this as a substantive relist could materially inflate the scoring baseline."
+    }
+  ]
+}

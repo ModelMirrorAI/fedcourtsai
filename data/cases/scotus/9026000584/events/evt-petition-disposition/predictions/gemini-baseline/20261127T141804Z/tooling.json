@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000584",
+  "run_id": "20261127T141804Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, call_endpoint)"
+  ],
+  "helpful": [
+    "fedcourts query --court scotus --docket-number 25-107 --full surfaced the exact OT2025 cert record and Dec. 8, 2025 denial for Gilliam v. Gerregano (including its 5 amicus briefs and 2 distributions)",
+    "context.json pre-pooled cert_anchor and cert_amicus_line rates for sal-v9 state band",
+    "CourtListener MCP verified that M J Nichols Co. v. Boardman (7th Cir. No. 26-1043, argued Sept. 17, 2026) remains undecided and that Gilliam drew no separate writing upon denial"
+  ],
+  "gaps": [
+    "A --originating-court filter on fedcourts query would allow retrieving recent SCOTUS cert priors from a specific circuit (e.g., ca4) directly"
+  ],
+  "notes": "Provisioned inputs and ranged corpus queries worked cleanly."
+}

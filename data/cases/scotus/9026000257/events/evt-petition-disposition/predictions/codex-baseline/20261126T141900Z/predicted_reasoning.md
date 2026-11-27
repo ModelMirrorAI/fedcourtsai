@@ -1,0 +1,5 @@
+I expect the Court to grant review after one further conference distribution. The petition has been distributed once, on November 24 for the December 11 conference, and has yet to be relisted. The justices can consider Louisiana’s conditional petition at the same conference. I expect them to proceed without inviting the Solicitor General’s views.
+
+I expect the grant to focus on the first question presented, whether the Establishment Clause permits Texas to prescribe a permanent, conspicuous Ten Commandments display in every public-school classroom. That question lets the Court decide whether *Stone v. Graham* still governs after *Kennedy v. Bremerton*. I expect the Court to leave the separate question about parents’ free-exercise rights for another case. Full briefing and oral argument are the likeliest route. The families’ request for a summary order applying *Stone* would require agreement about the very precedent that divided the Fifth Circuit.
+
+If the Court denies review, I expect no public dissent or statement. Justice Sotomayor is the likeliest author if a Justice does explain an objection to leaving the Fifth Circuit’s decision in place.

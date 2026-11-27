@@ -1,0 +1,11 @@
+I consulted the committed `metrics/statpack.md` tables for modern cert petitions, paid-petition relists, CVSGs, amicus briefs and prior-Term salience bands.
+
+- `uv run fedcourts paths --court scotus --docket 9026000502 --event evt-petition-disposition --role predictor` initially failed because the default uv cache was read-only. Retrying with `UV_NO_SYNC=1 UV_CACHE_DIR=/tmp/uv-cache` returned the case and event paths. Subsequent CLI calls used those settings.
+- `uv run fedcourts query --help` returned the filter and citation-lookup syntax.
+- `uv run fedcourts query --court scotus --era 1970s --citation '425 U.S. 308' --limit 1` returned no rows and reported sparse reporter-citation coverage. `ranged corpus reads: 10 GET(s), 2621440 byte(s)`
+- CourtListener opinion search by citation `425 U.S. 308` returned *United States v. Jones* as the first hit. A separate citation search for `380 U.S. 545` returned *Weems v. Louis Dreyfus Corp.* as the first hit. Both were unrelated.
+- CourtListener opinion search by citation `456 N.J. Super. 245` located *S.K.* A document search of opinion 4430558 for `adverse inference` located the Title 9 holding and the passage on corroboration.
+- CourtListener opinion search by case name in SCOTUS for `Baxter v. Palmigiano` confirmed the citation. A document search of opinion 109429 for `probative evidence` located the civil-inference rule.
+- CourtListener opinion search by case name in SCOTUS for `Armstrong v. Manzo` confirmed the citation. A document search of opinion 107034 for `burden` located the discussion of the burden at the later hearing.
+- CourtListener opinion search in the Washington Supreme Court by citation `526 P.3d 32` returned no results. A search in that court for case name `A.M.F.` and phrase `adverse inference` in 2023 located *In re Dependency of A.M.F.* A separate New Jersey Supreme Court search for case name `S.K.` and phrase `adverse inference` between August 31, 2018 and August 27, 2026 returned no results.
+- Two CourtListener document searches of opinion 11264705 (*A.M.F.*), for `criminal` and `S.K.`, located the discussion of possible criminal charges and the Washington court’s treatment of the New Jersey decision.

@@ -1,0 +1,10 @@
+# Forecast: Dier v. Landry, No. 26-256
+
+The docket shows **one distribution** (for the Conference of December 11, 2026), no CVSG, and no amicus briefs. The petition travels with two companions set for the same conference: *Nathan v. Alamo Heights ISD* (26-257, the Texas law, upheld on the merits by the en banc Fifth Circuit) and *Brumley v. Roake* (25-1360, Louisiana's conditional petition from the en banc ripeness ruling).
+
+- **Disposition.** The Court will most likely deny this petition. Its fate is tied to *Nathan*: if *Nathan* is denied, this petition is denied with it; if *Nathan* is granted, this petition is most likely held rather than granted alongside it, and then denied or GVR'd depending on how *Nathan* comes out. A plenary grant of this particular petition is unlikely: the judgment below is an unreasoned summary affirmance that petitioner himself requested, the petition is eleven pages, and the lead vehicle is *Nathan*.
+- **Further distributions.** More likely than not the petition is distributed at least once more. The Court will not dispose of the trio on a first look if it is seriously considering *Nathan* (a grant ordinarily follows a relist, and a dissent from denial takes relists to write), and a hold for *Nathan* would end in a later redistribution. Expect one to three further distributions if that path is taken; a clean denial on the December 14 order list is the alternative.
+- **CVSG.** None. No federal interest is at stake that the Court needs the Solicitor General for.
+- **Question presented (context only).** If the Court took a Louisiana case alongside *Nathan*, it would more likely be the State's own *Roake* petition, limited to ripeness. If it took this one, it would take QP 1 (ripeness) and probably QP 2 as well.
+- **Summary route.** Conditional on any grant here, a GVR after a decision in *Nathan* is likelier than plenary review of this petition.
+- **Separate writing.** If denied, most likely no writing on this order. Any dissent from, or statement respecting, denial would be written in *Nathan* (Justice Sotomayor or Justice Jackson the likeliest author) and might or might not be noted on this docket.
