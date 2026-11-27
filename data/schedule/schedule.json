@@ -810,7 +810,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-29",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 16,
       "response_due": null,
@@ -928,7 +928,7 @@
         }
       ],
       "distributed_for_conference": "2026-02-20",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": {
@@ -964,7 +964,7 @@
         }
       ],
       "distributed_for_conference": "2026-05-28",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -981,7 +981,7 @@
         }
       ],
       "distributed_for_conference": "2026-04-24",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1003,7 +1003,7 @@
         }
       ],
       "distributed_for_conference": "2026-04-17",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1104,7 +1104,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-18",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1126,7 +1126,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-25",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1189,7 +1189,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-25",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1211,7 +1211,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-18",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1259,7 +1259,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-18",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1281,7 +1281,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-25",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1303,7 +1303,7 @@
         }
       ],
       "distributed_for_conference": "2026-06-25",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 1,
       "response_due": null,
@@ -1320,7 +1320,7 @@
         }
       ],
       "distributed_for_conference": "2026-05-14",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -1342,7 +1342,7 @@
         }
       ],
       "distributed_for_conference": "2026-09-28",
-      "last_live_polled": "2026-11-19",
+      "last_live_polled": "2026-11-27",
       "next_conference": null,
       "relists": 0,
       "response_due": null,
@@ -4735,7 +4735,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-26",
+      "last_live_polled": "2026-11-27",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": {
@@ -4803,7 +4803,7 @@
         }
       ],
       "distributed_for_conference": "2026-12-04",
-      "last_live_polled": "2026-11-26",
+      "last_live_polled": "2026-11-27",
       "next_conference": "2026-12-04",
       "relists": 0,
       "response_due": null,
