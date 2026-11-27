@@ -1,0 +1,10 @@
+- Consulted the interim-docket and applicant-class tables in `metrics/statpack.md` and pooled the OT2016–OT2025 finer counts in `metrics/statpack.json`.
+- Ran `uv run fedcourts paths --court scotus --docket 9526000752 --event evt-motion-disposition --role predictor`. The first invocation stopped at the read-only default uv cache. Retried with `UV_CACHE_DIR=/tmp/codex-uv-cache UV_NO_SYNC=1` and obtained the event path. The same uv settings applied to the following commands.
+- `uv run fedcourts query --help` listed the corpus filters.
+- `uv run fedcourts query --court scotus --citation '558 U.S. 183' --decided-before 2026 --limit 1` returned no matching row and reported sparse reporter-citation coverage. Its transfer line was `ranged corpus reads: 10 GET(s), 2621440 byte(s)`.
+- CourtListener MCP `search` for SCOTUS opinions at 558 U.S. 183 returned *Hollingsworth v. Perry*. The requested nested opinion ID field was unavailable. A second `search` for the same citation requesting the full opinions field identified lead opinion 9413203.
+- CourtListener MCP `search` for Eastern District of Wisconsin docket 2:25-cv-01702, document 12, filed before November 17, 2026, identified Armstrong's case. The nested document fields were unavailable. A second `search` using the same filters and the full RECAP documents field returned the May 29 district court order, document ID 480922795.
+- CourtListener MCP `read_document` on RECAP document 480922795 returned the dismissal and sanctions order, including the independent pleading ground, monetary fine and exceptions to the filing restriction.
+- CourtListener MCP `search_document` for “fair prospect” in lead opinion 9413203 returned the stay standards and their application in *Hollingsworth*.
+- CourtListener MCP `search` for Seventh Circuit docket 26-2488, document 20, filed before November 17, 2026, returned the November 10 fee order and fourteen-day deadline.
+- CourtListener MCP `search` on the same appellate docket and date filter for document 21 returned the order declining counsel and reserving recruitment to the merits panel.

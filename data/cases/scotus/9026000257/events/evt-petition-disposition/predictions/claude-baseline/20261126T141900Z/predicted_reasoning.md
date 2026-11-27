@@ -1,0 +1,15 @@
+# Forecast: Nathan v. Alamo Heights ISD, No. 26-257
+
+**State forecast from.** The docket shows one distribution (Nov. 24, 2026, for the Conference of Dec. 11, 2026), no relist, no CVSG, three cert-stage amicus briefs, a brief in opposition and a reply.
+
+**Relists.** The Court will not dispose of this petition at the December 11 conference. Expect at least one further distribution, and more likely two to four: the petition will be considered together with Louisiana's conditional petition in *Brumley v. Roake*, No. 25-1360, which was pulled from the December 4 conference and reset for December 11 alongside this one. A petition this prominent is either relisted on its way to a grant or relisted while a Justice writes on a denial. An outright denial at the first conference without a writing is the minority path (roughly one in four).
+
+**CVSG.** No call for the Solicitor General's views. The dispute is between private families and Texas school districts over a state statute, and the federal government's position adds little the Court needs.
+
+**Disposition.** Denial is slightly more likely than a grant (about 60/40). No other court of appeals has ruled on a post-*Kennedy* classroom Ten Commandments mandate; the Eighth Circuit heard the Arkansas case in September 2026 and has not decided it. The Justices most sympathetic to the Fifth Circuit's result have little reason to reach out now, and the Justices most troubled by it have reason to fear what a grant would produce. The brief in opposition also gives the Court a ready reason to wait: the incoming Texas Attorney General has said he will not defend the statute. The grant path runs through the Justices who care about lower courts declaring this Court's precedent dead (*Rodriguez de Quijas*); if the Eighth Circuit rules for the Arkansas plaintiffs while this petition is still pending, a grant becomes the likely outcome.
+
+**Question presented, if granted.** The Court would take the first question (the Establishment Clause and the status of *Stone v. Graham*), probably as written or reformulated to ask directly whether *Stone* should be overruled. It may leave the second, free-exercise (*Mahmoud*) question behind or take it as a companion issue. A grant here would probably come with a disposition holding or granting *Brumley v. Roake* in tandem.
+
+**Summary disposition.** Unlikely even on a grant (about 15% of grants). The petition asks for summary reversal or a GVR directing the Fifth Circuit to apply *Stone*, but there are not five or six votes to revive *Stone* by per curiam order, and no intervening decision supports an ordinary GVR. A grant would mean briefing and argument, most likely argued in spring 2027 or held to October Term 2027.
+
+**Writings on a denial.** If the Court denies, expect a dissent from denial or a statement respecting it (about 60%), most likely from Justice Sotomayor or Justice Jackson, possibly joined by Justice Kagan. A statement from a Justice on the other side (Thomas, Alito or Gorsuch) saying *Stone* did not survive *Kennedy* is possible but less likely.

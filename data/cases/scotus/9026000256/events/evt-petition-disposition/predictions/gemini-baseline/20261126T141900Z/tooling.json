@@ -1,0 +1,31 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000256",
+  "gaps": [
+    "Reply briefs submitted on the snapshot date (Dier's Nov. 24, 2026 cert reply) are not a provisioned document kind in record/documents/, requiring web_fetch in forward mode.",
+    "CourtListener MCP held the cluster stub for Nathan v. Alamo Heights ISD (cluster 10846394) without opinion text, and F.4th reporter citations were not yet indexed."
+  ],
+  "helpful": [
+    "fedcourts query --docket-number surfaced both companion SCOTUS dockets (25-1360 and 26-257) with conference dates, distribution counts, and amicus counsel immediately.",
+    "record/context.json provided pre-computed cert_anchor and cert_amicus_line rates alongside complete, untruncated provisioned PDFs in record/documents/.",
+    "CourtListener MCP opinion search and document search quickly retrieved the en banc Fifth Circuit opinion and dissents in Roake v. Brumley."
+  ],
+  "notes": "[\"All three Fifth Circuit Ten Commandments petitions (25-1360, 26-256, 26-257...\n[harness] tooling.json did not validate; normalised: notes [\"All three Fifth Circuit Ten Commandments petitions (25-1360, 26-256, 26-257... not text; quoted",
+  "role": "predictor",
+  "run_id": "20261126T141900Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document",
+    "web_fetch",
+    "google_web_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

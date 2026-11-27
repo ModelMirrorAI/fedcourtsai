@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9526000752",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "The self-represented applicant’s signature block in application.txt retains part of a mailing address, although documents.json reports zero contact residuals. Please review the scrub around signature blocks followed by an appendix. The residual is omitted from the forecast and had no bearing on it."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Reasoning
+
+**P(any grant) = 0.09.** Forward cell; snapshot `2026-11-26.json`; band `baseline` (sal-v9), one distribution, no CVSG, zero amicus briefs.
+
+**Anchors.** `cert_anchor.rate` is 0.052 (baseline band, reached rate, ten prior Terms); `cert_amicus_line` for the no-amicus arm is 0.027. I sit somewhat above both.
+
+**What I read.** The questions presented, the petition, the brief in opposition, and the opening of the appendix (the Fifth Circuit's one-paragraph order granting petitioner's own motion for summary affirmance, panel Stewart, Richman, Haynes). The reply is on the docket (Nov 24) but was not provisioned and I did not fetch it. `same-question.json` lists no matches, although two companions plainly exist; I found them through the petition's related-proceedings statement, the corpus `--docket-number` lookup and the Court's docket pages. No `record/related/` was staged because the docket carries no `Vide` link.
+
+**Why above the anchor.** The petition rides with *Nathan* (26-257) and *Roake* (25-1360), all three distributed for December 11, 2026. *Nathan* is a plausible grant: an en banc court of appeals upheld a statewide classroom Ten Commandments mandate despite *Stone v. Graham*, other States are legislating in reliance, three amicus briefs are filed there (two groups of law professors and one advocacy group), and *Roake* drew a call for a response after a waiver. Against it: no circuit split yet, both States oppose review, similar cases are percolating elsewhere, and Louisiana's BIO says Texas's incoming Attorney General may stop defending the Texas law. I put *Nathan* at roughly 35–40%.
+
+**Why still low.** Conditional on a *Nathan* grant, this petition is much more likely held than granted. It is a weak vehicle: an unreasoned summary affirmance that petitioner sought after arguing the opposite position in the district court (the BIO presses this as gamesmanship), an eleven-page petition, and a teacher plaintiff whose claim raises extra complications. Louisiana's conditional acquiescence favours a Louisiana case being heard, but its own *Roake* petition is the natural pick. I give a direct grant about 7% given *Nathan* is granted. If held, a GVR needs *Nathan* to come out against the State in a way that touches this judgment, which I put near 20–25%. Combined: about 0.37 × 0.27 ≈ 0.10, shaded to 0.09.
+
+**Other claims.** `relist-increment` 0.65: tied to whether the Court lingers on *Nathan* or holds this case; *Roake* has already been rescheduled once. `summary-disposition-route` 0.70: most of the grant mass is a post-*Nathan* GVR. `dissent-from-denial` 0.08 and the `order-writers` numbers: a writing is more likely on the *Nathan* order than on this one.
+
+**Where to discount me.** My *Nathan* estimate is judgment, not a table. I did not read the *Nathan* or *Roake* papers themselves, only Louisiana's description of them in this BIO. The corpus priors query returned nothing usable (a rejected `--era` value); I used the statpack band table and the frozen anchor instead.

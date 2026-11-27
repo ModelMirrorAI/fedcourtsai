@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000752",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "metrics/statpack.json"],
+  "helpful": ["applicant-class table in the interim section", "provisioned application text"],
+  "gaps": ["no base-rate cut for self-represented applicants", "no filter for application_kind or pro se status in fedcourts query"],
+  "notes": "A pro se / counseled split of the private applicant row would be the single most useful interim cut."
+}

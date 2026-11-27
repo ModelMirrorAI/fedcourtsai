@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000256",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "WebFetch (supremecourt.gov docket pages)"],
+  "helpful": ["--docket-number lookup for companion petitions", "frozen cert_anchor in context.json"],
+  "gaps": ["Companions named in the petition's related-proceedings statement were not staged under record/related/ and same-question.json was empty; the cert reply was not provisioned"],
+  "notes": "An invalid --era value cost one query; the era vocabulary is decade tokens."
+}
