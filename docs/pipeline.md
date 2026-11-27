@@ -2073,9 +2073,11 @@ run-log issue means exactly "a window broke".
 
 **An open issue is one of exactly three things, and the reader can tell which
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
-`pipeline-health`, `ai-watchlist`, `merits-coverage`, `order-reconcile`, `forecast-coverage` — is filed only by a failure, so an open one
+`pipeline-health`, `ai-watchlist`, `merits-coverage`, `order-reconcile`, `forecast-coverage`, `withheld-round` — is filed only by a failure, so an open one
 always means something needs attention. A run-log alarm is closed by a human
-once triaged; the latched alarms, `data-validation`, `pipeline-health`,
+once triaged, and so is the `withheld-round` alarm, which a predict or
+evaluate `collect` opens when its secret scan withholds a run's output
+(*secret scan did not pass* in the collect recovery table, below); the latched alarms, `data-validation`, `pipeline-health`,
 `ai-watchlist`, `merits-coverage`, `order-reconcile` and `forecast-coverage`, also close
 themselves when their check is green again, and each closes only the issue it
 filed, matched by its fixed title and the workflow bot as author. The
@@ -2118,7 +2120,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation and AI-watchlist escalations, the merits-coverage, order-reconcile and forecast-coverage alarms, and the daily digest must
+safe: the run-log alarms, the data-validation and AI-watchlist escalations, the merits-coverage, order-reconcile, forecast-coverage and withheld-round alarms, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -2365,10 +2367,10 @@ pattern rather than rediscovering it:
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
   the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
-  `post-agent-feedback`, `merits-coverage-alarm`, `order-reconcile-alarm`, `coverage-verdict-alarm`, and `daily-digest --post`
+  `post-agent-feedback`, `post-withheld-alarm`, `merits-coverage-alarm`, `order-reconcile-alarm`, `coverage-verdict-alarm`, and `daily-digest --post`
   commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
-  and secret-scan reports, the flag roll-up latch itself, and the daily digest's
+  and secret-scan reports and its withheld-round alarm, the flag roll-up latch itself, and the daily digest's
   issue creates — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
   `authz.py`'s collaborator-permission lookup carries the same bound in its own
@@ -4014,7 +4016,20 @@ secret scan (`fedcourts scan-diff-for-secrets`) run beside it producer-side —
 a validation failure downgrades the PR to a draft, while a secret-scan hit
 **withholds the branch entirely** (nothing pushed; a redacted report lands on
 the run's step summary) since the push itself would publish the secret (see
-[security.md](security.md)).
+[security.md](security.md)). A withhold is the scan working, so the collect
+job still concludes green, and what tells a maintainer is the
+**`withheld-round` alarm**: the job's `post-withheld-alarm` step finds the
+open issue "Run output withheld by the secret scan" under that label, opening
+it when none is open, and adds one comment per withholding report with the
+workflow, the run, the number of cells withheld and the same redacted report.
+It is raised too when the scan fires only on the run's roll-up text, which is
+then left unpublished while the run's PRs land (the comment says no branch was
+recorded), and when the scan ends without writing a report at all. Only an
+issue the workflow token opened under that title counts as the alarm, and only
+that token's comments count as posted.
+A maintainer closes the issue once each run on it is settled; no later run
+can tell whether a withheld run was salvaged, deleted or left to a re-spend,
+so nothing closes it for them.
 
 For both fan-outs, `collect` also rolls up any
 agent feedback (`flags.json`) the run surfaced and posts it three ways — each
@@ -4327,7 +4342,7 @@ three remedies:
 |---|---|---|
 | *artifact did not transfer* | the cell likely succeeded; its output still exists | **re-run the `collect` job** |
 | *no cell output at all* | the cell died before it could report | **let the next round re-derive the cell** — no rerun helps |
-| *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the run's step summary | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
+| *secret scan did not pass; withholding &lt;branch&gt;* (log), with a redacted report on the run's step summary and on the open `withheld-round` alarm issue | that branch was withheld — its cells' output sits only in the run's cell artifacts | **review the flagged content, then salvage by hand or accept a re-spend** — see below |
 | *add-only union refused &lt;path&gt;* (log annotation + step summary) | the cell's artifact carried a different version of a file the branch base already has — normally its run-start copy of a file a deterministic writer advanced mid-run; the checkout's authoritative copy was kept | **usually none** — investigate only if the refused path is inside the run's own cell output, which would mean two writers claimed the same path |
 
 A secret-scan withhold starts with a judgment call the other two rows do not

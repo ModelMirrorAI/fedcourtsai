@@ -310,17 +310,16 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
     """A cancelled or timed-out collect must still leave a trace.
 
     Job-level `always()` steps run on cancellation; a composite step's remaining
-    inner steps are not guaranteed to. These three exist so a dead collect still
+    inner steps are not guaranteed to. These four exist so a dead collect still
     says so somewhere a reader lands, so they belong in the caller.
     """
+    posters = ("post-issue-comment", "post-withheld-alarm", "post-agent-feedback")
     for workflow in FAN_OUTS:
         steps = _steps(_collect_job(workflow))
-        reporting = [
-            s
-            for s in steps
-            if "post-issue-comment" in s.get("run", "") or "post-agent-feedback" in s.get("run", "")
-        ]
-        assert len(reporting) == 3, f"{workflow}: expected stall, secret-scan, and feedback steps"
+        reporting = [s for s in steps if any(poster in s.get("run", "") for poster in posters)]
+        assert len(reporting) == 4, (
+            f"{workflow}: expected stall, secret-scan, withheld-alarm, and feedback steps"
+        )
         for step in reporting:
             assert "always()" in step["if"]
             # Least privilege: commenting triggers nothing, so issue-write stays
@@ -328,10 +327,52 @@ def test_the_reporting_steps_stay_job_level_so_cancellation_still_reports() -> N
             assert step["env"]["GH_TOKEN"] == "${{ github.token }}"
 
     action_body = COLLECT_ACTION.read_text()
-    for poster in ("post-issue-comment", "post-agent-feedback"):
+    for poster in posters:
         assert poster not in action_body, (
             "a reporting step moved into the composite; it would stop firing on cancellation"
         )
+
+
+def test_a_secret_scan_withhold_raises_the_withheld_round_alarm() -> None:
+    """A withheld branch opens no PR and its collect concludes green, so the
+    alarm issue is the only notice a maintainer is sent. The composite records
+    what it withheld, and each caller raises the alarm from that ledger and the
+    scan's report."""
+    aggregate = _aggregate_body()
+    withhold = aggregate.split("secret scan did not pass; withholding", 1)[1].split("continue", 1)[
+        0
+    ]
+    assert ">> withheld-branches.jsonl" in withhold, (
+        "the ledger is written where the scan withholds"
+    )
+    assert "(.artifact_dirs | length)" in withhold
+    # Fail-soft: a lost count must not abort the loop before the reset below.
+    assert "|| echo" in withhold and "git reset -q --hard" in withhold
+
+    for workflow in FAN_OUTS:
+        step = next(
+            s for s in _steps(_collect_job(workflow)) if "post-withheld-alarm" in s.get("run", "")
+        )
+        run = step["run"]
+        # Raised on either file: a lost ledger cannot silence a report, and a
+        # scan that ended without a report cannot silence a withheld branch.
+        assert "[ -s secret-scan-issue.md ] || [ -s withheld-branches.jsonl ] || exit 0" in run
+        # The workflow's own name, from the runner: the two jobs stay byte-equal.
+        assert '--workflow "$GITHUB_WORKFLOW"' in run
+        assert "--report-file secret-scan-issue.md" in run
+        assert "--withheld-file withheld-branches.jsonl" in run
+        assert '--github-run-id "$GITHUB_RUN_ID"' in run
+        # The job needs the issue write the alarm rides on.
+        assert _collect_job(workflow)["permissions"]["issues"] == "write"
+
+
+def test_the_collect_job_cap_admits_every_bounded_step() -> None:
+    """The cap exceeds the sum of the bounded steps, so a degraded API at one
+    report cannot take the time a later `always()` report still needs."""
+    for workflow in FAN_OUTS:
+        job = _collect_job(workflow)
+        bounded = sum(int(s.get("timeout-minutes", 0)) for s in _steps(job))
+        assert bounded < int(job["timeout-minutes"]), f"{workflow}: {bounded} bounded minutes"
 
 
 def test_the_artifact_name_derivation_matches_what_the_cells_upload() -> None:
