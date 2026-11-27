@@ -25,8 +25,11 @@ Detectors, strongest first:
 - **Structured patterns**: credential shapes with distinctive prefixes (AWS
   key ids and session tokens, PEM private-key headers, GitHub/Slack tokens,
   JWTs, model-provider ``sk-`` keys, Google keys, ``key=value`` assignments
-  with a token-shaped value). A prefix counts at a word boundary and at the
-  places a transcript or a logged URL puts a token with none: directly after
+  with a token-shaped value). The bare ``sk-`` prefix is the one a case slug
+  can reproduce — a party's initials after a hyphen in an opinion URL — so it
+  does not count when everything after it reads as a hyphenated slug:
+  lowercase letters and digits in a few short segments. A prefix counts at a
+  word boundary and at the places a transcript or a logged URL puts a token with none: directly after
   a JSON escape (a token printed at the start of a line arrives as ``\\n`` and
   then the token), a terminal colour code, a percent-escape, or an
   underscore. The typed Anthropic prefix and ``github_pat_`` count anywhere. A
@@ -148,9 +151,58 @@ _START = (
     r"|(?<=\[m)|(?<=\[[0-9]m)|(?<=\[[0-9]{2}m)|(?<=_))"
 )
 
+# What follows a bare `sk-` when the match is a hyphenated slug rather than a
+# key. The start rule admits `sk-` after a hyphen, and an opinion URL's slug
+# puts a party's initials exactly there (`…/dcpp-vs-sk-and-ck-in-the-matter-of-…/`),
+# so the prefix alone convicts a citation, and a hit withholds a whole round.
+# A slug's tail is lowercase letters and digits in a few short
+# hyphen-separated segments; a key's is not. So the bare prefix is not a match
+# when the *whole* tail, up to the first character outside the key alphabet,
+# reads that way, and is one otherwise. In a tail long enough to match at all:
+#
+# - any uppercase letter or underscore convicts — a base64 or base64url body
+#   of 20 characters or more all but always carries one;
+# - any unbroken segment longer than `_SK_SLUG_SEGMENT_CAP` convicts, which is
+#   every single-case body no hyphen divides (a 32- or 64-character hex key, a
+#   base32 or lowercase-base62 one);
+# - more than `_SK_SLUG_MAX_SEGMENTS` segments convict;
+# - an empty segment (`--`, or a trailing hyphen) convicts, being no slug.
+#
+# What this gives up, by shape alone, is any key that is lowercase letters
+# and digits throughout *and* hyphenated into segments no longer than the
+# cap: a UUID after `sk-`, a lowercase base36 body cut into short groups, a
+# typed prefix (`sk-proj-`, `sk-svcacct-`) followed by such groups, or a
+# human-chosen proxy key (`sk-team-master-key-prod-2024`). Nothing else in
+# this module reliably names those: a `sk-<uuid>` is under the entropy rule's
+# length floor and hex scores below its bar, and the transcript and retrieval
+# surfaces do not run that rule at all. The provider formats this gate was
+# written for stay convicted — mixed-case base62 and base64url bodies, bare or
+# typed, and unbroken hex — and containment searches every key the pipeline
+# itself holds by value, whatever its shape. The typed Anthropic branch below
+# is separate and unaffected.
+#
+# Both caps are a trade, not a fact about captions. Each character of segment
+# cap is single-case key body the exemption can absorb, so it sits just above
+# the common long caption words (`telecommunications` is 18) and a slug
+# carrying a longer one (`pricewaterhousecoopers`) still convicts. The
+# segment count bounds the work: a declined tail consumes nothing, so every
+# later `sk-` in the same run reads the run again, and an uncapped reading is
+# quadratic in a run an agent can make as long as it likes. Capped, each
+# start reads at most `_SK_SLUG_MAX_SEGMENTS` segments, and a longer chain
+# convicts and is consumed in one match. 40 clears the slugs the ledger
+# cites, which the source caps at 75 characters.
+_SK_SLUG_SEGMENT_CAP = 19
+_SK_SLUG_MAX_SEGMENTS = 40
+_SK_SLUG_SEGMENT = rf"[a-z0-9]{{1,{_SK_SLUG_SEGMENT_CAP}}}"
+_SK_SLUG_TAIL = (
+    rf"{_SK_SLUG_SEGMENT}(?:-{_SK_SLUG_SEGMENT}){{0,{_SK_SLUG_MAX_SEGMENTS - 1}}}"
+    r"(?![A-Za-z0-9_-])"
+)
+
 # Structured credential shapes. Each pattern anchors on a distinctive prefix
-# or header, so ordinary legal text (citations, docket numbers, case slugs)
-# cannot match. Order is the report order.
+# or header, so ordinary legal text (citations, docket numbers) cannot match;
+# the one prefix a case slug can reproduce, bare `sk-`, also reads what
+# follows it. Order is the report order.
 _STRUCTURED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("aws-key-id", re.compile(rf"{_START}(?:AKIA|ASIA)[0-9A-Z]{{16}}\b")),
     ("aws-session-token", re.compile(rf"{_START}(?:FwoG|IQoJ)[A-Za-z0-9+/=]{{80,}}")),
@@ -174,12 +226,15 @@ _STRUCTURED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     # Model-provider keys: the `sk-proj-` / `sk-ant-` variants continue in the
     # same alphabet, so one pattern covers them. No English word starts `sk-`,
     # but plenty end in it (`task-force-…`), so the bare prefix keeps its start
-    # anchor; Anthropic's typed prefix (`sk-ant-api03-`, `sk-ant-oat01-`) is
-    # distinctive enough to match wherever it sits.
+    # anchor, and it declines a tail that reads as a hyphenated slug
+    # (`_SK_SLUG_TAIL`); Anthropic's typed prefix (`sk-ant-api03-`,
+    # `sk-ant-oat01-`) is distinctive enough to match wherever it sits and
+    # whatever follows it.
     (
         "model-provider-key",
         re.compile(
-            rf"(?:{_START}sk-[A-Za-z0-9_-]{{20,}}|sk-ant-[a-z]{{2,8}}[0-9]{{2}}-[A-Za-z0-9_-]{{20,}})"
+            rf"(?:{_START}sk-(?!{_SK_SLUG_TAIL})[A-Za-z0-9_-]{{20,}}"
+            rf"|sk-ant-[a-z]{{2,8}}[0-9]{{2}}-[A-Za-z0-9_-]{{20,}})"
         ),
     ),
     # Google API keys and OAuth access tokens.
