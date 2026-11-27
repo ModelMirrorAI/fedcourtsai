@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000163",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents"],
+  "helpful": ["cert_anchor and cert_amicus_line in context.json", "provisioned BIO and cert reply"],
+  "gaps": ["No way to query priors by question presented or topic for SCOTUS rows", "No pending-GVR/hold list for a recent decision such as Abouammo"],
+  "notes": "The first query failed on --era modern with a usage error; the structured filters returned nothing specific to this petition's question."
+}

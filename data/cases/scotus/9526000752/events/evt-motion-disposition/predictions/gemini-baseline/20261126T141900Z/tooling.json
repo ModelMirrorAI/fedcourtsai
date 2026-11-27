@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000752",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener MCP (search, read_document)"
+  ],
+  "helpful": [
+    "Provisioned application.txt (OCR of full 17-page application and Seventh Circuit appendix orders)",
+    "CourtListener RECAP docket-entry search and read_document for E.D. Wis. 2:25-cv-01702 and CA7 26-2488",
+    "metrics/statpack.json per-Term finer_granted/finer_resolved and applicant_cuts breakdowns",
+    "fedcourts query ranged corpus lookups for recent substantive SCOTUS applications"
+  ],
+  "gaps": [
+    "A direct --application-kind substantive or --originating-court filter on fedcourts query would avoid scanning past large cert-denial order lists when pulling interim application priors."
+  ],
+  "notes": "All provisioned files and CourtListener RECAP primary documents loaded cleanly."
+}

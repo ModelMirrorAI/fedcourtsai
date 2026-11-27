@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000257",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "WebSearch", "WebFetch (supremecourt.gov docket)"],
+  "helpful": ["--docket-number lookup of the companion petition", "provisioned BIO and reply text", "cert_anchor and cert_amicus_line in context.json"],
+  "gaps": ["decision-below.txt was not staged and the petition appendix was cut, so the en banc opinions were unreadable", "the companion conditional petition (25-1360) is not a Vide link, so record/related/ did not stage it", "no stance field on cert-stage amicus briefs"],
+  "notes": "One query failed on an invalid --era token (modern); the usage message was clear."
+}

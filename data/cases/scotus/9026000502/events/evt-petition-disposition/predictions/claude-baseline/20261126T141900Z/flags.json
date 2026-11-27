@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/9026000502",
+  "run_id": "20261126T141900Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The frozen distribution_count of 2 (band `elevated`, cert_anchor 0.248) appears to count a motion-only conference as a distribution of the petition. The Sep 16 entry 'DISTRIBUTED for Conference of 10/9/2026' precedes docketing (Oct 15) and the response deadline and is followed by 'Motion Granted' (Oct 13) on the motion for leave to file under seal (linked 26M23). The Nov 24 distribution for the 12/11/2026 conference looks like the petition's first, after both respondents waived. The petition was likely never relisted, so the band and anchor probably overstate its grant likelihood; I forecast well below the anchor on that reading."
+    }
+  ]
+}
