@@ -1,0 +1,23 @@
+{
+  "available": [],
+  "available_rule": null,
+  "day": "2026-11-27",
+  "entries": [
+    {
+      "case": "In re OpenAI Copyright Infringement Litigation (MDL 3143)",
+      "category": "copyright",
+      "court": "nysd",
+      "date_filed": "2026-11-25",
+      "docket_id": 69879510,
+      "docket_number": "1:25-md-03143",
+      "entry_id": 486955556,
+      "entry_number": 2612,
+      "kind": "motion",
+      "motion": "summary-judgment",
+      "supersedes": null,
+      "url": "https://www.courtlistener.com/docket/69879510/2612/in-re-openai-inc-copyright-infringement-litigation/"
+    }
+  ],
+  "rule": "ai-activity-v2",
+  "schema_version": "1.0"
+}

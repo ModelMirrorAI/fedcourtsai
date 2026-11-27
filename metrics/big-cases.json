@@ -1,12 +1,12 @@
 {
-  "cases": 435,
-  "cases_at_court_next_conference": 44,
+  "cases": 436,
+  "cases_at_court_next_conference": 45,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 396,
+      "cases": 397,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1302,
+  "current_reads": 1305,
   "declared_no_view": 29,
   "frozen_process": {
     "digests": [
@@ -393,7 +393,7 @@
       }
     ]
   },
-  "median_adjacent_gap": 0.001,
+  "median_adjacent_gap": 0.0003,
   "median_score_range": 0.2,
   "missing_reads": 9,
   "predictors": [
@@ -13815,12 +13815,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-25",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.6,
@@ -20422,12 +20417,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-25",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
@@ -25856,12 +25846,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-25",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.52,
@@ -29520,6 +29505,132 @@
       "score_min": 0.35,
       "score_range": 0.25,
       "short_caption": "Eric Alan Isaacson v. National Veterans Legal Services Program",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Juan Carlos Alvarez",
+      "caption": "Juan Carlos Alvarez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000279",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Capital habeas case on a vivid sleeping-lawyer Sixth Amendment claim with a divided Fifth Circuit panel and elite counsel; doctrinally a fact-bound AEDPA application rather than a broad rule.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261125T141841Z"
+        },
+        {
+          "big_case_rationale": "A ruling could clarify when a state prisoner must prove harm from losing counsel during testimony. Alvarez faces a death sentence, and the local rule limiting co-counsel\u2019s role narrows the reach of a decision.",
+          "big_case_score": 0.64,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261125T141841Z"
+        },
+        {
+          "big_case_rationale": "A merits decision clarifying Cronic's reach when lead capital counsel sleeps alongside co-counsel and AEDPA's generality standard after Andrew v. White would carry meaningful Sixth Amendment and habeas significance, bounded by idiosyncratic local-practice facts.",
+          "big_case_score": 0.48,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261125T173428Z"
+        }
+      ],
+      "docket_id": 9026000279,
+      "docket_number": "26-279",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-279.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Capital habeas case on a vivid sleeping-lawyer Sixth Amendment claim with a divided Fifth Circuit panel and elite counsel; doctrinally a fact-bound AEDPA application rather than a broad rule.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000279/events/evt-petition-disposition/predictions/claude-baseline/20261125T141841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000279/events/evt-petition-disposition/predictions/claude-baseline/20261125T141841Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.09,
+              "run_id": "20261125T141841Z"
+            },
+            {
+              "big_case_rationale": "A ruling could clarify when a state prisoner must prove harm from losing counsel during testimony. Alvarez faces a death sentence, and the local rule limiting co-counsel\u2019s role narrows the reach of a decision.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9026000279/events/evt-petition-disposition/predictions/codex-baseline/20261125T141841Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000279/events/evt-petition-disposition/predictions/codex-baseline/20261125T141841Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261125T141841Z"
+            },
+            {
+              "big_case_rationale": "A merits decision clarifying Cronic's reach when lead capital counsel sleeps alongside co-counsel and AEDPA's generality standard after Andrew v. White would carry meaningful Sixth Amendment and habeas significance, bounded by idiosyncratic local-practice facts.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/9026000279/events/evt-petition-disposition/predictions/gemini-baseline/20261125T173428Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000279/events/evt-petition-disposition/predictions/gemini-baseline/20261125T173428Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.09,
+              "run_id": "20261125T173428Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Juan Carlos Alvarez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5067,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-02",
+      "n": 3,
+      "other_party": "Guerrero",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Juan Carlos Alvarez's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Juan Carlos Alvarez's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-04",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-04",
+        "kind": "conference"
+      },
+      "score_max": 0.64,
+      "score_min": 0.4,
+      "score_range": 0.24,
+      "short_caption": "Juan Carlos Alvarez v. Guerrero",
       "status": "pending"
     },
     {
@@ -48531,12 +48642,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-25",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.18,
@@ -57797,12 +57903,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-25",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
@@ -63873,5 +63974,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1264
+  "scored_reads": 1267
 }
