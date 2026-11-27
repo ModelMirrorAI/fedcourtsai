@@ -122,7 +122,7 @@ the App level the union of what its workflows mint:
   at the App level is a safe tightening.)
 - **dev App**: Contents and Pull requests — both *read and write* (no
   workflow mints an Issues scope from it: the collect jobs post to the
-  agent-feedback issue on the ambient token, so dropping an Issues grant at
+  agent-feedback issue and the withheld-round alarm on the ambient token, so dropping an Issues grant at
   the App level is a safe tightening), and **no Workflows permission** — a requirement, not a tightening: with it, a
   dev App token could create or update a ref carrying a workflow file, and
   the promotion train's `promote/` candidates, which the App creates and the
@@ -788,7 +788,12 @@ comment with the job's **ambient `GITHUB_TOKEN`** (job-scoped **`issues: write`*
 in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
-carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
+carries `contents: write` and opens and merges the run PR. The same job raises
+the `withheld-round` alarm on the same token when its secret scan withholds a
+run's output: it opens or reuses the one issue under that label and comments
+the scan's redacted report (file, rule and line, never the matched text) with
+harness-rendered counts and identifiers, so no artifact content reaches the
+issue. This mirrors `run-ops`,
 which posts its `data-validation` / `ai-watchlist` / `pipeline-health` / `daily-digest` issues with the same
 ambient token, `run-analytics`' ai-candidates and ai-follow-ons jobs, which
 comment the week's AI-case candidates and follow-on dockets on the long-lived

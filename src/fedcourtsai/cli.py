@@ -775,6 +775,7 @@ from .vote_writer import (
     vote_docket_numbers,
     vote_plan,
 )
+from .withheld_alarm import post_withheld_alarm
 
 app = typer.Typer(add_completion=False, help="Predict events in US federal courts.")
 
@@ -33624,6 +33625,49 @@ def post_agent_feedback_cmd(
     """
     comment = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
     typer.echo(post_agent_feedback(comment, repo))
+
+
+@app.command("post-withheld-alarm")
+def post_withheld_alarm_cmd(
+    workflow: Annotated[
+        str, typer.Option(help="The name of the workflow whose collect withheld the run.")
+    ],
+    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
+    run_url: Annotated[str, typer.Option(help="The Actions run URL the alarm links.")],
+    github_run_id: Annotated[
+        str, typer.Option(help="The Actions run id, which keys the once-only comment.")
+    ],
+    report_file: Annotated[
+        Path,
+        typer.Option(help="The scan's redacted report (`scan-diff-for-secrets`'s issue comment)."),
+    ],
+    withheld_file: Annotated[
+        Path,
+        typer.Option(help="The collect's ledger of withheld branches, one JSON object per line."),
+    ],
+) -> None:
+    """Raise the `withheld-round` alarm for a collect whose secret scan withheld output.
+
+    A withheld branch opens no PR and its collect still concludes green, so
+    this is the durable notice: it finds the open issue under the
+    non-triggering `withheld-round` label (opening it when none is open) and
+    adds one comment, once, with the run, the number of cells blocked and the
+    scan's redacted report. An absent or blank `--report-file` means the scan
+    came back clean, and nothing is posted. The collect job calls it with the
+    ambient ``GITHUB_TOKEN``.
+    """
+    report = report_file.read_text(encoding="utf-8") if report_file.exists() else ""
+    withheld = withheld_file.read_text(encoding="utf-8") if withheld_file.exists() else ""
+    typer.echo(
+        post_withheld_alarm(
+            repo=repo,
+            workflow=workflow,
+            run_url=run_url,
+            github_run_id=github_run_id,
+            withheld=withheld,
+            report=report,
+        )
+    )
 
 
 def main() -> None:

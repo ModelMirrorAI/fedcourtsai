@@ -13,14 +13,15 @@ description: >
   env, git identity): that is the security posture, and it stays reviewable next
   to the trigger rather than hidden behind a `uses:`.
 
-  The caller also keeps the three `always()` reporting steps that post the stall
-  comment, the secret-scan hit, and the agent-flag latch. That is deliberate and
-  load-bearing: a cancellation (a manual cancel, or this job's `timeout-minutes`)
-  tears down a composite step and does not guarantee its remaining inner steps
-  run, whereas job-level `always()` steps still fire. Those three exist precisely
-  so a collect that dies leaves a trace instead of a silently orphaned trigger
-  issue, so they must not lose that guarantee. They carry no role dependency, so
-  keeping them in the caller costs no drift risk.
+  The caller also keeps the four `always()` reporting steps that post the stall
+  comment, the secret-scan hit, the withheld-round alarm, and the agent-flag
+  latch. That is deliberate and load-bearing: a cancellation (a manual cancel,
+  or this job's `timeout-minutes`) tears down a composite step and does not
+  guarantee its remaining inner steps run, whereas job-level `always()` steps
+  still fire. Those four exist precisely so a collect that dies leaves a trace
+  instead of a silently orphaned trigger issue, so they must not lose that
+  guarantee. They carry no role dependency, so keeping them in the caller costs
+  no drift risk.
 
 inputs:
   role:
@@ -469,6 +470,16 @@ runs:
               --run-url "$run_url" \
               --run-id "$run_id"; then
             echo "::warning::secret scan did not pass; withholding ${branch}"
+            # The ledger the caller's alarm step reads: which branch was
+            # withheld and how many cells it carried, as identifiers and a
+            # count only. Written on every withhold, so a scan that ended
+            # without a report still raises the alarm. Fail-soft: the scan's
+            # report raises it too, and a lost count must not abort the
+            # aggregation.
+            jq -c --arg run_id "$run_id" \
+              '{branch, run_id: $run_id, cells: (.artifact_dirs | length)}' <<<"$pr" \
+              >> withheld-branches.jsonl \
+              || echo "::warning::could not record ${branch} in the withheld-branch ledger"
             # Hard-reset so a modified tracked file from the withheld union
             # cannot ride into the next iteration's branch; then drop the
             # untracked additions. The helper files this step writes are

@@ -2276,7 +2276,7 @@ jobs:
     # spent at that step's end — the push, the PR, the auto-merge arm — so a
     # step outliving the hour trades a clean timeout-cancel for a 401
     # mid-push; 50 buys the measured aggregation while keeping the
-    # credentialed tail inside the hour. The job's cap adds the three report
+    # credentialed tail inside the hour. The job's cap adds the four report
     # steps' own bounds and the merge step's, which mints a token of its own.
     # A cap kill either side of the push — mid-aggregation, or after a
     # push and before its PR — costs a maintainer round trip while the
@@ -2284,13 +2284,13 @@ jobs:
     # recovery). If 50 proves short, the durable fixes are re-minting the
     # token between download and aggregation, or scoping the per-kind
     # validate to the run's changed paths — not a bigger number.
-    timeout-minutes: 105
+    timeout-minutes: 120
     environment: prod
     permissions:
       contents: write # commit the run's predictions to a branch
       pull-requests: write # open the run PR, arm auto-merge (App token)
       checks: read # the merge step lists the run PR's check runs (GITHUB_TOKEN)
-      issues: write # GITHUB_TOKEN posts flags to the agent-feedback issue (not the App token)
+      issues: write # GITHUB_TOKEN posts flags to the agent-feedback issue and the withheld-round alarm (not the App token)
       actions: read # fetch this run's cell artifacts (repo-wide read; collect runs no agent code)
     steps:
       # The collect job opens and merges the PR with the dev App token. The dev
@@ -2424,6 +2424,37 @@ jobs:
           uv run fedcourts post-issue-comment --issue "$ISSUE" --repo "$REPO" \
             --marker "<!-- collect-secret-scan: ${GITHUB_RUN_ID}-${digest} -->" \
             --body-file secret-scan-issue.md
+
+      - name: Raise the withheld-round alarm
+        # A withheld branch opens no PR and this job still concludes green, so
+        # the run's conclusion reports nothing and the summary above is read
+        # only by whoever opens the run. This is the notice that reaches a
+        # maintainer: one open issue under the non-triggering `withheld-round`
+        # alarm label, with a comment per withholding report naming the
+        # workflow, the run, the number of cells withheld and the scan's
+        # redacted report (file, rule and line, never the matched text). The
+        # find-or-create and the once-only key are the tested
+        # `post-withheld-alarm` command. Raised on either file: the report
+        # alone when the ledger was lost, the ledger alone when the scan ended
+        # without writing a report, and both are absent whenever the scan came
+        # back clean. Same ambient-token posture as the steps above.
+        if: ${{ always() }}
+        # The same five retried gh calls as the feedback latch below (the
+        # label ensure, the listing, the issue create, the marker read, the
+        # comment), so the same bound.
+        timeout-minutes: 12
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -s secret-scan-issue.md ] || [ -s withheld-branches.jsonl ] || exit 0
+          uv run fedcourts post-withheld-alarm --workflow "$GITHUB_WORKFLOW" --repo "$REPO" \
+            --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}" \
+            --github-run-id "$GITHUB_RUN_ID" \
+            --report-file secret-scan-issue.md \
+            --withheld-file withheld-branches.jsonl
 
       - name: Latch run flags onto the agent-feedback issue
         # Post with the ambient GITHUB_TOKEN (job-scoped `issues: write`), NOT the dev

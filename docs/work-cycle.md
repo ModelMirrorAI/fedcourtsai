@@ -33,9 +33,10 @@ a triage note. Its inputs:
   **noise** (a harness check tripping on the agent's own prompt text, for
   example).
 - **Pipeline health.** Issues labelled `pipeline-health`, `data-validation`,
-  `ai-watchlist`, `merits-coverage`, `order-reconcile` and `forecast-coverage`
-  (bot-filed; never hand-label one: an alarm label means a failure filed it,
-  and the writer closes only its own issue),
+  `ai-watchlist`, `merits-coverage`, `order-reconcile`, `forecast-coverage`
+  and `withheld-round` (bot-filed; never hand-label one: an alarm label means a failure filed it,
+  and the writer closes only its own issue, except `withheld-round`, which a
+  maintainer closes),
   failed scheduled runs, and the latest `run-ops` roll-up and `status.json`
   on `ops-metrics` (*`run-ops` — the daily operational roll-up* in
   [pipeline.md](pipeline.md)).

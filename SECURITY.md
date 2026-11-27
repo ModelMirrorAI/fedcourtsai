@@ -119,10 +119,12 @@ runbook, [docs/security.md](docs/security.md).
   its evaluation, its flags — and the PR prose scanned beside them keep the
   heuristic. A hit **withholds the branch** — nothing is pushed and no
   PR opens; a redacted file/rule/line report (never the matched text) lands on
-  the run's step summary and the files stay in the run's cell artifacts for
-  maintainer review. The scan fails closed: if its token env is missing, the
-  branch is likewise withheld, with a misconfiguration note on that summary
-  in place of a findings report. The same command gates two surfaces
+  the run's step summary and, as a comment, on the public `withheld-round`
+  alarm issue, which the collect job opens or reuses with the ambient token
+  under a label that triggers nothing; the files stay in the run's cell
+  artifacts for maintainer review. The scan fails closed: if its token env is
+  missing, the branch is likewise withheld, with a misconfiguration note on
+  that summary and that issue in place of a findings report. The same command gates two surfaces
   outside a run branch on their own terms, both of them things the
   `qp-topic-label` run's agent wrote and neither of them validated by anything
   else. Its turn-by-turn engine transcript is scanned (`--transcript-file`)
