@@ -714,6 +714,143 @@ def test_a_prefix_inside_an_ordinary_word_starts_no_match(text: str) -> None:
     assert redact_credentials(text) == text
 
 
+_SLUG_URL = (
+    "https://www.courtlistener.com/opinion/4653305/"
+    + "dcpp-vs-sk-and-ck-in-the-matter-of-jek-and-jak-fn-04-0619-15/"
+)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # An opinion URL whose slug carries a party's initials after a hyphen.
+        f"[S.K.]({_SLUG_URL}).)",
+        _SLUG_URL,
+        "in-re-sk-and-jk-minors-under-the-age-of-eighteen-2019",
+        # Common long caption words stay inside the segment cap.
+        "state-v-sk-telecommunications-and-pharmaceuticals-holdings",
+        # A slug that ends the line, and one closed by punctuation.
+        "see dcpp-vs-sk-and-ck-in-the-matter-of-jek-and-jak",
+        "(dcpp-vs-sk-and-ck-in-the-matter-of-jek-and-jak.)",
+    ],
+)
+def test_a_hyphenated_slug_after_bare_sk_is_no_model_provider_key(text: str) -> None:
+    """The prefix `sk-` after a hyphen is where an opinion slug puts initials;
+    a tail of short lowercase segments is a caption, not a key."""
+    assert scan_lines("reasoning.md", [text], [], entropy=False) == []
+    assert redact_credentials(text) == text
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        # Mixed case, with and without hyphens dividing it into short pieces.
+        "sk-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7",
+        "sk-proj-" + "aB3dE6gH9jK2mN5pQ8sT1vW4yZ7",
+        "sk-proj-" + "aB3d-E6gH-9jK2-mN5p-Q8sT-1vW4",
+        "sk-" + "abcdefgh-ijklmnop-qrstuvwX",
+        # An underscore is no slug character.
+        "sk-" + "abcd_efgh-ijkl-mnop-qrst",
+        # Single-case bodies no hyphen divides: hex, and a typed hex key.
+        "sk-" + "0123456789abcdef" * 2,
+        "sk-or-v1-" + "0123456789abcdef" * 4,
+        # One over-cap segment convicts a tail that is otherwise slug-shaped.
+        "sk-and-ck-" + "a1b2c3d4e5f6a7b8c9d0",
+        # An empty segment is no slug.
+        "sk-and-ck--in-the-matter-of-jek",
+        "sk-and-ck-in-the-matter-of-jek-",
+    ],
+)
+@pytest.mark.parametrize(
+    "place",
+    [
+        lambda token: token,
+        lambda token: f"https://example.com/opinion/123/dcpp-vs-{token}/",
+        lambda token: json.dumps({"stdout": "ok\n" + token}),
+    ],
+)
+def test_a_key_shaped_tail_after_bare_sk_is_still_a_model_provider_key(
+    token: str, place: Callable[[str], str]
+) -> None:
+    line = place(token)
+    rules = {f.rule for f in scan_lines("reasoning.md", [line], [], entropy=False)}
+    assert "model-provider-key" in rules
+    assert "[redacted:model-provider-key]" in redact_credentials(line)
+
+
+def test_the_typed_anthropic_prefix_ignores_the_slug_reading() -> None:
+    """The slug reading narrows the bare prefix only: a typed prefix convicts
+    whatever follows it, a lowercase hyphenated tail included."""
+    token = "sk-ant-api03-" + "and-ck-in-the-matter-of-jek"
+    assert "model-provider-key" in {f.rule for f in scan_lines("t", [token], [], entropy=False)}
+    assert token not in redact_credentials(token)
+
+
+def _sk_rules(text: str) -> set[str]:
+    return {f.rule for f in scan_lines("t", [text], [], entropy=False)}
+
+
+def test_the_slug_reading_stops_at_its_segment_cap() -> None:
+    at_cap = "sk-and-ck-" + "a" * 19 + "-in-the-matter"
+    over_cap = "sk-and-ck-" + "a" * 20 + "-in-the-matter"
+    assert _sk_rules(at_cap) == set()
+    assert _sk_rules(over_cap) == {"model-provider-key"}
+
+
+def test_the_slug_reading_stops_at_its_segment_count() -> None:
+    at_count = "sk-" + "-".join(["ab"] * 40)
+    over_count = "sk-" + "-".join(["ab"] * 41)
+    assert _sk_rules(at_count) == set()
+    assert _sk_rules(over_count) == {"model-provider-key"}
+    assert redact_credentials(over_count) == "[redacted:model-provider-key]"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "x_sk-and-ck-in-the-matter-of-jek-and-jak",
+        "dcpp-vs-sk-and-ck-in-the-matter-of-jek_2019.pdf",
+    ],
+)
+def test_an_underscore_beside_the_slug_reads_as_the_rule_says(text: str) -> None:
+    """An underscore starts a match like any boundary, and one inside the
+    tail is no slug character."""
+    expected = set() if text.startswith("x_") else {"model-provider-key"}
+    assert _sk_rules(text) == expected
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "sk-" + "3f2a9c1e-7b4d-4e8a-9c1f-0a2b3c4d5e6f",
+        "sk-team-master-key-prod-2024",
+        "sk-proj-" + "abcd1234efgh5678-ijkl9012mnop3456",
+    ],
+)
+def test_a_lowercase_hyphenated_key_is_the_stated_miss(token: str) -> None:
+    """Pinned so the residual the module states cannot widen or narrow
+    unnoticed: by shape these read as slugs, and containment is what finds
+    one the pipeline holds."""
+    assert _sk_rules(token) == set()
+    assert scan_lines("t", [token], [token], entropy=False) == [
+        Finding(path="t", rule="known-token", line=1)
+    ]
+
+
+def test_a_long_chain_of_bare_prefixes_is_read_in_bounded_time() -> None:
+    """A declined tail consumes nothing, so the reading must be bounded per
+    start or a run of repeated prefixes costs the square of its length."""
+    chain = "sk-" * 100_000 + "x "
+    started = time.perf_counter()
+    assert _sk_rules(chain) == {"model-provider-key"}
+    assert "sk-" not in redact_credentials(chain)
+    # Slug-shaped runs, each inside both caps, so every start is declined.
+    declined = ("vs-" + "sk-" * 39 + "x ") * 5_000
+    assert _sk_rules(declined) == set()
+    assert redact_credentials(declined) == declined
+    assert time.perf_counter() - started < 10
+
+
 # A dotted `<public-id>.<secret>` credential — the shape config-service and
 # vault tokens take, and the one that a value class stopping at `.` would
 # redact only the front half of.
