@@ -235,90 +235,90 @@
     "corpus_dockets": 2154400,
     "documents_provisioned": 178,
     "evaluations_forward": 2079,
-    "events_predicted": 670,
-    "frontier_as_of": "2026-11-27",
+    "events_predicted": 677,
+    "frontier_as_of": "2026-11-28",
     "next_conference": "2026-12-04",
     "next_conference_petitions": 303,
     "predicted_resolved": 291,
-    "predictions": 2458,
-    "public_cases": 14444,
-    "watchlist": 875
+    "predictions": 2479,
+    "public_cases": 14450,
+    "watchlist": 890
   },
   "data_ok": true,
-  "generated_at": "2026-11-27T08:09:15.864650Z",
+  "generated_at": "2026-11-28T08:08:09.598758Z",
   "lanes": [
     {
       "delivered_24h": 16,
-      "expected_since": "2026-11-27T04:47:00Z",
+      "expected_since": "2026-11-28T04:47:00Z",
       "label": "Docket refresh",
       "lane": "run-pull",
-      "last_concluded_at": "2026-11-27T07:21:27Z",
+      "last_concluded_at": "2026-11-28T07:19:48Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-27T07:21:27Z",
+      "last_started_at": "2026-11-28T07:19:48Z",
       "lateness_p50_min": 4,
-      "runs_7d": 92,
+      "runs_7d": 88,
       "schedule": "16 times a day",
       "slots_24h": 16,
       "state": "up",
-      "successes_7d": 92,
+      "successes_7d": 88,
       "what": "Polls the Supreme Court's docket pages for new filings and orders, and enriches tracked dockets from CourtListener."
     },
     {
       "delivered_24h": 4,
-      "expected_since": "2026-11-27T02:31:00Z",
+      "expected_since": "2026-11-28T02:31:00Z",
       "label": "Historical walker",
       "lane": "run-seed",
-      "last_concluded_at": "2026-11-27T02:36:09Z",
+      "last_concluded_at": "2026-11-28T02:34:49Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-27T02:36:09Z",
-      "lateness_p50_min": 5,
-      "runs_7d": 23,
+      "last_started_at": "2026-11-28T02:34:49Z",
+      "lateness_p50_min": 4,
+      "runs_7d": 22,
       "schedule": "daily at 02:31, 08:31, 14:31 and 20:31 UTC",
       "slots_24h": 4,
       "state": "up",
-      "successes_7d": 23,
+      "successes_7d": 22,
       "what": "Adds decided petitions from past Terms to the corpus the base rates are read from."
     },
     {
       "delivered_24h": 2,
-      "expected_since": "2026-11-26T17:32:00Z",
+      "expected_since": "2026-11-27T17:32:00Z",
       "label": "Predict",
       "lane": "run-predict",
-      "last_concluded_at": "2026-11-26T17:34:00Z",
+      "last_concluded_at": "2026-11-27T17:34:05Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-26T17:34:00Z",
+      "last_started_at": "2026-11-27T17:34:05Z",
       "lateness_p50_min": 3,
-      "runs_7d": 17,
+      "runs_7d": 15,
       "schedule": "daily at 14:12 and 17:32 UTC",
       "slots_24h": 2,
       "state": "up",
-      "successes_7d": 16,
+      "successes_7d": 14,
       "what": "Runs each model on the events that are owed a forecast."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-26T15:39:00Z",
+      "expected_since": "2026-11-27T15:39:00Z",
       "label": "Evaluate",
       "lane": "run-evaluate",
-      "last_concluded_at": "2026-11-26T15:43:17Z",
+      "last_concluded_at": "2026-11-27T15:43:22Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-26T15:43:17Z",
+      "last_started_at": "2026-11-27T15:43:22Z",
       "lateness_p50_min": 4,
-      "runs_7d": 6,
+      "runs_7d": 5,
       "schedule": "daily at 15:39 UTC",
       "slots_24h": 1,
       "state": "up",
-      "successes_7d": 6,
+      "successes_7d": 5,
       "what": "Grades the forecasts on events whose outcome is now known."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-27T03:43:00Z",
+      "expected_since": "2026-11-28T03:43:00Z",
       "label": "Case summaries",
       "lane": "summarize",
-      "last_concluded_at": "2026-11-27T03:44:09Z",
+      "last_concluded_at": "2026-11-28T03:44:37Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-27T03:44:09Z",
+      "last_started_at": "2026-11-28T03:44:37Z",
       "lateness_p50_min": 1,
       "runs_7d": 6,
       "schedule": "daily at 03:43 UTC",
@@ -329,29 +329,29 @@
     },
     {
       "delivered_24h": 4,
-      "expected_since": "2026-11-27T04:36:00Z",
+      "expected_since": "2026-11-28T04:36:00Z",
       "label": "Boards",
       "lane": "run-analytics",
-      "last_concluded_at": "2026-11-27T04:37:41Z",
+      "last_concluded_at": "2026-11-28T04:37:08Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-27T04:37:41Z",
+      "last_started_at": "2026-11-28T04:37:08Z",
       "lateness_p50_min": 3,
-      "runs_7d": 26,
+      "runs_7d": 25,
       "schedule": "daily at 04:36, 15:33 and 16:09 UTC, plus Mondays at 05:41 and 12:59 UTC, plus Tuesdays at 09:08 and 21:21 UTC, plus Wednesdays at 09:04 and 09:22 UTC, plus Thursdays at 09:14 UTC, plus Fridays at 21:11 UTC",
       "slots_24h": 4,
       "state": "up",
-      "successes_7d": 26,
+      "successes_7d": 25,
       "what": "Rebuilds the big-case board daily and the metrics roll-ups weekly."
     },
     {
       "delivered_24h": 1,
-      "expected_since": "2026-11-26T08:00:00Z",
+      "expected_since": "2026-11-27T08:00:00Z",
       "label": "Status report",
       "lane": "run-ops",
-      "last_concluded_at": "2026-11-26T08:07:44Z",
+      "last_concluded_at": "2026-11-27T08:08:00Z",
       "last_conclusion": "success",
-      "last_started_at": "2026-11-27T08:08:00Z",
-      "lateness_p50_min": 7,
+      "last_started_at": "2026-11-28T08:07:05Z",
+      "lateness_p50_min": 8,
       "runs_7d": 5,
       "schedule": "daily at 08:00 UTC",
       "slots_24h": 1,
@@ -364,12 +364,12 @@
     {
       "by_stage": [
         {
-          "cells": 18,
+          "cells": 3,
           "role": "evaluator",
           "stage": "interim"
         },
         {
-          "cells": 54,
+          "cells": 72,
           "role": "predictor",
           "stage": "cert"
         },
@@ -379,16 +379,16 @@
           "stage": "interim"
         },
         {
-          "cells": 6,
+          "cells": 3,
           "role": "predictor",
           "stage": "merits"
         }
       ],
       "cells": 81,
       "days": 7,
-      "end": "2026-11-27",
-      "events": 24,
-      "start": "2026-11-20",
+      "end": "2026-11-28",
+      "events": 25,
+      "start": "2026-11-21",
       "term": null,
       "window": "7d"
     },
@@ -405,12 +405,12 @@
           "stage": "interim"
         },
         {
-          "cells": 636,
+          "cells": 654,
           "role": "predictor",
           "stage": "cert"
         },
         {
-          "cells": 65,
+          "cells": 68,
           "role": "predictor",
           "stage": "interim"
         },
@@ -420,11 +420,11 @@
           "stage": "merits"
         }
       ],
-      "cells": 1029,
+      "cells": 1050,
       "days": 30,
-      "end": "2026-11-27",
-      "events": 282,
-      "start": "2026-10-28",
+      "end": "2026-11-28",
+      "events": 289,
+      "start": "2026-10-29",
       "term": null,
       "window": "30d"
     },
@@ -441,12 +441,12 @@
           "stage": "interim"
         },
         {
-          "cells": 1046,
+          "cells": 1064,
           "role": "predictor",
           "stage": "cert"
         },
         {
-          "cells": 133,
+          "cells": 136,
           "role": "predictor",
           "stage": "interim"
         },
@@ -456,15 +456,15 @@
           "stage": "merits"
         }
       ],
-      "cells": 2112,
-      "days": 57,
-      "end": "2026-11-27",
-      "events": 569,
+      "cells": 2133,
+      "days": 58,
+      "end": "2026-11-28",
+      "events": 576,
       "start": "2026-10-01",
       "term": 2026,
       "window": "term"
     }
   ],
   "schema_version": "1.0",
-  "source_sha": "27c70a170997931aed39f66a1f28d105bc808396"
+  "source_sha": "7abd8ed011c96b70d7287634fe0a15e04533fa0c"
 }
