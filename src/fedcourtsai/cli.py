@@ -396,7 +396,7 @@ from .pipeline.cert_signals import (
 )
 from .pipeline.claims import score_claims
 from .pipeline.counsel import COUNSEL_RULES
-from .pipeline.coverage_verdict import CoverageVerdict, coverage_verdict
+from .pipeline.coverage_verdict import CoverageVerdict, coverage_verdict, load_acknowledged
 from .pipeline.coverage_verdict import latch as latch_coverage_alarm
 from .pipeline.coverage_verdict import render_markdown as render_coverage_markdown
 from .pipeline.decision_dates import converge_decision_dates
@@ -6770,7 +6770,9 @@ def coverage_verdict_cmd(
     on a selected row with no outcome record three days on; each alarm the
     two censuses raise; and every cell of an open event that reached the
     predict attempt cap (`predict.max_attempts_per_cell`) with no committed
-    prediction, which the sweep no longer re-queues. `--sg-list` hands the
+    prediction, which the sweep no longer re-queues. A missed forecast listed
+    in `config/coverage-acknowledged.yaml` with every predictor it is missing
+    is named under `acknowledged` and raises no alarm. `--sg-list` hands the
     federal-label cross-check the Solicitor General's posted cert petitions
     (`federal-label-check --sg-list`), the one request this command makes off
     the corpus. Reads the corpus index and the committed ledger; the
@@ -6797,6 +6799,7 @@ def coverage_verdict_cmd(
             today=datetime.now(UTC).date(),
             max_attempts=load_predict_config(settings.config_root).max_attempts_per_cell,
             sg_listing=sg_listing,
+            acknowledged=load_acknowledged(settings.config_root),
         )
     payload = verdict.model_dump_json()
     if json_out is not None:

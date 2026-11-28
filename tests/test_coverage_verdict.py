@@ -17,9 +17,11 @@ from fedcourtsai.config import load_predict_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import coverage_verdict as cv
 from fedcourtsai.pipeline.coverage_verdict import (
+    AcknowledgedMiss,
     CoverageVerdict,
     attempt_capped_cells,
     coverage_verdict,
+    load_acknowledged,
     render_markdown,
 )
 from fedcourtsai.pipeline.federal_label import SG_LISTING_SUBJECT, SgPetitionListing
@@ -126,6 +128,109 @@ def test_a_missed_forecast_and_an_unforecast_federal_grant_each_alarm_once(tmp_p
     assert "## Alarms" in body
     assert "| 26-102 | granted |" in body
     assert "United States" not in body  # identifiers only, never a caption
+
+
+def _missed_event(tmp_path: Path) -> tuple[Path, Path, list[str]]:
+    """A selected, resolved event no enabled predictor forecast, and those predictors."""
+    db, data = corpus.corpus_db_path(tmp_path / "corpus"), tmp_path / "data"
+    with corpus.connect(db) as conn:
+        _resolved(conn, 1, "26-101")
+    owed = [p.id for p in enabled_predictors(PREDICTORS)]
+    for predictor_id in owed:
+        seed_prediction(data, "scotus", 999_999, EVENT, predictor_id=predictor_id)
+    return db, data, owed
+
+
+def _acknowledged(predictors: list[str]) -> AcknowledgedMiss:
+    return AcknowledgedMiss(
+        case_id="scotus/1",
+        event_id=EVENT,
+        predictors=predictors,
+        acknowledged_on=TODAY,
+        reason="a provider outage on the day it resolved",
+    )
+
+
+def _record_outcome(data: Path) -> None:
+    """Give the missed event its `outcome.json`, as the outcome writer would."""
+    path = CasePaths(data, "scotus", 1).event(EVENT).outcome
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"resolved_at": (TODAY - timedelta(days=6)).isoformat()}))
+
+
+def test_an_acknowledged_miss_is_named_and_counted_and_raises_no_alarm(tmp_path: Path) -> None:
+    db, data, owed = _missed_event(tmp_path)
+    _record_outcome(data)
+
+    with corpus.connect_readonly(db) as conn:
+        verdict = coverage_verdict(
+            conn, data, PREDICTORS, today=TODAY, acknowledged=[_acknowledged(owed)]
+        )
+
+    assert verdict.ok
+    assert verdict.alarms == []
+    assert [a.subject for a in verdict.acknowledged] == [f"scotus/1 {EVENT}"]
+    assert verdict.counts["missed_events"] == 1  # still counted as a miss
+    assert verdict.counts["acknowledged_missed_events"] == 1
+    body = render_markdown(verdict)
+    assert "no alarm." in body
+    assert "## Alarms" not in body
+    assert "## Acknowledged" in body
+    assert f"acknowledged {TODAY.isoformat()}: a provider outage" in body
+    assert "1 missed (1 acknowledged)" in body
+    gh = _Gh([_ALARM])
+    assert cv.latch("o/r", verdict, tmp_path / "body.md", runner=gh) == "closed #7"
+    assert any("1 acknowledged missed forecast(s)" in " ".join(call) for call in gh.calls)
+
+
+def test_an_acknowledged_miss_still_alarms_on_its_missing_outcome_record(tmp_path: Path) -> None:
+    db, data, owed = _missed_event(tmp_path)  # resolved six days ago, no outcome.json
+
+    with corpus.connect_readonly(db) as conn:
+        verdict = coverage_verdict(
+            conn, data, PREDICTORS, today=TODAY, acknowledged=[_acknowledged(owed)]
+        )
+
+    assert [a.check for a in verdict.alarms] == ["no_outcome_record"]
+    assert [a.check for a in verdict.acknowledged] == ["missed_forecast"]
+
+
+def test_an_acknowledgment_covers_only_the_predictors_it_names(tmp_path: Path) -> None:
+    db, data, owed = _missed_event(tmp_path)
+
+    with corpus.connect_readonly(db) as conn:
+        narrower = coverage_verdict(
+            conn, data, PREDICTORS, today=TODAY, acknowledged=[_acknowledged(owed[:1])]
+        )
+        other_event = coverage_verdict(
+            conn,
+            data,
+            PREDICTORS,
+            today=TODAY,
+            acknowledged=[_acknowledged(owed).model_copy(update={"event_id": "evt-other"})],
+        )
+
+    for verdict in (narrower, other_event):
+        assert not verdict.ok
+        assert verdict.acknowledged == []
+        assert [a.check for a in verdict.alarms] == ["missed_forecast"]
+
+
+def test_the_acknowledged_list_loads_strictly(tmp_path: Path) -> None:
+    assert load_acknowledged(tmp_path) == []  # no file, nothing acknowledged
+    committed = load_acknowledged(PREDICTORS.parent)
+    assert len({(a.case_id, a.event_id) for a in committed}) == len(committed)
+    (tmp_path / cv.ACKNOWLEDGED_FILENAME).write_text(
+        "misses:\n  - case_id: scotus/1\n    event_id: evt-x\n    predictors: []\n"
+    )
+    with pytest.raises(ValueError):
+        load_acknowledged(tmp_path)
+    entry = "  - {case_id: scotus/1, event_id: evt-x, predictors: [a], "
+    entry += "acknowledged_on: 2026-11-11, reason: r}\n"
+    for text in ("missed:\n" + entry, "misses:\n" + entry + entry):
+        (tmp_path / cv.ACKNOWLEDGED_FILENAME).write_text(text)
+        with pytest.raises(ValueError):
+            load_acknowledged(tmp_path)
 
 
 def test_a_fresh_gap_in_the_outcome_record_is_the_writers_lag(tmp_path: Path) -> None:

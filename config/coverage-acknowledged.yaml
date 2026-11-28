@@ -1,0 +1,26 @@
+# Missed forecasts the maintainer has read (`fedcourts coverage-verdict`,
+# `pipeline/coverage_verdict.py`).
+#
+# A missed forecast cannot be repaired once its event has resolved, so the
+# coverage alarm would hold it for the whole 35-day window. An entry here says
+# the miss has been read and why it happened: the verdict still counts it and
+# names it under "Acknowledged" (in the alarm issue's body while another alarm
+# holds the issue open, and in the run's summary either way), but it raises no
+# alarm. The reason is printed in that public issue.
+#
+# An entry covers the event only while every predictor it is missing is listed
+# under `predictors`; a wider gap on the same event alarms again, and so does
+# the event's missing outcome record, which an entry never covers. Only missed
+# forecasts are acknowledged here, never a condition that can still be fixed.
+# An entry whose event has left the window matches nothing and may be removed.
+#
+# Each entry: case_id, event_id, predictors, acknowledged_on (YYYY-MM-DD) and
+# reason. Identifiers and causes only, never a caption or docket text.
+misses:
+  - case_id: scotus/9526000698
+    event_id: evt-motion-disposition
+    predictors: [codex-baseline]
+    acknowledged_on: 2026-11-28
+    reason: >-
+      both of the predictor's cells on the day the application was decided
+      failed on a provider quota error, and the other two predictors forecast it

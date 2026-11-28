@@ -601,7 +601,12 @@ queues behind the production run of the same mode. The modes:
   label or rewrites its body in place, and a clean verdict closes it. A
   verdict that was never reached leaves the issue as it stood. A missed
   forecast cannot be repaired once its event has resolved, so it stays in the
-  verdict until it is 35 days old and the issue is often open for weeks; a
+  verdict until it is 35 days old and, unread, holds the issue open that
+  long. Once the maintainer has read one, an entry in
+  `config/coverage-acknowledged.yaml` naming the event, the predictors it was
+  missing, the day it was read and the reason moves it under the body's "Acknowledged" heading,
+  where it is still named and counted and raises no alarm; an event later
+  missing a predictor its entry does not list alarms again. A
   body rewrite notifies no one, so a refresh that brings an alarm the issue
   did not already name also comments, naming the new ones. The body lists at
   most 150 alarms by name and counts the rest. Only a run on the
@@ -3173,7 +3178,11 @@ unresolved and in predict scope. The sweep no longer re-queues
 such a cell, so its forecast is owed and can still be made, and the monitor
 would report it only once the event had resolved. The round's own `::warning::` lines expire
 with the run log; the verdict is the form the same findings take when they
-are to outlive it. `run-analytics`' `coverage-verdict` mode runs it daily and
+are to outlive it. A missed forecast listed in
+`config/coverage-acknowledged.yaml` with every predictor it is missing is
+reported under `acknowledged` and is no alarm: the list is the maintainer's
+record of having read a miss that can no longer be repaired, and no other
+check's alarm can be entered in it. `run-analytics`' `coverage-verdict` mode runs it daily and
 latches its alarms onto the one `forecast-coverage` issue; `unforecast-outcomes`
 and `federal-label-check` run on their own only when a maintainer or a session
 reads one by hand.

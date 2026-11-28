@@ -96,6 +96,9 @@
 /src/fedcourtsai/set_aside.py @modelmirror
 /src/fedcourtsai/set_aside_events.json @modelmirror
 /tests/test_set_aside.py @modelmirror
+# The coverage alarm's acknowledged misses: an entry takes a missed forecast
+# out of the alarm, so it records the maintainer's reading of that miss.
+/config/coverage-acknowledged.yaml @modelmirror
 
 # What agents are and what they may reach.
 /config/predictors.yaml @modelmirror
