@@ -714,7 +714,7 @@
     },
     {
       "conference": "2026-12-11",
-      "petitions": 34
+      "petitions": 45
     }
   ],
   "discovery": {
@@ -780,5 +780,5 @@
   "next_conference_petitions": 303,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 879
+  "watchlist": 890
 }
