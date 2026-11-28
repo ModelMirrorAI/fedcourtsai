@@ -36,10 +36,20 @@ Reads the corpus index and the committed ledger; writes nothing itself.
 **The alarm issue.** :func:`latch` keeps one long-lived issue,
 :data:`ISSUE_TITLE` under the non-triggering :data:`ISSUE_LABEL` label, to
 match a verdict (:mod:`fedcourtsai.alarm_issue`). A missed forecast cannot be
-repaired once its event has resolved, so it stays an alarm until it ages out
-of the monitor's window and the issue is often open for weeks at a time.
+repaired once its event has resolved, so, unread, it stays an alarm until it
+ages out of the monitor's window and holds the issue open that long.
 Rewriting an issue body notifies nobody, so a refresh that brings an alarm the
 issue did not already name also comments, naming the new ones.
+
+**Acknowledged misses.** A missed forecast the maintainer has read is listed in
+:data:`ACKNOWLEDGED_FILENAME` with the predictors it was missing and the reason.
+The monitor still counts it and the verdict still names it, under its own
+heading in the issue body while another alarm holds the issue open and in the
+run's summary either way, but it holds no alarm: the issue is then open only
+for something nobody has read. An entry covers exactly the gap it names, so an event later
+found missing a predictor the entry does not list alarms again. Only a missed
+forecast can be acknowledged, because every other alarm names a condition that
+can still be repaired.
 """
 
 from __future__ import annotations
@@ -50,6 +60,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Final, Literal
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import alarm_issue, corpus, ids
@@ -88,6 +99,50 @@ UNFORECAST_WINDOW_DAYS = 14
 #: before the gap is an alarm.
 NO_OUTCOME_GRACE_DAYS = 3
 
+#: The acknowledged misses, under the config root.
+ACKNOWLEDGED_FILENAME: Final = "coverage-acknowledged.yaml"
+
+
+class AcknowledgedMiss(BaseModel):
+    """One missed forecast the maintainer has read, and the gap that reading covers."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    case_id: str
+    event_id: str
+    predictors: list[str] = Field(
+        min_length=1, description="The predictors the event was missing when it was read"
+    )
+    acknowledged_on: date
+    reason: str = Field(min_length=1)
+
+    def covers(self, case_id: str, event_id: str, missing: Sequence[str]) -> bool:
+        """Whether this entry names the event and every predictor it is missing."""
+        return (
+            self.case_id == case_id
+            and self.event_id == event_id
+            and bool(missing)
+            and set(missing) <= set(self.predictors)
+        )
+
+
+def load_acknowledged(config_root: Path) -> list[AcknowledgedMiss]:
+    """The acknowledged misses in ``config_root``; none where the file is absent.
+
+    A file that does not parse raises, as does a top-level key other than
+    ``misses`` or an event entered twice: an entry silently dropped would
+    re-raise an alarm, and one silently widened would hide one.
+    """
+    path = config_root / ACKNOWLEDGED_FILENAME
+    data = (yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else None) or {}
+    if not isinstance(data, dict) or set(data) - {"misses"}:
+        raise ValueError(f"{path}: expected one top-level key, `misses`")
+    entries = [AcknowledgedMiss.model_validate(entry) for entry in data.get("misses") or []]
+    events = [(entry.case_id, entry.event_id) for entry in entries]
+    if len(set(events)) != len(events):
+        raise ValueError(f"{path}: an event is entered more than once")
+    return entries
+
 
 class CoverageAlarm(BaseModel):
     """One alarm condition, attributed to the check that raised it."""
@@ -125,6 +180,10 @@ class CoverageVerdict(BaseModel):
     as_of: date
     ok: bool = Field(description="True when no alarm holds")
     alarms: list[CoverageAlarm]
+    acknowledged: list[CoverageAlarm] = Field(
+        default_factory=list,
+        description="Missed forecasts the acknowledged list covers: named, and no alarm",
+    )
     counts: dict[str, int | float | None] = Field(
         description="The figures worth keeping as a series, one flat block"
     )
@@ -219,12 +278,15 @@ def coverage_verdict(
     today: date,
     max_attempts: int = 0,
     sg_listing: SgPetitionListing | None = None,
+    acknowledged: Sequence[AcknowledgedMiss] = (),
 ) -> CoverageVerdict:
     """Run the coverage checks as of ``today`` and fold them into one verdict.
 
     ``max_attempts`` is the predict sweep's per-cell attempt cap, which the
     attempt-capped list is read against; ``sg_listing`` hands the federal-label
-    cross-check the Solicitor General's posted cert petitions.
+    cross-check the Solicitor General's posted cert petitions; ``acknowledged``
+    is the list of missed forecasts already read, which are named and raise no
+    alarm.
     """
     missed_since = today - timedelta(days=MISSED_WINDOW_DAYS)
     monitor = scan_predictionless_resolutions(
@@ -241,17 +303,34 @@ def coverage_verdict(
         max_attempts=max_attempts,
     )
 
-    alarms = [
-        CoverageAlarm(
+    alarms: list[CoverageAlarm] = []
+    read: list[CoverageAlarm] = []
+    for e in monitor.missed:
+        entry = next(
+            (a for a in acknowledged if a.covers(e.case_id, e.event_id, e.missing_predictors)),
+            None,
+        )
+        miss = CoverageAlarm(
             check="missed_forecast",
             subject=f"{e.case_id} {e.event_id}",
             detail=f"resolved {e.resolved_at.isoformat()}, {e.reason}"
-            + (f": {e.detail}" if e.detail else ""),
+            + (f": {e.detail}" if e.detail else "")
+            + (
+                f"; acknowledged {entry.acknowledged_on.isoformat()}: {entry.reason}"
+                if entry
+                else ""
+            ),
         )
-        for e in monitor.missed
-    ]
+        (read if entry else alarms).append(miss)
     grace = today - timedelta(days=NO_OUTCOME_GRACE_DAYS)
-    missed_keys = {(e.case_id, e.event_id) for e in monitor.missed}
+    # An acknowledged miss raises nothing here, so it must not stand in for the
+    # event's outcome-record alarm either: that gap can still be repaired.
+    read_subjects = {a.subject for a in read}
+    missed_keys = {
+        (e.case_id, e.event_id)
+        for e in monitor.missed
+        if f"{e.case_id} {e.event_id}" not in read_subjects
+    }
     unrecorded = [u for u in monitor.no_outcome_record if u.selected]
     # A row dated only from its newest observation has no decision date: the
     # date moves forward with every poll, so the grace period never runs out
@@ -298,6 +377,7 @@ def coverage_verdict(
     ]
     counts: dict[str, int | float | None] = {
         "missed_events": len(monitor.missed),
+        "acknowledged_missed_events": len(read),
         "declined_events": len(monitor.declined),
         "declined_not_funded_events": sum(
             e.reason == DeclineReason.not_funded for e in monitor.declined
@@ -326,6 +406,7 @@ def coverage_verdict(
         as_of=today,
         ok=not alarms,
         alarms=alarms,
+        acknowledged=read,
         counts=counts,
         missed_since=missed_since,
         missed=[e.as_json() for e in monitor.missed],
@@ -366,6 +447,12 @@ def render_markdown(verdict: CoverageVerdict) -> str:
         lines += [_alarm_line(a) for a in verdict.alarms[:ALARMS_LISTED]]
         if len(verdict.alarms) > ALARMS_LISTED:
             lines.append(f"- and {len(verdict.alarms) - ALARMS_LISTED} more, not listed.")
+        lines.append("")
+    if verdict.acknowledged:
+        lines += ["## Acknowledged", ""]
+        lines += [_alarm_line(a) for a in verdict.acknowledged[:ALARMS_LISTED]]
+        if len(verdict.acknowledged) > ALARMS_LISTED:
+            lines.append(f"- and {len(verdict.acknowledged) - ALARMS_LISTED} more, not listed.")
         lines.append("")
     lines += [
         "## Grants and application rulings with no forecast",
@@ -419,7 +506,9 @@ def render_markdown(verdict: CoverageVerdict) -> str:
     lines += [
         "## Owed forecasts that never landed",
         "",
-        f"Since {verdict.missed_since.isoformat()}: {len(verdict.missed)} missed, "
+        f"Since {verdict.missed_since.isoformat()}: {len(verdict.missed)} missed"
+        + (f" ({len(verdict.acknowledged)} acknowledged)" if verdict.acknowledged else "")
+        + ", "
         f"{len(verdict.no_outcome_on_selected_row)} decided on a selected row with no "
         "outcome record (counting those still inside the "
         f"{NO_OUTCOME_GRACE_DAYS}-day grace period).",
@@ -478,7 +567,13 @@ def latch(
         ALARM_ISSUE,
         alarming=bool(verdict.alarms),
         body_path=body_path,
-        clear_comment=f"Forecast coverage has no alarm as of {verdict.as_of.isoformat()}: closing.",
+        clear_comment=f"Forecast coverage has no alarm as of {verdict.as_of.isoformat()}"
+        + (
+            f" ({len(verdict.acknowledged)} acknowledged missed forecast(s) still in the window)"
+            if verdict.acknowledged
+            else ""
+        )
+        + ": closing.",
         runner=runner,
     )
     return f"{done}, {len(new)} new alarm(s) commented" if new else done

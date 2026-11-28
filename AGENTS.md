@@ -210,7 +210,10 @@ before the first command rather than mid-task:
   scored-figure set-aside is owned the same way: `src/fedcourtsai/set_aside.py`
   (its reasons and the predicate the scoring pass asks),
   `src/fedcourtsai/set_aside_events.json` (its listed events, each on a dated
-  entry), and `tests/test_set_aside.py`. Open those, get them
+  entry), and `tests/test_set_aside.py`. So is the coverage alarm's
+  acknowledged list, `config/coverage-acknowledged.yaml`: an entry takes a
+  missed forecast out of the alarm, so it records the maintainer's reading of
+  that miss, never a session's. Open those, get them
   green, and report them ready.
   The `staging` ruleset encodes this through `.github/CODEOWNERS` for every
   identity that does not hold the admin role — the agent account, Dependabot's
