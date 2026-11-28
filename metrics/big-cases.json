@@ -1,12 +1,12 @@
 {
-  "cases": 436,
+  "cases": 442,
   "cases_at_court_next_conference": 45,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "court_next_conference": "2026-12-04",
   "coverage": [
     {
-      "cases": 397,
+      "cases": 403,
       "n": 3
     },
     {
@@ -18,7 +18,7 @@
       "n": 1
     }
   ],
-  "current_reads": 1305,
+  "current_reads": 1323,
   "declared_no_view": 29,
   "frozen_process": {
     "digests": [
@@ -393,7 +393,7 @@
       }
     ]
   },
-  "median_adjacent_gap": 0.0003,
+  "median_adjacent_gap": 0.0,
   "median_score_range": 0.2,
   "missing_reads": 9,
   "predictors": [
@@ -1607,6 +1607,132 @@
       "score_min": 0.89,
       "score_range": 0.06,
       "short_caption": "Suncor Energy v. County Commissioners of Boulder County",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Nathan",
+      "caption": "Mara Nathan, Individually and on Behalf of Her Minor Child, M. N., et al. v. Alamo Heights Independent School District, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000257",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Whether a State may require the Ten Commandments in every public-school classroom, and whether Stone v. Graham survives Kennedy; a 9-8 en banc ruling affecting about 5.5 million Texas students, with similar laws in several other States.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "A ruling would define whether states may require scripture in every public-school classroom and settle the force of a Supreme Court precedent on that precise practice.",
+          "big_case_score": 0.95,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling on mandatory K-12 classroom Ten Commandments displays\u2014deciding whether Stone v. Graham survives Kennedy v. Bremerton and how Mahmoud v. Taylor applies\u2014would be a landmark Religion Clauses decision governing statutes across nearly a dozen states and millions of public-school students.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        }
+      ],
+      "docket_id": 9026000257,
+      "docket_number": "26-257",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-257.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether a State may require the Ten Commandments in every public-school classroom, and whether Stone v. Graham survives Kennedy; a 9-8 en banc ruling affecting about 5.5 million Texas students, with similar laws in several other States.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000257/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000257/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.4,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "A ruling would define whether states may require scripture in every public-school classroom and settle the force of a Supreme Court precedent on that precise practice.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/9026000257/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000257/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.6,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling on mandatory K-12 classroom Ten Commandments displays\u2014deciding whether Stone v. Graham survives Kennedy v. Bremerton and how Mahmoud v. Taylor applies\u2014would be a landmark Religion Clauses decision governing statutes across nearly a dozen states and millions of public-school students.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000257/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000257/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.42,
+              "run_id": "20261126T141900Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Mara Nathan, Individually and on Behalf of Her Minor Child, M. N., et al. v. Alamo Heights Independent School District, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.9167,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-27",
+      "n": 3,
+      "other_party": "Alamo Heights Independent School District",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Nathan's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nathan's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.95,
+      "score_min": 0.9,
+      "score_range": 0.05,
+      "short_caption": "Nathan v. Alamo Heights Independent School District",
       "status": "pending"
     },
     {
@@ -7451,6 +7577,132 @@
       "score_range": 0.15,
       "short_caption": "Norfolk Southern Railway v. Robert Willmore Mallory",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Dier",
+      "caption": "Christopher Dier v. Jeff Landry, Governor of Louisiana, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000256",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The underlying question (state-mandated Ten Commandments displays in every public-school classroom) is nationally significant, but this teacher's summary-affirmance petition is the follow-on vehicle behind Nathan (26-257) and Roake (25-1360).",
+          "big_case_score": 0.6,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling could determine whether states may require scripture on every public-school classroom wall. A ripeness ruling would determine when teachers can challenge those mandates.",
+          "big_case_score": 0.92,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "If decided, the case would settle whether states may mandate permanent Ten Commandments displays in public-school classrooms (testing Stone v. Graham after Kennedy v. Bremerton) and when pre-enforcement Establishment Clause challenges to school display laws are ripe.",
+          "big_case_score": 0.85,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        }
+      ],
+      "docket_id": 9026000256,
+      "docket_number": "26-256",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-256.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The underlying question (state-mandated Ten Commandments displays in every public-school classroom) is nationally significant, but this teacher's summary-affirmance petition is the follow-on vehicle behind Nathan (26-257) and Roake (25-1360).",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/9026000256/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000256/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.09,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling could determine whether states may require scripture on every public-school classroom wall. A ripeness ruling would determine when teachers can challenge those mandates.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/9026000256/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000256/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.28,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "If decided, the case would settle whether states may mandate permanent Ten Commandments displays in public-school classrooms (testing Stone v. Graham after Kennedy v. Bremerton) and when pre-enforcement Establishment Clause challenges to school display laws are ripe.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9026000256/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000256/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.14,
+              "run_id": "20261126T141900Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Christopher Dier v. Jeff Landry, Governor of Louisiana, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.79,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-27",
+      "n": 3,
+      "other_party": "Landry",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Dier's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Dier's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.92,
+      "score_min": 0.6,
+      "score_range": 0.32,
+      "short_caption": "Dier v. Landry",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -24625,12 +24877,7 @@
           "side": "not-granted"
         }
       ],
-      "schedule": [
-        {
-          "date": "2026-11-27",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.45,
@@ -29853,6 +30100,182 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Jack",
+      "caption": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000584",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "First Amendment government-speech question Walker reserved; affects vanity-plate programs in nearly every state, but modest practical stakes.",
+          "big_case_score": 0.45,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261127T141804Z"
+        },
+        {
+          "big_case_rationale": "A ruling would affect how states screen personalized plates nationwide and clarify when a state speaks through words chosen by an individual.",
+          "big_case_score": 0.54,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261127T141804Z"
+        },
+        {
+          "big_case_rationale": "A merits decision would set the nationwide First Amendment speech status of state vanity license-plate programs across all fifty states and clarify the boundary between Walker and Matal/Shurtleff, generating broad public interest without structural economic or separation-of-powers stakes.",
+          "big_case_score": 0.52,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261127T141804Z"
+        }
+      ],
+      "docket_id": 9026000584,
+      "docket_number": "26-584",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-584.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Government-speech line for vanity plates touches every state's plate program and the Walker/Shurtleff doctrine; a plate case, not a landmark.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T225348Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T225348Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.17,
+              "run_id": "20261103T225348Z"
+            },
+            {
+              "big_case_rationale": "A recurring national First Amendment question about personalized license plates, with consequences for state speech programs but a relatively bounded immediate subject.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T225348Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T225348Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.32,
+              "run_id": "20261103T225348Z"
+            },
+            {
+              "big_case_rationale": "Resolving whether state vanity license plates are government speech under Walker or private speech subject to First Amendment forum analysis affects millions of personalized plates nationwide and an acknowledged federal-state split, though the interlocutory remand posture narrows its immediate remedial scope.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T225348Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T225348Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.18,
+              "run_id": "20261103T225348Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "First Amendment government-speech question Walker reserved; affects vanity-plate programs in nearly every state, but modest practical stakes.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-disposition/predictions/claude-baseline/20261127T141804Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-disposition/predictions/claude-baseline/20261127T141804Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.07,
+              "run_id": "20261127T141804Z"
+            },
+            {
+              "big_case_rationale": "A ruling would affect how states screen personalized plates nationwide and clarify when a state speaks through words chosen by an individual.",
+              "big_case_score": 0.54,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-disposition/predictions/codex-baseline/20261127T141804Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-disposition/predictions/codex-baseline/20261127T141804Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.18,
+              "run_id": "20261127T141804Z"
+            },
+            {
+              "big_case_rationale": "A merits decision would set the nationwide First Amendment speech status of state vanity license-plate programs across all fifty states and clarify the boundary between Walker and Matal/Shurtleff, generating broad public interest without structural economic or separation-of-powers stakes.",
+              "big_case_score": 0.52,
+              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-disposition/predictions/gemini-baseline/20261127T141804Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-disposition/predictions/gemini-baseline/20261127T141804Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261127T141804Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5033,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-11-03",
+      "n": 3,
+      "other_party": "Whateley",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Jack's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Jack's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.54,
+      "score_min": 0.45,
+      "score_range": 0.09,
+      "short_caption": "Jack v. Whateley",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Caryn Devins Strickland",
       "caption": "Caryn Devins Strickland v. Nancy L. Moritz, Judge, In Her Official Capacity as Chair of the Judicial Conference Committee on Judicial Resources, et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -34131,132 +34554,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Jack",
-      "caption": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000584",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Government-speech line for vanity plates touches every state's plate program and the Walker/Shurtleff doctrine; a plate case, not a landmark.",
-          "big_case_score": 0.45,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261103T225348Z"
-        },
-        {
-          "big_case_rationale": "A recurring national First Amendment question about personalized license plates, with consequences for state speech programs but a relatively bounded immediate subject.",
-          "big_case_score": 0.5,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261103T225348Z"
-        },
-        {
-          "big_case_rationale": "Resolving whether state vanity license plates are government speech under Walker or private speech subject to First Amendment forum analysis affects millions of personalized plates nationwide and an acknowledged federal-state split, though the interlocutory remand posture narrows its immediate remedial scope.",
-          "big_case_score": 0.42,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261103T225348Z"
-        }
-      ],
-      "docket_id": 9026000584,
-      "docket_number": "26-584",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-584.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Government-speech line for vanity plates touches every state's plate program and the Walker/Shurtleff doctrine; a plate case, not a landmark.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T225348Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261103T225348Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.17,
-              "run_id": "20261103T225348Z"
-            },
-            {
-              "big_case_rationale": "A recurring national First Amendment question about personalized license plates, with consequences for state speech programs but a relatively bounded immediate subject.",
-              "big_case_score": 0.5,
-              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T225348Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261103T225348Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.32,
-              "run_id": "20261103T225348Z"
-            },
-            {
-              "big_case_rationale": "Resolving whether state vanity license plates are government speech under Walker or private speech subject to First Amendment forum analysis affects millions of personalized plates nationwide and an acknowledged federal-state split, though the interlocutory remand posture narrows its immediate remedial scope.",
-              "big_case_score": 0.42,
-              "cell_path": "data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T225348Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000584/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261103T225348Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.18,
-              "run_id": "20261103T225348Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Saundra M. Jack, Commissioner, Virginia Department of Motor Vehicles v. Curtis M. Whateley"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.4567,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-11-03",
-      "n": 3,
-      "other_party": "Whateley",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Jack's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Jack's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "schedule": [
-        {
-          "date": "2026-12-11",
-          "kind": "conference"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-12-11",
-        "kind": "conference"
-      },
-      "score_max": 0.5,
-      "score_min": 0.42,
-      "score_range": 0.08,
-      "short_caption": "Jack v. Whateley",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Rivera-Perez",
       "caption": "Raul Rivera-Perez v. Caryn Flowers, Warden",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -38007,6 +38304,132 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Allyn-Feuer",
+      "caption": "Boaz Allyn-Feuer v. John Doe, Border Patrol Agents, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000549",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "FTCA sovereign-immunity question (customs/detention-of-goods exception vs. law-enforcement proviso) governing remedies for force at Border Patrol checkpoints after Egbert; meaningful for federal-officer accountability but a narrow statutory issue.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261127T141804Z"
+        },
+        {
+          "big_case_rationale": "A ruling would affect whether people can seek damages from the United States for injuries inflicted by federal officers during a vehicle inspection or other detention of property.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261127T141804Z"
+        },
+        {
+          "big_case_rationale": "Statutory FTCA question rather than a constitutional landmark, but meaningful nationwide stakes post-Egbert and Martin for federal tort accountability when Border Patrol or other law enforcement officers commit personal-injury intentional torts during property inspections.",
+          "big_case_score": 0.38,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261127T141804Z"
+        }
+      ],
+      "docket_id": 9026000549,
+      "docket_number": "26-549",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-549.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "FTCA sovereign-immunity question (customs/detention-of-goods exception vs. law-enforcement proviso) governing remedies for force at Border Patrol checkpoints after Egbert; meaningful for federal-officer accountability but a narrow statutory issue.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000549/events/evt-petition-disposition/predictions/claude-baseline/20261127T141804Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000549/events/evt-petition-disposition/predictions/claude-baseline/20261127T141804Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.05,
+              "run_id": "20261127T141804Z"
+            },
+            {
+              "big_case_rationale": "A ruling would affect whether people can seek damages from the United States for injuries inflicted by federal officers during a vehicle inspection or other detention of property.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000549/events/evt-petition-disposition/predictions/codex-baseline/20261127T141804Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000549/events/evt-petition-disposition/predictions/codex-baseline/20261127T141804Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261127T141804Z"
+            },
+            {
+              "big_case_rationale": "Statutory FTCA question rather than a constitutional landmark, but meaningful nationwide stakes post-Egbert and Martin for federal tort accountability when Border Patrol or other law enforcement officers commit personal-injury intentional torts during property inspections.",
+              "big_case_score": 0.38,
+              "cell_path": "data/cases/scotus/9026000549/events/evt-petition-disposition/predictions/gemini-baseline/20261127T141804Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000549/events/evt-petition-disposition/predictions/gemini-baseline/20261127T141804Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261127T141804Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Boaz Allyn-Feuer v. John Doe, Border Patrol Agents, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.41,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-26",
+      "n": 3,
+      "other_party": "Doe",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Allyn-Feuer's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Allyn-Feuer's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.55,
+      "score_min": 0.3,
+      "score_range": 0.25,
+      "short_caption": "Allyn-Feuer v. Doe",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Louisiana",
       "caption": "Louisiana, et al. v. Devon Energy Production Company, L.P.",
       "caption_event_id": "evt-brief-response-disposition",
@@ -41192,6 +41615,132 @@
       "score_min": 0.25,
       "score_range": 0.3,
       "short_caption": "Grace v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Rachel Beth Odom",
+      "caption": "Rachel Beth Odom v. Oklahoma",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000502",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fifth Amendment adverse-inference and notice questions in a child-deprivation case with a parallel murder prosecution; real stakes for the family and a recurring issue, but an unpublished state intermediate ruling with no amici and no acknowledged split.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "A ruling could change what judges may infer from a parent\u2019s silence when the same conduct is at issue in a child-welfare hearing and a criminal prosecution.",
+          "big_case_score": 0.53,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling on Fifth Amendment adverse inferences and emergency-removal notice remedies in child-welfare cases would reshape state dependency practice nationwide, though without broad federal institutional or economic reach.",
+          "big_case_score": 0.42,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        }
+      ],
+      "docket_id": 9026000502,
+      "docket_number": "26-502",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-502.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fifth Amendment adverse-inference and notice questions in a child-deprivation case with a parallel murder prosecution; real stakes for the family and a recurring issue, but an unpublished state intermediate ruling with no amici and no acknowledged split.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000502/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000502/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.015,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "A ruling could change what judges may infer from a parent\u2019s silence when the same conduct is at issue in a child-welfare hearing and a criminal prosecution.",
+              "big_case_score": 0.53,
+              "cell_path": "data/cases/scotus/9026000502/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000502/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.012,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling on Fifth Amendment adverse inferences and emergency-removal notice remedies in child-welfare cases would reshape state dependency practice nationwide, though without broad federal institutional or economic reach.",
+              "big_case_score": 0.42,
+              "cell_path": "data/cases/scotus/9026000502/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000502/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261126T141900Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Rachel Beth Odom v. Oklahoma"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3667,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-15",
+      "n": 3,
+      "other_party": "Oklahoma",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Rachel Beth Odom's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Rachel Beth Odom's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.53,
+      "score_min": 0.15,
+      "score_range": 0.38,
+      "short_caption": "Rachel Beth Odom v. Oklahoma",
       "status": "pending"
     },
     {
@@ -44418,6 +44967,132 @@
       "score_range": 0.35,
       "short_caption": "In re Devillier",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Pierre Yvelt Almonor",
+      "caption": "Pierre Yvelt Almonor v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000163",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Constitutional criminal-venue question with a lopsided, long-standing circuit split; matters to conspiracy prosecutions but arises on an unpublished decision with no amicus interest.",
+          "big_case_score": 0.2,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "A nationwide rule on where prosecutors may try a conspiracy charge would matter to defendants whose alleged partners act across district lines.",
+          "big_case_score": 0.48,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, resolving whether the Venue and Vicinage Clauses impose a reasonable-foreseeability limit on co-conspirator overt-act venue would reshape charging practices across multi-district federal conspiracy prosecutions, though it remains a technical criminal-procedure question rather than a major public-law dispute.",
+          "big_case_score": 0.32,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        }
+      ],
+      "docket_id": 9026000163,
+      "docket_number": "26-163",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-163.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Constitutional criminal-venue question with a lopsided, long-standing circuit split; matters to conspiracy prosecutions but arises on an unpublished decision with no amicus interest.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/9026000163/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000163/events/evt-petition-disposition/predictions/claude-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "A nationwide rule on where prosecutors may try a conspiracy charge would matter to defendants whose alleged partners act across district lines.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/9026000163/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000163/events/evt-petition-disposition/predictions/codex-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.07,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, resolving whether the Venue and Vicinage Clauses impose a reasonable-foreseeability limit on co-conspirator overt-act venue would reshape charging practices across multi-district federal conspiracy prosecutions, though it remains a technical criminal-procedure question rather than a major public-law dispute.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000163/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000163/events/evt-petition-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.05,
+              "run_id": "20261126T141900Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Pierre Yvelt Almonor v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3333,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-05",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Pierre Yvelt Almonor's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Pierre Yvelt Almonor's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [
+        {
+          "date": "2026-12-11",
+          "kind": "conference"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-12-11",
+        "kind": "conference"
+      },
+      "score_max": 0.48,
+      "score_min": 0.2,
+      "score_range": 0.28,
+      "short_caption": "Pierre Yvelt Almonor v. United States",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -55850,12 +56525,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
-      "schedule": [
-        {
-          "date": "2026-11-27",
-          "kind": "response_due"
-        }
-      ],
+      "schedule": [],
       "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.02,
@@ -61321,6 +61991,124 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Armstrong",
+      "caption": "William L. Armstrong, III v. Alter Trading Corporation, et al.",
+      "caption_event_id": "evt-motion-disposition",
+      "case_id": "scotus/9526000752",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Pro se challenge to a court of appeals' denial of fee-waiver status in a dismissed civil RICO suit; no stakes beyond the applicant.",
+          "big_case_score": 0.03,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "Access to an appeal matters directly to Armstrong. The filing restriction raises a broader due-process question, but the immediate fee and counsel orders concern his individual civil appeal.",
+          "big_case_score": 0.12,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        },
+        {
+          "big_case_rationale": "Pro se interlocutory stay application concerning a $605 appellate IFP fee order and a $500 district-court filing sanction in an unserved civil suit, with no broader public, institutional, or doctrinal stakes.",
+          "big_case_score": 0.01,
+          "event_id": "evt-motion-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261126T141900Z"
+        }
+      ],
+      "docket_id": 9526000752,
+      "docket_number": "26A752",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a752.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Pro se challenge to a court of appeals' denial of fee-waiver status in a dismissed civil RICO suit; no stakes beyond the applicant.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9526000752/events/evt-motion-disposition/predictions/claude-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000752/events/evt-motion-disposition/predictions/claude-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.005,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "Access to an appeal matters directly to Armstrong. The filing restriction raises a broader due-process question, but the immediate fee and counsel orders concern his individual civil appeal.",
+              "big_case_score": 0.12,
+              "cell_path": "data/cases/scotus/9526000752/events/evt-motion-disposition/predictions/codex-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000752/events/evt-motion-disposition/predictions/codex-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.005,
+              "run_id": "20261126T141900Z"
+            },
+            {
+              "big_case_rationale": "Pro se interlocutory stay application concerning a $605 appellate IFP fee order and a $500 district-court filing sanction in an unserved civil suit, with no broader public, institutional, or doctrinal stakes.",
+              "big_case_score": 0.01,
+              "cell_path": "data/cases/scotus/9526000752/events/evt-motion-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000752/events/evt-motion-disposition/predictions/gemini-baseline/20261126T141900Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.005,
+              "run_id": "20261126T141900Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "William L. Armstrong, III v. Alter Trading Corporation, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.0533,
+      "moment": "evt-motion-disposition",
+      "moment_opened_at": "2026-11-17",
+      "n": 3,
+      "other_party": "Alter Trading",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Armstrong gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Armstrong does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "schedule": [],
+      "scheduled": null,
+      "score_max": 0.12,
+      "score_min": 0.01,
+      "score_range": 0.11,
+      "short_caption": "Armstrong v. Alter Trading",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Schultz",
       "caption": "Paul Schultz v. BOFK, N.A.",
       "caption_event_id": "evt-motion-disposition",
@@ -63985,5 +64773,5 @@
   ],
   "rows_with_leakage_flag": 5,
   "schema_version": "1.5",
-  "scored_reads": 1267
+  "scored_reads": 1285
 }
