@@ -714,7 +714,7 @@
     },
     {
       "conference": "2026-12-11",
-      "petitions": 30
+      "petitions": 34
     }
   ],
   "discovery": {
@@ -722,7 +722,7 @@
     "streams": [
       {
         "alarms": [],
-        "checked_on": "2026-11-27",
+        "checked_on": "2026-11-28",
         "cursor": 683,
         "frontier": 683,
         "holes": 0,
@@ -733,13 +733,13 @@
         "outside_serial": 526,
         "outside_source": "order-list 2026-11-16",
         "problems": [],
-        "quiet_business_days": 1,
+        "quiet_business_days": 2,
         "stall_threshold": 3,
         "stream": "paid"
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-27",
+        "checked_on": "2026-11-28",
         "cursor": 6245,
         "frontier": 6245,
         "holes": 0,
@@ -750,13 +750,13 @@
         "outside_serial": 6187,
         "outside_source": "miscellaneous-order 2026-11-19",
         "problems": [],
-        "quiet_business_days": 1,
+        "quiet_business_days": 2,
         "stall_threshold": 7,
         "stream": "ifp"
       },
       {
         "alarms": [],
-        "checked_on": "2026-11-27",
+        "checked_on": "2026-11-28",
         "cursor": 752,
         "frontier": 752,
         "holes": 2,
@@ -767,7 +767,7 @@
         "outside_serial": 716,
         "outside_source": "miscellaneous-order 2026-11-19",
         "problems": [],
-        "quiet_business_days": 1,
+        "quiet_business_days": 2,
         "stall_threshold": 3,
         "stream": "application"
       }
@@ -775,10 +775,10 @@
     "term": 26
   },
   "documents_provisioned": 178,
-  "generated_on": "2026-11-27",
+  "generated_on": "2026-11-28",
   "next_conference": "2026-12-04",
   "next_conference_petitions": 303,
   "schema_version": "1.0",
   "skipped": false,
-  "watchlist": 875
+  "watchlist": 879
 }
